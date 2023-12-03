@@ -21,18 +21,20 @@ interface User {
     technical: { overall: number }
     interview?: { overall: number }
   }
+  createdAt: Date
 }
 
 const transformers = {
-  boolean: (value: boolean) => value ? 'Yes' : 'No',
-  list: (value: (string)[]) => value.join(', '),
-  arrayLength: (value: any[]) => value.length,
+  boolean: (key: boolean) => key ? 'Yes' : 'No',
+  list: (key: (string)[]) => key.join(', '),
+  arrayLength: (key: any[] | string) => key.length,
+  date: (key: Date) => key.toLocaleDateString(),
 } satisfies TransformersMap
 // Usage example
 
 describe('should', () => {
   it('exported', () => {
-    const users: User[] = Array.from({ length: 100 }, (_, id) => ({
+    const users: User[] = Array.from({ length: 10 }, (_, id) => ({
       id,
       firstName: faker.person.firstName(),
       lastName: faker.person.lastName(),
@@ -48,20 +50,22 @@ describe('should', () => {
         technical: { overall: Math.floor(Math.random() * 10) },
         ...(Math.random() > 0.5 ? { interview: { overall: Math.floor(Math.random() * 10) } } : {}),
       },
+      createdAt: faker.date.past(),
     }))
     const assessmentExport = ExcelSchemaBuilder
       .create<User>()
       .withTransformers(transformers)
-      .column('id', { value: 'id' })
-      .column('firstName', { value: 'firstName' })
-      .column('lastName', { value: 'lastName' })
-      .column('email', { value: 'email' })
-      .column('roles', { value: 'roles', transform: 'list' })
-      .column('nbOrgs', { value: 'organizations', transform: 'arrayLength' })
-      .column('orgs', { value: 'organizations', transform: value => value.map(org => org.name).join(', ') })
-      .column('generalScore', { value: 'results.general.overall' })
-      .column('technicalScore', { value: 'results.technical.overall' })
-      .column('interviewScore', { value: 'results.interview.overall', default: 'N/A' })
+      .column('id', { key: 'id' })
+      .column('firstName', { key: 'firstName', cellStyle: () => ({ fill: { fgColor: { rgb: 'E9E9E9' } } }) })
+      .column('lastName', { key: 'lastName' })
+      .column('email', { key: 'email' })
+      .column('roles', { key: 'roles', transform: 'list' })
+      .column('nbOrgs', { key: 'organizations', transform: 'arrayLength' })
+      .column('orgs', { key: 'organizations', transform: org => org.map(org => org.name).join(', ') })
+      .column('generalScore', { key: 'results.general.overall' })
+      .column('technicalScore', { key: 'results.technical.overall' })
+      .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
+      .column('createdAt', { key: 'createdAt', transform: 'date' })
       .build()
 
     const buffer = ExcelBuilder

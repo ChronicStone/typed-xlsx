@@ -1,6 +1,9 @@
 import xlsx, { type IColumn, type IJsonSheet } from 'json-as-xlsx'
+import type { CellStyle } from 'xlsx-js-style'
+import XLSX from 'xlsx-js-style'
+import { deepmerge } from 'deepmerge-ts'
 import type { CellValue, Column, ExcelSchema, GenericObject, NestedPaths, Not, Sheet, TransformersMap, ValueTransformer } from './types'
-import { getPropertyFromPath } from './utils'
+import { getPropertyFromPath, getSheetCellKey } from './utils'
 
 export class ExcelSchemaBuilder<
   T extends GenericObject,
@@ -70,16 +73,17 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         .filter(column => !sheet.select || sheet.select.includes(column.columnKey))
         .map((column) => {
           return {
-            label: column.columnKey,
+            label: column?.label ?? column.columnKey,
             value: (row) => {
-              const value = typeof column.value === 'string'
-                ? getPropertyFromPath(row, column.value)
-                : column.value(row)
+              const value = typeof column.key === 'string'
+                ? getPropertyFromPath(row, column.key)
+                : column.key(row)
 
               if (!value)
                 return column.default ?? ''
               return column.transform ? (column.transform as ValueTransformer)(value) : value
             },
+            format: column.format,
           } satisfies IColumn
         }),
       content: sheet.data,
@@ -95,7 +99,47 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     // eslint-disable-next-line node/prefer-global/buffer
     }) as Buffer
 
-    return fileBody
+    const workbook = XLSX.read(fileBody, { type: 'buffer' })
+    workbook.SheetNames.forEach((sheetName) => {
+      const sheetConfig = this.sheets.find(sheet => sheet.sheetKey === sheetName)
+      if (!sheetConfig)
+        return
+
+      sheetConfig.schema.forEach((column, index) => {
+        const headerCellRef = getSheetCellKey(index + 1, 1)
+        if (!workbook.Sheets[sheetName][headerCellRef])
+          return
+        workbook.Sheets[sheetName][headerCellRef].s = {
+          font: { bold: true },
+          alignment: { horizontal: 'center' },
+          fill: { fgColor: { rgb: 'E9E9E9' } },
+          border: {
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } },
+            top: { style: 'thin', color: { rgb: '000000' } },
+          },
+        } satisfies CellStyle
+        sheetConfig.data.forEach((row, rowIndex) => {
+          const cellRef = getSheetCellKey(index + 1, rowIndex + 2)
+          const style = column.cellStyle?.(row) ?? {}
+          workbook.Sheets[sheetName][cellRef].s = deepmerge(
+            style,
+            {
+              border: {
+                bottom: { style: 'thin', color: { rgb: '000000' } },
+                left: { style: 'thin', color: { rgb: '000000' } },
+                right: { style: 'thin', color: { rgb: '000000' } },
+                top: { style: 'thin', color: { rgb: '000000' } },
+              },
+            },
+          )
+        })
+      })
+    })
+
+    // eslint-disable-next-line node/prefer-global/buffer
+    return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
     // for()
   }
 }

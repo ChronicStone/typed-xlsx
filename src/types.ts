@@ -1,14 +1,17 @@
+import type { CellStyle } from 'xlsx-js-style'
+
 export type GenericObject = Record<string | number | symbol, any>
 
 export type NestedPaths<T> = T extends Array<infer U>
-  ? U extends object ? never : never
-  : T extends object
-    ? {
-        [K in keyof T & (string | number)]: K extends string
-          ? `${K}` | (NonNullable<T[K]> extends object ? `${K}.${NestedPaths<NonNullable<T[K]>>}` : never)
-          : never;
-      }[keyof T & (string | number)]
-    : never
+  ? U extends (object | Date) ? never : never
+  : T extends Date ? never
+    : T extends object
+      ? {
+          [K in keyof T & (string | number)]: K extends string
+            ? `${K}` | (NonNullable<T[K]> extends object ? `${K}.${NestedPaths<NonNullable<T[K]>>}` : never)
+            : never;
+        }[keyof T & (string | number)]
+      : never
 
 export type NestedPathsForType<T, P> = T extends Array<infer U>
   ? U extends object ? never : never
@@ -50,7 +53,7 @@ export type DeepRequired<T> = {
 }
 
 export type TypedTransformersMap<TransformMap extends TransformersMap, Value> = {
-  [K in keyof TransformMap]: Parameters<TransformMap[K]>[0] extends Value ? K : never;
+  [K in keyof TransformMap]: Value extends Parameters<TransformMap[K]>[0] ? K : never;
 }[keyof TransformMap]
 
 export type ExtractColumnValue<
@@ -63,12 +66,13 @@ export type Column<
   FieldValue extends string | ((data: T) => CellValue),
   ColKey extends string,
   TransformMap extends TransformersMap,
-
 > = {
+  label?: string
   columnKey: ColKey
-  value: FieldValue
+  key: FieldValue
   default?: CellValue
-  // test?: FieldValue extends string ? TypeFromPath<T, FieldValue> : FieldValue extends (data: T) => CellValue ? ReturnType<FieldValue> : never
+  format?: string
+  cellStyle?: (rowData: T) => CellStyle
 } & (
   ExtractColumnValue<T, FieldValue> extends CellValue
     ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>) => CellValue) }

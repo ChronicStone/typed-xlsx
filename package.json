@@ -47,6 +47,7 @@
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
+    "deepmerge-ts": "^5.1.0",
     "json-as-xlsx": "^2.5.6",
     "xlsx-js-style": "^1.2.0"
   },
