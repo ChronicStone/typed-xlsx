@@ -47,10 +47,14 @@
     "typecheck": "tsc --noEmit",
     "prepare": "simple-git-hooks"
   },
+  "dependencies": {
+    "json-as-xlsx": "^2.5.6"
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^2.1.2",
     "@antfu/ni": "^0.21.12",
     "@antfu/utils": "^0.7.6",
+    "@faker-js/faker": "^8.3.1",
     "@types/node": "^20.10.1",
     "bumpp": "^9.2.0",
     "eslint": "^8.54.0",
