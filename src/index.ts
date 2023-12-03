@@ -67,10 +67,22 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
   }
 
   public build() {
-    const _sheets: IJsonSheet[] = this.sheets.map(sheet => ({
+    const _sheets = this.sheets.map(sheet => ({
       sheet: sheet.sheetKey,
       columns: sheet.schema
-        .filter(column => !sheet.select || sheet.select.includes(column.columnKey))
+        .filter((column) => {
+          if (!sheet.select || Object.keys(sheet.select).length === 0)
+            return true
+
+          const selectorMap = Object.entries(sheet.select).map(([key, value]) => ({ key, value }))
+          if (selectorMap.every(({ value }) => value === false) && !selectorMap.some(({ key }) => key === column.columnKey))
+            return true
+
+          if (selectorMap.some(({ key, value }) => key === column.columnKey && value === true))
+            return true
+
+          return false
+        })
         .map((column) => {
           return {
             label: column?.label ?? formatKey(column.columnKey),
@@ -90,10 +102,11 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               return column.transform ? (column.transform as ValueTransformer)(value) : value
             },
             format: column.format,
-          } satisfies IColumn
+            _ref: column,
+          } satisfies (IColumn & { _ref: Column<any, any, any, any> })
         }),
       content: sheet.data,
-    }))
+    })) satisfies IJsonSheet[]
 
     const fileBody = xlsx(_sheets, {
       fileName: Date.now().toString(),
@@ -107,17 +120,17 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
     const workbook = XLSX.read(fileBody, { type: 'buffer' })
     workbook.SheetNames.forEach((sheetName) => {
-      const sheetConfig = this.sheets.find(sheet => sheet.sheetKey === sheetName)
+      const sheetConfig = _sheets.find(({ sheet }) => sheet === sheetName)
       if (!sheetConfig)
         return
 
       workbook.Sheets[sheetName]['!rows'] = Array.from({
-        length: sheetConfig.data.length + 1,
+        length: sheetConfig.content.length + 1,
       }, () => ({ hpt: 30 }))
 
       workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], 5).map(({ width }) => ({ wch: width }))
 
-      sheetConfig.schema.forEach((column, index) => {
+      sheetConfig.columns.forEach((column, index) => {
         const headerCellRef = getSheetCellKey(index + 1, 1)
         if (!workbook.Sheets[sheetName][headerCellRef])
           return
@@ -132,9 +145,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             top: { style: 'thin', color: { rgb: '000000' } },
           },
         } satisfies CellStyle
-        sheetConfig.data.forEach((row, rowIndex) => {
+        sheetConfig.content.forEach((row, rowIndex) => {
           const cellRef = getSheetCellKey(index + 1, rowIndex + 2)
-          const style = column.cellStyle?.(row) ?? {}
+          const style = column._ref.cellStyle?.(row) ?? {}
           workbook.Sheets[sheetName][cellRef].s = deepmerge(
             style,
             {
@@ -145,7 +158,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                 right: { style: 'thin', color: { rgb: '000000' } },
                 top: { style: 'thin', color: { rgb: '000000' } },
               },
-              numFmt: column.format,
+              numFmt: column._ref.format,
             } satisfies CellStyle,
           )
         })

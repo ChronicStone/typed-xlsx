@@ -79,6 +79,14 @@ export type Column<
     : { transform: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>) => CellValue) }
 )
 
+// export type DynamicColumns<
+//   T extends GenericObject,
+//   FieldValue extends string | ((data: T) => CellValue),
+//   ColKey extends `dynamic:${string}`,
+//   TransformMap extends TransformersMap,
+//   IteratorData,
+// > = (data: IteratorData) => Column<T, FieldValue, ColKey, TransformMap>[]
+
 export type ExcelSchema<
   T extends GenericObject,
   KeyPaths extends string,
@@ -93,5 +101,5 @@ export interface Sheet<T extends GenericObject, Schema extends ExcelSchema<T, an
   sheetKey: string
   schema: Schema
   data: T[]
-  select?: (SchemaColumnKeys<Schema>)[]
+  select?: { [K in SchemaColumnKeys<Schema>]?: boolean }
 }

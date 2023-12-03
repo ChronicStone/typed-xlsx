@@ -35,7 +35,7 @@ const transformers = {
 
 describe('should', () => {
   it('exported', () => {
-    const users: User[] = Array.from({ length: 10 }, (_, id) => ({
+    const users: User[] = Array.from({ length: 100 }, (_, id) => ({
       id,
       firstName: faker.person.firstName(),
       lastName: faker.person.lastName(),
@@ -78,7 +78,24 @@ describe('should', () => {
     const buffer = ExcelBuilder
       .create()
       .sheet('sheet1', { data: users, schema: assessmentExport })
-      .sheet('sheet2', { data: users, schema: assessmentExport, select: ['firstName', 'lastName', 'email'] })
+      .sheet('sheet2', {
+        data: users,
+        schema: assessmentExport,
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      })
+      .sheet('sheet3', {
+        data: users,
+        schema: assessmentExport,
+        select: {
+          firstName: false,
+          lastName: false,
+          email: false,
+        },
+      })
       .build()
 
     fs.writeFileSync('example.xlsx', buffer)
