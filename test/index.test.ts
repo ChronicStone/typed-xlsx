@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { describe, it } from 'vitest'
 import { faker } from '@faker-js/faker'
 import type { TransformersMap } from '../src/types'
@@ -63,10 +64,12 @@ describe('should', () => {
       .column('interviewScore', { value: 'results.interview.overall', default: 'N/A' })
       .build()
 
-    ExcelBuilder
+    const buffer = ExcelBuilder
       .create()
       .sheet('sheet1', { data: users, schema: assessmentExport })
       .sheet('sheet2', { data: users, schema: assessmentExport, select: ['firstName', 'lastName', 'email'] })
-      .build({ fileName: './test.xlsx' })
+      .build()
+
+    fs.writeFileSync('test.xlsx', buffer)
   })
 })

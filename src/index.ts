@@ -1,4 +1,4 @@
-import xlsx, { type IColumn, type IJsonSheet, type ISettings } from 'json-as-xlsx'
+import xlsx, { type IColumn, type IJsonSheet } from 'json-as-xlsx'
 import type { CellValue, Column, ExcelSchema, GenericObject, NestedPaths, Not, Sheet, TransformersMap, ValueTransformer } from './types'
 import { getPropertyFromPath } from './utils'
 
@@ -63,7 +63,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     return this as ExcelBuilder<UsedSheetKeys | Key>
   }
 
-  public build(settings: ISettings) {
+  public build() {
     const _sheets: IJsonSheet[] = this.sheets.map(sheet => ({
       sheet: sheet.sheetKey,
       columns: sheet.schema
@@ -85,6 +85,17 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       content: sheet.data,
     }))
 
-    return xlsx(_sheets, settings)
+    const fileBody = xlsx(_sheets, {
+      fileName: Date.now().toString(),
+      extraLength: 3,
+      writeOptions: {
+        type: 'buffer',
+        bookType: 'xlsx',
+      },
+    // eslint-disable-next-line node/prefer-global/buffer
+    }) as Buffer
+
+    return fileBody
+    // for()
   }
 }

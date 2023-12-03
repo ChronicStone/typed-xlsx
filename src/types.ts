@@ -63,7 +63,7 @@ export type Column<
   FieldValue extends string | ((data: T) => CellValue),
   ColKey extends string,
   TransformMap extends TransformersMap,
-  // AllowedTransformers exten
+
 > = {
   columnKey: ColKey
   value: FieldValue
