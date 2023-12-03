@@ -22,6 +22,7 @@ interface User {
     interview?: { overall: number }
   }
   createdAt: Date
+  balance: number
 }
 
 const transformers = {
@@ -50,19 +51,25 @@ describe('should', () => {
         technical: { overall: Math.floor(Math.random() * 10) },
         ...(Math.random() > 0.5 ? { interview: { overall: Math.floor(Math.random() * 10) } } : {}),
       },
+      balance: +faker.finance.amount(0, 1000000, 2),
       createdAt: faker.date.past(),
     }))
     const assessmentExport = ExcelSchemaBuilder
       .create<User>()
       .withTransformers(transformers)
       .column('id', { key: 'id' })
-      .column('firstName', { key: 'firstName', cellStyle: () => ({ fill: { fgColor: { rgb: 'E9E9E9' } } }) })
+      .column('firstName', { key: 'firstName' })
       .column('lastName', { key: 'lastName' })
       .column('email', { key: 'email' })
-      .column('roles', { key: 'roles', transform: 'list' })
+      .column('roles', {
+        key: 'roles',
+        transform: 'list',
+        cellStyle: data => ({ font: { color: { rgb: data.roles.includes('admin') ? 'd10808' : undefined } } }),
+      })
+      .column('balance', { key: 'balance', format: '"$"#,##0.00_);\\("$"#,##0.00\\)' })
       .column('nbOrgs', { key: 'organizations', transform: 'arrayLength' })
       .column('orgs', { key: 'organizations', transform: org => org.map(org => org.name).join(', ') })
-      .column('generalScore', { key: 'results.general.overall' })
+      .column('generalScore', { key: 'results.general.overall', format: '# / 10' })
       .column('technicalScore', { key: 'results.technical.overall' })
       .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
       .column('createdAt', { key: 'createdAt', transform: 'date' })

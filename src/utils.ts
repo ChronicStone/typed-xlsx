@@ -21,3 +21,16 @@ export function getSheetCellKey(col: number, row: number) {
 
   return columnLabel + row
 }
+
+export function formatKey(key: string) {
+  return (
+    key.charAt(0).toUpperCase()
+    + key
+      .split(/(?=[A-Z])/)
+      .join(' ')
+      .toLowerCase()
+      .slice(1)
+      .split('_')
+      .join(' ')
+  )
+}
