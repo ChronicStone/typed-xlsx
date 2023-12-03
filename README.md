@@ -12,7 +12,7 @@
 
 
 ## INSTALLATION
-```ts
+```bash
 pnpm add @chronicstone/typed-xlsx
 ```
 
@@ -42,7 +42,7 @@ interface User {
 
 #### 2. Build a sheet schema :
 ```ts
-import { ExcelSchemaBuilder } from "@chronicstone/typed-xlsx"
+import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
 
 // OPTIONAL : DEFINE SHARED TRANSFORMERS THAT CAN BE USE TO TRANSFORM VALUE INSERTED INTO A CELL
 const transformers = {
@@ -53,32 +53,32 @@ const transformers = {
 
 // Use the schema builder to define your sheet schema
 const userExportSchema = ExcelSchemaBuilder
-      .create<User>()
-      .withTransformers(transformers)
-      .column('id', { value: 'id' }) // TYPE-SAFE OBJECT KEYS ACCESSOR
-      .column('firstName', { value: 'firstName' })
-      .column('lastName', { value: 'lastName' })
-      .column('email', { value: 'email' })
-      .column('roles', { value: 'roles', transform: 'list' }) // TRANSFORM TYPE-SAFE DEPENDING ON TYPE MATCHING 'value' PROP
-      .column('nbOrgs', { value: 'organizations', transform: 'arrayLength' }) // IF VALUE KEY DOES MATCH ACCEPTED CELL VALUE, TRANSFORMATION WILL BE REQUIRED
-      .column('orgs', { value: 'organizations', transform: value => value.map(org => org.name).join(', ') }) // TRANSFORM CAN BE EITHER SHARED TRANSFORMER OR FUNCTION (AUTO-TYPE-SAFE)
-      .column('generalScore', { value: 'results.general.overall' })
-      .column('technicalScore', { value: 'results.technical.overall' })
-      .column('interviewScore', { value: 'results.interview.overall', default: 'N/A' }) // AUTO-HANDLES NULL / UNDEFINED VALUE, PROVIDE DEFAULT IF NEEDED
-      .build()
+  .create<User>()
+  .withTransformers(transformers)
+  .column('id', { value: 'id' }) // TYPE-SAFE OBJECT KEYS ACCESSOR
+  .column('firstName', { value: 'firstName' })
+  .column('lastName', { value: 'lastName' })
+  .column('email', { value: 'email' })
+  .column('roles', { value: 'roles', transform: 'list' }) // TRANSFORM TYPE-SAFE DEPENDING ON TYPE MATCHING 'value' PROP
+  .column('nbOrgs', { value: 'organizations', transform: 'arrayLength' }) // IF VALUE KEY DOES MATCH ACCEPTED CELL VALUE, TRANSFORMATION WILL BE REQUIRED
+  .column('orgs', { value: 'organizations', transform: value => value.map(org => org.name).join(', ') }) // TRANSFORM CAN BE EITHER SHARED TRANSFORMER OR FUNCTION (AUTO-TYPE-SAFE)
+  .column('generalScore', { value: 'results.general.overall' })
+  .column('technicalScore', { value: 'results.technical.overall' })
+  .column('interviewScore', { value: 'results.interview.overall', default: 'N/A' }) // AUTO-HANDLES NULL / UNDEFINED VALUE, PROVIDE DEFAULT IF NEEDED
+  .build()
 ```
 
 
 #### 3. Safely compose excel file from schemas
 
 ```ts
-import { ExcelBuilder } from "@chronicstone/typed-xlsx"
+import { ExcelBuilder } from '@chronicstone/typed-xlsx'
 
-const arrayBuffer ExcelBuilder
-      .create()
-      .sheet('sheet1', { data: users, schema: assessmentExport })
-      .sheet('sheet2', { data: users, schema: assessmentExport, select: ['firstName', 'lastName', 'email'] }) // OPTIONALLY SELECT COLUMNS YOU WANT
-      .build()
+const arrayBuffer = ExcelBuilder
+  .create()
+  .sheet('sheet1', { data: users, schema: assessmentExport })
+  .sheet('sheet2', { data: users, schema: assessmentExport, select: ['firstName', 'lastName', 'email'] }) // OPTIONALLY SELECT COLUMNS YOU WANT
+  .build()
 
 fs.writeFileSync('test.xlsx', arrayBuffer)
 ```
