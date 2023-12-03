@@ -1,5 +1,5 @@
 {
-  "name": "pkg-placeholder",
+  "name": "@chronicstone/typed-xlsx",
   "type": "module",
   "version": "0.1.0",
   "packageManager": "pnpm@8.11.0",

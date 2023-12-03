@@ -115,7 +115,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         length: sheetConfig.data.length + 1,
       }, () => ({ hpt: 30 }))
 
-      workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], 10).map(({ width }) => ({ wch: width }))
+      workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], 5).map(({ width }) => ({ wch: width }))
 
       sheetConfig.schema.forEach((column, index) => {
         const headerCellRef = getSheetCellKey(index + 1, 1)

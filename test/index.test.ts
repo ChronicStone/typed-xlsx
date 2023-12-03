@@ -72,7 +72,7 @@ describe('should', () => {
       .column('generalScore', { key: 'results.general.overall', format: '# / 10' })
       .column('technicalScore', { key: 'results.technical.overall' })
       .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
-      .column('createdAt', { key: 'createdAt', transform: 'date' })
+      .column('createdAt', { key: 'createdAt', format: 'd mmm yyyy' })
       .build()
 
     const buffer = ExcelBuilder
@@ -81,6 +81,6 @@ describe('should', () => {
       .sheet('sheet2', { data: users, schema: assessmentExport, select: ['firstName', 'lastName', 'email'] })
       .build()
 
-    fs.writeFileSync('test.xlsx', buffer)
+    fs.writeFileSync('example.xlsx', buffer)
   })
 })

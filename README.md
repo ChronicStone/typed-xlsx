@@ -55,19 +55,24 @@ const transformers = {
 const userExportSchema = ExcelSchemaBuilder
   .create<User>()
   .withTransformers(transformers)
-  .column('id', { value: 'id' }) // TYPE-SAFE OBJECT KEYS ACCESSOR
-  .column('firstName', { value: 'firstName' })
-  .column('lastName', { value: 'lastName' })
-  .column('email', { value: 'email' })
-  .column('roles', { value: 'roles', transform: 'list' }) // TRANSFORM TYPE-SAFE DEPENDING ON TYPE MATCHING 'value' PROP
-  .column('nbOrgs', { value: 'organizations', transform: 'arrayLength' }) // IF VALUE KEY DOES MATCH ACCEPTED CELL VALUE, TRANSFORMATION WILL BE REQUIRED
-  .column('orgs', { value: 'organizations', transform: value => value.map(org => org.name).join(', ') }) // TRANSFORM CAN BE EITHER SHARED TRANSFORMER OR FUNCTION (AUTO-TYPE-SAFE)
-  .column('generalScore', { value: 'results.general.overall' })
-  .column('technicalScore', { value: 'results.technical.overall' })
-  .column('interviewScore', { value: 'results.interview.overall', default: 'N/A' }) // AUTO-HANDLES NULL / UNDEFINED VALUE, PROVIDE DEFAULT IF NEEDED
+  .column('id', { key: 'id' })
+  .column('firstName', { key: 'firstName' })
+  .column('lastName', { key: 'lastName' })
+  .column('email', { key: 'email' })
+  .column('roles', {
+    key: 'roles',
+    transform: 'list',
+    cellStyle: data => ({ font: { color: { rgb: data.roles.includes('admin') ? 'd10808' : undefined } } }),
+  })
+  .column('balance', { key: 'balance', format: '"$"#,##0.00_);\\("$"#,##0.00\\)' })
+  .column('nbOrgs', { key: 'organizations', transform: 'arrayLength' })
+  .column('orgs', { key: 'organizations', transform: org => org.map(org => org.name).join(', ') })
+  .column('generalScore', { key: 'results.general.overall', format: '# / 10' })
+  .column('technicalScore', { key: 'results.technical.overall' })
+  .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
+  .column('createdAt', { key: 'createdAt', format: 'd mmm yyyy' })
   .build()
 ```
-
 
 #### 3. Safely compose excel file from schemas
 
@@ -82,6 +87,15 @@ const arrayBuffer = ExcelBuilder
 
 fs.writeFileSync('test.xlsx', arrayBuffer)
 ```
+
+#### 4. Have fun
+
+Here's the generated file for the example from above
+
+![DEMO_GENERATED_FILE](image.png)
+
+[DOWNLOAD GENERATED EXAMPLE](https://github.com/ChronicStone/typed-xlsx/blob/main/example.xlsx)
+
 
 ## License
 
