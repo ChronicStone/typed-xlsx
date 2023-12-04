@@ -35,6 +35,11 @@ const transformers = {
 
 describe('should', () => {
   it('exported', () => {
+    const organizations: Organization[] = Array.from({ length: 10 }, (_, id) => ({
+      id,
+      name: faker.company.name(),
+    }))
+
     const users: User[] = Array.from({ length: 100 }, (_, id) => ({
       id,
       firstName: faker.person.firstName(),
@@ -42,10 +47,7 @@ describe('should', () => {
       email: faker.internet.email(),
       roles: ['admin', 'user', 'manager', 'guest'].filter(() => Math.random() > 0.5),
       // RANDOM NUMBER OF ORGANIZATIONS
-      organizations: Array.from({ length: Math.floor(Math.random() * 5) }, (_, id) => ({
-        id,
-        name: faker.company.name(),
-      })),
+      organizations: organizations.filter(() => Math.random() > 0.5),
       results: {
         general: { overall: Math.floor(Math.random() * 10) },
         technical: { overall: Math.floor(Math.random() * 10) },
@@ -73,11 +75,35 @@ describe('should', () => {
       .column('technicalScore', { key: 'results.technical.overall' })
       .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
       .column('createdAt', { key: 'createdAt', format: 'd mmm yyyy' })
+      .group('group:org', (builder, context: Organization[]) => {
+        for (const org of context) {
+          builder
+            .column(org.id.toString(), {
+              label: org.name,
+              key: 'organizations',
+              transform: orgs => orgs.some(o => o.id === org.id) ? 'YES' : 'NO',
+            })
+        }
+      })
+      .column('test', { key: 'id' })
+      .build()
+
+    const schema = ExcelSchemaBuilder
+      .create<User>()
+      .withTransformers(transformers)
+      .column('id', { key: 'id' })
       .build()
 
     const buffer = ExcelBuilder
       .create()
-      .sheet('sheet1', { data: users, schema: assessmentExport })
+      .sheet('sheet1', {
+        data: users,
+        schema: assessmentExport,
+        context: {
+          'group:org': organizations,
+
+        },
+      })
       .sheet('sheet2', {
         data: users,
         schema: assessmentExport,
@@ -85,16 +111,16 @@ describe('should', () => {
           firstName: true,
           lastName: true,
           email: true,
+          // 'group:org': true,
+        },
+        context: {
+          'group:org': organizations,
+
         },
       })
       .sheet('sheet3', {
         data: users,
-        schema: assessmentExport,
-        select: {
-          firstName: false,
-          lastName: false,
-          email: false,
-        },
+        schema,
       })
       .build()
 

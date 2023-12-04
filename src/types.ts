@@ -1,4 +1,6 @@
+/* eslint-disable ts/ban-types */
 import type { CellStyle } from 'xlsx-js-style'
+import type { ExcelSchemaBuilder } from '.'
 
 export type GenericObject = Record<string | number | symbol, any>
 
@@ -12,20 +14,6 @@ export type NestedPaths<T> = T extends Array<infer U>
             : never;
         }[keyof T & (string | number)]
       : never
-
-export type NestedPathsForType<T, P> = T extends Array<infer U>
-  ? U extends object ? never : never
-  : T extends object
-    ? {
-        [K in keyof T & (string | number)]: K extends string
-          ? T[K] extends P
-            ? `${K}` | `${K}.${NestedPathsForType<T[K], P>}`
-            : T[K] extends object
-              ? `${K}.${NestedPathsForType<T[K], P>}`
-              : never
-          : never;
-      }[keyof T & (string | number)]
-    : never
 
 export type Not<T, U> = T extends U ? never : T
 
@@ -67,6 +55,7 @@ export type Column<
   ColKey extends string,
   TransformMap extends TransformersMap,
 > = {
+  type: 'column'
   label?: string
   columnKey: ColKey
   key: FieldValue
@@ -79,27 +68,53 @@ export type Column<
     : { transform: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>) => CellValue) }
 )
 
-// export type DynamicColumns<
-//   T extends GenericObject,
-//   FieldValue extends string | ((data: T) => CellValue),
-//   ColKey extends `dynamic:${string}`,
-//   TransformMap extends TransformersMap,
-//   IteratorData,
-// > = (data: IteratorData) => Column<T, FieldValue, ColKey, TransformMap>[]
+export interface ColumnGroup<
+  T extends GenericObject,
+  ColKey extends string,
+  KeyPaths extends string,
+  UsedKeys extends string,
+  TransformMap extends TransformersMap,
+  Context,
+  // eslint-disable-next-line unused-imports/no-unused-vars
+  ContextMap extends Record<string, any> = {},
+> {
+  type: 'group'
+  columnKey: ColKey
+  builder: () => ExcelSchemaBuilder<T, KeyPaths, UsedKeys, TransformMap>
+  handler: GroupHandler<T, KeyPaths, UsedKeys, TransformMap, Context>
+}
+
+export type GroupHandler<
+  T extends GenericObject,
+  CellKeyPaths extends string,
+  UsedKeys extends string,
+  TransformMap extends TransformersMap,
+  Context,
+> = (
+  builder: ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap>,
+  context: Context,
+) => void
 
 export type ExcelSchema<
   T extends GenericObject,
   KeyPaths extends string,
   Key extends string,
-> = Array<Column<T, KeyPaths, Key, any>>
+  ContextMap extends { [key: string]: any } = {},
+> = Array<Column<T, KeyPaths, Key, any> | ColumnGroup<T, Key, KeyPaths, string, any, any, ContextMap>>
 
 export type SchemaColumnKeys<
   T extends ExcelSchema<any, any, string>,
-> = T extends Array<Column<any, any, infer K, any>> ? K : never
+> = T extends Array<Column<any, any, infer K, any> | ColumnGroup<any, infer K, any, any, any, any>> ? K : never
 
-export interface Sheet<T extends GenericObject, Schema extends ExcelSchema<T, any, string>> {
+export type Sheet<
+  T extends GenericObject,
+  Schema extends ExcelSchema<T, any, string, any>,
+> = {
   sheetKey: string
   schema: Schema
   data: T[]
   select?: { [K in SchemaColumnKeys<Schema>]?: boolean }
-}
+  context?: {}
+} & (Schema extends ExcelSchema<T, any, any, infer Ctx>
+  ? keyof Ctx extends never ? {} : { context: Ctx }
+  : {})

@@ -1,18 +1,19 @@
+/* eslint-disable ts/ban-types */
 import xlsx, { type IColumn, type IJsonSheet, getWorksheetColumnWidths } from 'json-as-xlsx'
 import type { CellStyle } from 'xlsx-js-style'
 import XLSX from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ExcelSchema, GenericObject, NestedPaths, Not, Sheet, TransformersMap, ValueTransformer } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelSchema, GenericObject, NestedPaths, Not, Sheet, TransformersMap, ValueTransformer } from './types'
 import { formatKey, getPropertyFromPath, getSheetCellKey } from './utils'
 
 export class ExcelSchemaBuilder<
   T extends GenericObject,
   CellKeyPaths extends string,
   UsedKeys extends string = never,
-  // eslint-disable-next-line ts/ban-types
   TransformMap extends TransformersMap = {},
+  ContextMap extends { [key: string]: any } = {},
 > {
-  private columns: Column<T, CellKeyPaths | ((data: T) => CellValue), string, TransformMap>[] = []
+  private columns: Array<Column<T, CellKeyPaths | ((data: T) => CellValue), string, TransformMap> | ColumnGroup<T, string, CellKeyPaths, string, TransformMap, any>> = []
   private transformers: TransformMap = {} as TransformMap
 
   public static create<T extends GenericObject, KeyPath extends string = NestedPaths<T>>(): ExcelSchemaBuilder<T, KeyPath> {
@@ -21,7 +22,7 @@ export class ExcelSchemaBuilder<
 
   public withTransformers<Transformers extends TransformersMap>(transformers: Transformers): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers> {
     this.transformers = transformers as TransformMap & Transformers
-    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers>
+    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, ContextMap>
   }
 
   public column<
@@ -29,22 +30,57 @@ export class ExcelSchemaBuilder<
     FieldValue extends CellKeyPaths | ((data: T) => CellValue),
   >(
     columnKey: Not<K, UsedKeys>,
-    column: Omit<Column<T, FieldValue, K, TransformMap>, 'columnKey'>,
-  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap> {
+    column: Omit<Column<T, FieldValue, K, TransformMap>, 'columnKey' | 'type'>,
+  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap> {
     if (this.columns.some(c => c.columnKey === columnKey))
       throw new Error(`Column with key '${columnKey}' already exists.`)
 
-    this.columns.push({ columnKey, ...column } as any)
-    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap>
+    this.columns.push({ type: 'column', columnKey, ...column } as any)
+    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap>
+  }
+
+  public group<
+    K extends `group:${string}`,
+    Context,
+  >(
+    key: Not<K, UsedKeys>,
+    handler: (builder: ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap>, context: Context) => void,
+  ): ExcelSchemaBuilder<
+    T,
+    CellKeyPaths,
+    UsedKeys | K,
+    TransformMap,
+    ContextMap & { [key in K]: Context }
+  > {
+    if (this.columns.some(c => c.columnKey === key))
+      throw new Error(`Column with key '${key}' already exists.`)
+
+    const builder = () => ExcelSchemaBuilder.create<T, CellKeyPaths>()
+      .withTransformers(this.transformers)
+
+    this.columns.push({
+      type: 'group',
+      columnKey: key,
+      builder,
+      handler,
+    } as any)
+    return this
   }
 
   public build() {
-    return this.columns.map(column => ({
-      ...column,
-      transform: typeof column.transform === 'string'
-        ? this.transformers[column.transform]
-        : column.transform,
-    })) as ExcelSchema<T, CellKeyPaths, UsedKeys>
+    return this.columns.map(column => column.type === 'column'
+      ? ({
+          ...column,
+          transform: typeof column.transform === 'string'
+            ? this.transformers[column.transform]
+            : column.transform,
+        })
+      : column) as ExcelSchema<
+        T,
+        CellKeyPaths,
+        UsedKeys,
+        ContextMap
+      >
   }
 }
 
@@ -55,7 +91,11 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     return new ExcelBuilder()
   }
 
-  public sheet<Key extends string, T extends GenericObject, Schema extends ExcelSchema<T, any, string>>(
+  public sheet<
+    Key extends string,
+    T extends GenericObject,
+    Schema extends ExcelSchema<T, any, string>,
+  >(
     key: Not<Key, UsedSheetKeys>,
     sheet: Omit<Sheet<T, Schema>, 'sheetKey'>,
   ): ExcelBuilder<UsedSheetKeys | Key> {
@@ -70,7 +110,21 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     const _sheets = this.sheets.map(sheet => ({
       sheet: sheet.sheetKey,
       columns: sheet.schema
+        .map((column): Column<any, any, any, any> | Column<any, any, any, any>[] => {
+          if (column.type === 'column') {
+            return column
+          }
+          else {
+            const builder = column.builder()
+            column.handler(builder, ((sheet.context ?? {}) as any)[column.columnKey])
+            const columns = builder.build()
+            return columns as Column<any, any, any, any>[]
+          }
+        })
+        .flat()
         .filter((column) => {
+          if (!column)
+            return false
           if (!sheet.select || Object.keys(sheet.select).length === 0)
             return true
 
@@ -115,7 +169,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         type: 'buffer',
         bookType: 'xlsx',
       },
-    // eslint-disable-next-line node/prefer-global/buffer
+      // eslint-disable-next-line node/prefer-global/buffer
     }) as Buffer
 
     const workbook = XLSX.read(fileBody, { type: 'buffer' })
@@ -167,6 +221,5 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
     // eslint-disable-next-line node/prefer-global/buffer
     return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
-    // for()
   }
 }
