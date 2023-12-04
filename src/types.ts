@@ -146,3 +146,12 @@ export type ExtractSelectedContext<
 > = {
   [K in keyof ContextMap as K extends SelectedCols ? K : never]: ContextMap[K];
 }
+
+export interface ExcelBuildParams<Output extends 'buffer' | 'workbook',
+  > {
+  output: Output
+  rtl?: boolean
+  extraLength?: number
+  rowHeight?: number
+  bordered?: boolean
+}

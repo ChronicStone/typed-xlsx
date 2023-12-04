@@ -122,7 +122,7 @@ describe('should', () => {
           'group:org': organizations,
         },
       })
-      .build()
+      .build({ output: 'buffer' })
 
     fs.writeFileSync('example.xlsx', buffer)
   })

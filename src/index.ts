@@ -1,9 +1,10 @@
+/* eslint-disable node/prefer-global/buffer */
 /* eslint-disable ts/ban-types */
 import xlsx, { type IColumn, type IJsonSheet, getWorksheetColumnWidths } from 'json-as-xlsx'
 import type { CellStyle } from 'xlsx-js-style'
 import XLSX from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ColumnGroup, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TransformersMap, ValueTransformer } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TransformersMap, ValueTransformer } from './types'
 import { formatKey, getPropertyFromPath, getSheetCellKey } from './utils'
 
 export class ExcelSchemaBuilder<
@@ -108,7 +109,10 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     return this as ExcelBuilder<UsedSheetKeys | Key>
   }
 
-  public build() {
+  public build<
+  OutputType extends 'buffer' | 'workbook',
+  Output = OutputType extends 'workbook' ? XLSX.WorkBook : Buffer,
+ >(params: ExcelBuildParams<OutputType>): Output {
     const _sheets = this.sheets.map(sheet => ({
       sheet: sheet.sheetKey,
       columns: sheet.schema
@@ -166,12 +170,14 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
     const fileBody = xlsx(_sheets, {
       fileName: Date.now().toString(),
-      extraLength: 3,
+      extraLength: params?.extraLength ?? 3,
+      RTL: params?.rtl ?? false,
       writeOptions: {
         type: 'buffer',
         bookType: 'xlsx',
+
       },
-      // eslint-disable-next-line node/prefer-global/buffer
+
     }) as Buffer
 
     const workbook = XLSX.read(fileBody, { type: 'buffer' })
@@ -182,9 +188,11 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
       workbook.Sheets[sheetName]['!rows'] = Array.from({
         length: sheetConfig.content.length + 1,
-      }, () => ({ hpt: 30 }))
+      }, () => ({ hpt: params?.rowHeight ?? 30 }))
 
-      workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], 5).map(({ width }) => ({ wch: width }))
+      workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], params?.extraLength ?? 5).map(({ width }) => ({
+        wch: width,
+      }))
 
       sheetConfig.columns.forEach((column, index) => {
         const headerCellRef = getSheetCellKey(index + 1, 1)
@@ -194,12 +202,14 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           font: { bold: true },
           alignment: { horizontal: 'center', vertical: 'center' },
           fill: { fgColor: { rgb: 'E9E9E9' } },
-          border: {
-            bottom: { style: 'thin', color: { rgb: '000000' } },
-            left: { style: 'thin', color: { rgb: '000000' } },
-            right: { style: 'thin', color: { rgb: '000000' } },
-            top: { style: 'thin', color: { rgb: '000000' } },
-          },
+          border: (params?.bordered ?? true)
+            ? {
+                bottom: { style: 'thin', color: { rgb: '000000' } },
+                left: { style: 'thin', color: { rgb: '000000' } },
+                right: { style: 'thin', color: { rgb: '000000' } },
+                top: { style: 'thin', color: { rgb: '000000' } },
+              }
+            : {},
         } satisfies CellStyle
         sheetConfig.content.forEach((row, rowIndex) => {
           const cellRef = getSheetCellKey(index + 1, rowIndex + 2)
@@ -208,12 +218,14 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             style,
             {
               alignment: { vertical: 'center' },
-              border: {
-                bottom: { style: 'thin', color: { rgb: '000000' } },
-                left: { style: 'thin', color: { rgb: '000000' } },
-                right: { style: 'thin', color: { rgb: '000000' } },
-                top: { style: 'thin', color: { rgb: '000000' } },
-              },
+              border: (params?.bordered ?? true)
+                ? {
+                    bottom: { style: 'thin', color: { rgb: '000000' } },
+                    left: { style: 'thin', color: { rgb: '000000' } },
+                    right: { style: 'thin', color: { rgb: '000000' } },
+                    top: { style: 'thin', color: { rgb: '000000' } },
+                  }
+                : {},
               numFmt: column._ref.format,
             } satisfies CellStyle,
           )
@@ -221,7 +233,6 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       })
     })
 
-    // eslint-disable-next-line node/prefer-global/buffer
-    return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
+    return params?.output === 'workbook' ? workbook : (XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }))
   }
 }

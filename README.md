@@ -125,7 +125,7 @@ const arrayBuffer = ExcelBuilder
       'group:org': organizations
     }
   })
-  .build()
+  .build({ output: 'buffer' })
 
 fs.writeFileSync('test.xlsx', arrayBuffer)
 ```
