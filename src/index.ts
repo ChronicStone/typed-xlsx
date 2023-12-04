@@ -3,7 +3,7 @@ import xlsx, { type IColumn, type IJsonSheet, getWorksheetColumnWidths } from 'j
 import type { CellStyle } from 'xlsx-js-style'
 import XLSX from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ColumnGroup, ExcelSchema, GenericObject, NestedPaths, Not, Sheet, TransformersMap, ValueTransformer } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TransformersMap, ValueTransformer } from './types'
 import { formatKey, getPropertyFromPath, getSheetCellKey } from './utils'
 
 export class ExcelSchemaBuilder<
@@ -85,7 +85,7 @@ export class ExcelSchemaBuilder<
 }
 
 export class ExcelBuilder<UsedSheetKeys extends string = never> {
-  private sheets: Array<Sheet<any, ExcelSchema<any, any, any>>> = []
+  private sheets: Array<Sheet<any, ExcelSchema<any, any, any>, any, any>> = []
 
   public static create(): ExcelBuilder {
     return new ExcelBuilder()
@@ -95,9 +95,11 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     Key extends string,
     T extends GenericObject,
     Schema extends ExcelSchema<T, any, string>,
+    ColKeys extends SchemaColumnKeys<Schema>,
+    SelectCols extends { [key in ColKeys]?: boolean } = {},
   >(
     key: Not<Key, UsedSheetKeys>,
-    sheet: Omit<Sheet<T, Schema>, 'sheetKey'>,
+    sheet: Omit<Sheet<T, Schema, ColKeys, SelectCols>, 'sheetKey'>,
   ): ExcelBuilder<UsedSheetKeys | Key> {
     if (this.sheets.some(s => s.sheetKey === key))
       throw new Error(`Sheet with key '${key}' already exists.`)

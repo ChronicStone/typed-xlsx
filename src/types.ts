@@ -27,6 +27,10 @@ export type TypeFromPath<T extends GenericObject, Path extends string> =
         : never
       : never
 
+export type AllKeysMatch<T extends object, U> = {
+  [K in keyof T]: T[K] extends U ? true : false;
+}[keyof T] extends true ? true : false
+
 export type CellValue = string | number | boolean | null | undefined | Date
 
 export type ValueTransformer = (value: any) => CellValue
@@ -109,12 +113,36 @@ export type SchemaColumnKeys<
 export type Sheet<
   T extends GenericObject,
   Schema extends ExcelSchema<T, any, string, any>,
+  ColumnKeys extends SchemaColumnKeys<Schema>,
+  SelectColsMap extends { [key in ColumnKeys]?: boolean } | never,
+  SelectedCols extends string = ExtractSelectedColumns<ColumnKeys, SelectColsMap>,
+  ContextMap extends { [key: string]: any } = ExtractContextMap<Schema>,
+  SelectedContextMap extends ExtractSelectedContext<ContextMap, SelectedCols> = ExtractSelectedContext<ContextMap, SelectedCols>,
 > = {
   sheetKey: string
   schema: Schema
   data: T[]
-  select?: { [K in SchemaColumnKeys<Schema>]?: boolean }
+  select?: SelectColsMap
   context?: {}
-} & (Schema extends ExcelSchema<T, any, any, infer Ctx>
-  ? keyof Ctx extends never ? {} : { context: Ctx }
-  : {})
+} & (keyof SelectedContextMap extends never ? {} : { context: SelectedContextMap })
+
+export type ExtractContextMap<
+  Schema extends ExcelSchema<any, any, string, any>,
+> = Schema extends ExcelSchema<any, any, any, infer Ctx> ? Ctx : {}
+
+export type ExtractSelectedColumns<
+  ColKeys extends string,
+  SelectCols extends { [key in ColKeys]?: boolean },
+> = keyof SelectCols extends never ? ColKeys :
+  AllKeysMatch<SelectCols, false> extends true
+    ? Exclude<ColKeys, keyof SelectCols>
+    : {
+        [K in ColKeys]: SelectCols[K] extends true ? K : never;
+      }[ColKeys]
+
+export type ExtractSelectedContext<
+  ContextMap extends { [key: string]: any },
+  SelectedCols extends string,
+> = {
+  [K in keyof ContextMap as K extends SelectedCols ? K : never]: ContextMap[K];
+}

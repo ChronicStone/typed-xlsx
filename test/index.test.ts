@@ -99,23 +99,25 @@ describe('should', () => {
       .sheet('sheet1', {
         data: users,
         schema: assessmentExport,
+        select: {
+          'group:org': true,
+        },
         context: {
           'group:org': organizations,
-
         },
+
       })
       .sheet('sheet2', {
         data: users,
         schema: assessmentExport,
         select: {
-          firstName: true,
-          lastName: true,
-          email: true,
-          // 'group:org': true,
+          'firstName': true,
+          'lastName': false,
+          'email': false,
+          'group:org': false,
         },
         context: {
-          'group:org': organizations,
-
+          // 'group:org': organizations,
         },
       })
       .sheet('sheet3', {
