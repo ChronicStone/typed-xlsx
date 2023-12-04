@@ -112,18 +112,6 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     const _sheets = this.sheets.map(sheet => ({
       sheet: sheet.sheetKey,
       columns: sheet.schema
-        .map((column): Column<any, any, any, any> | Column<any, any, any, any>[] => {
-          if (column.type === 'column') {
-            return column
-          }
-          else {
-            const builder = column.builder()
-            column.handler(builder, ((sheet.context ?? {}) as any)[column.columnKey])
-            const columns = builder.build()
-            return columns as Column<any, any, any, any>[]
-          }
-        })
-        .flat()
         .filter((column) => {
           if (!column)
             return false
@@ -139,6 +127,18 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
           return false
         })
+        .map((column): Column<any, any, any, any> | Column<any, any, any, any>[] => {
+          if (column.type === 'column') {
+            return column
+          }
+          else {
+            const builder = column.builder()
+            column.handler(builder, ((sheet.context ?? {}) as any)[column.columnKey])
+            const columns = builder.build()
+            return columns as Column<any, any, any, any>[]
+          }
+        })
+        .flat()
         .map((column) => {
           return {
             label: column?.label ?? formatKey(column.columnKey),

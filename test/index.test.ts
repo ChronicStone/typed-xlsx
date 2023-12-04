@@ -100,10 +100,10 @@ describe('should', () => {
         data: users,
         schema: assessmentExport,
         select: {
-          'group:org': true,
+          'group:org': false,
         },
         context: {
-          'group:org': organizations,
+          // 'group:org': organizations,
         },
 
       })
