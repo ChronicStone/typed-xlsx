@@ -79,50 +79,48 @@ describe('should', () => {
         for (const org of context) {
           builder
             .column(org.id.toString(), {
-              label: org.name,
+              label: `User in ${org.name}`,
               key: 'organizations',
               transform: orgs => orgs.some(o => o.id === org.id) ? 'YES' : 'NO',
+              cellStyle: data => ({
+                font: {
+                  color: { rgb: data.organizations.some(o => o.id === org.id) ? '61eb34' : 'd10808' },
+                },
+              }),
             })
         }
       })
-      .column('test', { key: 'id' })
-      .build()
-
-    const schema = ExcelSchemaBuilder
-      .create<User>()
-      .withTransformers(transformers)
-      .column('id', { key: 'id' })
       .build()
 
     const buffer = ExcelBuilder
       .create()
-      .sheet('sheet1', {
+      .sheet('Users - full', {
+        data: users,
+        schema: assessmentExport,
+        context: {
+          'group:org': organizations,
+        },
+      })
+      .sheet('Users - partial', {
         data: users,
         schema: assessmentExport,
         select: {
-          'group:org': false,
+          firstName: true,
+          lastName: true,
+          email: true,
         },
-        context: {
-          // 'group:org': organizations,
-        },
-
       })
-      .sheet('sheet2', {
+      .sheet('User - neg partial', {
         data: users,
         schema: assessmentExport,
         select: {
-          'firstName': true,
-          'lastName': false,
-          'email': false,
-          'group:org': false,
+          firstName: false,
+          lastName: false,
+          email: false,
         },
         context: {
-          // 'group:org': organizations,
+          'group:org': organizations,
         },
-      })
-      .sheet('sheet3', {
-        data: users,
-        schema,
       })
       .build()
 

@@ -53,6 +53,7 @@ const transformers = {
 
 // Use the schema builder to define your sheet schema
 const userExportSchema = ExcelSchemaBuilder
+const assessmentExport = ExcelSchemaBuilder
   .create<User>()
   .withTransformers(transformers)
   .column('id', { key: 'id' })
@@ -71,6 +72,21 @@ const userExportSchema = ExcelSchemaBuilder
   .column('technicalScore', { key: 'results.technical.overall' })
   .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
   .column('createdAt', { key: 'createdAt', format: 'd mmm yyyy' })
+  .group('group:org', (builder, context: Organization[]) => {
+    for (const org of context) {
+      builder
+        .column(org.id.toString(), {
+          label: `User in ${org.name}`,
+          key: 'organizations',
+          transform: orgs => orgs.some(o => o.id === org.id) ? 'YES' : 'NO',
+          cellStyle: data => ({
+            font: {
+              color: { rgb: data.organizations.some(o => o.id === org.id) ? '61eb34' : 'd10808' },
+            },
+          }),
+        })
+    }
+  })
   .build()
 ```
 
@@ -81,8 +97,34 @@ import { ExcelBuilder } from '@chronicstone/typed-xlsx'
 
 const arrayBuffer = ExcelBuilder
   .create()
-  .sheet('sheet1', { data: users, schema: assessmentExport })
-  .sheet('sheet2', { data: users, schema: assessmentExport, select: ['firstName', 'lastName', 'email'] }) // OPTIONALLY SELECT COLUMNS YOU WANT
+  .sheet('Users - full', {
+    data: users,
+    schema: assessmentExport,
+    context: {
+      'group:org': organizations
+    }
+  })
+  .sheet('Users - partial', {
+    data: users,
+    schema: assessmentExport,
+    select: {
+      firstName: true,
+      lastName: true,
+      email: true
+    }
+  })
+  .sheet('User - neg partial', {
+    data: users,
+    schema: assessmentExport,
+    select: {
+      firstName: false,
+      lastName: false,
+      email: false,
+    },
+    context: {
+      'group:org': organizations
+    }
+  })
   .build()
 
 fs.writeFileSync('test.xlsx', arrayBuffer)
