@@ -138,7 +138,7 @@ Here's the generated file for the example from above
 
 [DOWNLOAD GENERATED EXAMPLE](https://github.com/ChronicStone/typed-xlsx/blob/main/example.xlsx)
 
-[OPEN EXAMPLE IN CODESANDBOX](https://codesandbox.io/p/devbox/amazing-cache-7y7fjj?file=%2Fsrc%2Fmain.ts%3A92%2C1)
+[OPEN EXAMPLE IN STACKBLITZ](https://stackblitz.com/edit/typescript-cvt29j?file=index.ts)
 
 
 ## License
