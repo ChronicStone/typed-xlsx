@@ -216,7 +216,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           const style = column._ref.cellStyle?.(row) ?? {}
 
           if (!workbook.Sheets[sheetName][cellRef])
-            return
+            workbook.Sheets[sheetName][cellRef] = { v: '', t: 's' } satisfies XLSX.CellObject
+
           workbook.Sheets[sheetName][cellRef].s = deepmerge(
             style,
             {
