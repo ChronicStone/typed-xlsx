@@ -45,6 +45,11 @@ export type AllKeysMatch<T extends object, U> = {
   [K in keyof T]: T[K] extends U ? true : false;
 }[keyof T] extends true ? true : false
 
+// https://twitter.com/mattpocockuk/status/1622730173446557697?s=20
+export type Prettify<T> = {
+  [K in keyof T]: T[K]
+} & {}
+
 export type CellValue = string | number | boolean | null | undefined | Date
 
 export type ValueTransformer = (value: any) => CellValue
@@ -78,8 +83,8 @@ export type Column<
   columnKey: ColKey
   key: FieldValue
   default?: CellValue
-  format?: string
-  cellStyle?: (rowData: T) => CellStyle
+  format?: string | ((rowData: T) => string)
+  cellStyle?: CellStyle | ((rowData: T) => CellStyle)
 } & (
   ExtractColumnValue<T, FieldValue> extends CellValue
     ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>) => CellValue) }
@@ -138,7 +143,7 @@ export type Sheet<
   data: T[]
   select?: SelectColsMap
   context?: {}
-} & (keyof SelectedContextMap extends never ? {} : { context: SelectedContextMap })
+} & (keyof SelectedContextMap extends never ? {} : { context: Prettify<SelectedContextMap> })
 
 export type ExtractContextMap<
   Schema extends ExcelSchema<any, any, string, any>,

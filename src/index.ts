@@ -160,7 +160,6 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
               return column.transform ? (column.transform as ValueTransformer)(value) : value
             },
-            format: column.format,
             _ref: column,
           } satisfies (IColumn & { _ref: Column<any, any, any, any> })
         }),
@@ -212,7 +211,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         } satisfies CellStyle
         sheetConfig.content.forEach((row, rowIndex) => {
           const cellRef = getSheetCellKey(index + 1, rowIndex + 2)
-          const style = column._ref.cellStyle?.(row) ?? {}
+          const style = typeof column._ref.cellStyle === 'function'
+            ? column._ref.cellStyle(row)
+            : column._ref.cellStyle ?? {}
 
           if (!workbook.Sheets[sheetName][cellRef])
             workbook.Sheets[sheetName][cellRef] = { v: '', t: 's' } satisfies XLSX.CellObject
@@ -229,7 +230,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                     top: { style: 'thin', color: { rgb: '000000' } },
                   }
                 : {},
-              numFmt: column._ref.format,
+              numFmt: typeof column._ref.format === 'function' ? column._ref.format(row) : column._ref.format,
             } satisfies CellStyle,
           )
         })
