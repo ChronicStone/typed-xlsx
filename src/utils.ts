@@ -1,5 +1,5 @@
 import { type CellStyle, type ExcelDataType, type WorkSheet, utils } from 'xlsx-js-style'
-import type { CellValue, Column, ExcelSchema, GenericObject, Sheet, ValueTransformer } from './types'
+import type { CellValue, Column, GenericObject, SheetConfig, ValueTransformer } from './types'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
   try {
@@ -8,19 +8,6 @@ export function getPropertyFromPath(obj: GenericObject, path: string) {
   catch (err) {
     return undefined
   }
-}
-
-export function getSheetCellKey(col: number, row: number) {
-  let columnLabel = ''
-
-  while (col > 0) {
-    col--
-    const remainder = col % 26
-    columnLabel = String.fromCharCode(65 + remainder) + columnLabel
-    col = Math.floor(col / 26)
-  }
-
-  return columnLabel + row
 }
 
 export function formatKey(key: string) {
@@ -46,62 +33,65 @@ export function getCellDataType(value: CellValue): ExcelDataType {
   return 's'
 }
 
-export function buildSheetConfig(sheets: Array<Sheet<any, ExcelSchema<any, any, any>, any, any>>) {
+export function buildSheetConfig(sheets: Array<SheetConfig>) {
   return sheets.map(sheet => ({
     sheet: sheet.sheetKey,
-    columns: sheet.schema
-      .columns
-      .filter((column) => {
-        if (!column)
+    tables: sheet.tables.map(table => ({
+      content: table.data,
+      summary: table.schema.summary,
+      enableSummary: table.summary ?? true,
+      columns: table.schema
+        .columns
+        .filter((column) => {
+          if (!column)
+            return false
+          if (!table.select || Object.keys(table.select).length === 0)
+            return true
+
+          const selectorMap = Object.entries(table.select).map(([key, value]) => ({ key, value }))
+          if (selectorMap.every(({ value }) => value === false) && !selectorMap.some(({ key }) => key === column.columnKey))
+            return true
+
+          if (selectorMap.some(({ key, value }) => key === column.columnKey && value === true))
+            return true
+
           return false
-        if (!sheet.select || Object.keys(sheet.select).length === 0)
-          return true
+        })
+        .map((column): Column<any, any, any, any> | Column<any, any, any, any>[] => {
+          if (column.type === 'column') {
+            return column
+          }
+          else {
+            const builder = column.builder()
+            column.handler(builder, ((table.context ?? {}) as any)[column.columnKey])
+            const { columns } = builder.build()
+            return columns as Column<any, any, any, any>[]
+          }
+        })
+        .flat()
+        .map((column) => {
+          return {
+            label: column?.label ?? formatKey(column.columnKey),
+            value: (row: GenericObject) => {
+              const value = typeof column.key === 'string'
+                ? getPropertyFromPath(row, column.key)
+                : column.key(row)
 
-        const selectorMap = Object.entries(sheet.select).map(([key, value]) => ({ key, value }))
-        if (selectorMap.every(({ value }) => value === false) && !selectorMap.some(({ key }) => key === column.columnKey))
-          return true
+              if (
+                typeof value === 'undefined'
+                  || value === null
+                  || value === ''
+                  || (Array.isArray(value) && value.length === 0 && column.default)
+              )
+                return column.default
 
-        if (selectorMap.some(({ key, value }) => key === column.columnKey && value === true))
-          return true
-
-        return false
-      })
-      .map((column): Column<any, any, any, any> | Column<any, any, any, any>[] => {
-        if (column.type === 'column') {
-          return column
-        }
-        else {
-          const builder = column.builder()
-          column.handler(builder, ((sheet.context ?? {}) as any)[column.columnKey])
-          const { columns } = builder.build()
-          return columns as Column<any, any, any, any>[]
-        }
-      })
-      .flat()
-      .map((column) => {
-        return {
-          label: column?.label ?? formatKey(column.columnKey),
-          value: (row: GenericObject) => {
-            const value = typeof column.key === 'string'
-              ? getPropertyFromPath(row, column.key)
-              : column.key(row)
-
-            if (
-              typeof value === 'undefined'
-                || value === null
-                || value === ''
-                || (Array.isArray(value) && value.length === 0 && column.default)
-            )
-              return column.default
-
-            return column.transform ? (column.transform as ValueTransformer)(value) : value
-          },
-          _ref: column,
-        }
-      }),
-    content: sheet.data,
-    summary: sheet.schema.summary,
-    enableSummary: sheet.summary ?? true,
+              return column.transform ? (column.transform as ValueTransformer)(value) : value
+            },
+            _ref: column,
+          }
+        }),
+    }),
+    ),
   }))
 }
 

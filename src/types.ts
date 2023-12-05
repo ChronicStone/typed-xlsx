@@ -2,7 +2,7 @@
 import type { Buffer, File } from 'node:buffer'
 import type { CellStyle } from 'xlsx-js-style'
 import type XLSX from 'xlsx-js-style'
-import type { ExcelSchemaBuilder } from '.'
+import type { ExcelBuilder, ExcelSchemaBuilder } from '.'
 
 export type GenericObject = Record<string | number | symbol, any>
 
@@ -141,7 +141,7 @@ export type SchemaColumnKeys<
   T extends ExcelSchema<any, any, string>,
 > = T['columns'] extends Array<Column<any, any, infer K, any> | ColumnGroup<any, infer K, any, any, any, any>> ? K : never
 
-export type Sheet<
+export type SheetTable<
   T extends GenericObject,
   Schema extends ExcelSchema<T, any, string, any>,
   ColumnKeys extends SchemaColumnKeys<Schema>,
@@ -150,13 +150,31 @@ export type Sheet<
   ContextMap extends { [key: string]: any } = ExtractContextMap<Schema>,
   SelectedContextMap extends ExtractSelectedContext<ContextMap, SelectedCols> = ExtractSelectedContext<ContextMap, SelectedCols>,
 > = {
-  sheetKey: string
   schema: Schema
   data: T[]
   select?: SelectColsMap
   context?: {}
   summary?: {}
 } & (keyof SelectedContextMap extends never ? {} : { context: Prettify<SelectedContextMap> })
+
+export interface SheetTableBuilder<
+  Builder extends ExcelBuilder<any>,
+  UsedKeys extends string,
+> {
+  addTable: <
+    T extends GenericObject,
+    Schema extends ExcelSchema<T, any, string>,
+    ColKeys extends SchemaColumnKeys<Schema>,
+    SelectCols extends { [key in ColKeys]?: boolean } = {},
+  >(table: SheetTable<T, Schema, ColKeys, SelectCols>) => SheetTableBuilder<Builder, UsedKeys>
+  sheet: Builder['sheet']
+  build: Builder['build']
+}
+
+export interface SheetConfig {
+  sheetKey: string
+  tables: Array<SheetTable<GenericObject, ExcelSchema<any, any, any, any>, any, any, any, any, any>>
+}
 
 export type ExtractContextMap<
   Schema extends ExcelSchema<any, any, string, any>,

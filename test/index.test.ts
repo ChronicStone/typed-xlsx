@@ -101,14 +101,23 @@ describe('should generate the example excel', () => {
 
     const buffer = ExcelBuilder
       .create()
-      .sheet('Users - full', {
+      .sheet('Users - full')
+      .addTable({
         data: users,
         schema: assessmentExport,
         context: {
           'group:org': organizations,
         },
       })
-      .sheet('Users - partial', {
+      .addTable({
+        data: users,
+        schema: assessmentExport,
+        context: {
+          'group:org': organizations,
+        },
+      })
+      .sheet('Users - partial')
+      .addTable({
         data: users,
         schema: assessmentExport,
         select: {
@@ -117,7 +126,8 @@ describe('should generate the example excel', () => {
           email: true,
         },
       })
-      .sheet('User - neg partial', {
+      .sheet('User - neg partial')
+      .addTable({
         data: users,
         schema: assessmentExport,
         select: {
