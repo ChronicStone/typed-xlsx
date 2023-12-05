@@ -3,8 +3,8 @@ import type { Buffer } from 'node:buffer'
 import xlsx, { type IColumn, type IJsonSheet, getWorksheetColumnWidths } from 'json-as-xlsx'
 import XLSX, { type CellStyle } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TOutputType, TransformersMap, ValueTransformer } from './types'
-import { formatKey, getPropertyFromPath, getSheetCellKey } from './utils'
+import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TOutputType, TableSummary, TransformersMap, ValueTransformer } from './types'
+import { formatKey, getCellDataType, getPropertyFromPath, getSheetCellKey } from './utils'
 
 export class ExcelSchemaBuilder<
   T extends GenericObject,
@@ -12,17 +12,19 @@ export class ExcelSchemaBuilder<
   UsedKeys extends string = never,
   TransformMap extends TransformersMap = {},
   ContextMap extends { [key: string]: any } = {},
+  SummaryMap extends TableSummary<T, UsedKeys> = {},
 > {
   private columns: Array<Column<T, CellKeyPaths | ((data: T) => CellValue), string, TransformMap> | ColumnGroup<T, string, CellKeyPaths, string, TransformMap, any>> = []
   private transformers: TransformMap = {} as TransformMap
+  private summaryMap: SummaryMap = {} as SummaryMap
 
   public static create<T extends GenericObject, KeyPath extends string = NestedPaths<T>>(): ExcelSchemaBuilder<T, KeyPath> {
     return new ExcelSchemaBuilder<T, KeyPath>()
   }
 
-  public withTransformers<Transformers extends TransformersMap>(transformers: Transformers): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers> {
+  public withTransformers<Transformers extends TransformersMap>(transformers: Transformers): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, SummaryMap> {
     this.transformers = transformers as TransformMap & Transformers
-    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, ContextMap>
+    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, ContextMap, SummaryMap>
   }
 
   public column<
@@ -31,12 +33,12 @@ export class ExcelSchemaBuilder<
   >(
     columnKey: Not<K, UsedKeys>,
     column: Omit<Column<T, FieldValue, K, TransformMap>, 'columnKey' | 'type'>,
-  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap> {
+  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap, SummaryMap> {
     if (this.columns.some(c => c.columnKey === columnKey))
       throw new Error(`Column with key '${columnKey}' already exists.`)
 
     this.columns.push({ type: 'column', columnKey, ...column } as any)
-    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap>
+    return this
   }
 
   public group<
@@ -50,7 +52,8 @@ export class ExcelSchemaBuilder<
     CellKeyPaths,
     UsedKeys | K,
     TransformMap,
-    ContextMap & { [key in K]: Context }
+    ContextMap & { [key in K]: Context },
+    SummaryMap
   > {
     if (this.columns.some(c => c.columnKey === key))
       throw new Error(`Column with key '${key}' already exists.`)
@@ -64,23 +67,34 @@ export class ExcelSchemaBuilder<
       builder,
       handler,
     } as any)
-    return this
+    return this as any
+  }
+
+  summary<Summary extends TableSummary<T, UsedKeys>>(summary: Summary): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, ContextMap, Summary> {
+    this.summaryMap = summary as SummaryMap & Summary
+    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, ContextMap, SummaryMap & Summary>
   }
 
   public build() {
-    return this.columns.map(column => column.type === 'column'
+    const columns = this.columns.map(column => column.type === 'column'
       ? ({
           ...column,
           transform: typeof column.transform === 'string'
             ? this.transformers[column.transform]
             : column.transform,
         })
-      : column) as ExcelSchema<
-        T,
-        CellKeyPaths,
-        UsedKeys,
-        ContextMap
-      >
+      : column)
+
+    return {
+      columns,
+      summary: this.summaryMap,
+    } as ExcelSchema<
+      T,
+      CellKeyPaths,
+      UsedKeys,
+      ContextMap,
+      SummaryMap
+    >
   }
 }
 
@@ -109,12 +123,13 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
   }
 
   public build<
-  OutputType extends TOutputType,
-  Output = ExcelBuildOutput<OutputType>,
- >(params: ExcelBuildParams<OutputType>): Output {
+    OutputType extends TOutputType,
+    Output = ExcelBuildOutput<OutputType>,
+  >(params: ExcelBuildParams<OutputType>): Output {
     const _sheets = this.sheets.map(sheet => ({
       sheet: sheet.sheetKey,
       columns: sheet.schema
+        .columns
         .filter((column) => {
           if (!column)
             return false
@@ -137,7 +152,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           else {
             const builder = column.builder()
             column.handler(builder, ((sheet.context ?? {}) as any)[column.columnKey])
-            const columns = builder.build()
+            const { columns } = builder.build()
             return columns as Column<any, any, any, any>[]
           }
         })
@@ -164,6 +179,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           } satisfies (IColumn & { _ref: Column<any, any, any, any> })
         }),
       content: sheet.data,
+      summary: sheet.schema.summary,
+      enableSummary: sheet.summary ?? true,
     })) satisfies IJsonSheet[]
 
     const fileBody = xlsx(_sheets, {
@@ -235,6 +252,77 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           )
         })
       })
+
+      const hasSummary = Object.keys(sheetConfig.summary).length > 0
+
+      if (hasSummary && sheetConfig.enableSummary) {
+        const summaryRowIndex = sheetConfig.content.length + 2
+        workbook.Sheets[sheetName]['!ref'] = `A1:${getSheetCellKey(sheetConfig.columns.length, summaryRowIndex)}` as any
+
+        for (const columnIndex in sheetConfig.columns) {
+          const column = sheetConfig.columns[columnIndex]
+          const summary = (sheetConfig.summary as TableSummary<GenericObject, string>)[column._ref.columnKey]
+          const cellRef = getSheetCellKey(+columnIndex + 1, summaryRowIndex)
+          if (!summary) {
+            workbook.Sheets[sheetName][cellRef] = {
+              v: '',
+              t: 's',
+              s: {
+                fill: { fgColor: { rgb: 'E9E9E9' } },
+                alignment: { vertical: 'center' },
+                border: (params?.bordered ?? true)
+                  ? {
+                      bottom: { style: 'thin', color: { rgb: '000000' } },
+                      left: { style: 'thin', color: { rgb: '000000' } },
+                      right: { style: 'thin', color: { rgb: '000000' } },
+                      top: { style: 'thin', color: { rgb: '000000' } },
+                    }
+                  : {},
+              } satisfies CellStyle,
+            } satisfies XLSX.CellObject
+
+            continue
+          }
+
+          const style = typeof summary.cellStyle === 'function'
+            ? summary.cellStyle(sheetConfig.content)
+            : summary.cellStyle ?? {}
+          const format = typeof summary.format === 'function'
+            ? summary.format(sheetConfig.content)
+            : summary.format
+          const value = summary.value(sheetConfig.content)
+
+          workbook.Sheets[sheetName][cellRef] = {
+            v: value === null ? '' : value,
+            t: getCellDataType(value),
+            z: format,
+            s: deepmerge(
+              style,
+            {
+              font: { bold: true },
+              fill: { fgColor: { rgb: 'E9E9E9' } },
+              alignment: { vertical: 'center' },
+              border: (params?.bordered ?? true)
+                ? {
+                    bottom: { style: 'thin', color: { rgb: '000000' } },
+                    left: { style: 'thin', color: { rgb: '000000' } },
+                    right: { style: 'thin', color: { rgb: '000000' } },
+                    top: { style: 'thin', color: { rgb: '000000' } },
+                  }
+                : {},
+              numFmt: format,
+            } satisfies CellStyle,
+            ),
+          } satisfies XLSX.CellObject
+        }
+      }
+
+      workbook.Sheets[sheetName]['!rows'] = Array.from({ length: sheetConfig.content.length + (hasSummary ? 2 : 1),
+      }, () => ({ hpt: params?.rowHeight ?? 30 }))
+
+      workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], params?.extraLength ?? 5).map(({ width }) => ({
+        wch: width,
+      }))
     })
 
     return params.output === 'workbook' ? workbook : (XLSX.write(workbook, { type: params.output, bookType: 'xlsx' }))

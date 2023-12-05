@@ -118,16 +118,28 @@ export type GroupHandler<
   context: Context,
 ) => void
 
-export type ExcelSchema<
+export type TableSummary<T extends GenericObject, UsedKeys extends string> = {
+  [K in UsedKeys]?: {
+    value: (data: T[]) => CellValue
+    format?: string | ((data: T[]) => string)
+    cellStyle?: CellStyle | ((data: T[]) => CellStyle)
+  }
+}
+
+export interface ExcelSchema<
   T extends GenericObject,
   KeyPaths extends string,
   Key extends string,
   ContextMap extends { [key: string]: any } = {},
-> = Array<Column<T, KeyPaths, Key, any> | ColumnGroup<T, Key, KeyPaths, string, any, any, ContextMap>>
+  SummaryMap extends TableSummary<T, Key> = {},
+> {
+  columns: Array<Column<T, KeyPaths, Key, any> | ColumnGroup<T, Key, KeyPaths, string, any, any, ContextMap>>
+  summary: SummaryMap
+}
 
 export type SchemaColumnKeys<
   T extends ExcelSchema<any, any, string>,
-> = T extends Array<Column<any, any, infer K, any> | ColumnGroup<any, infer K, any, any, any, any>> ? K : never
+> = T['columns'] extends Array<Column<any, any, infer K, any> | ColumnGroup<any, infer K, any, any, any, any>> ? K : never
 
 export type Sheet<
   T extends GenericObject,
@@ -143,6 +155,7 @@ export type Sheet<
   data: T[]
   select?: SelectColsMap
   context?: {}
+  summary?: {}
 } & (keyof SelectedContextMap extends never ? {} : { context: Prettify<SelectedContextMap> })
 
 export type ExtractContextMap<

@@ -87,6 +87,13 @@ const assessmentExport = ExcelSchemaBuilder
         })
     }
   })
+  .summary({
+    id: { value: () => 'TOTAL' },
+    balance: { value: data => data.reduce((acc, user) => acc + user.balance, 0), format: '"$"#,##0.00_);\\("$"#,##0.00\\)' },
+    generalScore: { value: data => data.reduce((acc, user) => acc + user.results.general.overall, 0) / data.length },
+    technicalScore: { value: data => data.reduce((acc, user) => acc + user.results.technical.overall, 0) / data.length },
+    interviewScore: { value: data => data.reduce((acc, user) => acc + (user.results.interview?.overall ?? 0), 0) / data.length },
+  })
   .build()
 ```
 

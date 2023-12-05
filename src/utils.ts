@@ -1,4 +1,5 @@
-import type { GenericObject } from './types'
+import type { ExcelDataType } from 'xlsx-js-style'
+import type { CellValue, GenericObject } from './types'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
   try {
@@ -33,4 +34,14 @@ export function formatKey(key: string) {
       .split('_')
       .join(' ')
   )
+}
+
+export function getCellDataType(value: CellValue): ExcelDataType {
+  if (value instanceof Date)
+    return 'd'
+  if (typeof value === 'number')
+    return 'n'
+  if (typeof value === 'boolean')
+    return 'b'
+  return 's'
 }
