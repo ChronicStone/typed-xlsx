@@ -1,5 +1,7 @@
 /* eslint-disable ts/ban-types */
+import type { Buffer, File } from 'node:buffer'
 import type { CellStyle } from 'xlsx-js-style'
+import type XLSX from 'xlsx-js-style'
 import type { ExcelSchemaBuilder } from '.'
 
 export type GenericObject = Record<string | number | symbol, any>
@@ -159,7 +161,9 @@ export type ExtractSelectedContext<
   [K in keyof ContextMap as K extends SelectedCols ? K : never]: ContextMap[K];
 }
 
-export interface ExcelBuildParams<Output extends 'buffer' | 'workbook',
+export type TOutputType = 'buffer' | 'workbook' | 'base64' | 'file'
+
+export interface ExcelBuildParams<Output extends TOutputType,
   > {
   output: Output
   rtl?: boolean
@@ -167,3 +171,16 @@ export interface ExcelBuildParams<Output extends 'buffer' | 'workbook',
   rowHeight?: number
   bordered?: boolean
 }
+
+export type ExcelBuildOutput<
+  Output extends TOutputType,
+> =
+  Output extends 'workbook'
+    ? XLSX.WorkBook
+    : Output extends 'base64'
+      ? string
+      : Output extends 'buffer'
+        ? Buffer
+        : Output extends 'file'
+          ? File
+          : never

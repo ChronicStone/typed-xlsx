@@ -1,10 +1,9 @@
-/* eslint-disable node/prefer-global/buffer */
 /* eslint-disable ts/ban-types */
+import type { Buffer } from 'node:buffer'
 import xlsx, { type IColumn, type IJsonSheet, getWorksheetColumnWidths } from 'json-as-xlsx'
-import type { CellStyle } from 'xlsx-js-style'
-import XLSX from 'xlsx-js-style'
+import XLSX, { type CellStyle } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ColumnGroup, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TransformersMap, ValueTransformer } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TOutputType, TransformersMap, ValueTransformer } from './types'
 import { formatKey, getPropertyFromPath, getSheetCellKey } from './utils'
 
 export class ExcelSchemaBuilder<
@@ -110,8 +109,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
   }
 
   public build<
-  OutputType extends 'buffer' | 'workbook',
-  Output = OutputType extends 'workbook' ? XLSX.WorkBook : Buffer,
+  OutputType extends TOutputType,
+  Output = ExcelBuildOutput<OutputType>,
  >(params: ExcelBuildParams<OutputType>): Output {
     const _sheets = this.sheets.map(sheet => ({
       sheet: sheet.sheetKey,
@@ -237,6 +236,6 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       })
     })
 
-    return params?.output === 'workbook' ? workbook : (XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }))
+    return params.output === 'workbook' ? workbook : (XLSX.write(workbook, { type: params.output, bookType: 'xlsx' }))
   }
 }
