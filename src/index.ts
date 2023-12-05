@@ -1,10 +1,8 @@
 /* eslint-disable ts/ban-types */
-import type { Buffer } from 'node:buffer'
-import xlsx, { type IColumn, type IJsonSheet, getWorksheetColumnWidths } from 'json-as-xlsx'
-import XLSX, { type CellStyle } from 'xlsx-js-style'
+import XLSX, { type CellStyle, type WorkSheet, utils } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TOutputType, TableSummary, TransformersMap, ValueTransformer } from './types'
-import { formatKey, getCellDataType, getPropertyFromPath, getSheetCellKey } from './utils'
+import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, Sheet, TOutputType, TableSummary, TransformersMap } from './types'
+import { buildSheetConfig, getCellDataType, getColumnHeaderStyle, getWorksheetColumnWidths } from './utils'
 
 export class ExcelSchemaBuilder<
   T extends GenericObject,
@@ -126,148 +124,87 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     OutputType extends TOutputType,
     Output = ExcelBuildOutput<OutputType>,
   >(params: ExcelBuildParams<OutputType>): Output {
-    const _sheets = this.sheets.map(sheet => ({
-      sheet: sheet.sheetKey,
-      columns: sheet.schema
-        .columns
-        .filter((column) => {
-          if (!column)
-            return false
-          if (!sheet.select || Object.keys(sheet.select).length === 0)
-            return true
+    const _sheets = buildSheetConfig(this.sheets)
+    const workbook = utils.book_new()
 
-          const selectorMap = Object.entries(sheet.select).map(([key, value]) => ({ key, value }))
-          if (selectorMap.every(({ value }) => value === false) && !selectorMap.some(({ key }) => key === column.columnKey))
-            return true
-
-          if (selectorMap.some(({ key, value }) => key === column.columnKey && value === true))
-            return true
-
-          return false
-        })
-        .map((column): Column<any, any, any, any> | Column<any, any, any, any>[] => {
-          if (column.type === 'column') {
-            return column
-          }
-          else {
-            const builder = column.builder()
-            column.handler(builder, ((sheet.context ?? {}) as any)[column.columnKey])
-            const { columns } = builder.build()
-            return columns as Column<any, any, any, any>[]
-          }
-        })
-        .flat()
-        .map((column) => {
-          return {
-            label: column?.label ?? formatKey(column.columnKey),
-            value: (row) => {
-              const value = typeof column.key === 'string'
-                ? getPropertyFromPath(row, column.key)
-                : column.key(row)
-
-              if (
-                typeof value === 'undefined'
-                  || value === null
-                  || value === ''
-                  || (Array.isArray(value) && value.length === 0 && column.default)
-              )
-                return column.default
-
-              return column.transform ? (column.transform as ValueTransformer)(value) : value
-            },
-            _ref: column,
-          } satisfies (IColumn & { _ref: Column<any, any, any, any> })
-        }),
-      content: sheet.data,
-      summary: sheet.schema.summary,
-      enableSummary: sheet.summary ?? true,
-    })) satisfies IJsonSheet[]
-
-    const fileBody = xlsx(_sheets, {
-      fileName: Date.now().toString(),
-      extraLength: params?.extraLength ?? 3,
-      RTL: params?.rtl ?? false,
-      writeOptions: {
-        type: 'buffer',
-        bookType: 'xlsx',
-
-      },
-
-    }) as Buffer
-
-    const workbook = XLSX.read(fileBody, { type: 'buffer' })
-    workbook.SheetNames.forEach((sheetName) => {
-      const sheetConfig = _sheets.find(({ sheet }) => sheet === sheetName)
-      if (!sheetConfig)
-        return
-
-      workbook.Sheets[sheetName]['!rows'] = Array.from({
-        length: sheetConfig.content.length + 1,
-      }, () => ({ hpt: params?.rowHeight ?? 30 }))
-
-      workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], params?.extraLength ?? 5).map(({ width }) => ({
-        wch: width,
-      }))
-
+    _sheets.forEach((sheetConfig) => {
+      const worksheet: WorkSheet = {}
       sheetConfig.columns.forEach((column, index) => {
-        const headerCellRef = getSheetCellKey(index + 1, 1)
-        if (!workbook.Sheets[sheetName][headerCellRef])
-          return
-        workbook.Sheets[sheetName][headerCellRef].s = {
-          font: { bold: true },
-          alignment: { horizontal: 'center', vertical: 'center' },
-          fill: { fgColor: { rgb: 'E9E9E9' } },
-          border: (params?.bordered ?? true)
-            ? {
-                bottom: { style: 'thin', color: { rgb: '000000' } },
-                left: { style: 'thin', color: { rgb: '000000' } },
-                right: { style: 'thin', color: { rgb: '000000' } },
-                top: { style: 'thin', color: { rgb: '000000' } },
-              }
-            : {},
-        } satisfies CellStyle
+        const headerCellRef = utils.encode_cell({ c: index, r: 0 })
+        worksheet[headerCellRef] = {
+          v: column.label,
+          t: 's',
+          s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+        } satisfies XLSX.CellObject
+
         sheetConfig.content.forEach((row, rowIndex) => {
-          const cellRef = getSheetCellKey(index + 1, rowIndex + 2)
+          const cellRef = utils.encode_cell({ c: index, r: rowIndex + 1 })
+          const value = column.value(row)
           const style = typeof column._ref.cellStyle === 'function'
             ? column._ref.cellStyle(row)
             : column._ref.cellStyle ?? {}
+          const format = typeof column._ref.format === 'function'
+            ? column._ref.format(row)
+            : column._ref.format
 
-          if (!workbook.Sheets[sheetName][cellRef])
-            workbook.Sheets[sheetName][cellRef] = { v: '', t: 's' } satisfies XLSX.CellObject
-
-          workbook.Sheets[sheetName][cellRef].s = deepmerge(
-            style,
-            {
-              alignment: { vertical: 'center' },
-              border: (params?.bordered ?? true)
-                ? {
-                    bottom: { style: 'thin', color: { rgb: '000000' } },
-                    left: { style: 'thin', color: { rgb: '000000' } },
-                    right: { style: 'thin', color: { rgb: '000000' } },
-                    top: { style: 'thin', color: { rgb: '000000' } },
-                  }
-                : {},
-              numFmt: typeof column._ref.format === 'function' ? column._ref.format(row) : column._ref.format,
-            } satisfies CellStyle,
-          )
+          worksheet[cellRef] = {
+            v: value === null ? '' : value,
+            t: getCellDataType(value),
+            z: format,
+            s: deepmerge(
+              style,
+              {
+                alignment: { vertical: 'center' },
+                border: (params?.bordered ?? true)
+                  ? {
+                      bottom: { style: 'thin', color: { rgb: '000000' } },
+                      left: { style: 'thin', color: { rgb: '000000' } },
+                      right: { style: 'thin', color: { rgb: '000000' } },
+                      top: { style: 'thin', color: { rgb: '000000' } },
+                    }
+                  : {},
+                numFmt: format,
+              } satisfies CellStyle,
+            ),
+          } satisfies XLSX.CellObject
         })
-      })
 
-      const hasSummary = Object.keys(sheetConfig.summary).length > 0
+        const hasSummary = Object.keys(sheetConfig.summary).length > 0
+          && sheetConfig.enableSummary
+          && Object.keys(sheetConfig.summary).some(key => sheetConfig.columns.some(column => column._ref.columnKey === key))
 
-      if (hasSummary && sheetConfig.enableSummary) {
-        const summaryRowIndex = sheetConfig.content.length + 2
-        workbook.Sheets[sheetName]['!ref'] = `A1:${getSheetCellKey(sheetConfig.columns.length, summaryRowIndex)}` as any
+        if (hasSummary) {
+          const summaryRowIndex = sheetConfig.content.length + 1
+          for (const columnIndex in sheetConfig.columns) {
+            const column = sheetConfig.columns[columnIndex]
+            const summary = (sheetConfig.summary as TableSummary<GenericObject, string>)[column._ref.columnKey]
+            const cellRef = utils.encode_cell({ c: +columnIndex, r: summaryRowIndex })
+            if (!summary) {
+              worksheet[cellRef] = {
+                v: '',
+                t: 's',
+                s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+              } satisfies XLSX.CellObject
 
-        for (const columnIndex in sheetConfig.columns) {
-          const column = sheetConfig.columns[columnIndex]
-          const summary = (sheetConfig.summary as TableSummary<GenericObject, string>)[column._ref.columnKey]
-          const cellRef = getSheetCellKey(+columnIndex + 1, summaryRowIndex)
-          if (!summary) {
-            workbook.Sheets[sheetName][cellRef] = {
-              v: '',
-              t: 's',
-              s: {
+              continue
+            }
+
+            const style = typeof summary.cellStyle === 'function'
+              ? summary.cellStyle(sheetConfig.content)
+              : summary.cellStyle ?? {}
+            const format = typeof summary.format === 'function'
+              ? summary.format(sheetConfig.content)
+              : summary.format
+            const value = summary.value(sheetConfig.content)
+
+            worksheet[cellRef] = {
+              v: value === null ? '' : value,
+              t: getCellDataType(value),
+              z: format,
+              s: deepmerge(
+                style,
+              {
+                font: { bold: true },
                 fill: { fgColor: { rgb: 'E9E9E9' } },
                 alignment: { vertical: 'center' },
                 border: (params?.bordered ?? true)
@@ -278,52 +215,29 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                       top: { style: 'thin', color: { rgb: '000000' } },
                     }
                   : {},
+                numFmt: format,
               } satisfies CellStyle,
+              ),
             } satisfies XLSX.CellObject
-
-            continue
           }
-
-          const style = typeof summary.cellStyle === 'function'
-            ? summary.cellStyle(sheetConfig.content)
-            : summary.cellStyle ?? {}
-          const format = typeof summary.format === 'function'
-            ? summary.format(sheetConfig.content)
-            : summary.format
-          const value = summary.value(sheetConfig.content)
-
-          workbook.Sheets[sheetName][cellRef] = {
-            v: value === null ? '' : value,
-            t: getCellDataType(value),
-            z: format,
-            s: deepmerge(
-              style,
-            {
-              font: { bold: true },
-              fill: { fgColor: { rgb: 'E9E9E9' } },
-              alignment: { vertical: 'center' },
-              border: (params?.bordered ?? true)
-                ? {
-                    bottom: { style: 'thin', color: { rgb: '000000' } },
-                    left: { style: 'thin', color: { rgb: '000000' } },
-                    right: { style: 'thin', color: { rgb: '000000' } },
-                    top: { style: 'thin', color: { rgb: '000000' } },
-                  }
-                : {},
-              numFmt: format,
-            } satisfies CellStyle,
-            ),
-          } satisfies XLSX.CellObject
         }
-      }
 
-      workbook.Sheets[sheetName]['!rows'] = Array.from({ length: sheetConfig.content.length + (hasSummary ? 2 : 1),
-      }, () => ({ hpt: params?.rowHeight ?? 30 }))
+        worksheet['!ref'] = `A1:${utils.encode_cell({ c: sheetConfig.columns.length - 1, r: sheetConfig.content.length + (hasSummary ? 1 : 0) })}`
 
-      workbook.Sheets[sheetName]['!cols'] = getWorksheetColumnWidths(workbook.Sheets[sheetName], params?.extraLength ?? 5).map(({ width }) => ({
-        wch: width,
-      }))
+        worksheet['!rows'] = Array.from(
+          { length: sheetConfig.content.length + (hasSummary ? 2 : 1) },
+          () => ({ hpt: params?.rowHeight ?? 30 }),
+        )
+
+        worksheet['!cols'] = getWorksheetColumnWidths(worksheet, params?.extraLength ?? 5)
+      })
+
+      utils.book_append_sheet(workbook, worksheet, sheetConfig.sheet)
     })
+
+    workbook.Workbook ??= {}
+    workbook.Workbook.Views ??= [{}]
+    workbook.Workbook.Views.forEach(view => view.RTL = params?.rtl ?? false)
 
     return params.output === 'workbook' ? workbook : (XLSX.write(workbook, { type: params.output, bookType: 'xlsx' }))
   }
