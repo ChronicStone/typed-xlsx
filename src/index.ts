@@ -214,6 +214,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         sheetConfig.content.forEach((row, rowIndex) => {
           const cellRef = getSheetCellKey(index + 1, rowIndex + 2)
           const style = column._ref.cellStyle?.(row) ?? {}
+
+          if (!workbook.Sheets[sheetName][cellRef])
+            return
           workbook.Sheets[sheetName][cellRef].s = deepmerge(
             style,
             {
