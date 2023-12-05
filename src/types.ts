@@ -17,15 +17,27 @@ export type NestedPaths<T> = T extends Array<infer U>
 
 export type Not<T, U> = T extends U ? never : T
 
-export type TypeFromPath<T extends GenericObject, Path extends string> =
-  Path extends keyof T ? T[Path] : // Direct key of T
-    Path extends `${infer P}.${infer R}` ? // Nested path
-      P extends keyof T ?
-        T[P] extends (GenericObject | null | undefined) ? // If T[P] is an object, null, or undefined
-        TypeFromPath<Exclude<T[P], undefined | null>, R> | Extract<T[P], undefined | null> // Recurse with Exclude and add null/undefined if present
-          : never
-        : never
-      : never
+type IfExistsInAllUnionMembers<T, K extends PropertyKey> =
+    T extends any ? K extends keyof T ? true : false : never
+
+// Main TypeFromPath type
+export type TypeFromPath<T, Path extends string> =
+    T extends any ? (
+      Path extends keyof T ? T[Path] :
+        Path extends `${infer P}.${infer R}` ?
+          P extends keyof T ?
+            T[P] extends GenericObject | null | undefined ?
+              TypeFromPath<Exclude<T[P], undefined | null>, R> :
+              never :
+            never :
+          never
+    ) : never
+
+// Modified part to handle union types with undefined
+export type TypeFromPathUnion<T, Path extends string> =
+    IfExistsInAllUnionMembers<T, Path> extends true
+      ? TypeFromPath<T, Path>
+      : TypeFromPath<T, Path> | undefined
 
 export type AllKeysMatch<T extends object, U> = {
   [K in keyof T]: T[K] extends U ? true : false;
@@ -51,7 +63,7 @@ export type TypedTransformersMap<TransformMap extends TransformersMap, Value> = 
 export type ExtractColumnValue<
   T extends GenericObject,
   FieldValue extends string | ((data: T) => CellValue),
-> = FieldValue extends string ? TypeFromPath<T, FieldValue> : FieldValue extends (...args: any[]) => any ? ReturnType<FieldValue> : never
+> = FieldValue extends string ? TypeFromPathUnion<T, FieldValue> : FieldValue extends (...args: any[]) => any ? ReturnType<FieldValue> : never
 
 export type Column<
   T extends GenericObject,

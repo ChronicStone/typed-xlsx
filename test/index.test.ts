@@ -33,7 +33,7 @@ const transformers = {
 } satisfies TransformersMap
 // Usage example
 
-describe('should', () => {
+describe('should generate the example excel', () => {
   it('exported', () => {
     const organizations: Organization[] = Array.from({ length: 10 }, (_, id) => ({
       id,
