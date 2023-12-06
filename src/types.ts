@@ -85,6 +85,11 @@ export type Column<
   default?: CellValue
   format?: string | ((rowData: T) => string)
   cellStyle?: CellStyle | ((rowData: T) => CellStyle)
+  summary?: Array<{
+    value: (data: T[]) => CellValue
+    format?: string | ((data: T[]) => string)
+    cellStyle?: CellStyle | ((data: T[]) => CellStyle)
+  }>
 } & (
   ExtractColumnValue<T, FieldValue> extends CellValue
     ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>) => CellValue) }
@@ -118,23 +123,13 @@ export type GroupHandler<
   context: Context,
 ) => void
 
-export type TableSummary<T extends GenericObject, UsedKeys extends string> = {
-  [K in UsedKeys | string]?: {
-    value: (data: T[]) => CellValue
-    format?: string | ((data: T[]) => string)
-    cellStyle?: CellStyle | ((data: T[]) => CellStyle)
-  }
-}
-
 export interface ExcelSchema<
   T extends GenericObject,
   KeyPaths extends string,
   Key extends string,
   ContextMap extends { [key: string]: any } = {},
-  SummaryMap extends TableSummary<T, Key> = {},
 > {
   columns: Array<Column<T, KeyPaths, Key, any> | ColumnGroup<T, Key, KeyPaths, string, any, any, ContextMap>>
-  summary: SummaryMap
 }
 
 export type SchemaColumnKeys<
@@ -154,7 +149,7 @@ export type SheetTable<
   data: T[]
   select?: SelectColsMap
   context?: {}
-  summary?: {}
+  summary?: boolean
 } & (keyof SelectedContextMap extends never ? {} : { context: Prettify<SelectedContextMap> })
 
 export interface SheetTableBuilder<

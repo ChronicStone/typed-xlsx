@@ -59,7 +59,10 @@ describe('should generate the example excel', () => {
     const assessmentExport = ExcelSchemaBuilder
       .create<User>()
       .withTransformers(transformers)
-      .column('id', { key: 'id' })
+      .column('id', {
+        key: 'id',
+        summary: [{ value: () => 'TOTAL BEFORE VAT' }, { value: () => 'TOTAL' }],
+      })
       .column('firstName', { key: 'firstName' })
       .column('lastName', { key: 'lastName' })
       .column('email', { key: 'email' })
@@ -68,11 +71,36 @@ describe('should generate the example excel', () => {
         transform: 'list',
         cellStyle: data => ({ font: { color: { rgb: data.roles.includes('admin') ? 'd10808' : undefined } } }),
       })
-      .column('balance', { key: 'balance', format: '"$"#,##0.00_);\\("$"#,##0.00\\)' })
+      .column('balance', {
+        key: 'balance',
+        format: '"$"#,##0.00_);\\("$"#,##0.00\\)',
+        summary: [
+          {
+            value: data => data.reduce((acc, user) => acc + user.balance, 0),
+            format: '"$"#,##0.00_);\\("$"#,##0.00\\)',
+          },
+          {
+            value: data => data.reduce((acc, user) => acc + user.balance, 0) * 1.2,
+            format: '"$"#,##0.00_);\\("$"#,##0.00\\)',
+          },
+        ],
+      })
       .column('nbOrgs', { key: 'organizations', transform: 'arrayLength' })
       .column('orgs', { key: 'organizations', transform: org => org.map(org => org.name).join(', ') })
-      .column('generalScore', { key: 'results.general.overall', format: '# / 10' })
-      .column('technicalScore', { key: 'results.technical.overall' })
+      .column('generalScore', {
+        key: 'results.general.overall',
+        format: '# / 10',
+        summary: [{
+          value: data => data.reduce((acc, user) => acc + user.results.general.overall, 0) / data.length,
+          format: '# / 10',
+        }],
+      })
+      .column('technicalScore', {
+        key: 'results.technical.overall',
+        summary: [{
+          value: data => data.reduce((acc, user) => acc + user.results.technical.overall, 0) / data.length,
+        }],
+      })
       .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
       .column('createdAt', { key: 'createdAt', format: 'd mmm yyyy' })
       .group('group:org', (builder, context: Organization[]) => {
@@ -89,13 +117,6 @@ describe('should generate the example excel', () => {
               }),
             })
         }
-      })
-      .summary({
-        id: { value: () => 'TOTAL' },
-        balance: { value: data => data.reduce((acc, user) => acc + user.balance, 0), format: '"$"#,##0.00_);\\("$"#,##0.00\\)' },
-        generalScore: { value: data => data.reduce((acc, user) => acc + user.results.general.overall, 0) / data.length },
-        technicalScore: { value: data => data.reduce((acc, user) => acc + user.results.technical.overall, 0) / data.length },
-        interviewScore: { value: data => data.reduce((acc, user) => acc + (user.results.interview?.overall ?? 0), 0) / data.length },
       })
       .build()
 

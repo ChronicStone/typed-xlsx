@@ -1,7 +1,7 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type CellStyle, type WorkSheet, utils } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TableSummary, TransformersMap } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
 import { buildSheetConfig, computeSheetRange, getCellDataType, getColumnHeaderStyle, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
 
 export class ExcelSchemaBuilder<
@@ -10,19 +10,17 @@ export class ExcelSchemaBuilder<
   UsedKeys extends string = never,
   TransformMap extends TransformersMap = {},
   ContextMap extends { [key: string]: any } = {},
-  SummaryMap extends TableSummary<T, UsedKeys> = {},
 > {
   private columns: Array<Column<T, CellKeyPaths | ((data: T) => CellValue), string, TransformMap> | ColumnGroup<T, string, CellKeyPaths, string, TransformMap, any>> = []
   private transformers: TransformMap = {} as TransformMap
-  private summaryMap: SummaryMap = {} as SummaryMap
 
   public static create<T extends GenericObject, KeyPath extends string = NestedPaths<T>>(): ExcelSchemaBuilder<T, KeyPath> {
     return new ExcelSchemaBuilder<T, KeyPath>()
   }
 
-  public withTransformers<Transformers extends TransformersMap>(transformers: Transformers): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, SummaryMap> {
+  public withTransformers<Transformers extends TransformersMap>(transformers: Transformers): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers> {
     this.transformers = transformers as TransformMap & Transformers
-    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, ContextMap, SummaryMap>
+    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, ContextMap>
   }
 
   public column<
@@ -31,7 +29,7 @@ export class ExcelSchemaBuilder<
   >(
     columnKey: Not<K, UsedKeys>,
     column: Omit<Column<T, FieldValue, K, TransformMap>, 'columnKey' | 'type'>,
-  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap, SummaryMap> {
+  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap> {
     if (this.columns.some(c => c.columnKey === columnKey))
       throw new Error(`Column with key '${columnKey}' already exists.`)
 
@@ -50,8 +48,7 @@ export class ExcelSchemaBuilder<
     CellKeyPaths,
     UsedKeys | K,
     TransformMap,
-    ContextMap & { [key in K]: Context },
-    SummaryMap
+    ContextMap & { [key in K]: Context }
   > {
     if (this.columns.some(c => c.columnKey === key))
       throw new Error(`Column with key '${key}' already exists.`)
@@ -68,11 +65,6 @@ export class ExcelSchemaBuilder<
     return this as any
   }
 
-  summary<Summary extends TableSummary<T, UsedKeys>>(summary: Summary): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, ContextMap, Summary> {
-    this.summaryMap = summary as SummaryMap & Summary
-    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, ContextMap, SummaryMap & Summary>
-  }
-
   public build() {
     const columns = this.columns.map(column => column.type === 'column'
       ? ({
@@ -85,13 +77,11 @@ export class ExcelSchemaBuilder<
 
     return {
       columns,
-      summary: this.summaryMap,
     } as ExcelSchema<
       T,
       CellKeyPaths,
       UsedKeys,
-      ContextMap,
-      SummaryMap
+      ContextMap
     >
   }
 }
@@ -212,32 +202,36 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               const summaryRowIndex = tableConfig.content.length + 1
               for (const columnIndex in tableConfig.columns) {
                 const column = tableConfig.columns[columnIndex]
-                const summary = (tableConfig.summary as TableSummary<GenericObject, string>)[column._ref.columnKey]
-                const cellRef = utils.encode_cell({ c: +columnIndex + COL_OFFSET, r: summaryRowIndex + ROW_OFFSET })
-                if (!summary) {
+                for (const summaryIndex in column._ref?.summary ?? []) {
+                  const summary = column._ref?.summary?.[summaryIndex]
+                  if (!summary)
+                    continue
+
+                  const cellRef = utils.encode_cell({ c: +columnIndex + COL_OFFSET, r: summaryRowIndex + ROW_OFFSET + +summaryIndex })
+                  if (!summary) {
+                    worksheet[cellRef] = {
+                      v: '',
+                      t: 's',
+                      s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+                    } satisfies XLSX.CellObject
+
+                    continue
+                  }
+
+                  const style = typeof summary.cellStyle === 'function'
+                    ? summary.cellStyle(tableConfig.content)
+                    : summary.cellStyle ?? {}
+                  const format = typeof summary.format === 'function'
+                    ? summary.format(tableConfig.content)
+                    : summary.format
+                  const value = summary.value(tableConfig.content)
+
                   worksheet[cellRef] = {
-                    v: '',
-                    t: 's',
-                    s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
-                  } satisfies XLSX.CellObject
-
-                  continue
-                }
-
-                const style = typeof summary.cellStyle === 'function'
-                  ? summary.cellStyle(tableConfig.content)
-                  : summary.cellStyle ?? {}
-                const format = typeof summary.format === 'function'
-                  ? summary.format(tableConfig.content)
-                  : summary.format
-                const value = summary.value(tableConfig.content)
-
-                worksheet[cellRef] = {
-                  v: value === null ? '' : value,
-                  t: getCellDataType(value),
-                  z: format,
-                  s: deepmerge(
-                    style,
+                    v: value === null ? '' : value,
+                    t: getCellDataType(value),
+                    z: format,
+                    s: deepmerge(
+                      style,
                   {
                     font: { bold: true },
                     fill: { fgColor: { rgb: 'E9E9E9' } },
@@ -252,8 +246,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                       : {},
                     numFmt: format,
                   } satisfies CellStyle,
-                  ),
-                } satisfies XLSX.CellObject
+                    ),
+                  } satisfies XLSX.CellObject
+                }
               }
             }
           })

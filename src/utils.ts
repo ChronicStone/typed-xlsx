@@ -1,5 +1,4 @@
 import { type CellStyle, type ExcelDataType, type WorkSheet, utils } from 'xlsx-js-style'
-import { deepmerge } from 'deepmerge-ts'
 import type { CellValue, Column, GenericObject, SheetConfig, ValueTransformer } from './types'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
@@ -39,7 +38,6 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
     sheet: sheet.sheetKey,
     params: sheet.params,
     tables: sheet.tables.map((table) => {
-      let tableSummary = table.schema.summary
       const columns = table.schema
         .columns
         .filter((column) => {
@@ -64,10 +62,11 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
           else {
             const builder = column.builder()
             column.handler(builder, ((table.context ?? {}) as any)[column.columnKey])
-            const { columns, summary } = builder.build()
-            const childSummaryMap = Object.keys(summary as object).reduce((acc, key) => ({ [`${column.columnKey}:${key}`]: (summary as any)[key], ...acc }), {})
-            tableSummary = deepmerge(tableSummary, childSummaryMap)
-            return (columns as Column<any, any, any, any>[]).map(col => ({ ...col, key: `${column.columnKey}:${col.key}` }))
+            const { columns } = builder.build()
+            // const childSummaryMap = Object.keys(summary as object).reduce((acc, key) => ({ [`${column.columnKey}:${key}`]: (summary as any)[key], ...acc }), {})
+            // tableSummary = deepmerge(tableSummary, childSummaryMap)
+            return (columns as Column<any, any, any, any>[])
+            // .map(col => ({ ...col, key: `${column.columnKey}:${col.key}` }))
           }
         })
         .flat()
@@ -95,7 +94,6 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
 
       return {
         content: table.data,
-        summary: tableSummary,
         columns,
         enableSummary: table.summary ?? true,
       }
@@ -182,16 +180,22 @@ export function getSheetChunkMaxHeight(
   tables: ReturnType<typeof buildSheetConfig>[number]['tables'],
 ) {
   return tables.reduce((acc, table) => {
-    const hasSummary = tableHasSummary(table)
-    const tableHeight = table.content.length + (hasSummary ? 2 : 1)
+    const summaryRowLength = tableSummaryRowLength(table)
+    const tableHeight = table.content.length + 1 + summaryRowLength
     return Math.max(acc, tableHeight)
   }, 0)
 }
 
 export function tableHasSummary(table: ReturnType<typeof buildSheetConfig>[number]['tables'][number]) {
-  return Object.keys(table.summary).length > 0
-    && table.enableSummary
-    && Object.keys(table.summary).some(key => table.columns.some(column => column._ref.columnKey === key))
+  return table.enableSummary
+    && table.columns.some(column => column._ref?.summary?.length)
+}
+
+export function tableSummaryRowLength(table: ReturnType<typeof buildSheetConfig>[number]['tables'][number]) {
+  return table.columns.reduce((acc, column) => {
+    const columnSummaryLength = column._ref?.summary?.length ?? 0
+    return Math.max(acc, columnSummaryLength)
+  }, 0)
 }
 
 export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetConfig>[number]['tables']>) {
@@ -205,7 +209,8 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
 
   const sheetHeight = sheetRows.reduce((acc, tables) => {
     const rowHeight = tables.reduce((acc, table) => {
-      const tableHeight = table.content.length + (tableHasSummary(table) ? 2 : 1)
+      const summaryRowLength = tableSummaryRowLength(table)
+      const tableHeight = table.content.length + summaryRowLength + 1
       return Math.max(acc, tableHeight)
     }, 0)
     return acc + rowHeight + 1
@@ -215,5 +220,17 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
     sheetHeight,
     sheetWidth,
     sheetRange: utils.encode_range({ s: { c: 0, r: 0 }, e: { c: sheetWidth, r: sheetHeight } }),
+  }
+}
+
+export function formulaeBuilder<
+  ColKeys extends string,
+>(cols: ColKeys) {
+  return {
+    sum: (start: number, end: number) => `SUM(${cols}${start}:${cols}${end})`,
+    count: (start: number, end: number) => `COUNT(${cols}${start}:${cols}${end})`,
+    average: (start: number, end: number) => `AVERAGE(${cols}${start}:${cols}${end})`,
+    max: (start: number, end: number) => `MAX(${cols}${start}:${cols}${end})`,
+    min: (start: number, end: number) => `MIN(${cols}${start}:${cols}${end})`,
   }
 }
