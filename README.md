@@ -16,6 +16,7 @@
 - 🔄 **Type-safe Data Serialization & Transformation:** Ensure data integrity through type-safe serialization and transformation functionalities.
   
 - 🔧 **Shared Type-safe Custom Value Pre-processors:** Utilize shared pre-processors for consistent value transformaiton
+- 🧮 **Column Summary :** Auto-insert computed column summaries for efficient data analysis and overview.
 - 🎯 **Easy Default Values Management:** Manage default values effortlessly, ensuring your data is presented exactly as you intend.
 - 📊 **Dynamic Column Selection:** Selectively choose which columns of the schema to use when building a table
 - 🗺️ **Dynamic Column Mapping with Type-safe Context:** Map columns dynamically with a type-safe context, injected when building sheet
