@@ -138,15 +138,26 @@ const buffer = ExcelBuilder
     },
   })
   .sheet('User - Multiple tables')
+  .sheet('Multi-tables-grid', { tablesPerRow: 3 })
   .addTable({
-    data: users.filter((_, i) => i < 10),
+    data: users.filter((_, i) => i < 5),
     schema: assessmentExport,
-    select: { balance: true, email: true, createdAt: true },
+    select: { firstName: true, lastName: true, email: true, createdAt: true },
   })
   .addTable({
-    data: users.filter((_, i) => i < 10),
+    data: users.filter((_, i) => i < 5),
     schema: assessmentExport,
-    select: { firstName: true, lastName: true, email: true },
+    select: { firstName: true, lastName: true, email: true, balance: true },
+  })
+  .addTable({
+    data: users.filter((_, i) => i < 5),
+    schema: assessmentExport,
+    select: { firstName: true, lastName: true, email: true, balance: true },
+  })
+  .addTable({
+    data: users.filter((_, i) => i < 5),
+    schema: assessmentExport,
+    select: { firstName: true, lastName: true, email: true, createdAt: true },
   })
   .build({ output: 'buffer' })
 

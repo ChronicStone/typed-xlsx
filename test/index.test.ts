@@ -134,7 +134,7 @@ describe('should generate the example excel', () => {
           'group:org': organizations,
         },
       })
-      .sheet('User - Multiple tables', { tablesPerRow: 3 })
+      .sheet('Multi-tables-grid', { tablesPerRow: 3 })
       .addTable({
         data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
@@ -144,36 +144,6 @@ describe('should generate the example excel', () => {
         data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
         select: { firstName: true, lastName: true, email: true, balance: true },
-      })
-      .addTable({
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, balance: true },
-      })
-      .addTable({
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, createdAt: true },
-      })
-      .addTable({
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, balance: true },
-      })
-      .addTable({
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, createdAt: true },
-      })
-      .addTable({
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, balance: true },
-      })
-      .addTable({
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, createdAt: true },
       })
       .addTable({
         data: users.filter((_, i) => i < 5),
