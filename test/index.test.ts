@@ -78,7 +78,7 @@ describe('should generate the example excel', () => {
       .group('group:org', (builder, context: Organization[]) => {
         for (const org of context) {
           builder
-            .column(org.id.toString(), {
+            .column(`orga-${org.id}`, {
               label: `User in ${org.name}`,
               key: 'organizations',
               transform: orgs => orgs.some(o => o.id === org.id) ? 'YES' : 'NO',
@@ -134,16 +134,56 @@ describe('should generate the example excel', () => {
           'group:org': organizations,
         },
       })
-      .sheet('User - Multiple tables')
+      .sheet('User - Multiple tables', { tablesPerRow: 3 })
       .addTable({
-        data: users.filter((_, i) => i < 10),
+        data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
-        select: { balance: true, email: true, createdAt: true },
+        select: { firstName: true, lastName: true, email: true, createdAt: true },
       })
       .addTable({
-        data: users.filter((_, i) => i < 10),
+        data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true },
+        select: { firstName: true, lastName: true, email: true, balance: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, balance: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, createdAt: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, balance: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, createdAt: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, balance: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, createdAt: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, balance: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 5),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true, createdAt: true },
       })
       .build({ output: 'buffer' })
 

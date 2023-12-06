@@ -119,7 +119,7 @@ export type GroupHandler<
 ) => void
 
 export type TableSummary<T extends GenericObject, UsedKeys extends string> = {
-  [K in UsedKeys]?: {
+  [K in UsedKeys | string]?: {
     value: (data: T[]) => CellValue
     format?: string | ((data: T[]) => string)
     cellStyle?: CellStyle | ((data: T[]) => CellStyle)

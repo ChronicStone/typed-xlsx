@@ -1,4 +1,5 @@
 import { type CellStyle, type ExcelDataType, type WorkSheet, utils } from 'xlsx-js-style'
+import { deepmerge } from 'deepmerge-ts'
 import type { CellValue, Column, GenericObject, SheetConfig, ValueTransformer } from './types'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
@@ -37,11 +38,9 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
   return sheets.map(sheet => ({
     sheet: sheet.sheetKey,
     params: sheet.params,
-    tables: sheet.tables.map(table => ({
-      content: table.data,
-      summary: table.schema.summary,
-      enableSummary: table.summary ?? true,
-      columns: table.schema
+    tables: sheet.tables.map((table) => {
+      let tableSummary = table.schema.summary
+      const columns = table.schema
         .columns
         .filter((column) => {
           if (!column)
@@ -65,8 +64,10 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
           else {
             const builder = column.builder()
             column.handler(builder, ((table.context ?? {}) as any)[column.columnKey])
-            const { columns } = builder.build()
-            return columns as Column<any, any, any, any>[]
+            const { columns, summary } = builder.build()
+            const childSummaryMap = Object.keys(summary as object).reduce((acc, key) => ({ [`${column.columnKey}:${key}`]: (summary as any)[key], ...acc }), {})
+            tableSummary = deepmerge(tableSummary, childSummaryMap)
+            return (columns as Column<any, any, any, any>[]).map(col => ({ ...col, key: `${column.columnKey}:${col.key}` }))
           }
         })
         .flat()
@@ -90,9 +91,15 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
             },
             _ref: column,
           }
-        }),
+        })
+
+      return {
+        content: table.data,
+        summary: tableSummary,
+        columns,
+        enableSummary: table.summary ?? true,
+      }
     }),
-    ),
   }))
 }
 
@@ -159,4 +166,54 @@ function getWorksheetColumnIds(worksheet: WorkSheet): string[] {
   }
 
   return columnIds
+}
+
+export function splitIntoChunks<T>(array: T[], chunkSize: number | undefined): T[][] {
+  if (!chunkSize)
+    return [array]
+  const chunks: T[][] = []
+  for (let i = 0; i < array.length; i += chunkSize)
+    chunks.push(array.slice(i, i + chunkSize))
+
+  return chunks
+}
+
+export function getSheetChunkMaxHeight(
+  tables: ReturnType<typeof buildSheetConfig>[number]['tables'],
+) {
+  return tables.reduce((acc, table) => {
+    const hasSummary = tableHasSummary(table)
+    const tableHeight = table.content.length + (hasSummary ? 2 : 1)
+    return Math.max(acc, tableHeight)
+  }, 0)
+}
+
+export function tableHasSummary(table: ReturnType<typeof buildSheetConfig>[number]['tables'][number]) {
+  return Object.keys(table.summary).length > 0
+    && table.enableSummary
+    && Object.keys(table.summary).some(key => table.columns.some(column => column._ref.columnKey === key))
+}
+
+export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetConfig>[number]['tables']>) {
+  const sheetWidth = sheetRows.reduce((acc, tables) => {
+    const rowWidth = tables.reduce((acc, table) => {
+      const tableWidth = table.columns.length
+      return acc + tableWidth + 1
+    }, 0)
+    return Math.max(acc, rowWidth)
+  }, 0)
+
+  const sheetHeight = sheetRows.reduce((acc, tables) => {
+    const rowHeight = tables.reduce((acc, table) => {
+      const tableHeight = table.content.length + (tableHasSummary(table) ? 2 : 1)
+      return Math.max(acc, tableHeight)
+    }, 0)
+    return acc + rowHeight + 1
+  }, 0)
+
+  return {
+    sheetHeight,
+    sheetWidth,
+    sheetRange: utils.encode_range({ s: { c: 0, r: 0 }, e: { c: sheetWidth, r: sheetHeight } }),
+  }
 }
