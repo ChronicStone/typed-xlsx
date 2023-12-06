@@ -102,35 +102,44 @@ const assessmentExport = ExcelSchemaBuilder
 ```ts
 import { ExcelBuilder } from '@chronicstone/typed-xlsx'
 
-const arrayBuffer = ExcelBuilder
+const buffer = ExcelBuilder
   .create()
-  .sheet('Users - full', {
+  .sheet('Users - full')
+  .addTable({
     data: users,
     schema: assessmentExport,
+    context: { 'group:org': organizations },
+  })
+  .addTable({
+    data: users,
+    schema: assessmentExport,
+    select: { firstName: true, lastName: true, email: true },
+  })
+  .sheet('Users - partial')
+  .addTable({
+    data: users,
+    schema: assessmentExport,
+    select: { firstName: true, lastName: true, email: true, },
+  })
+  .sheet('User - neg partial')
+  .addTable({
+    data: users,
+    schema: assessmentExport,
+    select: { firstName: false, lastName: false, email: false, },
     context: {
-      'group:org': organizations
-    }
-  })
-  .sheet('Users - partial', {
-    data: users,
-    schema: assessmentExport,
-    select: {
-      firstName: true,
-      lastName: true,
-      email: true
-    }
-  })
-  .sheet('User - neg partial', {
-    data: users,
-    schema: assessmentExport,
-    select: {
-      firstName: false,
-      lastName: false,
-      email: false,
+      'group:org': organizations,
     },
-    context: {
-      'group:org': organizations
-    }
+  })
+  .sheet('User - Multiple tables')
+  .addTable({
+    data: users.filter((_, i) => i < 10),
+    schema: assessmentExport,
+    select: { firstName: true, lastName: true, email: true },
+  })
+  .addTable({
+    data: users.filter((_, i) => i < 10),
+    schema: assessmentExport,
+    select: { firstName: true, lastName: true, email: true },
   })
   .build({ output: 'buffer' })
 

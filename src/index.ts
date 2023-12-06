@@ -1,7 +1,7 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type CellStyle, type WorkSheet, utils } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetTable, SheetTableBuilder, TOutputType, TableSummary, TransformersMap } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TableSummary, TransformersMap } from './types'
 import { buildSheetConfig, getCellDataType, getColumnHeaderStyle, getWorksheetColumnWidths } from './utils'
 
 export class ExcelSchemaBuilder<
@@ -105,11 +105,12 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
   public sheet<Key extends string>(
     key: Not<Key, UsedSheetKeys>,
+    params?: SheetParams,
   ): SheetTableBuilder<ExcelBuilder<UsedSheetKeys | Key>, UsedSheetKeys | Key> {
     if (this.sheets.some(s => s.sheetKey === key))
       throw new Error(`Sheet with key '${key}' already exists.`)
 
-    this.sheets.push({ sheetKey: key, tables: [] })
+    this.sheets.push({ sheetKey: key, params: params ?? {}, tables: [] })
     return {
       addTable: table => this.defineTable(key, table as any),
       sheet: key => this.sheet(key as any),
@@ -146,7 +147,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     const _sheets = buildSheetConfig(this.sheets)
     const workbook = utils.book_new()
 
-    const TABLE_CELL_OFFSET = 2
+    const TABLE_CELL_OFFSET = 1
 
     _sheets.forEach((sheetConfig) => {
       const worksheet: WorkSheet = {}
@@ -260,6 +261,15 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         return Math.max(acc, table.content.length + (hasSummary ? 2 : 1))
       }, 0)
 
+      const colSeparatorIndexes = sheetConfig.tables.map((table, index) => {
+        if (index === sheetConfig.tables.length - 1)
+          return []
+
+        const tableConfig = sheetConfig.tables[index]
+        const colsCount = tableConfig.columns.length
+        return Array.from({ length: TABLE_CELL_OFFSET }, (_, i) => colsCount + i)
+      }).flat()
+
       worksheet['!ref'] = `A1:${utils.encode_cell({ c: totalCols, r: maxRows })}`
 
       worksheet['!rows'] = Array.from(
@@ -268,6 +278,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       )
 
       worksheet['!cols'] = getWorksheetColumnWidths(worksheet, params?.extraLength ?? 5)
+        .map(({ wch }, index) => ({
+          wch: colSeparatorIndexes.includes(index) ? sheetConfig.params?.tableSeparatorWidth ?? 25 : wch,
+        }))
 
       utils.book_append_sheet(workbook, worksheet, sheetConfig.sheet)
     })

@@ -112,9 +112,7 @@ describe('should generate the example excel', () => {
       .addTable({
         data: users,
         schema: assessmentExport,
-        context: {
-          'group:org': organizations,
-        },
+        select: { firstName: true, lastName: true, email: true },
       })
       .sheet('Users - partial')
       .addTable({
@@ -138,6 +136,17 @@ describe('should generate the example excel', () => {
         context: {
           'group:org': organizations,
         },
+      })
+      .sheet('User - Multiple tables')
+      .addTable({
+        data: users.filter((_, i) => i < 10),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true },
+      })
+      .addTable({
+        data: users.filter((_, i) => i < 10),
+        schema: assessmentExport,
+        select: { firstName: true, lastName: true, email: true },
       })
       .build({ output: 'buffer' })
 

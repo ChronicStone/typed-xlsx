@@ -36,6 +36,7 @@ export function getCellDataType(value: CellValue): ExcelDataType {
 export function buildSheetConfig(sheets: Array<SheetConfig>) {
   return sheets.map(sheet => ({
     sheet: sheet.sheetKey,
+    params: sheet.params,
     tables: sheet.tables.map(table => ({
       content: table.data,
       summary: table.schema.summary,

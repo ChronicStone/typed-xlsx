@@ -171,8 +171,15 @@ export interface SheetTableBuilder<
   build: Builder['build']
 }
 
+export interface SheetParams {
+  tableSeparatorWidth?: number
+  tablesPerRow?: number
+
+}
+
 export interface SheetConfig {
   sheetKey: string
+  params: SheetParams
   tables: Array<SheetTable<GenericObject, ExcelSchema<any, any, any, any>, any, any, any, any, any>>
 }
 
