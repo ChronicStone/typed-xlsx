@@ -11,9 +11,6 @@ importers:
       deepmerge-ts:
         specifier: ^5.1.0
         version: 5.1.0
-      json-as-xlsx:
-        specifier: ^2.5.6
-        version: 2.5.6
       xlsx-js-style:
         specifier: ^1.2.0
         version: 1.2.0
@@ -362,12 +359,6 @@ packages:
       '@babel/helper-validator-identifier': 7.22.20
       to-fast-properties: 2.0.0
     dev: true
-
-  /@e965/xlsx@0.20.0:
-    resolution: {integrity: sha512-rOBiPtww7CtlRP2Ggtz+ugagrmlpQHrqKZNLMAxLtpMRPK1AFzj2JurmDT55x+pKAVY80nTFJzmtLZDQhCk2qw==}
-    engines: {node: '>=0.8'}
-    hasBin: true
-    dev: false
 
   /@es-joy/jsdoccomment@0.41.0:
     resolution: {integrity: sha512-aKUhyn1QI5Ksbqcr3fFJj16p99QdjUxXAEuFst1Z47DRyoiMwivIH9MV/ARcJOCXVjPfjITciej8ZD2O/6qUmw==}
@@ -2941,12 +2932,6 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
     dev: true
-
-  /json-as-xlsx@2.5.6:
-    resolution: {integrity: sha512-z7phlB+VgS9wZv2N4SBKlguC3C7uauSj2PYSZICCrPaiu1lu8zkCpzZ4sOHWi0/3Je0CJl87q+J+3mpZbxpOew==}
-    dependencies:
-      '@e965/xlsx': 0.20.0
-    dev: false
 
   /json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}

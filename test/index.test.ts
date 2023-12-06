@@ -108,12 +108,9 @@ describe('should generate the example excel', () => {
         context: {
           'group:org': organizations,
         },
+
       })
-      .addTable({
-        data: users,
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true },
-      })
+
       .sheet('Users - partial')
       .addTable({
         data: users,
@@ -141,7 +138,7 @@ describe('should generate the example excel', () => {
       .addTable({
         data: users.filter((_, i) => i < 10),
         schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true },
+        select: { balance: true, email: true, createdAt: true },
       })
       .addTable({
         data: users.filter((_, i) => i < 10),

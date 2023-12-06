@@ -108,24 +108,31 @@ const buffer = ExcelBuilder
   .addTable({
     data: users,
     schema: assessmentExport,
-    context: { 'group:org': organizations },
+    context: {
+      'group:org': organizations,
+    },
+
   })
-  .addTable({
-    data: users,
-    schema: assessmentExport,
-    select: { firstName: true, lastName: true, email: true },
-  })
+
   .sheet('Users - partial')
   .addTable({
     data: users,
     schema: assessmentExport,
-    select: { firstName: true, lastName: true, email: true, },
+    select: {
+      firstName: true,
+      lastName: true,
+      email: true,
+    },
   })
   .sheet('User - neg partial')
   .addTable({
     data: users,
     schema: assessmentExport,
-    select: { firstName: false, lastName: false, email: false, },
+    select: {
+      firstName: false,
+      lastName: false,
+      email: false,
+    },
     context: {
       'group:org': organizations,
     },
@@ -134,7 +141,7 @@ const buffer = ExcelBuilder
   .addTable({
     data: users.filter((_, i) => i < 10),
     schema: assessmentExport,
-    select: { firstName: true, lastName: true, email: true },
+    select: { balance: true, email: true, createdAt: true },
   })
   .addTable({
     data: users.filter((_, i) => i < 10),
