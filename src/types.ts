@@ -145,6 +145,8 @@ export type SheetTable<
   ContextMap extends { [key: string]: any } = ExtractContextMap<Schema>,
   SelectedContextMap extends ExtractSelectedContext<ContextMap, SelectedCols> = ExtractSelectedContext<ContextMap, SelectedCols>,
 > = {
+  title?: string
+  titleStyle?: CellStyle | ((data: T[]) => CellStyle)
   schema: Schema
   data: T[]
   select?: SelectColsMap

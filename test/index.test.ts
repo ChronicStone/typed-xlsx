@@ -155,23 +155,27 @@ describe('should generate the example excel', () => {
           'group:org': organizations,
         },
       })
-      .sheet('Multi-tables-grid', { tablesPerRow: 3 })
+      .sheet('Multi-tables-grid', { tablesPerRow: 2 })
       .addTable({
+        title: 'Table 1',
         data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
         select: { firstName: true, lastName: true, email: true, createdAt: true },
       })
       .addTable({
+        title: 'Table 2',
         data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
         select: { firstName: true, lastName: true, email: true, balance: true },
       })
       .addTable({
+        title: 'Table 3',
         data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
         select: { firstName: true, lastName: true, email: true, balance: true },
       })
       .addTable({
+        title: 'Table 4',
         data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
         select: { firstName: true, lastName: true, email: true, createdAt: true },

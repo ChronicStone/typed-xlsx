@@ -93,6 +93,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
         })
 
       return {
+        title: table.title,
         content: table.data,
         columns,
         enableSummary: table.summary ?? true,
@@ -180,8 +181,9 @@ export function getSheetChunkMaxHeight(
   tables: ReturnType<typeof buildSheetConfig>[number]['tables'],
 ) {
   return tables.reduce((acc, table) => {
+    const hasTitle = !!table.title
     const summaryRowLength = tableSummaryRowLength(table)
-    const tableHeight = table.content.length + 1 + summaryRowLength
+    const tableHeight = table.content.length + 1 + summaryRowLength + (hasTitle ? 1 : 0)
     return Math.max(acc, tableHeight)
   }, 0)
 }
@@ -209,8 +211,9 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
 
   const sheetHeight = sheetRows.reduce((acc, tables) => {
     const rowHeight = tables.reduce((acc, table) => {
+      const hasTitle = !!table.title
       const summaryRowLength = tableSummaryRowLength(table)
-      const tableHeight = table.content.length + summaryRowLength + 1
+      const tableHeight = table.content.length + summaryRowLength + 1 + (hasTitle ? 1 : 0)
       return Math.max(acc, tableHeight)
     }, 0)
     return acc + rowHeight + 1
