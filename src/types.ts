@@ -50,7 +50,8 @@ export type Prettify<T> = {
   [K in keyof T]: T[K]
 } & {}
 
-export type CellValue = string | number | boolean | null | undefined | Date
+export type BaseCellValue = string | number | boolean | null | undefined | Date
+export type CellValue = BaseCellValue | BaseCellValue[]
 
 export type ValueTransformer = (value: any) => CellValue
 
@@ -86,7 +87,7 @@ export type Column<
   format?: string | ((rowData: T) => string)
   cellStyle?: CellStyle | ((rowData: T) => CellStyle)
   summary?: Array<{
-    value: (data: T[]) => CellValue
+    value: (data: T[]) => BaseCellValue
     format?: string | ((data: T[]) => string)
     cellStyle?: CellStyle | ((data: T[]) => CellStyle)
   }>

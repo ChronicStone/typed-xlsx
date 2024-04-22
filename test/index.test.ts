@@ -63,8 +63,8 @@ describe('should generate the example excel', () => {
         key: 'id',
         summary: [{ value: () => 'TOTAL BEFORE VAT' }, { value: () => 'TOTAL' }],
       })
-      .column('firstName', { key: 'firstName' })
-      .column('lastName', { key: 'lastName' })
+      .column('firstName', { key: 'firstName', transform: () => ['Cyprien', 'THAO'] })
+      .column('lastName', { key: 'lastName', transform: () => ['Thao', 'Other', 'Test'] })
       .column('email', { key: 'email' })
       .column('roles', {
         key: 'roles',

@@ -189,8 +189,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             })
           }
 
-          tableConfig.columns.forEach((column, index) => {
-            const headerCellRef = utils.encode_cell({ c: index + COL_OFFSET, r: ROW_OFFSET + (rowHasTitle ? 1 : 0) })
+          tableConfig.columns.forEach((column, colIndex) => {
+            const headerCellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: ROW_OFFSET + (rowHasTitle ? 1 : 0) })
             worksheet[headerCellRef] = {
               v: column.label,
               t: 's',
@@ -198,8 +198,14 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             } satisfies XLSX.CellObject
 
             tableConfig.content.forEach((row, rowIndex) => {
-              const cellRef = utils.encode_cell({ c: index + COL_OFFSET, r: rowIndex + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) })
-              const value = column.value(row)
+              const maxRowHeight = tableConfig.columns.reduce((acc, column) => {
+                const _resolvedValue = column.value(row)
+                const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+                return Math.max(acc, values.length)
+              }, 1)
+
+              const _resolvedValue = column.value(row)
+              const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
               const style = typeof column._ref.cellStyle === 'function'
                 ? column._ref.cellStyle(row)
                 : column._ref.cellStyle ?? {}
@@ -207,62 +213,103 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                 ? column._ref.format(row)
                 : column._ref.format
 
-              worksheet[cellRef] = {
-                v: value === null ? '' : value,
-                t: getCellDataType(value),
-                z: format,
-                s: deepmerge(
-                  style,
-                  {
-                    alignment: { vertical: 'center' },
-                    border: (params?.bordered ?? true)
-                      ? {
-                          bottom: { style: 'thin', color: { rgb: '000000' } },
-                          left: { style: 'thin', color: { rgb: '000000' } },
-                          right: { style: 'thin', color: { rgb: '000000' } },
-                          top: { style: 'thin', color: { rgb: '000000' } },
-                        }
-                      : {},
-                    numFmt: format,
-                  } satisfies CellStyle,
-                ),
-              } satisfies XLSX.CellObject
-            })
+              values.forEach((value, valueIndex) => {
+                const cellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + valueIndex })
+                worksheet[cellRef] = {
+                  v: value === null ? '' : value,
+                  t: getCellDataType(value),
+                  z: format,
+                  s: deepmerge(
+                    style,
+                    {
+                      alignment: { vertical: 'center' },
+                      border: (params?.bordered ?? true)
+                        ? {
+                            bottom: { style: 'thin', color: { rgb: '000000' } },
+                            left: { style: 'thin', color: { rgb: '000000' } },
+                            right: { style: 'thin', color: { rgb: '000000' } },
+                            top: { style: 'thin', color: { rgb: '000000' } },
+                          }
+                        : {},
+                      numFmt: format,
+                    } satisfies CellStyle,
+                  ),
+                } satisfies XLSX.CellObject
+              })
 
-            if (tableHasSummary(tableConfig)) {
-              const summaryRowIndex = tableConfig.content.length + 1
-              for (const columnIndex in tableConfig.columns) {
-                const column = tableConfig.columns[columnIndex]
-                for (const summaryIndex in column._ref?.summary ?? []) {
-                  const summary = column._ref?.summary?.[summaryIndex]
-                  if (!summary)
-                    continue
-
-                  const cellRef = utils.encode_cell({ c: +columnIndex + COL_OFFSET, r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (rowHasTitle ? 1 : 0) })
-                  if (!summary) {
-                    worksheet[cellRef] = {
-                      v: '',
-                      t: 's',
-                      s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
-                    } satisfies XLSX.CellObject
-
-                    continue
-                  }
-
-                  const style = typeof summary.cellStyle === 'function'
-                    ? summary.cellStyle(tableConfig.content)
-                    : summary.cellStyle ?? {}
-                  const format = typeof summary.format === 'function'
-                    ? summary.format(tableConfig.content)
-                    : summary.format
-                  const value = summary.value(tableConfig.content)
-
+              if (values.length < maxRowHeight && maxRowHeight > 1) {
+                for (let i = values.length; i < maxRowHeight; i++) {
+                  const cellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + i })
                   worksheet[cellRef] = {
-                    v: value === null ? '' : value,
-                    t: getCellDataType(value),
-                    z: format,
+                    v: '',
+                    t: 's',
                     s: deepmerge(
                       style,
+                      {
+                        alignment: { vertical: 'center' },
+                        border: (params?.bordered ?? true)
+                          ? {
+                              bottom: { style: 'thin', color: { rgb: '000000' } },
+                              left: { style: 'thin', color: { rgb: '000000' } },
+                              right: { style: 'thin', color: { rgb: '000000' } },
+                              top: { style: 'thin', color: { rgb: '000000' } },
+                            }
+                          : {},
+                      } satisfies CellStyle,
+                    ),
+                  } satisfies XLSX.CellObject
+                }
+                if (values.length === 1) {
+                  if (!worksheet['!merges'])
+                    worksheet['!merges'] = []
+
+                  worksheet['!merges'].push({
+                    s: { c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) },
+                    e: { c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + maxRowHeight - 1 },
+                  })
+                }
+              }
+              // if (colIndex === 0)
+              //   ROW_OFFSET += (maxRowHeight - 1)
+            })
+
+            const tableContentExtraRows = tableConfig.columns.reduce((acc, col) => {
+              return Math.max(acc, tableConfig.content.reduce((acc, row) => {
+                const _resolvedValue = col.value(row)
+                const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+                return values.length - 1 + acc
+              }, 0))
+            }, 0)
+
+            if (tableHasSummary(tableConfig)) {
+              const summaryRowIndex = tableConfig.content.length + 1 + tableContentExtraRows
+              for (const summaryIndex in column._ref?.summary ?? []) {
+                const summary = column._ref?.summary?.[summaryIndex]
+                const cellRef = utils.encode_cell({ c: +colIndex + COL_OFFSET, r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (rowHasTitle ? 1 : 0) })
+                if (!summary) {
+                  worksheet[cellRef] = {
+                    v: '',
+                    t: 's',
+                    s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+                  } satisfies XLSX.CellObject
+
+                  continue
+                }
+
+                const style = typeof summary.cellStyle === 'function'
+                  ? summary.cellStyle(tableConfig.content)
+                  : summary.cellStyle ?? {}
+                const format = typeof summary.format === 'function'
+                  ? summary.format(tableConfig.content)
+                  : summary.format
+                const value = summary.value(tableConfig.content)
+
+                worksheet[cellRef] = {
+                  v: value === null ? '' : value,
+                  t: getCellDataType(value),
+                  z: format,
+                  s: deepmerge(
+                    style,
                   {
                     font: { bold: true },
                     fill: { fgColor: { rgb: 'E9E9E9' } },
@@ -277,9 +324,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                       : {},
                     numFmt: format,
                   } satisfies CellStyle,
-                    ),
-                  } satisfies XLSX.CellObject
-                }
+                  ),
+                } satisfies XLSX.CellObject
               }
             }
           })

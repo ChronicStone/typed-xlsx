@@ -73,7 +73,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
         .map((column) => {
           return {
             label: column?.label ?? formatKey(column.columnKey),
-            value: (row: GenericObject) => {
+            value: (row: GenericObject): CellValue => {
               const value = typeof column.key === 'string'
                 ? getPropertyFromPath(row, column.key)
                 : column.key(row)
@@ -183,8 +183,19 @@ export function getSheetChunkMaxHeight(
   return tables.reduce((acc, table) => {
     const hasTitle = !!table.title
     const summaryRowLength = tableSummaryRowLength(table)
-    const tableHeight = table.content.length + 1 + summaryRowLength + (hasTitle ? 1 : 0)
-    return Math.max(acc, tableHeight)
+
+    // Calculate the maximum row span needed for any row within this table using .reduce
+    const maxRowSpan = table.content.reduce((max, row) => {
+      return Math.max(max, ...table.columns.map((column) => {
+        const values = column.value(row)
+        return Array.isArray(values) ? values.length : 1
+      }))
+    }, 1) // Start with 1 as the minimum span
+
+    // Calculate the total height of the table, considering the max row span
+    const tableHeight = (table.content.length * maxRowSpan) + 1 + summaryRowLength + (hasTitle ? 1 : 0)
+
+    return Math.max(acc, tableHeight) // Update the accumulated maximum with the current table's height
   }, 0)
 }
 
@@ -204,7 +215,7 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
   const sheetWidth = sheetRows.reduce((acc, tables) => {
     const rowWidth = tables.reduce((acc, table) => {
       const tableWidth = table.columns.length
-      return acc + tableWidth + 1
+      return acc + tableWidth + 1 // Includes space for column separation
     }, 0)
     return Math.max(acc, rowWidth)
   }, 0)
@@ -213,16 +224,25 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
     const rowHeight = tables.reduce((acc, table) => {
       const hasTitle = !!table.title
       const summaryRowLength = tableSummaryRowLength(table)
-      const tableHeight = table.content.length + summaryRowLength + 1 + (hasTitle ? 1 : 0)
-      return Math.max(acc, tableHeight)
+
+      // Compute max row span due to multi-value columns
+      const maxRowSpan = table.columns.reduce((max, column) => {
+        return Math.max(max, table.content.reduce((maxRow, row) => {
+          const values = column.value(row)
+          return Array.isArray(values) ? Math.max(maxRow, values.length) : maxRow
+        }, 1))
+      }, 1)
+
+      const tableHeight = (table.content.length * maxRowSpan) + summaryRowLength + (hasTitle ? 1 : 0)
+      return Math.max(acc, tableHeight) // We find the maximum height needed for any table in the row
     }, 0)
-    return acc + rowHeight + 1
+    return acc + rowHeight + 1 // Adding each row's height plus one for spacing between rows
   }, 0)
 
   return {
     sheetHeight,
     sheetWidth,
-    sheetRange: utils.encode_range({ s: { c: 0, r: 0 }, e: { c: sheetWidth, r: sheetHeight } }),
+    sheetRange: utils.encode_range({ s: { c: 0, r: 0 }, e: { c: sheetWidth - 1, r: sheetHeight - 1 } }), // Adjust end column and row index by subtracting 1
   }
 }
 
