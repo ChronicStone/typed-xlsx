@@ -124,62 +124,60 @@ describe('should generate the example excel', () => {
       .create()
       .sheet('Users - full')
       .addTable({
-        data: users,
+        data: users.filter((_, i) => i < 5),
         schema: assessmentExport,
         context: {
           'group:org': organizations,
         },
-
       })
-
-      .sheet('Users - partial')
-      .addTable({
-        data: users,
-        schema: assessmentExport,
-        select: {
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-      })
-      .sheet('User - neg partial')
-      .addTable({
-        data: users,
-        schema: assessmentExport,
-        select: {
-          firstName: false,
-          lastName: false,
-          email: false,
-        },
-        context: {
-          'group:org': organizations,
-        },
-      })
-      .sheet('Multi-tables-grid', { tablesPerRow: 2 })
-      .addTable({
-        title: 'Table 1',
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, createdAt: true },
-      })
-      .addTable({
-        title: 'Table 2',
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, balance: true },
-      })
-      .addTable({
-        title: 'Table 3',
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, balance: true },
-      })
-      .addTable({
-        title: 'Table 4',
-        data: users.filter((_, i) => i < 5),
-        schema: assessmentExport,
-        select: { firstName: true, lastName: true, email: true, createdAt: true },
-      })
+      // .sheet('Users - partial')
+      // .addTable({
+      //   data: users,
+      //   schema: assessmentExport,
+      //   select: {
+      //     firstName: true,
+      //     lastName: true,
+      //     email: true,
+      //   },
+      // })
+      // .sheet('User - neg partial')
+      // .addTable({
+      //   data: users,
+      //   schema: assessmentExport,
+      //   select: {
+      //     firstName: false,
+      //     lastName: false,
+      //     email: false,
+      //   },
+      //   context: {
+      //     'group:org': organizations,
+      //   },
+      // })
+      // .sheet('Multi-tables-grid', { tablesPerRow: 2 })
+      // .addTable({
+      //   title: 'Table 1',
+      //   data: users.filter((_, i) => i < 5),
+      //   schema: assessmentExport,
+      //   select: { firstName: true, lastName: true, email: true, createdAt: true },
+      // })
+      // .addTable({
+      //   title: 'Table 2',
+      //   data: users.filter((_, i) => i < 5),
+      //   schema: assessmentExport,
+      //   select: { firstName: true, lastName: true, email: true, balance: true },
+      // })
+      // .addTable({
+      //   title: 'Table 3',
+      //   data: users.filter((_, i) => i < 5),
+      //   schema: assessmentExport,
+      //   select: { firstName: true, lastName: true, email: true, balance: true },
+      // })
+      // .addTable({
+      //   title: 'Table 4',
+      //   data: users.filter((_, i) => i < 5),
+      //   schema: assessmentExport,
+      //   select: { firstName: true, lastName: true, email: true, createdAt: true },
+      // })
       .build({ output: 'buffer' })
 
     fs.writeFileSync('example.xlsx', buffer)

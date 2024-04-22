@@ -1,5 +1,7 @@
 import { type CellStyle, type ExcelDataType, type WorkSheet, utils } from 'xlsx-js-style'
+import { deepmerge } from 'deepmerge-ts'
 import type { CellValue, Column, GenericObject, SheetConfig, ValueTransformer } from './types'
+import { THICK_BORDER_STYLE } from './const'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
   try {
@@ -255,5 +257,36 @@ export function formulaeBuilder<
     average: (start: number, end: number) => `AVERAGE(${cols}${start}:${cols}${end})`,
     max: (start: number, end: number) => `MAX(${cols}${start}:${cols}${end})`,
     min: (start: number, end: number) => `MIN(${cols}${start}:${cols}${end})`,
+  }
+}
+
+export function applyGroupBorders(worksheet: WorkSheet, params: { start: string, end: string }) {
+  const start = utils.decode_cell(params.start) // e.g., {c: 0, r: 0} for 'A1'
+  const end = utils.decode_cell(params.end) // e.g., {c: 1, r: 2} for 'B3'
+
+  for (let r = start.r; r <= end.r; r++) {
+    for (let c = start.c; c <= end.c; c++) {
+      const cellRef = utils.encode_cell({ c, r })
+      const cell = worksheet[cellRef] || { t: 'z' } // Ensure the cell exists
+
+      // Default to thin borders
+      cell.s = deepmerge(cell.s ?? {}, {
+        border: {
+          ...(cell.s?.border ?? {}),
+        },
+      })
+
+      // Adjust borders for cells on the boundary of the range
+      if (r === start.r)
+        cell.s.border.top = THICK_BORDER_STYLE.top
+      if (r === end.r)
+        cell.s.border.bottom = THICK_BORDER_STYLE.bottom
+      if (c === start.c)
+        cell.s.border.left = THICK_BORDER_STYLE.left
+      if (c === end.c)
+        cell.s.border.right = THICK_BORDER_STYLE.right
+
+      worksheet[cellRef] = cell // Apply the styled cell back to the worksheet
+    }
   }
 }

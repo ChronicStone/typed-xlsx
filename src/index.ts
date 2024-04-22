@@ -2,7 +2,7 @@
 import XLSX, { type CellStyle, type WorkSheet, utils } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
-import { buildSheetConfig, computeSheetRange, getCellDataType, getColumnHeaderStyle, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
+import { applyGroupBorders, buildSheetConfig, computeSheetRange, getCellDataType, getColumnHeaderStyle, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
 
 export class ExcelSchemaBuilder<
   T extends GenericObject,
@@ -163,6 +163,14 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             COL_OFFSET += prevTable.columns.length + TABLE_CELL_OFFSET
           }
 
+          const tableContentExtraRows = tableConfig.columns.reduce((acc, col) => {
+            return Math.max(acc, tableConfig.content.reduce((acc, row) => {
+              const _resolvedValue = col.value(row)
+              const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+              return values.length - 1 + acc
+            }, 0))
+          }, 0)
+
           const hasTitle = !!tableConfig.title
           if (hasTitle) {
             tableConfig.columns.forEach((_, colIndex) => {
@@ -273,14 +281,6 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               //   ROW_OFFSET += (maxRowHeight - 1)
             })
 
-            const tableContentExtraRows = tableConfig.columns.reduce((acc, col) => {
-              return Math.max(acc, tableConfig.content.reduce((acc, row) => {
-                const _resolvedValue = col.value(row)
-                const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
-                return values.length - 1 + acc
-              }, 0))
-            }, 0)
-
             if (tableHasSummary(tableConfig)) {
               const summaryRowIndex = tableConfig.content.length + 1 + tableContentExtraRows
               for (const summaryIndex in column._ref?.summary ?? []) {
@@ -329,6 +329,27 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               }
             }
           })
+
+          if (tableContentExtraRows > 0) {
+            tableConfig.content.forEach((row, rowIndex) => {
+              const prevRowsExtraHeight = tableConfig.columns.reduce((acc, col) => {
+                return Math.max(acc, tableConfig.content.filter((_, i) => i < rowIndex).reduce((acc, row) => {
+                  const value = col.value(row)
+
+                  return acc + (Array.isArray(value) ? value.length : 1)
+                }, 0))
+              }, 0)
+              const rowStart = ROW_OFFSET + (rowHasTitle ? 1 : 0) + prevRowsExtraHeight + 1
+              const currentRowHeight = tableConfig.columns.reduce((acc, col) => {
+                const value = col.value(row)
+                return Math.max(acc, Array.isArray(value) ? value.length : 1)
+              }, 1)
+
+              const start = utils.encode_cell({ c: COL_OFFSET, r: rowStart })
+              const end = utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + currentRowHeight - 1 })
+              applyGroupBorders(worksheet, { start, end })
+            })
+          }
         })
       })
 
