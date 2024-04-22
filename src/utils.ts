@@ -89,7 +89,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
                 return column.default
 
               const transformedVal = column.transform ? (column.transform as ValueTransformer)(value, index) : value
-              return (Array.isArray(transformedVal) && !transformedVal.length) ? null : transformedVal
+              return (Array.isArray(transformedVal) && !transformedVal.length) ? column.default ?? null : transformedVal
             },
             _ref: column,
           }
