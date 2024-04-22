@@ -75,7 +75,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
         .map((column) => {
           return {
             label: column?.label ?? formatKey(column.columnKey),
-            value: (row: GenericObject): CellValue => {
+            value: (row: GenericObject, index: number): CellValue => {
               const value = typeof column.key === 'string'
                 ? getPropertyFromPath(row, column.key)
                 : column.key(row)
@@ -88,7 +88,8 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
               )
                 return column.default
 
-              return column.transform ? (column.transform as ValueTransformer)(value) : value
+              const transformedVal = column.transform ? (column.transform as ValueTransformer)(value, index) : value
+              return (Array.isArray(transformedVal) && !transformedVal.length) ? null : transformedVal
             },
             _ref: column,
           }
@@ -110,12 +111,7 @@ export function getColumnHeaderStyle(params: { bordered: boolean }) {
     alignment: { horizontal: 'center', vertical: 'center' },
     fill: { fgColor: { rgb: 'E9E9E9' } },
     border: (params?.bordered ?? true)
-      ? {
-          bottom: { style: 'thin', color: { rgb: '000000' } },
-          left: { style: 'thin', color: { rgb: '000000' } },
-          right: { style: 'thin', color: { rgb: '000000' } },
-          top: { style: 'thin', color: { rgb: '000000' } },
-        }
+      ? THICK_BORDER_STYLE
       : {},
   } satisfies CellStyle
 }
@@ -187,9 +183,9 @@ export function getSheetChunkMaxHeight(
     const summaryRowLength = tableSummaryRowLength(table)
 
     // Calculate the maximum row span needed for any row within this table using .reduce
-    const maxRowSpan = table.content.reduce((max, row) => {
+    const maxRowSpan = table.content.reduce((max, row, rowIndex) => {
       return Math.max(max, ...table.columns.map((column) => {
-        const values = column.value(row)
+        const values = column.value(row, rowIndex)
         return Array.isArray(values) ? values.length : 1
       }))
     }, 1) // Start with 1 as the minimum span
@@ -229,8 +225,8 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
 
       // Compute max row span due to multi-value columns
       const maxRowSpan = table.columns.reduce((max, column) => {
-        return Math.max(max, table.content.reduce((maxRow, row) => {
-          const values = column.value(row)
+        return Math.max(max, table.content.reduce((maxRow, row, rowIndex) => {
+          const values = column.value(row, rowIndex)
           return Array.isArray(values) ? Math.max(maxRow, values.length) : maxRow
         }, 1))
       }, 1)

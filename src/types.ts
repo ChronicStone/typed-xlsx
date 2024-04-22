@@ -53,7 +53,7 @@ export type Prettify<T> = {
 export type BaseCellValue = string | number | boolean | null | undefined | Date
 export type CellValue = BaseCellValue | BaseCellValue[]
 
-export type ValueTransformer = (value: any) => CellValue
+export type ValueTransformer = (value: any, index: number) => CellValue
 
 export interface TransformersMap {
   [key: string]: ValueTransformer
@@ -93,8 +93,8 @@ export type Column<
   }>
 } & (
   ExtractColumnValue<T, FieldValue> extends CellValue
-    ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>) => CellValue) }
-    : { transform: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>) => CellValue) }
+    ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
+    : { transform: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
 )
 
 export interface ColumnGroup<

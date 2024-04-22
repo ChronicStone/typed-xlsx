@@ -164,8 +164,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           }
 
           const tableContentExtraRows = tableConfig.columns.reduce((acc, col) => {
-            return Math.max(acc, tableConfig.content.reduce((acc, row) => {
-              const _resolvedValue = col.value(row)
+            return Math.max(acc, tableConfig.content.reduce((acc, row, rowIndex) => {
+              const _resolvedValue = col.value(row, rowIndex)
               const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
               return values.length - 1 + acc
             }, 0))
@@ -207,12 +207,19 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
             tableConfig.content.forEach((row, rowIndex) => {
               const maxRowHeight = tableConfig.columns.reduce((acc, column) => {
-                const _resolvedValue = column.value(row)
+                const _resolvedValue = column.value(row, rowIndex)
                 const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
                 return Math.max(acc, values.length)
               }, 1)
 
-              const _resolvedValue = column.value(row)
+              const prevRowHeight = tableConfig.columns.reduce((acc, column) => {
+                return Math.max(acc, tableConfig.content.filter((_, i) => i < rowIndex).reduce((acc, row, rowIndex) => {
+                  const value = column.value(row, rowIndex)
+                  return acc + (Array.isArray(value) ? value.length : 1)
+                }, 0))
+              }, 0)
+
+              const _resolvedValue = column.value(row, rowIndex)
               const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
               const style = typeof column._ref.cellStyle === 'function'
                 ? column._ref.cellStyle(row)
@@ -222,7 +229,11 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                 : column._ref.format
 
               values.forEach((value, valueIndex) => {
-                const cellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + valueIndex })
+                const cellRef = utils.encode_cell({
+                  c: colIndex + COL_OFFSET,
+                  r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
+                })
+
                 worksheet[cellRef] = {
                   v: value === null ? '' : value,
                   t: getCellDataType(value),
@@ -246,8 +257,11 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               })
 
               if (values.length < maxRowHeight && maxRowHeight > 1) {
-                for (let i = values.length; i < maxRowHeight; i++) {
-                  const cellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + i })
+                for (let valueIndex = values.length; valueIndex < maxRowHeight; valueIndex++) {
+                  const cellRef = utils.encode_cell({
+                    c: colIndex + COL_OFFSET,
+                    r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
+                  })
                   worksheet[cellRef] = {
                     v: '',
                     t: 's',
@@ -272,20 +286,21 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                     worksheet['!merges'] = []
 
                   worksheet['!merges'].push({
-                    s: { c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) },
-                    e: { c: colIndex + COL_OFFSET, r: (rowIndex * maxRowHeight) + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + maxRowHeight - 1 },
+                    s: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) },
+                    e: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + maxRowHeight - 1 },
                   })
                 }
               }
-              // if (colIndex === 0)
-              //   ROW_OFFSET += (maxRowHeight - 1)
             })
 
             if (tableHasSummary(tableConfig)) {
               const summaryRowIndex = tableConfig.content.length + 1 + tableContentExtraRows
               for (const summaryIndex in column._ref?.summary ?? []) {
                 const summary = column._ref?.summary?.[summaryIndex]
-                const cellRef = utils.encode_cell({ c: +colIndex + COL_OFFSET, r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (rowHasTitle ? 1 : 0) })
+                const cellRef = utils.encode_cell({
+                  c: +colIndex + COL_OFFSET,
+                  r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (rowHasTitle ? 1 : 0),
+                })
                 if (!summary) {
                   worksheet[cellRef] = {
                     v: '',
@@ -330,23 +345,27 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             }
           })
 
+          // worksheet['!merges'].push({
+          //   s: { prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) },
+          //   e: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + maxRowHeight - 1 },
+          // })
+
           if (tableContentExtraRows > 0) {
             tableConfig.content.forEach((row, rowIndex) => {
-              const prevRowsExtraHeight = tableConfig.columns.reduce((acc, col) => {
-                return Math.max(acc, tableConfig.content.filter((_, i) => i < rowIndex).reduce((acc, row) => {
-                  const value = col.value(row)
-
+              const prevRowHeight = tableConfig.columns.reduce((acc, column) => {
+                return Math.max(acc, tableConfig.content.filter((_, i) => i < rowIndex).reduce((acc, row, rowIndex) => {
+                  const value = column.value(row, rowIndex)
                   return acc + (Array.isArray(value) ? value.length : 1)
                 }, 0))
               }, 0)
-              const rowStart = ROW_OFFSET + (rowHasTitle ? 1 : 0) + prevRowsExtraHeight + 1
+              const rowStart = prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0)
               const currentRowHeight = tableConfig.columns.reduce((acc, col) => {
-                const value = col.value(row)
+                const value = col.value(row, rowIndex)
                 return Math.max(acc, Array.isArray(value) ? value.length : 1)
               }, 1)
 
               const start = utils.encode_cell({ c: COL_OFFSET, r: rowStart })
-              const end = utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + currentRowHeight - 1 })
+              const end = utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + (currentRowHeight - 1) })
               applyGroupBorders(worksheet, { start, end })
             })
           }
