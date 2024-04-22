@@ -1,7 +1,9 @@
-import { type CellStyle, type ExcelDataType, type WorkSheet, utils } from 'xlsx-js-style'
+import { utils } from 'xlsx-js-style'
+import type XLSX from 'xlsx-js-style'
+import type { CellStyle, ExcelDataType, WorkSheet } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { CellValue, Column, GenericObject, SheetConfig, ValueTransformer } from './types'
-import { THICK_BORDER_STYLE } from './const'
+import type { BaseCellValue, CellValue, Column, GenericObject, SheetConfig, ValueTransformer } from './types'
+import { THICK_BORDER_STYLE, THIN_BORDER_STYLE } from './const'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
   try {
@@ -272,7 +274,6 @@ export function applyGroupBorders(worksheet: WorkSheet, params: { start: string,
         },
       })
 
-      // Adjust borders for cells on the boundary of the range
       if (r === start.r)
         cell.s.border.top = THICK_BORDER_STYLE.top
       if (r === end.r)
@@ -282,7 +283,79 @@ export function applyGroupBorders(worksheet: WorkSheet, params: { start: string,
       if (c === end.c)
         cell.s.border.right = THICK_BORDER_STYLE.right
 
-      worksheet[cellRef] = cell // Apply the styled cell back to the worksheet
+      worksheet[cellRef] = cell
     }
+  }
+}
+
+export function getPrevRowsHeight(params: {
+  tableConfig: ReturnType<typeof buildSheetConfig>[number]['tables'][number]
+  rowIndex: number
+}) {
+  return params.tableConfig.columns.reduce((acc, column) => {
+    return Math.max(acc, params.tableConfig.content.filter((_, i) => i < params.rowIndex).reduce((acc, row, rowIndex) => {
+      const value = column.value(row, rowIndex)
+      return acc + (Array.isArray(value) ? value.length : 1)
+    }, 0))
+  }, 0)
+}
+
+export function getRowMaxHeight(params: {
+  tableConfig: ReturnType<typeof buildSheetConfig>[number]['tables'][number]
+  rowIndex: number
+}) {
+  return params.tableConfig.columns.reduce((acc, column) => {
+    const row = params.tableConfig.content[params.rowIndex]
+    const _resolvedValue = column.value(row, params.rowIndex)
+    const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+    return Math.max(acc, values.length)
+  }, 1)
+}
+
+export function getRowValue(params: {
+  row: GenericObject
+  rowIndex: number
+  value: ReturnType<typeof buildSheetConfig>[number]['tables'][number]['columns'][number]['value']
+}) {
+  const _resolvedValue = params.value(params.row, params.rowIndex)
+  return Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+}
+
+export function getColumnSeparatorIndexes(params: {
+  offset: number
+  sheetConfig: ReturnType<typeof buildSheetConfig>[number]
+}) {
+  return params.sheetConfig.tables.map((table, index) => {
+    if (index === params.sheetConfig.tables.length - 1)
+      return []
+
+    const tableConfig = params.sheetConfig.tables[index]
+    const colsCount = tableConfig.columns.length
+    return Array.from({ length: params.offset }, (_, i) => colsCount + i)
+  }).flat()
+}
+
+export function buildCell(params: {
+  data?: GenericObject
+  value?: BaseCellValue
+  style?: CellStyle | ((rowData: any) => CellStyle)
+  format?: string | ((rowData: any) => string)
+  extraStyle?: CellStyle
+  bordered?: boolean
+}): XLSX.CellObject {
+  const style = typeof params.style === 'function' ? params.style(params.data ?? {}) : params.style ?? {}
+  const format = typeof params.format === 'function' ? params.format(params.data ?? {}) : params.format
+  return {
+    v: params.value === null ? '' : params.value,
+    t: getCellDataType(params.value),
+    z: format,
+    s: deepmerge({
+      border: (params.bordered ?? true)
+        ? THIN_BORDER_STYLE
+        : {},
+      alignment: { vertical: 'center' },
+      numFmt: format,
+    }, style, params.extraStyle ?? {}),
+
   }
 }

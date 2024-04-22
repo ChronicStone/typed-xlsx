@@ -1,8 +1,7 @@
 /* eslint-disable ts/ban-types */
-import XLSX, { type CellStyle, type WorkSheet, utils } from 'xlsx-js-style'
-import { deepmerge } from 'deepmerge-ts'
+import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
-import { applyGroupBorders, buildSheetConfig, computeSheetRange, getCellDataType, getColumnHeaderStyle, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
+import { applyGroupBorders, buildCell, buildSheetConfig, computeSheetRange, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getRowValue, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
 
 export class ExcelSchemaBuilder<
   T extends GenericObject,
@@ -141,7 +140,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
     _sheets.forEach((sheetConfig) => {
       const tableRows = splitIntoChunks(sheetConfig.tables, sheetConfig.params?.tablesPerRow)
-      const worksheet: WorkSheet = {}
+      const worksheet: WorkSheet & { '!merges': XLSX.Range[] } = {
+        '!merges': [],
+      }
       let COL_OFFSET = 0
       let ROW_OFFSET = 0
       const titleRowIndexes: number[] = []
@@ -165,8 +166,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
           const tableContentExtraRows = tableConfig.columns.reduce((acc, col) => {
             return Math.max(acc, tableConfig.content.reduce((acc, row, rowIndex) => {
-              const _resolvedValue = col.value(row, rowIndex)
-              const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+              const values = getRowValue({ row, rowIndex, value: col.value })
               return values.length - 1 + acc
             }, 0))
           }, 0)
@@ -175,22 +175,17 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           if (hasTitle) {
             tableConfig.columns.forEach((_, colIndex) => {
               const titleCellRef = utils.encode_cell({ c: COL_OFFSET + colIndex, r: ROW_OFFSET })
-              worksheet[titleCellRef] = {
-                v: colIndex === 0 ? tableConfig.title : '',
-                t: 's',
-                s: deepmerge(
-                  getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
-                  {
-                    alignment: { horizontal: 'left' },
-                    fill: { fgColor: { rgb: 'b4c4de' } },
-                    font: { sz: 20 },
-                  } satisfies CellStyle,
-                ),
-              } satisfies XLSX.CellObject
+              worksheet[titleCellRef] = buildCell({
+                value: colIndex === 0 ? tableConfig.title : '',
+                style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+                extraStyle: {
+                  alignment: { horizontal: 'left' },
+                  fill: { fgColor: { rgb: 'b4c4de' } },
+                  font: { sz: 20 },
+                },
+              })
             })
 
-            if (!worksheet['!merges'])
-              worksheet['!merges'] = []
             worksheet['!merges'].push({
               s: { c: COL_OFFSET, r: ROW_OFFSET },
               e: { c: COL_OFFSET + tableConfig.columns.length - 1, r: ROW_OFFSET },
@@ -199,34 +194,16 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
           tableConfig.columns.forEach((column, colIndex) => {
             const headerCellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: ROW_OFFSET + (rowHasTitle ? 1 : 0) })
-            worksheet[headerCellRef] = {
-              v: column.label,
-              t: 's',
-              s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
-            } satisfies XLSX.CellObject
+            worksheet[headerCellRef] = buildCell({
+              value: column.label,
+              bordered: params?.bordered ?? true,
+              style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+            })
 
             tableConfig.content.forEach((row, rowIndex) => {
-              const maxRowHeight = tableConfig.columns.reduce((acc, column) => {
-                const _resolvedValue = column.value(row, rowIndex)
-                const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
-                return Math.max(acc, values.length)
-              }, 1)
-
-              const prevRowHeight = tableConfig.columns.reduce((acc, column) => {
-                return Math.max(acc, tableConfig.content.filter((_, i) => i < rowIndex).reduce((acc, row, rowIndex) => {
-                  const value = column.value(row, rowIndex)
-                  return acc + (Array.isArray(value) ? value.length : 1)
-                }, 0))
-              }, 0)
-
-              const _resolvedValue = column.value(row, rowIndex)
-              const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
-              const style = typeof column._ref.cellStyle === 'function'
-                ? column._ref.cellStyle(row)
-                : column._ref.cellStyle ?? {}
-              const format = typeof column._ref.format === 'function'
-                ? column._ref.format(row)
-                : column._ref.format
+              const maxRowHeight = getRowMaxHeight({ tableConfig, rowIndex })
+              const prevRowHeight = getPrevRowsHeight({ tableConfig, rowIndex })
+              const values = getRowValue({ row, rowIndex, value: column.value })
 
               values.forEach((value, valueIndex) => {
                 const cellRef = utils.encode_cell({
@@ -234,26 +211,13 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                   r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
                 })
 
-                worksheet[cellRef] = {
-                  v: value === null ? '' : value,
-                  t: getCellDataType(value),
-                  z: format,
-                  s: deepmerge(
-                    style,
-                    {
-                      alignment: { vertical: 'center' },
-                      border: (params?.bordered ?? true)
-                        ? {
-                            bottom: { style: 'thin', color: { rgb: '000000' } },
-                            left: { style: 'thin', color: { rgb: '000000' } },
-                            right: { style: 'thin', color: { rgb: '000000' } },
-                            top: { style: 'thin', color: { rgb: '000000' } },
-                          }
-                        : {},
-                      numFmt: format,
-                    } satisfies CellStyle,
-                  ),
-                } satisfies XLSX.CellObject
+                worksheet[cellRef] = buildCell({
+                  value,
+                  data: row,
+                  format: column._ref.format,
+                  style: column._ref.cellStyle,
+                  bordered: params?.bordered ?? true,
+                })
               })
 
               if (values.length < maxRowHeight && maxRowHeight > 1) {
@@ -262,29 +226,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                     c: colIndex + COL_OFFSET,
                     r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
                   })
-                  worksheet[cellRef] = {
-                    v: '',
-                    t: 's',
-                    s: deepmerge(
-                      style,
-                      {
-                        alignment: { vertical: 'center' },
-                        border: (params?.bordered ?? true)
-                          ? {
-                              bottom: { style: 'thin', color: { rgb: '000000' } },
-                              left: { style: 'thin', color: { rgb: '000000' } },
-                              right: { style: 'thin', color: { rgb: '000000' } },
-                              top: { style: 'thin', color: { rgb: '000000' } },
-                            }
-                          : {},
-                      } satisfies CellStyle,
-                    ),
-                  } satisfies XLSX.CellObject
+                  worksheet[cellRef] = buildCell({ value: '', bordered: params?.bordered ?? true })
                 }
                 if (values.length === 1) {
-                  if (!worksheet['!merges'])
-                    worksheet['!merges'] = []
-
                   worksheet['!merges'].push({
                     s: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) },
                     e: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + maxRowHeight - 1 },
@@ -302,68 +246,37 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                   r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (rowHasTitle ? 1 : 0),
                 })
                 if (!summary) {
-                  worksheet[cellRef] = {
-                    v: '',
-                    t: 's',
-                    s: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
-                  } satisfies XLSX.CellObject
-
+                  worksheet[cellRef] = buildCell({
+                    value: '',
+                    bordered: params?.bordered ?? true,
+                    style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+                  })
                   continue
                 }
 
-                const style = typeof summary.cellStyle === 'function'
-                  ? summary.cellStyle(tableConfig.content)
-                  : summary.cellStyle ?? {}
-                const format = typeof summary.format === 'function'
-                  ? summary.format(tableConfig.content)
-                  : summary.format
                 const value = summary.value(tableConfig.content)
-
-                worksheet[cellRef] = {
-                  v: value === null ? '' : value,
-                  t: getCellDataType(value),
-                  z: format,
-                  s: deepmerge(
-                    style,
-                  {
+                worksheet[cellRef] = buildCell({
+                  value,
+                  data: tableConfig.content,
+                  format: summary.format,
+                  style: summary.cellStyle,
+                  bordered: params?.bordered ?? true,
+                  extraStyle: {
                     font: { bold: true },
                     fill: { fgColor: { rgb: 'E9E9E9' } },
                     alignment: { vertical: 'center' },
-                    border: (params?.bordered ?? true)
-                      ? {
-                          bottom: { style: 'thin', color: { rgb: '000000' } },
-                          left: { style: 'thin', color: { rgb: '000000' } },
-                          right: { style: 'thin', color: { rgb: '000000' } },
-                          top: { style: 'thin', color: { rgb: '000000' } },
-                        }
-                      : {},
-                    numFmt: format,
-                  } satisfies CellStyle,
-                  ),
-                } satisfies XLSX.CellObject
+                  },
+
+                })
               }
             }
           })
 
-          // worksheet['!merges'].push({
-          //   s: { prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) },
-          //   e: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + maxRowHeight - 1 },
-          // })
-
           if (tableContentExtraRows > 0) {
             tableConfig.content.forEach((row, rowIndex) => {
-              const prevRowHeight = tableConfig.columns.reduce((acc, column) => {
-                return Math.max(acc, tableConfig.content.filter((_, i) => i < rowIndex).reduce((acc, row, rowIndex) => {
-                  const value = column.value(row, rowIndex)
-                  return acc + (Array.isArray(value) ? value.length : 1)
-                }, 0))
-              }, 0)
+              const prevRowHeight = getPrevRowsHeight({ tableConfig, rowIndex })
               const rowStart = prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0)
-              const currentRowHeight = tableConfig.columns.reduce((acc, col) => {
-                const value = col.value(row, rowIndex)
-                return Math.max(acc, Array.isArray(value) ? value.length : 1)
-              }, 1)
-
+              const currentRowHeight = getRowMaxHeight({ tableConfig, rowIndex })
               const start = utils.encode_cell({ c: COL_OFFSET, r: rowStart })
               const end = utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + (currentRowHeight - 1) })
               applyGroupBorders(worksheet, { start, end })
@@ -373,29 +286,16 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       })
 
       const { sheetHeight, sheetRange } = computeSheetRange(tableRows)
-
-      const colSeparatorIndexes = sheetConfig.tables.map((table, index) => {
-        if (index === sheetConfig.tables.length - 1)
-          return []
-
-        const tableConfig = sheetConfig.tables[index]
-        const colsCount = tableConfig.columns.length
-        return Array.from({ length: TABLE_CELL_OFFSET }, (_, i) => colsCount + i)
-      }).flat()
+      const colSeparatorIndexes = getColumnSeparatorIndexes({ sheetConfig, offset: TABLE_CELL_OFFSET })
 
       worksheet['!ref'] = sheetRange
-
       worksheet['!rows'] = Array.from(
         { length: sheetHeight },
-        (_, index) => ({
-          hpt: titleRowIndexes.includes(index) ? 40 : params?.rowHeight ?? 30,
-        }),
+        (_, index) => ({ hpt: titleRowIndexes.includes(index) ? 40 : params?.rowHeight ?? 30 }),
       )
 
       worksheet['!cols'] = getWorksheetColumnWidths(worksheet, params?.extraLength ?? 5)
-        .map(({ wch }, index) => ({
-          wch: colSeparatorIndexes.includes(index) ? sheetConfig.params?.tableSeparatorWidth ?? 25 : wch,
-        }))
+        .map(({ wch }, index) => ({ wch: colSeparatorIndexes.includes(index) ? sheetConfig.params?.tableSeparatorWidth ?? 25 : wch }))
 
       utils.book_append_sheet(workbook, worksheet, sheetConfig.sheet)
     })

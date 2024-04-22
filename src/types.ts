@@ -225,3 +225,5 @@ export type ExcelBuildOutput<
         : Output extends 'file'
           ? File
           : never
+
+export type MakeRequired<T, K extends keyof T> = Prettify<Omit<T, K> & Required<Pick<T, K>>>
