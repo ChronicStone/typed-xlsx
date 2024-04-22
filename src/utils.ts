@@ -67,10 +67,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
             const builder = column.builder()
             column.handler(builder, ((table.context ?? {}) as any)[column.columnKey])
             const { columns } = builder.build()
-            // const childSummaryMap = Object.keys(summary as object).reduce((acc, key) => ({ [`${column.columnKey}:${key}`]: (summary as any)[key], ...acc }), {})
-            // tableSummary = deepmerge(tableSummary, childSummaryMap)
             return (columns as Column<any, any, any, any>[])
-            // .map(col => ({ ...col, key: `${column.columnKey}:${col.key}` }))
           }
         })
         .flat()
@@ -184,18 +181,15 @@ export function getSheetChunkMaxHeight(
     const hasTitle = !!table.title
     const summaryRowLength = tableSummaryRowLength(table)
 
-    // Calculate the maximum row span needed for any row within this table using .reduce
     const maxRowSpan = table.content.reduce((max, row, rowIndex) => {
       return Math.max(max, ...table.columns.map((column) => {
         const values = column.value(row, rowIndex)
         return Array.isArray(values) ? values.length : 1
       }))
-    }, 1) // Start with 1 as the minimum span
+    }, 1)
 
-    // Calculate the total height of the table, considering the max row span
     const tableHeight = (table.content.length * maxRowSpan) + 1 + summaryRowLength + (hasTitle ? 1 : 0)
-
-    return Math.max(acc, tableHeight) // Update the accumulated maximum with the current table's height
+    return Math.max(acc, tableHeight)
   }, 0)
 }
 
@@ -215,7 +209,7 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
   const sheetWidth = sheetRows.reduce((acc, tables) => {
     const rowWidth = tables.reduce((acc, table) => {
       const tableWidth = table.columns.length
-      return acc + tableWidth + 1 // Includes space for column separation
+      return acc + tableWidth + 1
     }, 0)
     return Math.max(acc, rowWidth)
   }, 0)
@@ -225,7 +219,6 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
       const hasTitle = !!table.title
       const summaryRowLength = tableSummaryRowLength(table)
 
-      // Compute max row span due to multi-value columns
       const maxRowSpan = table.columns.reduce((max, column) => {
         return Math.max(max, table.content.reduce((maxRow, row, rowIndex) => {
           const values = column.value(row, rowIndex)
@@ -234,9 +227,9 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
       }, 1)
 
       const tableHeight = (table.content.length * maxRowSpan) + summaryRowLength + (hasTitle ? 1 : 0)
-      return Math.max(acc, tableHeight) // We find the maximum height needed for any table in the row
+      return Math.max(acc, tableHeight)
     }, 0)
-    return acc + rowHeight + 1 // Adding each row's height plus one for spacing between rows
+    return acc + rowHeight + 1
   }, 0)
 
   return {
@@ -259,15 +252,14 @@ export function formulaeBuilder<
 }
 
 export function applyGroupBorders(worksheet: WorkSheet, params: { start: string, end: string }) {
-  const start = utils.decode_cell(params.start) // e.g., {c: 0, r: 0} for 'A1'
-  const end = utils.decode_cell(params.end) // e.g., {c: 1, r: 2} for 'B3'
+  const start = utils.decode_cell(params.start)
+  const end = utils.decode_cell(params.end)
 
   for (let r = start.r; r <= end.r; r++) {
     for (let c = start.c; c <= end.c; c++) {
       const cellRef = utils.encode_cell({ c, r })
-      const cell = worksheet[cellRef] || { t: 'z' } // Ensure the cell exists
+      const cell = worksheet[cellRef] || { t: 'z' }
 
-      // Default to thin borders
       cell.s = deepmerge(cell.s ?? {}, {
         border: {
           ...(cell.s?.border ?? {}),

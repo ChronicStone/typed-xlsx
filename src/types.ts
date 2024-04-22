@@ -22,7 +22,6 @@ export type Not<T, U> = T extends U ? never : T
 type IfExistsInAllUnionMembers<T, K extends PropertyKey> =
     T extends any ? K extends keyof T ? true : false : never
 
-// Main TypeFromPath type
 export type TypeFromPath<T, Path extends string> =
     T extends any ? (
       Path extends keyof T ? T[Path] :
@@ -35,7 +34,6 @@ export type TypeFromPath<T, Path extends string> =
           never
     ) : never
 
-// Modified part to handle union types with undefined
 export type TypeFromPathUnion<T, Path extends string> =
     IfExistsInAllUnionMembers<T, Path> extends true
       ? TypeFromPath<T, Path>

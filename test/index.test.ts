@@ -31,7 +31,6 @@ const transformers = {
   arrayLength: (key: any[] | string) => key.length,
   date: (key: Date) => key.toLocaleDateString(),
 } satisfies TransformersMap
-// Usage example
 
 describe('should generate the example excel', () => {
   it('exported', () => {
@@ -46,7 +45,6 @@ describe('should generate the example excel', () => {
       lastName: faker.person.lastName(),
       email: faker.internet.email(),
       roles: ['admin', 'user', 'manager', 'guest'].filter(() => Math.random() > 0.5),
-      // RANDOM NUMBER OF ORGANIZATIONS
       organizations: organizations.filter(() => Math.random() > 0.5),
       results: {
         general: { overall: Math.floor(Math.random() * 10) },
