@@ -124,7 +124,6 @@ const file = ExcelBuilder.create()
   .build({ output: 'buffer' })
 ```
 
-
 ### summary
 - **Description:** Enable or disable the summary of the table.
 - **Type:** `boolean`
@@ -169,3 +168,7 @@ const file = ExcelBuilder.create()
   .addTable({ data, schema, title: 'Table 4', })
   .build({ output: 'buffer' })
 ```
+
+The schema above will output :
+
+![Multiple tables](../public/images/examples/multi-tables-1.png)

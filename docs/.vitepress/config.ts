@@ -36,6 +36,8 @@ export default defineConfig({
   titleTemplate: 'Typed-xlsx | :title',
   head: [
     ['meta', { name: 'google-site-verification', content: 'DPVOPrsgdIJ4_xJYhy6Azw6vGw51riJiJoaT7SBTARc' }],
+    ['link', { rel: 'shortcut icon', href: '/favicon.ico' }],
+    ['meta', { property: 'og:type', content: 'website' }],
   ],
   themeConfig: {
     logo: '/images/logo.png',
