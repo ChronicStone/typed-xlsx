@@ -18,41 +18,37 @@ const schema = ExcelSchemaBuilder.create<{ firstName: string }>()
 
 Each column in `typed-xlsx` can be configured with a variety of properties to fine-tune its behavior and presentation:
 
-## Label (optional)
+### `label`
+- **Description:** The `label` property specifies the column's header text in the Excel file.
+- **Type:** `string`
+- **Required:** No
+- **Default:** The column key
 
-The `label` property specifies the column's header text in the Excel file.
-
-```ts twoslash
-import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
-// ---cut-before---
-
-ExcelSchemaBuilder.create<{ firstName: string, lastName: string }>()
-  .column('First Name', { key: 'firstName', label: 'First Name' })
-```
-
-## Key (required)
-
-The `key` property is a path to the value in the data object. It can also be a nested path, supporting deep access to the value.
+## `key`
+- **Description:** The `key` property is a path to the value in the data object.
+- **Type:** `string`
+- **Required:** Yes
+- **Example:**
 
 ```ts twoslash
 import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
 // ---cut-before---
-ExcelSchemaBuilder.create<{ personal: { firstName: string, lastName: string } }>()
-  .column('First Name', { key: 'personal.firstName' }) // For nested objects
+const schema = ExcelSchemaBuilder.create<{ name: string, email: string, frameworks: string[] }>()
+  .column('Name', { key: 'name' })
+  .column('Email', { key: 'email' })
+  .column('Frameworks', { key: 'frameworks' })
+  .build()
 ```
 
-If the key points to an array, `typed-xlsx` automatically handles sub-rows and merging.
+If a cell value is an array of BaseCellValue, `typed-xlsx` will automatically create sub-rows for each item in the array and merge extra cells on the rest of the row, like this :
 
-```ts twoslash
-import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
-// ---cut-before---
-ExcelSchemaBuilder.create<{ aliases: string[] }>()
-  .column('Aliases', { key: 'aliases' })
-```
+![Nested row merge](../public/images/examples/col-sub-rows.png)
 
-## Transform (optional)
-
-The `transform` property allows you to specify how to process the data before it's output to the cell.
+## `transform`
+- **Description:** The `transform` property allows you to specify how to process the data before printing it in the cell.
+- **Type:** `string | ((data: T) => CellValue)`
+- **Required:** Depends on the type associated to key
+- **Example:**
 
 ```ts twoslash
 import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
@@ -82,31 +78,37 @@ ExcelSchemaBuilder.create<{ name: { first: string, last: string } }>()
   })
 ```
 
-## Default (optional)
+## `default`
+- **Description:** The `default` property sets a fallback value for the cell if the original value is `undefined` | `null`.
+- **Type:** `CellValue`
+- **Required:** No
 
-The `default` property sets a fallback value for the cell if the original value is `undefined`.
-
-```ts twoslash
-import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
-// ---cut-before---
-ExcelSchemaBuilder.create<{ middleName: string }>()
-  .column('Middle Name', { key: 'middleName', default: 'N/A' })
-```
-
-##Format (optional)
-
-The `format` property specifies the cell format, such as for currency or dates.
+## `format`
+- **Description:** The `format` property specifies the cell format, such as for currency or dates.
+- **Type:** `string | ((data: T) => string)`
+- **Required:** No
+- **Example:**
 
 ```ts twoslash
 import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
 // ---cut-before---
-ExcelSchemaBuilder.create<{ salary: number }>()
-  .column('Salary', { key: 'salary', format: '$#,##0.00;[Red]-$#,##0.00' })
+ExcelSchemaBuilder.create<{ date: Date, amount: number, currency: 'EUR' | 'USD' }>()
+  .column('Date', { key: 'date', format: 'd mmm yyyy' })
+  .column('Salary', {
+    key: 'amount',
+    format: row =>
+        `"${row.currency === 'EUR' ? '€' : '$'}"#,##0.00_);\\("${row.currency === 'EUR' ? '€' : '$'}"#,##0.00\\)`,
+  })
+  .build()
 ```
 
-## CellStyle (optional)
+![Column formats](../public/images/examples/col-format-1.png)
 
-Define the style for the cell, either as a static `CellStyle` object or a function for dynamic styling.
+## `cellStyle`
+- **Description:** Define the style for the cell, either as a static `CellStyle` object or a function for dynamic styling.
+- **Type:** `CellStyle | ((data: T) => CellStyle)`
+- **Required:** No
+- **Example:**
 
 ```ts twoslash
 import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
@@ -116,24 +118,47 @@ ExcelSchemaBuilder.create<{ status: string }>()
   .column('Status', {
     key: 'status',
     cellStyle: { fill: { fgColor: { rgb: 'FFFF00' } } }
-  // ^?
   })
 ```
 
-## Summary (optional)
+rray<{
+    value: (data: T[]) => BaseCellValue
+    format?: string | ((data: T[]) => string)
+    cellStyle?: CellStyle | ((data: T[]) => CellStyle)
+  }>
 
-Summaries provide aggregate information at the end of the table.
+## `summary`
+- **Description:** Summaries provide aggregate information at the end of the table.
+- **Required:** No
+- **Type:**
+```ts twoslash
+import type { CellStyle } from 'xlsx-js-style'
+import type { BaseCellValue } from '@chronicstone/typed-xlsx'
+// ---cut-before---
+type Summary<T> = Array<{
+  value: (data: T[]) => BaseCellValue
+  format?: string | ((data: T[]) => string)
+  cellStyle?: CellStyle | ((data: T[]) => CellStyle)
+}>
+```
+- **Example:**
 
 ```ts twoslash
 import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
+const getCurrenyFormat = (currency: 'EUR' | 'USD') => `"${currency === 'EUR' ? '€' : '$'}"#,##0.00_);\\("${currency === 'EUR' ? '€' : '$'}"#,##0.00\\)`
 // ---cut-before---
-ExcelSchemaBuilder.create<{ value: number }>()
-  .column('Total', {
-    key: 'value',
-    summary: [{
-      value: rows => rows.reduce((sum, row) => sum + row.value, 0)
-    }]
+ExcelSchemaBuilder.create<{ date: Date, amount: number }>()
+  .column('Date', { key: 'date', format: 'd mmm yyyy' })
+  .column('Amount', {
+    key: 'amount',
+    format: getCurrenyFormat('EUR'),
+    summary: [
+      {
+        value: data => data.reduce((acc, row) => acc + row.amount, 0),
+        format: getCurrenyFormat('EUR'),
+      },
+    ],
   })
 ```
 
-By setting these properties, you can tailor each column to fit the specific needs of your report, ensuring both the data integrity and the aesthetic quality of the final output.
+![Column summary](../public/images/examples/col-sum-1.png)

@@ -6,19 +6,19 @@ In `typed-xlsx`, dynamic columns allow for the creation of multiple columns base
 
 Dynamic columns are defined using the `group` method of `ExcelSchemaBuilder`. This method takes a unique group identifier and a callback function. The callback function is called with an instance of `ExcelSchemaBuilder` and the context data, allowing you to dynamically generate columns based on this context.
 
-
 ### Defining Dynamic Columns
 
 To define dynamic columns, you provide a context which is injected when building the actual file with `ExcelBuilder`. The context can be of any type you define, and it will be enforced when passing data to ensure type safety. Group column key must always be prefixed with `group:`.
 
 ```ts twoslash
-import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
+// @errors: 2322
+import { ExcelBuilder, ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
 // ---cut-before---
 interface Organization { id: string, name: string }
 interface User { id: string, name: string, organizations: Organization[] }
 
 // Group definition within the schema
-ExcelSchemaBuilder.create<User>()
+const schema = ExcelSchemaBuilder.create<User>()
   .column('id', { key: 'id' })
   .column('name', { key: 'name' })
   .group('group:org', (builder, context: Organization[]) => {
@@ -36,4 +36,23 @@ ExcelSchemaBuilder.create<User>()
         })
     }
   })
+  .build()
+
+const organizations: Organization[] = [{ id: '1', name: 'Org 1' }, { id: '2', name: 'Org 2' }, { id: '3', name: 'Org 3' }]
+const users: User[] = [{ id: '1', name: 'John', organizations: [{ id: '1', name: 'Org 1' }] }, { id: '2', name: 'Jane', organizations: [{ id: '1', name: 'Org 1' }, { id: '2', name: 'Org 2' }] }, { id: '3', name: 'Bob', organizations: [{ id: '1', name: 'Org 1' }, { id: '2', name: 'Org 2' }, { id: '3', name: 'Org 3' }] }]
+
+const file = ExcelBuilder.create()
+  .sheet('Sheet1')
+  .addTable({
+    data: users,
+    schema,
+    context: {
+      'group:org': organizations
+    }
+  })
+  .build({ output: 'buffer' })
 ```
+
+The example above will output :
+
+![Dynamic columns](../public/images/examples/col-dynamic-1.png)

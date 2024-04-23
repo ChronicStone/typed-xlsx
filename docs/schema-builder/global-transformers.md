@@ -1,5 +1,4 @@
-# Global Transformers
-
+# Shared transformers
 Global transformers are functions that can be registered when creating a schema builder. They can then be used to transform values with the `transform` property of a column, simply by referencing the function name.
 
 ```ts twoslash

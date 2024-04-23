@@ -71,18 +71,6 @@ export default defineConfig({
           { text: 'Build Schema', link: '/schema-builder/build-schema' },
         ],
       },
-      // {
-      //   text: 'Column Definition',
-      //   items: [
-      //     { text: 'Header', link: '/column-definition/header' },
-      //     { text: 'Value Transformation', link: '/column-definition/value-transformation' },
-      //     { text: 'Key & Value', link: '/column-definition/key-value' },
-      //     { text: 'Default Value', link: '/column-definition/default-value' },
-      //     { text: 'Cell Format', link: '/column-definition/cell-format' },
-      //     { text: 'Cell Style', link: '/column-definition/cell-style' },
-      //     { text: 'Summary', link: '/column-definition/summary' },
-      //   ],
-      // },
       {
         text: 'File Builder',
         items: [
