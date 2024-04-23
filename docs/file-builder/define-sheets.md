@@ -35,3 +35,19 @@ const workbook = ExcelBuilder.create()
 ```
 
 In this example, the sheet named "Financial Overview" is configured to place two tables per row, separated by a width equivalent to two standard Excel columns.
+
+## Multiple Sheets
+
+In typed-xlsx, you can define multiple sheets in a single workbook. You just need to chain the method calls for each sheet you want to add:
+
+```ts twoslash
+// @noErrors
+import { ExcelBuilder } from '@chronicstone/typed-xlsx'
+// ---cut-before---
+const excelFile = ExcelBuilder.create()
+  .sheet('Sheet1')
+  .addTable({ data, schema, })
+  .sheet('Sheet2')
+  .addTable({ data, schema, })
+  .build({ output: 'buffer' })
+```
