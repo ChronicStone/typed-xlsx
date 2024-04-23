@@ -5,6 +5,9 @@ hero:
   name: "Typed-xlsx"
   text: "Feature-rich Type-safe Excel Reporting"
   tagline: "Craft complex Excel reports with ease in a type-safe manner."
+  image:
+    src: /images/logo.png
+    alt: Typed-xlsx
   actions:
     - theme: brand
       text: Get Started

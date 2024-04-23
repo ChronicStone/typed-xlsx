@@ -19,6 +19,7 @@ export default defineConfig({
   cleanUrls: true,
   titleTemplate: ':title - Typed-xlsx',
   themeConfig: {
+    logo: '/images/logo.png',
     editLink: {
       pattern: 'https://github.com/ChronicStone/typed-xlsx/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
