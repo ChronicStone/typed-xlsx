@@ -3,6 +3,8 @@ import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
 import { applyGroupBorders, buildCell, buildSheetConfig, computeSheetRange, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getRowValue, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
 
+export type * from './types'
+
 export class ExcelSchemaBuilder<
   T extends GenericObject,
   CellKeyPaths extends string,
@@ -132,7 +134,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
   public build<
     OutputType extends TOutputType,
     Output = ExcelBuildOutput<OutputType>,
-  >(params: ExcelBuildParams<OutputType>): Output {
+  >(params: ExcelBuildParams<OutputType>,
+  ): Output {
     const workbook = utils.book_new()
     const _sheets = buildSheetConfig(this.sheets)
 
