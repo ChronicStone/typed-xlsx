@@ -66,13 +66,17 @@
     "eslint": "^8.54.0",
     "esno": "^4.0.0",
     "lint-staged": "^15.1.0",
+    "markdown-it-container": "^4.0.0",
     "pnpm": "^8.11.0",
     "rimraf": "^5.0.5",
     "simple-git-hooks": "^2.9.0",
     "typescript": "^5.3.2",
     "unbuild": "^2.0.0",
+    "unocss": "^0.59.4",
     "vite": "^5.0.4",
     "vitepress": "1.1.3",
+    "vitepress-plugin-nprogress": "^0.0.4",
+    "vitepress-plugin-sandpack": "^1.1.4",
     "vitest": "^1.0.0-beta.6"
   },
   "simple-git-hooks": {

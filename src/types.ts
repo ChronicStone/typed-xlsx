@@ -20,24 +20,24 @@ export type NestedPaths<T> = T extends Array<infer U>
 export type Not<T, U> = T extends U ? never : T
 
 type IfExistsInAllUnionMembers<T, K extends PropertyKey> =
-    T extends any ? K extends keyof T ? true : false : never
+  T extends any ? K extends keyof T ? true : false : never
 
 export type TypeFromPath<T, Path extends string> =
-    T extends any ? (
-      Path extends keyof T ? T[Path] :
-        Path extends `${infer P}.${infer R}` ?
-          P extends keyof T ?
-            T[P] extends GenericObject | null | undefined ?
-              TypeFromPath<Exclude<T[P], undefined | null>, R> :
-              never :
+  T extends any ? (
+    Path extends keyof T ? T[Path] :
+      Path extends `${infer P}.${infer R}` ?
+        P extends keyof T ?
+          T[P] extends GenericObject | null | undefined ?
+            TypeFromPath<Exclude<T[P], undefined | null>, R> :
             never :
-          never
-    ) : never
+          never :
+        never
+  ) : never
 
 export type TypeFromPathUnion<T, Path extends string> =
-    IfExistsInAllUnionMembers<T, Path> extends true
-      ? TypeFromPath<T, Path>
-      : TypeFromPath<T, Path> | undefined
+  IfExistsInAllUnionMembers<T, Path> extends true
+    ? TypeFromPath<T, Path>
+    : TypeFromPath<T, Path> | undefined
 
 export type AllKeysMatch<T extends object, U> = {
   [K in keyof T]: T[K] extends U ? true : false;
@@ -90,10 +90,10 @@ export type Column<
     cellStyle?: CellStyle | ((data: T[]) => CellStyle)
   }>
 } & (
-  ExtractColumnValue<T, FieldValue> extends CellValue
-    ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
-    : { transform: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
-)
+    ExtractColumnValue<T, FieldValue> extends CellValue
+      ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
+      : { transform: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
+  )
 
 export interface ColumnGroup<
   T extends GenericObject,
@@ -203,7 +203,7 @@ export type ExtractSelectedContext<
 export type TOutputType = 'buffer' | 'workbook' | 'base64' | 'file'
 
 export interface ExcelBuildParams<Output extends TOutputType,
-  > {
+> {
   output: Output
   rtl?: boolean
   extraLength?: number
