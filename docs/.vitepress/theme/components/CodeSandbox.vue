@@ -10,16 +10,19 @@ const props = defineProps(sandboxProps)
     :light-theme="lightTheme"
     :dark-theme="darkTheme"
     :options="{
-      ...props, // do not forget it
-      hideEditor: true,
+      ...props,
+      coderHeight: 400,
+      previewHeight: 400,
       showLineNumbers: true,
+      resizablePanels: true,
     }"
-    :hide-editor="true"
     :custom-setup="{
-      ...props, // do not forget it
+      ...props,
       deps: {
         '@chronicstone/typed-xlsx': 'latest',
         'x-data-spreadsheet': 'latest',
+        '@faker-js/faker': '^8.3.1',
+        'xlsx': '0.18.5',
       },
     }"
     :code-options="codeOptions"

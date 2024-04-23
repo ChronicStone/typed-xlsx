@@ -1,4 +1,4 @@
-<!-- # Create File Builder
+# Create File Builder
 
 To construct an Excel file with `typed-xlsx`, start by creating an instance of the file builder using `ExcelBuilder`. This class facilitates the construction of Excel files through a method chaining approach that allows you to configure properties and behaviors sequentially.
 
@@ -34,7 +34,7 @@ const excelFile = ExcelBuilder.create()
   .build({ output: 'buffer' })
 ```
 
-## Multiple Sheets 
+## Multiple Sheets
 
 In typed-xlsx, you can define multiple sheets in a single workbook. You just need to chain the method calls for each sheet you want to add:
 
@@ -49,4 +49,3 @@ const excelFile = ExcelBuilder.create()
   .addTable({ data, schema, })
   .build({ output: 'buffer' })
 ```
- -->

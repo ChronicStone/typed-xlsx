@@ -9,7 +9,7 @@ hero:
   image:
     src: /images/logo.svg
     alt: Typed-xlsx
-    style: 
+    style:
       margin-left: 50px
   actions:
     - theme: brand
@@ -51,7 +51,3 @@ features:
 footer:
   message: "Licensed under the MIT License. Created by Cyprien Thao. Extendable and customizable for developers."
 ---
-
-
-::: code-sandbox {template=vue3-ts}
-:::

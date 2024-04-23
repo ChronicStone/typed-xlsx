@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitepress'
-import { transformerTwoslash } from 'vitepress-plugin-twoslash'
+import { transformerTwoslash } from '@shikijs/vitepress-twoslash'
 import container from 'markdown-it-container'
 import { renderSandbox } from 'vitepress-plugin-sandpack'
 import Unocss from 'unocss/vite'
