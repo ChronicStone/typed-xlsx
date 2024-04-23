@@ -34,6 +34,9 @@ export default defineConfig({
   ignoreDeadLinks: true,
   cleanUrls: true,
   titleTemplate: 'Typed-xlsx | :title',
+  head: [
+    ['meta', { name: 'google-site-verification', content: 'DPVOPrsgdIJ4_xJYhy6Azw6vGw51riJiJoaT7SBTARc' }],
+  ],
   themeConfig: {
     logo: '/images/logo.png',
     editLink: {
