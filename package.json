@@ -1,7 +1,7 @@
 {
   "name": "@chronicstone/typed-xlsx",
   "type": "module",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "packageManager": "pnpm@8.11.0",
   "description": "_description_",
   "author": "ChronicStone <cthao.pro@gmail.com>",
