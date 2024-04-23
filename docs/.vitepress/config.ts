@@ -35,7 +35,6 @@ export default defineConfig({
   cleanUrls: true,
   titleTemplate: 'Typed-xlsx | :title',
   themeConfig: {
-    aside: true,
     logo: '/images/logo.png',
     editLink: {
       pattern: 'https://github.com/ChronicStone/typed-xlsx/edit/main/docs/:path',
