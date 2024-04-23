@@ -20,7 +20,7 @@ export default defineConfig({
   titleTemplate: ':title - Typed-xlsx',
   themeConfig: {
     editLink: {
-      pattern: 'https://github.com/ChronicStone/typed-xlsx/edit/main/:path',
+      pattern: 'https://github.com/ChronicStone/typed-xlsx/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
     search: { provider: 'local' },
