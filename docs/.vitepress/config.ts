@@ -98,8 +98,10 @@ export default defineConfig({
   },
   vite: {
     plugins: [
-      // @ts-expect-error unknown ts issue
       Unocss({}),
     ],
+    ssr: {
+      noExternal: ['xlsx-js-style'],
+    },
   },
 })

@@ -94,5 +94,3 @@ export const financialReportSchema = ExcelSchemaBuilder.create<FinancialReport>(
     }),
   })
   .build()
-
-export const financialReportExcel = financialReportSchema

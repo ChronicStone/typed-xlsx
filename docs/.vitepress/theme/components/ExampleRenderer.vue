@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useData } from 'vitepress'
 import { darkTheme } from 'naive-ui'
-import { nextTick, onMounted, ref, watch } from 'vue'
-import { codeToHtml } from 'shiki'
-import { transformerTwoslash } from '@shikijs/twoslash'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useWindowSize } from '@vueuse/core'
 import { THEME_OVERRIDES } from '../config/themeVars'
+// @ts-expect-error missing types
+import { data } from '../data/examples.data'
 
 const props = defineProps<{ fileKey: string }>()
 const { isDark } = useData()
@@ -12,92 +13,58 @@ const GITHUB_URL = 'https://github.com/ChronicStone/typed-xlsx/raw/main/examples
 const iframeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${GITHUB_URL}${props.fileKey}.xlsx`
 
 const splitRef = ref<any>(null)
+const loading = ref(false)
 
-const loading = ref(true)
-const file = ref<string | null>(null)
-const schema = ref<string | null>(null)
-const data = ref<string | null>(null)
+const theme = computed(() => isDark.value ? 'dark' : 'light')
+const example = (data as any).find(e => e.key === props.fileKey)
 
-const parsedFile = ref<string | null>(null)
-const parsedSchema = ref<string | null>(null)
-const parsedData = ref<string | null>(null)
-
-async function loadTemplates() {
-  schema.value = await import(`../../../.examples/${props.fileKey}/schema.ts?raw`).then(data => data.default).catch(() => null)
-  data.value = await import(`../../../.examples/${props.fileKey}/data.ts?raw`).then(data => data.default).catch(() => null)
-  file.value = await import(`../../../.examples/${props.fileKey}/file.ts?raw`).then(data => data.default).catch(() => null)
-}
-
-async function parseTemplates() {
-  await nextTick()
-  if (file.value)
-    parsedFile.value = await renderCode(file.value)
-  if (schema.value)
-    parsedSchema.value = await renderCode(schema.value)
-  if (data.value)
-    parsedData.value = await renderCode(data.value)
-}
-
-onMounted(async () => {
-  try {
-    await loadTemplates()
-    await parseTemplates()
-  }
-  catch (e) {
-    console.error(e)
-  }
-  finally {
-    loading.value = false
-  }
-})
-
-function renderCode(code: string) {
-  return codeToHtml(code, {
-    lang: 'ts',
-    theme: isDark.value ? 'github-dark' : 'github-light',
-    // transformers: [
-    //   transformerTwoslash(), // <-- here
-    // ],
-  })
-}
-
-watch(() => isDark.value, () => parseTemplates())
+const { width } = useWindowSize()
+const isSmallScreen = computed(() => width.value < 768)
 </script>
 
 <template>
   <NConfigProvider v-if="!loading" :theme="isDark ? darkTheme : undefined" :theme-overrides="THEME_OVERRIDES">
-    <NCard class="mt-20" content-class="flex items-center flex items-center flex-col lg:flex-row !p-0 " style="height: 80vh">
-      <NSplit ref="splitRef" direction="horizontal">
+    <NCard class="mt-20 xlsx-example !h-full" content-class="flex items-center flex items-center flex-col lg:flex-row !p-0 " style="height: 80vh">
+      <NSplit ref="splitRef" :direction="isSmallScreen ? 'vertical' : 'horizontal'" :resize-trigger-size="10" :default-size="0.5">
         <template #1>
           <NTabs type="line" animated>
-            <NTabPane v-if="file" name="schema.ts">
+            <NTabPane v-if="example?.schema" name="schema.ts">
               <template #tab>
                 <div class="px-2">
                   schema.ts
                 </div>
               </template>
-              <NScrollbar class="max-h-[75vh]">
-                <div v-html="parsedSchema" />
+              <NScrollbar :class="!isSmallScreen ? 'max-h-[75vh]' : 'max-h-[50vh]'">
+                <div v-html="example?.schema[theme]" />
               </NScrollbar>
             </NTabPane>
-            <NTabPane v-if="data" name="data.ts">
-              <NScrollbar>
-                <div v-html="parsedData" />
+            <NTabPane v-if="example?.data" name="data.ts">
+              <NScrollbar :class="!isSmallScreen ? 'max-h-[75vh]' : 'max-h-[50vh]'">
+                <div v-html="example?.data[theme]" />
               </NScrollbar>
             </NTabPane>
-            <NTabPane v-if="file" name="file.ts">
-              <NScrollbar>
-                <div v-html="parsedFile" />
+            <NTabPane v-if="example?.file" name="file.ts">
+              <NScrollbar :class="!isSmallScreen ? 'max-h-[75vh]' : 'max-h-[50vh]'">
+                <div v-html="example?.file[theme]" />
               </NScrollbar>
             </NTabPane>
           </NTabs>
         </template>
         <template #2>
-          <div class="w-full h-full">
-            <iframe v-show="!splitRef?.isDragging" :src="iframeUrl" class="w-full h-full" />
-          </div>
+          <iframe v-show="!splitRef?.isDragging" :src="iframeUrl" class="w-full h-full" :class="!isSmallScreen ? '' : '!h-[50vh]'" />
         </template>
       </NSplit>
     </NCard>
   </NConfigProvider>
 </template>
+
+<style scoped>
+.xlsx-example:deep() .github-dark {
+  background-color: transparent !important;
+}
+
+.xlsx-example:deep() .shiki {
+  padding-left: 1em !important;
+  padding-top: 0 !important;
+}
+</style>

@@ -80,7 +80,6 @@ export function generateFinancialReportData(months: number, departmentsPerMonth:
       financingCashFlow: faker.number.int({ min: -10000, max: 5000 }),
       grossMargin,
       EBIT: totalProfit - faker.number.int({ min: 1000, max: 5000 }),
-      // [@faker-js/faker]: faker.finance.amount(min, max, dec, symbol, autoFormat) is deprecated since v8.0 and will be removed in v9.0. Please use faker.finance.amount({ min, max, dec, symbol, autoFormat }) instead.
       debtToEquityRatio: Number.parseFloat(faker.finance.amount({ min: 2000, max: 40000, dec: 2, symbol: '%', autoFormat: true })),
       ROI: Number.parseFloat(faker.finance.amount({ min: 2000, max: 40000, dec: 2, symbol: '%', autoFormat: true })),
       YoYGrowth: Number.parseFloat(faker.finance.amount({ min: -5000, max: 5000, dec: 2, symbol: '%', autoFormat: true })),
