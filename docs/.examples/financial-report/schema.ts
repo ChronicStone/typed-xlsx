@@ -25,17 +25,17 @@ export const financialReportSchema = ExcelSchemaBuilder.create<FinancialReport>(
     label: 'Profit',
     transform: departments => departments.map(d => d.profit),
     format: '$#,##0.00',
-    cellStyle: (data, _, index) => ({
-      font: { color: { rgb: data[].profit >= 0 ? '007500' : 'FF0000' } },
+    cellStyle: (data, _, valueIndex) => ({
+      font: { color: { rgb: data.departments[valueIndex].profit >= 0 ? '007500' : 'FF0000' } },
     }),
   })
   .column('Profit Margin', {
     key: 'departments',
     label: 'Profit Margin',
     transform: departments => departments.map(d => `${d.profitMargin}%`),
-    // cellStyle: data => ({
-    //   font: { color: { rgb: data.profitMargin >= 0 ? '007500' : 'FF0000' } },
-    // }),
+    cellStyle: (data, _, valueIndex) => ({
+      font: { color: { rgb: data.departments[valueIndex].profitMargin >= 0 ? '007500' : 'FF0000' } },
+    }),
   })
   .column('totalRevenue', {
     key: 'totalRevenue',
@@ -67,6 +67,9 @@ export const financialReportSchema = ExcelSchemaBuilder.create<FinancialReport>(
       {
         value: data => data.reduce((acc, item) => acc + item.totalProfit, 0),
         format: () => '$#,##0.00',
+        cellStyle: data => ({
+          font: { color: { rgb: data.reduce((acc, item) => acc + item.totalProfit, 0) >= 0 ? '007500' : 'FF0000' } },
+        }),
       },
     ],
     cellStyle: data => ({
@@ -81,6 +84,9 @@ export const financialReportSchema = ExcelSchemaBuilder.create<FinancialReport>(
       {
         value: data => data.reduce((acc, item) => acc + item.averageProfitMargin, 0) / data.length,
         format: () => '0.00%',
+        cellStyle: data => ({
+          font: { color: { rgb: data.reduce((acc, item) => acc + item.averageProfitMargin, 0) / data.length >= 0 ? '007500' : 'FF0000' } },
+        }),
       },
     ],
     cellStyle: data => ({
