@@ -3,6 +3,7 @@ import TwoslashFloatingVue from '@shikijs/vitepress-twoslash/client'
 import '@shikijs/vitepress-twoslash/style.css'
 import type { EnhanceAppContext } from 'vitepress'
 import './style.css'
+import NaiveUi from 'naive-ui'
 
 import vitepressNprogress from 'vitepress-plugin-nprogress'
 import ExampleRenderer from './components/ExampleRenderer.vue'
@@ -17,6 +18,7 @@ export default {
     DefaultTheme.enhanceApp?.(ctx)
     vitepressNprogress(ctx)
     ctx.app.component('ExampleRenderer', ExampleRenderer)
+    ctx.app.use(NaiveUi)
     // ctx.app.component('Sandbox', Sandbox)
     // ctx.app.component('CodeSandbox', CodeSandbox)
   },

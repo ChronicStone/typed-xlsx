@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useData } from 'vitepress'
-import { NCard, NConfigProvider, NScrollbar, NSplit, NTabPane, NTabs, darkTheme } from 'naive-ui'
+import { darkTheme } from 'naive-ui'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { codeToHtml } from 'shiki'
 import { transformerTwoslash } from '@shikijs/twoslash'
@@ -11,7 +11,7 @@ const { isDark } = useData()
 const GITHUB_URL = 'https://github.com/ChronicStone/typed-xlsx/raw/main/examples/'
 const iframeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${GITHUB_URL}${props.fileKey}.xlsx`
 
-const splitRef = ref<InstanceType<typeof NSplit> | null>(null)
+const splitRef = ref<any>(null)
 
 const loading = ref(true)
 const file = ref<string | null>(null)
