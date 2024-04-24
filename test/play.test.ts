@@ -24,6 +24,6 @@ describe('should generate the play excel file', () => {
       .addTable({ data: users, schema, title: 'Table 4' })
       .build({ output: 'buffer' })
 
-    fs.writeFileSync('play.xlsx', file)
+    fs.writeFileSync('./examples/playground.xlsx', file)
   })
 })

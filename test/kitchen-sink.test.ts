@@ -27,7 +27,7 @@ interface User {
 
 const transformers = {
   boolean: (key: boolean) => key ? 'Yes' : 'No',
-  list: (key: (string)[]) => key.join(', '),
+  list: (key: string[]) => key.join(', '),
   arrayLength: (key: any[] | string) => key.length,
   date: (key: Date) => key.toLocaleDateString(),
 } satisfies TransformersMap
@@ -51,7 +51,7 @@ describe('should generate the example excel', () => {
         technical: { overall: Math.floor(Math.random() * 10) },
         ...(Math.random() > 0.5 ? { interview: { overall: Math.floor(Math.random() * 10) } } : {}),
       },
-      balance: +faker.finance.amount(0, 1000000, 2),
+      balance: +faker.finance.amount({ min: 0, max: 1000000, dec: 2 }),
       createdAt: faker.date.past(),
     }))
     const assessmentExport = ExcelSchemaBuilder
@@ -177,6 +177,6 @@ describe('should generate the example excel', () => {
       })
       .build({ output: 'buffer' })
 
-    fs.writeFileSync('example.xlsx', buffer)
+    fs.writeFileSync('./examples/kitchen-sink.xlsx', buffer)
   })
 })
