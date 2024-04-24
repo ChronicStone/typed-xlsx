@@ -81,9 +81,9 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
 
               if (
                 typeof value === 'undefined'
-                  || value === null
-                  || value === ''
-                  || (Array.isArray(value) && value.length === 0 && column.default)
+                || value === null
+                || value === ''
+                || (Array.isArray(value) && value.length === 0 && column.default)
               )
                 return column.default
 
@@ -327,16 +327,22 @@ export function getColumnSeparatorIndexes(params: {
   }).flat()
 }
 
-export function buildCell(params: {
+export function createCell(params: {
   data?: GenericObject
   value?: BaseCellValue
-  style?: CellStyle | ((rowData: any) => CellStyle)
-  format?: string | ((rowData: any) => string)
+  style?: CellStyle | ((rowData: any, rowIndex: number, subRowIndex: number) => CellStyle)
+  format?: string | ((rowData: any, rowIndex: number, subRowIndex: number) => string)
   extraStyle?: CellStyle
   bordered?: boolean
+  rowIndex?: number
+  subRowIndex?: number
 }): XLSX.CellObject {
-  const style = typeof params.style === 'function' ? params.style(params.data ?? {}) : params.style ?? {}
-  const format = typeof params.format === 'function' ? params.format(params.data ?? {}) : params.format
+  const style = typeof params.style === 'function'
+    ? params.style(params.data ?? {}, params?.rowIndex ?? 0, params?.subRowIndex ?? 0)
+    : params.style ?? {}
+  const format = typeof params.format === 'function'
+    ? params.format(params.data ?? {}, params?.rowIndex ?? 0, params?.subRowIndex ?? 0)
+    : params.format
   return {
     v: params.value === null ? '' : params.value,
     t: getCellDataType(params.value),

@@ -1,7 +1,7 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
-import { applyGroupBorders, buildCell, buildSheetConfig, computeSheetRange, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getRowValue, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
+import { applyGroupBorders, buildSheetConfig, computeSheetRange, createCell, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getRowValue, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
 
 export type * from './types'
 
@@ -178,7 +178,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           if (hasTitle) {
             tableConfig.columns.forEach((_, colIndex) => {
               const titleCellRef = utils.encode_cell({ c: COL_OFFSET + colIndex, r: ROW_OFFSET })
-              worksheet[titleCellRef] = buildCell({
+              worksheet[titleCellRef] = createCell({
                 value: colIndex === 0 ? tableConfig.title : '',
                 style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
                 extraStyle: {
@@ -197,7 +197,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
           tableConfig.columns.forEach((column, colIndex) => {
             const headerCellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: ROW_OFFSET + (rowHasTitle ? 1 : 0) })
-            worksheet[headerCellRef] = buildCell({
+            worksheet[headerCellRef] = createCell({
               value: column.label,
               bordered: params?.bordered ?? true,
               style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
@@ -214,12 +214,14 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                   r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
                 })
 
-                worksheet[cellRef] = buildCell({
+                worksheet[cellRef] = createCell({
                   value,
                   data: row,
                   format: column._ref.format,
                   style: column._ref.cellStyle,
                   bordered: params?.bordered ?? true,
+                  rowIndex,
+                  subRowIndex: valueIndex,
                 })
               })
 
@@ -229,7 +231,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                     c: colIndex + COL_OFFSET,
                     r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
                   })
-                  worksheet[cellRef] = buildCell({ value: '', bordered: params?.bordered ?? true })
+                  worksheet[cellRef] = createCell({ value: '', bordered: params?.bordered ?? true })
                 }
                 if (values.length === 1) {
                   worksheet['!merges'].push({
@@ -249,7 +251,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                   r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (rowHasTitle ? 1 : 0),
                 })
                 if (!summary) {
-                  worksheet[cellRef] = buildCell({
+                  worksheet[cellRef] = createCell({
                     value: '',
                     bordered: params?.bordered ?? true,
                     style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
@@ -258,7 +260,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                 }
 
                 const value = summary.value(tableConfig.content)
-                worksheet[cellRef] = buildCell({
+                worksheet[cellRef] = createCell({
                   value,
                   data: tableConfig.content,
                   format: summary.format,

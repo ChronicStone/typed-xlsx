@@ -82,8 +82,8 @@ export type Column<
   columnKey: ColKey
   key: FieldValue
   default?: CellValue
-  format?: string | ((rowData: T) => string)
-  cellStyle?: CellStyle | ((rowData: T) => CellStyle)
+  format?: string | ((rowData: T, rowIndex: number, subRowIndex: number) => string)
+  cellStyle?: CellStyle | ((rowData: T, rowIndex: number, subRowIndex: number) => CellStyle)
   summary?: Array<{
     value: (data: T[]) => BaseCellValue
     format?: string | ((data: T[]) => string)

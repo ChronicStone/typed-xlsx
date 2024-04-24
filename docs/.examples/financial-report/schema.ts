@@ -25,9 +25,9 @@ export const financialReportSchema = ExcelSchemaBuilder.create<FinancialReport>(
     label: 'Profit',
     transform: departments => departments.map(d => d.profit),
     format: '$#,##0.00',
-    // cellStyle: data => ({
-    //   font: { color: { rgb: data.profit >= 0 ? '007500' : 'FF0000' } },
-    // }),
+    cellStyle: (data, _, index) => ({
+      font: { color: { rgb: data[].profit >= 0 ? '007500' : 'FF0000' } },
+    }),
   })
   .column('Profit Margin', {
     key: 'departments',
