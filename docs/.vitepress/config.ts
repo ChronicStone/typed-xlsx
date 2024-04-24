@@ -7,6 +7,9 @@ import Unocss from 'unocss/vite'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: 'Typed-xlsx',
+  sitemap: {
+    hostname: 'https://typed-xlsx.vercel.app',
+  },
   description: 'Documentation of typed-xlsx library',
   markdown: {
     theme: {
@@ -32,7 +35,7 @@ export default defineConfig({
   },
   lastUpdated: true,
   ignoreDeadLinks: true,
-  cleanUrls: true,
+  cleanUrls: false,
   titleTemplate: 'Typed-xlsx | :title',
   head: [
     ['meta', { name: 'google-site-verification', content: 'DPVOPrsgdIJ4_xJYhy6Azw6vGw51riJiJoaT7SBTARc' }],
