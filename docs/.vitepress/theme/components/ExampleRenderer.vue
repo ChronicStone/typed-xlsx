@@ -10,7 +10,7 @@ import { data } from '../data/examples.data'
 const props = defineProps<{ fileKey: string }>()
 const { isDark } = useData()
 const GITHUB_URL = 'https://github.com/ChronicStone/typed-xlsx/raw/main/examples/'
-const iframeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${GITHUB_URL}${props.fileKey}.xlsx`
+const iframeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${GITHUB_URL}${props.fileKey}.xlsx&action=embedview&zoom=0.5`
 
 const splitRef = ref<any>(null)
 const loading = ref(false)

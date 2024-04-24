@@ -3,10 +3,10 @@
   "type": "module",
   "version": "0.2.10",
   "packageManager": "pnpm@8.11.0",
-  "description": "_description_",
+  "description": "High-Quality Type-safe Excel Reporting.",
   "author": "ChronicStone <cthao.pro@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/Chronicstone/typed-xlsx#readme",
+  "homepage": "https://typed-xlsx.vercel.app/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Chronicstone/typed-xlsx.git"

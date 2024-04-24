@@ -2,7 +2,7 @@ import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
 import type { FinancialReport } from './data'
 
 export const financialReportSchema = ExcelSchemaBuilder.create<FinancialReport>()
-  .column('month', { key: 'month', label: 'Month', format: 'mmm yyyy' })
+  .column('month', { key: 'month', label: 'Month', format: 'MMM YYYY' })
   .column('Department Name', {
     key: 'departments',
     label: 'Department',
