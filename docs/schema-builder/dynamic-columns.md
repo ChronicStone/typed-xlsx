@@ -55,4 +55,4 @@ const file = ExcelBuilder.create()
 
 The example above will output :
 
-![Dynamic columns](../public/images/examples/col-dynamic-1.png)
+![Dynamic columns](/images/examples/col-dynamic-1.png)

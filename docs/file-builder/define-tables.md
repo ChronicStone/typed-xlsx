@@ -171,4 +171,4 @@ const file = ExcelBuilder.create()
 
 The schema above will output :
 
-![Multiple tables](../public/images/examples/multi-tables-1.png)
+![Multiple tables](/images/examples/multi-tables-1.png)

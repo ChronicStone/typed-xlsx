@@ -42,7 +42,7 @@ const schema = ExcelSchemaBuilder.create<{ name: string, email: string, framewor
 
 If a cell value is an array of BaseCellValue, `typed-xlsx` will automatically create sub-rows for each item in the array and merge extra cells on the rest of the row, like this :
 
-![Nested row merge](../public/images/examples/col-sub-rows.png)
+![Nested row merge](/images/examples/col-sub-rows.png)
 
 ## `transform`
 - **Description:** The `transform` property allows you to specify how to process the data before printing it in the cell.
@@ -102,7 +102,7 @@ ExcelSchemaBuilder.create<{ date: Date, amount: number, currency: 'EUR' | 'USD' 
   .build()
 ```
 
-![Column formats](../public/images/examples/col-format-1.png)
+![Column formats](/images/examples/col-format-1.png)
 
 ## `cellStyle`
 - **Description:** Define the style for the cell, either as a static `CellStyle` object or a function for dynamic styling.
@@ -161,4 +161,4 @@ ExcelSchemaBuilder.create<{ date: Date, amount: number }>()
   })
 ```
 
-![Column summary](../public/images/examples/col-sum-1.png)
+![Column summary](/images/examples/col-sum-1.png)

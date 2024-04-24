@@ -36,6 +36,9 @@ export default defineConfig({
   lastUpdated: true,
   ignoreDeadLinks: true,
   cleanUrls: false,
+  router: {
+    prefetchLinks: true,
+  },
   titleTemplate: 'Typed-xlsx | :title',
   head: [
     ['meta', { name: 'google-site-verification', content: 'DPVOPrsgdIJ4_xJYhy6Azw6vGw51riJiJoaT7SBTARc' }],
