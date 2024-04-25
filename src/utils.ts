@@ -304,7 +304,7 @@ export function getRowMaxHeight(params: {
   }, 1)
 }
 
-export function getRowValue(params: {
+export function getCellValue(params: {
   row: GenericObject
   rowIndex: number
   value: ReturnType<typeof buildSheetConfig>[number]['tables'][number]['columns'][number]['value']
@@ -355,5 +355,44 @@ export function createCell(params: {
       numFmt: format,
     }, style, params.extraStyle ?? {}),
 
+  }
+}
+
+// A TABLE CACHE MANAGER, THAT ACCEPTS table: ReturnType<typeof buildSheetConfig>[number]['tables'][number] and rows: GenericObject[] and returns a cache object
+
+export class CacheManager {
+  private table: ReturnType<typeof buildSheetConfig>[number]['tables'][number]
+  private rows: GenericObject[]
+  private rowMaxHeight: Map<number, number> = new Map()
+  private prevRowsHeight: Map<number, number> = new Map()
+  private cellValue: Map<string, BaseCellValue[]> = new Map()
+
+  constructor(table: ReturnType<typeof buildSheetConfig>[number]['tables'][number], rows: GenericObject[]) {
+    this.table = table
+    this.rows = rows
+
+    rows.forEach((row, rowIndex) => {
+      const rowHeight = getRowMaxHeight({ tableConfig: this.table, rowIndex })
+      const _prevRowsHeight = (this.getPrevRowsHeight(rowIndex - 1) ?? 0) + (this.getRowMaxHeight(rowIndex - 1) ?? 0)
+      this.rowMaxHeight.set(rowIndex, rowHeight)
+      this.prevRowsHeight.set(rowIndex, _prevRowsHeight)
+
+      table.columns.forEach((column, columnIndex) => {
+        const cellValue = getCellValue({ row, rowIndex, value: column.value })
+        this.cellValue.set(`${columnIndex}:${rowIndex}`, cellValue)
+      })
+    })
+  }
+
+  getPrevRowsHeight(rowIndex: number) {
+    return this.prevRowsHeight.get(rowIndex) ?? 0
+  }
+
+  getRowMaxHeight(rowIndex: number) {
+    return this.rowMaxHeight.get(rowIndex) ?? 0
+  }
+
+  getCellValue({ columnIndex, rowIndex }: { columnIndex: number, rowIndex: number }) {
+    return this.cellValue.get(`${columnIndex}:${rowIndex}`) ?? []
   }
 }

@@ -4,25 +4,29 @@ import { ExcelBuilder, ExcelSchemaBuilder } from '../src'
 
 describe('should generate the play excel file', () => {
   it('exported', () => {
-    interface Organization { id: string, name: string }
-    interface User { id: string, name: string, organizations: Organization[] }
+    interface User { id: string, name: string }
 
     // Group definition within the schema
     const schema = ExcelSchemaBuilder.create<User>()
       .column('id', { key: 'id' })
       .column('name', { key: 'name' })
-
       .build()
 
-    const users: User[] = [{ id: '1', name: 'John', organizations: [{ id: '1', name: 'Org 1' }] }, { id: '2', name: 'Jane', organizations: [{ id: '1', name: 'Org 1' }, { id: '2', name: 'Org 2' }] }, { id: '3', name: 'Bob', organizations: [{ id: '1', name: 'Org 1' }, { id: '2', name: 'Org 2' }, { id: '3', name: 'Org 3' }] }]
+    console.info('Schema built')
+    console.time('Generate data')
+    const users: User[] = Array.from({ length: 400000 }, (_, i) => ({
+      id: i.toString(),
+      name: 'John',
 
+    }))
+    console.timeEnd('Generate data')
+
+    console.time('build')
     const file = ExcelBuilder.create()
       .sheet('Sheet1', { tablesPerRow: 2 })
       .addTable({ data: users, schema, title: 'Table 1' })
-      .addTable({ data: users, schema, title: 'Table 2' })
-      .addTable({ data: users, schema, title: 'Table 3' })
-      .addTable({ data: users, schema, title: 'Table 4' })
       .build({ output: 'buffer' })
+    console.timeEnd('build')
 
     fs.writeFileSync('./examples/playground.xlsx', file)
   })

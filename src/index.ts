@@ -1,7 +1,7 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
-import { applyGroupBorders, buildSheetConfig, computeSheetRange, createCell, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getRowValue, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
+import { CacheManager, applyGroupBorders, buildSheetConfig, computeSheetRange, createCell, getCellValue, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
 
 export type * from './types'
 
@@ -162,14 +162,15 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           titleRowIndexes.push(ROW_OFFSET)
 
         tables.forEach((tableConfig, tableIndex) => {
+          const tableCache = new CacheManager(tableConfig, tableConfig.content)
           if (tableIndex > 0) {
             const prevTable = tables[tableIndex - 1]
             COL_OFFSET += prevTable.columns.length + TABLE_CELL_OFFSET
           }
 
-          const tableContentExtraRows = tableConfig.columns.reduce((acc, col) => {
+          const tableContentExtraRows = tableConfig.columns.reduce((acc, col, columnIndex) => {
             return Math.max(acc, tableConfig.content.reduce((acc, row, rowIndex) => {
-              const values = getRowValue({ row, rowIndex, value: col.value })
+              const values = tableCache.getCellValue({ columnIndex, rowIndex })
               return values.length - 1 + acc
             }, 0))
           }, 0)
@@ -204,9 +205,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             })
 
             tableConfig.content.forEach((row, rowIndex) => {
-              const maxRowHeight = getRowMaxHeight({ tableConfig, rowIndex })
-              const prevRowHeight = getPrevRowsHeight({ tableConfig, rowIndex })
-              const values = getRowValue({ row, rowIndex, value: column.value })
+              const maxRowHeight = tableCache.getRowMaxHeight(rowIndex)
+              const prevRowHeight = tableCache.getPrevRowsHeight(rowIndex)
+              const values = tableCache.getCellValue({ columnIndex: colIndex, rowIndex })
 
               values.forEach((value, valueIndex) => {
                 const cellRef = utils.encode_cell({
@@ -279,9 +280,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
           if (tableContentExtraRows > 0) {
             tableConfig.content.forEach((row, rowIndex) => {
-              const prevRowHeight = getPrevRowsHeight({ tableConfig, rowIndex })
+              const prevRowHeight = tableCache.getPrevRowsHeight(rowIndex)
               const rowStart = prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0)
-              const currentRowHeight = getRowMaxHeight({ tableConfig, rowIndex })
+              const currentRowHeight = tableCache.getRowMaxHeight(rowIndex)
               const start = utils.encode_cell({ c: COL_OFFSET, r: rowStart })
               const end = utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + (currentRowHeight - 1) })
               applyGroupBorders(worksheet, { start, end })
