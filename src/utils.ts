@@ -73,7 +73,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
         .flat()
         .map((column) => {
           return {
-            label: column?.label ?? formatKey(column.columnKey),
+            label: column?.label ?? column.columnKey,
             value: (row: GenericObject, index: number): CellValue => {
               const value = typeof column.key === 'string'
                 ? getPropertyFromPath(row, column.key)

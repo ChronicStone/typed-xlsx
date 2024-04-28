@@ -82,7 +82,7 @@
     "vitest": "^1.0.0-beta.6"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged"
+    "pre-commit": "bun run lint-staged"
   },
   "lint-staged": {
     "*": ""
