@@ -4,7 +4,7 @@ Creating a well-defined schema is crucial for generating consistent and type-saf
 
 ## What is ExcelSchemaBuilder?
 
-`ExcelSchemaBuilder` is a builder class designed to create a type-safe schema that represents the structure of the tables you plan to export to an Excel file. 
+`ExcelSchemaBuilder` is a builder class designed to create a type-safe schema that represents the structure of the tables you plan to export to an Excel file.
 
 ## Instantiating a Schema
 
@@ -44,5 +44,3 @@ const schema = ExcelSchemaBuilder.create<{ firstName: string, lastName: string }
   // WILL THROW ERROR, KEY ALREADY EXISTS
   .column('firstName', { key: 'firstName' })
 ```
-
-

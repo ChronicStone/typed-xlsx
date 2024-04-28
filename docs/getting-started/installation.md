@@ -2,7 +2,7 @@
 
 To install `typed-xlsx` into your project, follow these straightforward steps:
 
-## 1. Install the package 
+## 1. Install the package
 
 Choose your preferred package manager and run the corresponding command to add `typed-xlsx` to your project:
 

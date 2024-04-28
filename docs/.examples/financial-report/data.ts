@@ -34,7 +34,10 @@ export function generateFinancialReportData(months: number, departmentsPerMonth:
 
   return Array.from({ length: months }, () => {
     const month = faker.date.between({ from: '2023-01-01', to: '2023-12-31' }).toISOString().slice(0, 7)
-    let totalRevenue = 0; let totalExpenses = 0; let totalProfit = 0; let totalProfitMargin = 0
+    let totalRevenue = 0
+    let totalExpenses = 0
+    let totalProfit = 0
+    let totalProfitMargin = 0
     let totalCOGS = 0
 
     const departmentData = Array.from({ length: departmentsPerMonth }, () => {

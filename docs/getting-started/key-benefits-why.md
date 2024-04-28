@@ -20,7 +20,7 @@ In a typical scenario, developers find themselves writing extensive custom wrapp
 - **Enhanced Cell Styling and Formatting:** Apply styles and formats to cells directly within your TypeScript code.
 - **Type-Safe Data Serialization & Validation:** Ensure that your data adheres to expected types, reducing errors and improving report reliability.
 - **Automated Column Summaries:** Generate summaries for data columns, facilitating quick analysis and insights.
-- And many more...  
+- And many more...
 
 ### Developer Experience Focused
 `typed-xlsx` is designed with the developer in mind, simplifying the API and abstracting the complexities, which results in:

@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { transformerTwoslash } from '@shikijs/twoslash'
 import { codeToHtml } from 'shiki'
-import { p } from '@antfu/utils'
 
 function buildHtml(code: string, dark: boolean) {
   return codeToHtml(code, {

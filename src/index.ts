@@ -1,7 +1,7 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
-import { SheetCacheManager, applyGroupBorders, buildSheetConfig, computeSheetRange, createCell, getCellValue, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
+import { SheetCacheManager, applyGroupBorders, buildSheetConfig, createCell, getColumnHeaderStyle, getColumnSeparatorIndexes, getWorksheetColumnWidths, tableHasSummary } from './utils'
 
 export type * from './types'
 

@@ -32,7 +32,7 @@ const excelFile = ExcelBuilder.create()
     .sheet('Sheet1')
     .addTable({ data, schema, })
     .build({ output: 'buffer' })
-  
+
   const workbook = ExcelBuilder.create()
     //    ^?
     .sheet('Sheet1')
@@ -51,7 +51,6 @@ const excelFile = ExcelBuilder.create()
     .addTable({ data, schema, })
     .build({ output: 'file' })
   ```
-  
 
 ### `rtl`
 - **Description:** Specifies whether the Excel file should be rendered in right-to-left (RTL) mode.
@@ -59,7 +58,6 @@ const excelFile = ExcelBuilder.create()
 - **Required:** No
 - **Default:** `false`
 - **Example:**
-
 
 ```ts twoslash
 // @noErrors
@@ -103,7 +101,7 @@ const excelFile = ExcelBuilder.create()
   .sheet('Sheet1')
   .addTable({ data, schema, })
   .build({ output: 'buffer', rowHeight: 30 })
-  ```   
+  ```
 
 ### `bordered`
 - **Description:** Specifies whether the Excel file should have borders.
