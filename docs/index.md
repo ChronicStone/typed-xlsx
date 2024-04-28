@@ -56,18 +56,20 @@ footer:
     import ExampleRenderer from './.vitepress/theme/components/ExampleRenderer.vue'
 </script>
 
-<ExampleRenderer fileKey="financial-report">
-  <template v-slot:schema>
-  ```ts twoslash
-  import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
-  // ---cut-before---
-  const schema = ExcelSchemaBuilder.create<{ firstName: string, lastName: string, countries: string[] }>()
-  ```
-  </template>
-  <template v-slot:data>
-<<< ./.examples/financial-report/data.ts
-  </template>
-  <template v-slot:file>
-<<< ./.examples/financial-report/file.ts
-  </template>
-</ExampleRenderer>
+<ClientOnly>
+  <ExampleRenderer fileKey="financial-report">
+    <template v-slot:schema>
+    ```ts twoslash
+    import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
+    // ---cut-before---
+    const schema = ExcelSchemaBuilder.create<{ firstName: string, lastName: string, countries: string[] }>()
+    ```
+    </template>
+    <template v-slot:data>
+  <<< ./.examples/financial-report/data.ts
+    </template>
+    <template v-slot:file>
+  <<< ./.examples/financial-report/file.ts
+    </template>
+  </ExampleRenderer>
+</ClientOnly>
