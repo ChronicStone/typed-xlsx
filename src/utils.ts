@@ -358,20 +358,19 @@ export function createCell(params: {
   }
 }
 
-// A TABLE CACHE MANAGER, THAT ACCEPTS table: ReturnType<typeof buildSheetConfig>[number]['tables'][number] and rows: GenericObject[] and returns a cache object
-
-export class CacheManager {
+export class TableCacheManager {
   private table: ReturnType<typeof buildSheetConfig>[number]['tables'][number]
   private rows: GenericObject[]
   private rowMaxHeight: Map<number, number> = new Map()
   private prevRowsHeight: Map<number, number> = new Map()
   private cellValue: Map<string, BaseCellValue[]> = new Map()
+  private nbExtraRows: number = 0
 
-  constructor(table: ReturnType<typeof buildSheetConfig>[number]['tables'][number], rows: GenericObject[]) {
+  constructor(table: ReturnType<typeof buildSheetConfig>[number]['tables'][number]) {
     this.table = table
-    this.rows = rows
+    this.rows = table.content
 
-    rows.forEach((row, rowIndex) => {
+    table.content.forEach((row, rowIndex) => {
       const rowHeight = getRowMaxHeight({ tableConfig: this.table, rowIndex })
       const _prevRowsHeight = (this.getPrevRowsHeight(rowIndex - 1) ?? 0) + (this.getRowMaxHeight(rowIndex - 1) ?? 0)
       this.rowMaxHeight.set(rowIndex, rowHeight)
@@ -382,6 +381,13 @@ export class CacheManager {
         this.cellValue.set(`${columnIndex}:${rowIndex}`, cellValue)
       })
     })
+
+    this.nbExtraRows = table.columns.reduce((acc, _, columnIndex) => {
+      return Math.max(acc, table.content.reduce((acc, _, rowIndex) => {
+        const values = this.getCellValue({ columnIndex, rowIndex })
+        return values.length - 1 + acc
+      }, 0))
+    }, 0)
   }
 
   getPrevRowsHeight(rowIndex: number) {
@@ -394,5 +400,98 @@ export class CacheManager {
 
   getCellValue({ columnIndex, rowIndex }: { columnIndex: number, rowIndex: number }) {
     return this.cellValue.get(`${columnIndex}:${rowIndex}`) ?? []
+  }
+
+  getNbExtraRows() {
+    return this.nbExtraRows
+  }
+}
+
+function getSheetWidth(sheetRows: Array<ReturnType<typeof buildSheetConfig>[number]['tables']>) {
+  return sheetRows.reduce((acc, tables) => {
+    const rowWidth = tables.reduce((acc, table) => {
+      const tableWidth = table.columns.length
+      return acc + tableWidth + 1
+    }, 0)
+    return Math.max(acc, rowWidth)
+  }, 0)
+}
+
+function getSheetHeight(
+  sheetChunks: Array<ReturnType<typeof buildSheetConfig>[number]['tables']>,
+  tableCaches: Map<number, { table: ReturnType<typeof buildSheetConfig>[number]['tables'][number], cache: TableCacheManager }>,
+) {
+  return sheetChunks.reduce((acc, tables) => {
+    const chunkHeight = tables.reduce((acc, _, tableIndex) => {
+      const { table, cache } = tableCaches.get(tableIndex)!
+      const hasTitle = !!table.title
+      const summaryRowLength = tableSummaryRowLength(table)
+
+      const maxRowSpan = table.columns.reduce((max, _, columnIndex) => {
+        return Math.max(max, table.content.reduce((maxRow, _, rowIndex) => {
+          const values = cache.getCellValue({ columnIndex, rowIndex })
+          return Array.isArray(values) ? Math.max(maxRow, values.length) : maxRow
+        }, 1))
+      }, 1)
+
+      const tableHeight = (table.content.length * maxRowSpan) + summaryRowLength + (hasTitle ? 1 : 0)
+      return Math.max(acc, tableHeight)
+    }, 0)
+    return acc + chunkHeight + 1
+  }, 0)
+}
+
+function getSheetRange(params: { width: number, height: number }) {
+  return utils.encode_range({ s: { c: 0, r: 0 }, e: { c: params.width - 1, r: params.height - 1 } }) // Adjust end column and row index by subtracting 1
+}
+
+export class SheetCacheManager {
+  private computedSheets: Map<number, {
+    sheet: ReturnType<typeof buildSheetConfig>[number]
+    tables: Map<number, { table: ReturnType<typeof buildSheetConfig>[number]['tables'][number], cache: TableCacheManager }>
+    chunks: Array<{
+      tables: Array<number>
+      maxHeight: number
+      hasTitle: boolean
+    }>
+    range: { height: number, width: number, range: string }
+  }> = new Map()
+
+  constructor(sheets: ReturnType<typeof buildSheetConfig>) {
+    sheets.forEach((sheet, sheetIndex) => {
+      const chunks = splitIntoChunks(sheet.tables, sheet.params?.tablesPerRow)
+      const tables = new Map<number, { table: ReturnType<typeof buildSheetConfig>[number]['tables'][number], cache: TableCacheManager }>()
+
+      sheet.tables.forEach((table, tableIndex) => tables.set(tableIndex, { table, cache: new TableCacheManager(table) }))
+      const width = getSheetWidth(chunks)
+      const height = getSheetHeight(chunks, tables)
+      const range = getSheetRange({ width, height })
+      this.computedSheets.set(sheetIndex, {
+        sheet,
+        tables,
+        chunks: chunks.map((tables, chunkIndex) => ({
+          tables: tables.map((_, tableIndex) => tableIndex + chunkIndex * (sheet.params?.tablesPerRow ?? 1)),
+          maxHeight: getSheetChunkMaxHeight(tables),
+          hasTitle: tables.some(table => !!table.title),
+        })),
+        range: { height, width, range },
+      })
+    })
+  }
+
+  getSheets() {
+    return Array.from(this.computedSheets.values())
+  }
+
+  getSheetChunk(params: { sheetIndex: number, chunkIndex: number }) {
+    return this.computedSheets.get(params.sheetIndex)?.chunks[params.chunkIndex]
+  }
+
+  getSheetTable(params: { sheetIndex: number, tableIndex: number }) {
+    return this.computedSheets.get(params.sheetIndex)!.tables.get(params.tableIndex)!
+  }
+
+  getSheetRange(params: { sheetIndex: number }) {
+    return this.computedSheets.get(params.sheetIndex)!.range
   }
 }

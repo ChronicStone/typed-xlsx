@@ -39,7 +39,7 @@ export default defineConfig({
   },
   lastUpdated: true,
   ignoreDeadLinks: true,
-  cleanUrls: false,
+  cleanUrls: true,
   router: {
     prefetchLinks: true,
   },
@@ -48,6 +48,7 @@ export default defineConfig({
     ['meta', { name: 'google-site-verification', content: 'DPVOPrsgdIJ4_xJYhy6Azw6vGw51riJiJoaT7SBTARc' }],
     ['link', { rel: 'shortcut icon', href: '/favicon.ico' }],
     ['meta', { property: 'og:type', content: 'website' }],
+    // ['script', { src: 'https://buttons.github.io/buttons.js', defer: 'true', async: 'true' }],
   ],
   themeConfig: {
     logo: '/images/logo.png',

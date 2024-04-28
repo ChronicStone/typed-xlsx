@@ -1,7 +1,7 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
-import { CacheManager, applyGroupBorders, buildSheetConfig, computeSheetRange, createCell, getCellValue, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
+import { SheetCacheManager, applyGroupBorders, buildSheetConfig, computeSheetRange, createCell, getCellValue, getColumnHeaderStyle, getColumnSeparatorIndexes, getPrevRowsHeight, getRowMaxHeight, getSheetChunkMaxHeight, getWorksheetColumnWidths, splitIntoChunks, tableHasSummary } from './utils'
 
 export type * from './types'
 
@@ -137,12 +137,13 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
   >(params: ExcelBuildParams<OutputType>,
   ): Output {
     const workbook = utils.book_new()
-    const _sheets = buildSheetConfig(this.sheets)
+    const sheetsConfig = buildSheetConfig(this.sheets)
+    const sheetCacheManager = new SheetCacheManager(sheetsConfig)
 
     const TABLE_CELL_OFFSET = 1
 
-    _sheets.forEach((sheetConfig) => {
-      const tableRows = splitIntoChunks(sheetConfig.tables, sheetConfig.params?.tablesPerRow)
+    sheetCacheManager.getSheets().forEach((sheetConfig, sheetIndex) => {
+      const tableChunks = sheetConfig.chunks
       const worksheet: WorkSheet & { '!merges': XLSX.Range[] } = {
         '!merges': [],
       }
@@ -150,30 +151,20 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       let ROW_OFFSET = 0
       const titleRowIndexes: number[] = []
 
-      tableRows.forEach((tables, rowIndex) => {
+      tableChunks.forEach((chunk, chunkIndex) => {
         COL_OFFSET = 0
-        if (rowIndex > 0) {
-          const prevRow = tableRows[rowIndex - 1]
-          ROW_OFFSET += getSheetChunkMaxHeight(prevRow) + TABLE_CELL_OFFSET
-        }
+        if (chunkIndex > 0)
+          ROW_OFFSET += TABLE_CELL_OFFSET + (chunkIndex > 0 ? sheetCacheManager.getSheetChunk({ sheetIndex, chunkIndex })?.maxHeight ?? 0 : 0)
 
-        const rowHasTitle = tables.some(table => !!table.title)
-        if (rowHasTitle)
+        if (chunk.hasTitle)
           titleRowIndexes.push(ROW_OFFSET)
 
-        tables.forEach((tableConfig, tableIndex) => {
-          const tableCache = new CacheManager(tableConfig, tableConfig.content)
+        chunk.tables.forEach((tableIndex) => {
+          const { cache: tableCache, table: tableConfig } = sheetCacheManager.getSheetTable({ sheetIndex, tableIndex })
           if (tableIndex > 0) {
-            const prevTable = tables[tableIndex - 1]
+            const prevTable = sheetCacheManager.getSheetTable({ sheetIndex, tableIndex: tableIndex - 1 }).table
             COL_OFFSET += prevTable.columns.length + TABLE_CELL_OFFSET
           }
-
-          const tableContentExtraRows = tableConfig.columns.reduce((acc, col, columnIndex) => {
-            return Math.max(acc, tableConfig.content.reduce((acc, row, rowIndex) => {
-              const values = tableCache.getCellValue({ columnIndex, rowIndex })
-              return values.length - 1 + acc
-            }, 0))
-          }, 0)
 
           const hasTitle = !!tableConfig.title
           if (hasTitle) {
@@ -197,7 +188,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           }
 
           tableConfig.columns.forEach((column, colIndex) => {
-            const headerCellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: ROW_OFFSET + (rowHasTitle ? 1 : 0) })
+            const headerCellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: ROW_OFFSET + (chunk.hasTitle ? 1 : 0) })
             worksheet[headerCellRef] = createCell({
               value: column.label,
               bordered: params?.bordered ?? true,
@@ -212,7 +203,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               values.forEach((value, valueIndex) => {
                 const cellRef = utils.encode_cell({
                   c: colIndex + COL_OFFSET,
-                  r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
+                  r: prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 1 : 0) + (valueIndex + 1),
                 })
 
                 worksheet[cellRef] = createCell({
@@ -230,26 +221,26 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                 for (let valueIndex = values.length; valueIndex < maxRowHeight; valueIndex++) {
                   const cellRef = utils.encode_cell({
                     c: colIndex + COL_OFFSET,
-                    r: prevRowHeight + ROW_OFFSET + (rowHasTitle ? 1 : 0) + (valueIndex + 1),
+                    r: prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 1 : 0) + (valueIndex + 1),
                   })
                   worksheet[cellRef] = createCell({ value: '', bordered: params?.bordered ?? true })
                 }
                 if (values.length === 1) {
                   worksheet['!merges'].push({
-                    s: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) },
-                    e: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0) + maxRowHeight - 1 },
+                    s: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (chunk.hasTitle ? 1 : 0) },
+                    e: { c: colIndex + COL_OFFSET, r: prevRowHeight + 1 + ROW_OFFSET + (chunk.hasTitle ? 1 : 0) + maxRowHeight - 1 },
                   })
                 }
               }
             })
 
             if (tableHasSummary(tableConfig)) {
-              const summaryRowIndex = tableConfig.content.length + 1 + tableContentExtraRows
+              const summaryRowIndex = tableConfig.content.length + 1 + tableCache.getNbExtraRows()
               for (const summaryIndex in column._ref?.summary ?? []) {
                 const summary = column._ref?.summary?.[summaryIndex]
                 const cellRef = utils.encode_cell({
                   c: +colIndex + COL_OFFSET,
-                  r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (rowHasTitle ? 1 : 0),
+                  r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (chunk.hasTitle ? 1 : 0),
                 })
                 if (!summary) {
                   worksheet[cellRef] = createCell({
@@ -278,10 +269,10 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             }
           })
 
-          if (tableContentExtraRows > 0) {
+          if (tableCache.getNbExtraRows() > 0) {
             tableConfig.content.forEach((row, rowIndex) => {
               const prevRowHeight = tableCache.getPrevRowsHeight(rowIndex)
-              const rowStart = prevRowHeight + 1 + ROW_OFFSET + (rowHasTitle ? 1 : 0)
+              const rowStart = prevRowHeight + 1 + ROW_OFFSET + (chunk.hasTitle ? 1 : 0)
               const currentRowHeight = tableCache.getRowMaxHeight(rowIndex)
               const start = utils.encode_cell({ c: COL_OFFSET, r: rowStart })
               const end = utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + (currentRowHeight - 1) })
@@ -291,8 +282,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         })
       })
 
-      const { sheetHeight, sheetRange } = computeSheetRange(tableRows)
-      const colSeparatorIndexes = getColumnSeparatorIndexes({ sheetConfig, offset: TABLE_CELL_OFFSET })
+      const { height: sheetHeight, range: sheetRange } = sheetCacheManager.getSheetRange({ sheetIndex })
+      const colSeparatorIndexes = getColumnSeparatorIndexes({ sheetConfig: sheetConfig.sheet, offset: TABLE_CELL_OFFSET })
 
       worksheet['!ref'] = sheetRange
       worksheet['!rows'] = Array.from(
@@ -301,9 +292,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       )
 
       worksheet['!cols'] = getWorksheetColumnWidths(worksheet, params?.extraLength ?? 5)
-        .map(({ wch }, index) => ({ wch: colSeparatorIndexes.includes(index) ? sheetConfig.params?.tableSeparatorWidth ?? 25 : wch }))
+        .map(({ wch }, index) => ({ wch: colSeparatorIndexes.includes(index) ? sheetConfig.sheet.params?.tableSeparatorWidth ?? 25 : wch }))
 
-      utils.book_append_sheet(workbook, worksheet, sheetConfig.sheet)
+      utils.book_append_sheet(workbook, worksheet, sheetConfig.sheet.sheet)
     })
 
     workbook.Workbook ??= {}

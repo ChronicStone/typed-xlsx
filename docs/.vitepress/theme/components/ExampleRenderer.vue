@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useData } from 'vitepress'
 import { darkTheme } from 'naive-ui'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useWindowSize } from '@vueuse/core'
 import { THEME_OVERRIDES } from '../config/themeVars'
 // @ts-expect-error missing types
