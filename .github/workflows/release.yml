@@ -16,14 +16,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
+      - name: Install bun
+        uses: oven-sh/setup-bun@v1
 
       - name: Set node
         uses: actions/setup-node@v3
         with:
           node-version: lts/*
 
-      - run: npx changelogithub
+      - run: bunx changelogithub
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
