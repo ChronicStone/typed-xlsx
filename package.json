@@ -1,7 +1,7 @@
 {
   "name": "@chronicstone/typed-xlsx",
   "type": "module",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "packageManager": "pnpm@8.11.0",
   "description": "High-Quality Type-safe Excel Reporting.",
   "author": "ChronicStone <cthao.pro@gmail.com>",
