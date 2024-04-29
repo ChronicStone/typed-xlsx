@@ -182,11 +182,12 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
           const hasTitle = !!tableConfig.title
           if (hasTitle) {
+            const titleStyle = typeof tableConfig.titleStyle === 'function' ? tableConfig.titleStyle(tableConfig.content) : tableConfig.titleStyle ?? {}
             tableConfig.columns.forEach((_, colIndex) => {
               const titleCellRef = utils.encode_cell({ c: COL_OFFSET + colIndex, r: ROW_OFFSET })
               worksheet[titleCellRef] = createCell({
                 value: colIndex === 0 ? tableConfig.title : '',
-                style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+                style: getColumnHeaderStyle({ bordered: params?.bordered ?? true, customStyle: titleStyle }),
                 extraStyle: {
                   alignment: { horizontal: 'left' },
                   fill: { fgColor: { rgb: 'b4c4de' } },

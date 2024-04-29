@@ -96,6 +96,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
 
       return {
         title: table.title,
+        titleStyle: table.titleStyle,
         content: table.data,
         columns,
         enableSummary: table.summary ?? true,
