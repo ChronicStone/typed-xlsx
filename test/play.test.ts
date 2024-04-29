@@ -1,13 +1,11 @@
 import fs from 'node:fs'
 import { describe, it } from 'vitest'
 import { faker } from '@faker-js/faker'
-import type { FormattersMap } from '../src'
 import { ExcelBuilder, ExcelSchemaBuilder } from '../src'
 
 describe('should generate the play excel file', () => {
   it('exported', () => {
     interface User { id: string, name: string, birthDate: Date, balance: number }
-    // Group definition within the schema
     const schema = ExcelSchemaBuilder.create<User>()
       .withFormatters({
         date: 'd mmm yyyy',
