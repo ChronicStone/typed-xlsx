@@ -57,8 +57,18 @@ export interface TransformersMap {
   [key: string]: ValueTransformer
 }
 
+export type FormatterFunction = (params: any) => string
+
 export interface FormattersMap {
-  [key: string]: string
+  [key: string]: FormatterFunction | string
+}
+
+export type FormatterPreset<T extends FormattersMap> = {
+  [Key in keyof T]: ({ preset: Key } & (T[Key] extends infer P
+    ? P extends (params: any) => any
+      ? { params: Parameters<P>[0] }
+      : {}
+    : {}))
 }
 
 export type NonNullableDeep<T> = T extends null | undefined ? never : T
@@ -81,13 +91,14 @@ export type Column<
   ColKey extends string,
   TransformMap extends TransformersMap,
   FormatMap extends FormattersMap,
+  Preset extends FormatterPreset<FormatMap>[keyof FormatMap] = never,
 > = {
   type: 'column'
   label?: string
   columnKey: ColKey
   key: FieldValue
   default?: CellValue
-  format?: string | { preset: keyof FormatMap } | ((rowData: T, rowIndex: number, subRowIndex: number) => string | { preset: keyof FormatMap })
+  format?: Preset | string | ((rowData: T, rowIndex: number, subRowIndex: number) => string | Preset)
   cellStyle?: CellStyle | ((rowData: T, rowIndex: number, subRowIndex: number) => CellStyle)
   headerStyle?: CellStyle
   summary?: Array<{

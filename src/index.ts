@@ -1,6 +1,6 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
-import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, FormattersMap, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, FormatterPreset, FormattersMap, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
 import { SheetCacheManager, applyGroupBorders, buildSheetConfig, createCell, getColumnHeaderStyle, getColumnSeparatorIndexes, getWorksheetColumnWidths, tableHasSummary } from './utils'
 
 export type * from './types'
@@ -26,7 +26,10 @@ export class ExcelSchemaBuilder<
     return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, FormatMap, ContextMap>
   }
 
-  withFormatters<Formatters extends FormattersMap>(formatters: Formatters): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, FormatMap & Formatters, ContextMap> {
+  withFormatters<
+    Formatters extends FormattersMap,
+  >(formatters: Formatters,
+  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, FormatMap & Formatters, ContextMap> {
     this.formatters = formatters as FormatMap & Formatters
     return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, FormatMap & Formatters, ContextMap>
   }
@@ -34,9 +37,10 @@ export class ExcelSchemaBuilder<
   public column<
     K extends string,
     FieldValue extends CellKeyPaths | ((data: T) => CellValue),
+    Preset extends FormatterPreset<FormatMap>[keyof FormatMap],
   >(
     columnKey: Not<K, UsedKeys>,
-    column: Omit<Column<T, FieldValue, K, TransformMap, FormatMap>, 'columnKey' | 'type'>,
+    column: Omit<Column<T, FieldValue, K, TransformMap, FormatMap, Preset>, 'columnKey' | 'type'>,
   ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, FormatMap, ContextMap> {
     if (this.columns.some(c => c.columnKey === columnKey))
       throw new Error(`Column with key '${columnKey}' already exists.`)

@@ -2,7 +2,7 @@ import { utils } from 'xlsx-js-style'
 import type XLSX from 'xlsx-js-style'
 import type { CellStyle, ExcelDataType, WorkSheet } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { BaseCellValue, CellValue, Column, FormattersMap, GenericObject, SheetConfig, ValueTransformer } from './types'
+import type { BaseCellValue, CellValue, Column, FormatterPreset, FormattersMap, GenericObject, SheetConfig, ValueTransformer } from './types'
 import { THICK_BORDER_STYLE, THIN_BORDER_STYLE } from './const'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
@@ -335,7 +335,7 @@ export function createCell(params: {
   data?: GenericObject
   value?: BaseCellValue
   style?: CellStyle | ((rowData: any, rowIndex: number, subRowIndex: number) => CellStyle)
-  format?: string | { preset: string | number | symbol } | ((rowData: any, rowIndex: number, subRowIndex: number) => string | { preset: string | number | symbol })
+  format?: string | FormatterPreset<any> | ((rowData: any, rowIndex: number, subRowIndex: number) => string | FormatterPreset<any>)
   extraStyle?: CellStyle
   bordered?: boolean
   rowIndex?: number
@@ -352,8 +352,13 @@ export function createCell(params: {
   const format = typeof rawFormat === 'string'
     ? rawFormat
     : rawFormat?.preset
-      ? params.formatPresets[rawFormat.preset as string]
-      : ''
+      ? params.formatPresets[rawFormat.preset as unknown as string]
+        ? typeof params.formatPresets[rawFormat.preset as unknown as string] === 'function'
+          ? (params.formatPresets[rawFormat.preset as unknown as string] as Function)(rawFormat.params)
+          : params.formatPresets[rawFormat.preset as unknown as string]
+        : ''
+      : rawFormat
+
   return {
     v: params.value === null ? '' : params.value,
     t: getCellDataType(params.value),
