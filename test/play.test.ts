@@ -11,8 +11,8 @@ describe('should generate the play excel file', () => {
     const schema = ExcelSchemaBuilder.create<User>()
       .withFormatters({
         date: 'd mmm yyyy',
-        currency: (params: { currency: string }) => `${params.currency}#,##0.00`,
-        other: (params: { other: string }) => `${params.other}#,##0.00`,
+        currency: (params: { currency: 'EUR' | 'USD' }) => `${params.currency}#,##0.00`,
+        other: (params: { other: string }) => `${params.other === 'EUR' ? '€' : '$'}#,##0.00`,
       })
       .column('id', { key: 'id' })
       .column('name', {
@@ -22,8 +22,8 @@ describe('should generate the play excel file', () => {
       })
       .column('birthDate', { key: 'birthDate', format: { preset: 'date' } })
       .column('birthDate2', { key: 'birthDate', format: 'd mmm yyyy' })
-      .column('balanceUsd', { key: 'balance', format: { preset: 'currency', params: { currency: '$' } } })
-      .column('balanceEur', { key: 'balance', format: { preset: 'currency', params: { currency: '€' } } })
+      .column('balanceUsd', { key: 'balance', format: { preset: 'currency', params: { currency: 'EUR' } } })
+      .column('balanceEur', { key: 'balance', format: { preset: 'currency', params: { currency: 'USD' } } })
       .build()
 
     const users: User[] = Array.from({ length: 100000 }, (_, i) => ({
