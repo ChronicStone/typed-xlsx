@@ -84,6 +84,7 @@ export type Column<
   default?: CellValue
   format?: string | ((rowData: T, rowIndex: number, subRowIndex: number) => string)
   cellStyle?: CellStyle | ((rowData: T, rowIndex: number, subRowIndex: number) => CellStyle)
+  headerStyle?: CellStyle
   summary?: Array<{
     value: (data: T[]) => BaseCellValue
     format?: string | ((data: T[]) => string)

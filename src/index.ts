@@ -192,7 +192,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
             worksheet[headerCellRef] = createCell({
               value: column.label,
               bordered: params?.bordered ?? true,
-              style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+              style: getColumnHeaderStyle({ bordered: params?.bordered ?? true, customStyle: column._ref.headerStyle }),
             })
 
             tableConfig.content.forEach((row, rowIndex) => {

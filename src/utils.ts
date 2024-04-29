@@ -104,15 +104,18 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
   }))
 }
 
-export function getColumnHeaderStyle(params: { bordered: boolean }) {
-  return {
-    font: { bold: true },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    fill: { fgColor: { rgb: 'E9E9E9' } },
-    border: (params?.bordered ?? true)
-      ? THICK_BORDER_STYLE
-      : {},
-  } satisfies CellStyle
+export function getColumnHeaderStyle(params: { bordered: boolean, customStyle?: CellStyle }) {
+  return deepmerge(
+    {
+      font: { bold: true },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      fill: { fgColor: { rgb: 'E9E9E9' } },
+      border: (params?.bordered ?? true)
+        ? THICK_BORDER_STYLE
+        : {},
+    },
+    params?.customStyle ?? {},
+  ) satisfies CellStyle
 }
 
 export function getWorksheetColumnWidths(worksheet: WorkSheet, extraLength: number = 1) {

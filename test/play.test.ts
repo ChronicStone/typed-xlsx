@@ -9,7 +9,11 @@ describe('should generate the play excel file', () => {
     // Group definition within the schema
     const schema = ExcelSchemaBuilder.create<User>()
       .column('id', { key: 'id' })
-      .column('name', { key: 'name' })
+      .column('name', {
+        key: 'name',
+        cellStyle: { fill: { fgColor: { rgb: 'FFFF00' } } },
+        headerStyle: { fill: { fgColor: { rgb: '00FF00' } } },
+      })
       .build()
 
     const users: User[] = Array.from({ length: 100000 }, (_, i) => ({
