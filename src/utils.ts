@@ -2,7 +2,7 @@ import { utils } from 'xlsx-js-style'
 import type XLSX from 'xlsx-js-style'
 import type { CellStyle, ExcelDataType, WorkSheet } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
-import type { BaseCellValue, CellValue, Column, GenericObject, SheetConfig, ValueTransformer } from './types'
+import type { BaseCellValue, CellValue, Column, FormattersMap, GenericObject, SheetConfig, ValueTransformer } from './types'
 import { THICK_BORDER_STYLE, THIN_BORDER_STYLE } from './const'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
@@ -59,7 +59,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
 
           return false
         })
-        .map((column): Column<any, any, any, any> | Column<any, any, any, any>[] => {
+        .map((column): Column<any, any, any, any, any> | Column<any, any, any, any, any>[] => {
           if (column.type === 'column') {
             return column
           }
@@ -67,7 +67,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
             const builder = column.builder()
             column.handler(builder, ((table.context ?? {}) as any)[column.columnKey])
             const { columns } = builder.build()
-            return (columns as Column<any, any, any, any>[])
+            return (columns as Column<any, any, any, any, any>[])
           }
         })
         .flat()
@@ -99,6 +99,7 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
         content: table.data,
         columns,
         enableSummary: table.summary ?? true,
+        formatPresets: table.schema.formatPresets,
       }
     }),
   }))
@@ -334,18 +335,25 @@ export function createCell(params: {
   data?: GenericObject
   value?: BaseCellValue
   style?: CellStyle | ((rowData: any, rowIndex: number, subRowIndex: number) => CellStyle)
-  format?: string | ((rowData: any, rowIndex: number, subRowIndex: number) => string)
+  format?: string | { preset: string | number | symbol } | ((rowData: any, rowIndex: number, subRowIndex: number) => string | { preset: string | number | symbol })
   extraStyle?: CellStyle
   bordered?: boolean
   rowIndex?: number
   subRowIndex?: number
+  formatPresets: FormattersMap
 }): XLSX.CellObject {
   const style = typeof params.style === 'function'
     ? params.style(params.data ?? {}, params?.rowIndex ?? 0, params?.subRowIndex ?? 0)
     : params.style ?? {}
-  const format = typeof params.format === 'function'
+  const rawFormat = typeof params.format === 'function'
     ? params.format(params.data ?? {}, params?.rowIndex ?? 0, params?.subRowIndex ?? 0)
     : params.format
+
+  const format = typeof rawFormat === 'string'
+    ? rawFormat
+    : rawFormat?.preset
+      ? params.formatPresets[rawFormat.preset as string]
+      : ''
   return {
     v: params.value === null ? '' : params.value,
     t: getCellDataType(params.value),

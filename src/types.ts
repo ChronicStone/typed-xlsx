@@ -57,6 +57,10 @@ export interface TransformersMap {
   [key: string]: ValueTransformer
 }
 
+export interface FormattersMap {
+  [key: string]: string
+}
+
 export type NonNullableDeep<T> = T extends null | undefined ? never : T
 export type DeepRequired<T> = {
   [P in keyof T]-?: DeepRequired<NonNullableDeep<T[P]>>;
@@ -76,13 +80,14 @@ export type Column<
   FieldValue extends string | ((data: T) => CellValue),
   ColKey extends string,
   TransformMap extends TransformersMap,
+  FormatMap extends FormattersMap,
 > = {
   type: 'column'
   label?: string
   columnKey: ColKey
   key: FieldValue
   default?: CellValue
-  format?: string | ((rowData: T, rowIndex: number, subRowIndex: number) => string)
+  format?: string | { preset: keyof FormatMap } | ((rowData: T, rowIndex: number, subRowIndex: number) => string | { preset: keyof FormatMap })
   cellStyle?: CellStyle | ((rowData: T, rowIndex: number, subRowIndex: number) => CellStyle)
   headerStyle?: CellStyle
   summary?: Array<{
@@ -102,14 +107,15 @@ export interface ColumnGroup<
   KeyPaths extends string,
   UsedKeys extends string,
   TransformMap extends TransformersMap,
+  FormatMap extends FormattersMap,
   Context,
   // eslint-disable-next-line unused-imports/no-unused-vars
   ContextMap extends Record<string, any> = {},
 > {
   type: 'group'
   columnKey: ColKey
-  builder: () => ExcelSchemaBuilder<T, KeyPaths, UsedKeys, TransformMap>
-  handler: GroupHandler<T, KeyPaths, UsedKeys, TransformMap, Context>
+  builder: () => ExcelSchemaBuilder<T, KeyPaths, UsedKeys, TransformMap, FormatMap>
+  handler: GroupHandler<T, KeyPaths, UsedKeys, TransformMap, FormatMap, Context>
 }
 
 export type GroupHandler<
@@ -117,9 +123,10 @@ export type GroupHandler<
   CellKeyPaths extends string,
   UsedKeys extends string,
   TransformMap extends TransformersMap,
+  FormatMap extends FormattersMap,
   Context,
 > = (
-  builder: ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap>,
+  builder: ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, FormatMap>,
   context: Context,
 ) => void
 
@@ -127,14 +134,16 @@ export interface ExcelSchema<
   T extends GenericObject,
   KeyPaths extends string,
   Key extends string,
+  // eslint-disable-next-line unused-imports/no-unused-vars
   ContextMap extends { [key: string]: any } = {},
 > {
-  columns: Array<Column<T, KeyPaths, Key, any> | ColumnGroup<T, Key, KeyPaths, string, any, any, ContextMap>>
+  columns: Array<Column<T, KeyPaths, Key, any, any> | ColumnGroup<T, Key, KeyPaths, string, any, any, any>>
+  formatPresets: FormattersMap
 }
 
 export type SchemaColumnKeys<
   T extends ExcelSchema<any, any, string>,
-> = T['columns'] extends Array<Column<any, any, infer K, any> | ColumnGroup<any, infer K, any, any, any, any>> ? K : never
+> = T['columns'] extends Array<Column<any, any, infer K, any, any> | ColumnGroup<any, infer K, any, any, any, any, any>> ? K : never
 
 export type SheetTable<
   T extends GenericObject,

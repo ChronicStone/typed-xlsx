@@ -1,24 +1,33 @@
 import fs from 'node:fs'
 import { describe, it } from 'vitest'
+import { faker } from '@faker-js/faker'
 import { ExcelBuilder, ExcelSchemaBuilder } from '../src'
 
 describe('should generate the play excel file', () => {
   it('exported', () => {
-    interface User { id: string, name: string }
+    interface User { id: string, name: string, birthDate: Date, balance: number }
 
     // Group definition within the schema
     const schema = ExcelSchemaBuilder.create<User>()
+      .withFormatters({
+        date: 'd mmm yyyy',
+        currency: '$#,##0.00',
+      })
       .column('id', { key: 'id' })
       .column('name', {
         key: 'name',
         cellStyle: { fill: { fgColor: { rgb: 'FFFF00' } } },
         headerStyle: { fill: { fgColor: { rgb: '00FF00' } } },
       })
+      .column('birthDate', { key: 'birthDate', format: { preset: 'date' } })
+      .column('balance', { key: 'balance', format: { preset: 'currency' } })
       .build()
 
     const users: User[] = Array.from({ length: 100000 }, (_, i) => ({
       id: i.toString(),
       name: 'John',
+      balance: +faker.finance.amount({ min: 0, max: 1000000, dec: 2 }),
+      birthDate: faker.date.past(),
 
     }))
 

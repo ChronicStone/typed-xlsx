@@ -1,6 +1,6 @@
 /* eslint-disable ts/ban-types */
 import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
-import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
+import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, FormattersMap, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
 import { SheetCacheManager, applyGroupBorders, buildSheetConfig, createCell, getColumnHeaderStyle, getColumnSeparatorIndexes, getWorksheetColumnWidths, tableHasSummary } from './utils'
 
 export type * from './types'
@@ -10,18 +10,25 @@ export class ExcelSchemaBuilder<
   CellKeyPaths extends string,
   UsedKeys extends string = never,
   TransformMap extends TransformersMap = {},
+  FormatMap extends FormattersMap = {},
   ContextMap extends { [key: string]: any } = {},
 > {
-  private columns: Array<Column<T, CellKeyPaths | ((data: T) => CellValue), string, TransformMap> | ColumnGroup<T, string, CellKeyPaths, string, TransformMap, any>> = []
+  private columns: Array<Column<T, CellKeyPaths | ((data: T) => CellValue), string, TransformMap, FormatMap> | ColumnGroup<T, string, CellKeyPaths, string, TransformMap, FormatMap, any>> = []
   private transformers: TransformMap = {} as TransformMap
+  private formatters: FormatMap = {} as FormatMap
 
   public static create<T extends GenericObject, KeyPath extends string = NestedPaths<T>>(): ExcelSchemaBuilder<T, KeyPath> {
     return new ExcelSchemaBuilder<T, KeyPath>()
   }
 
-  public withTransformers<Transformers extends TransformersMap>(transformers: Transformers): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers> {
+  public withTransformers<Transformers extends TransformersMap>(transformers: Transformers): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, FormatMap, ContextMap> {
     this.transformers = transformers as TransformMap & Transformers
-    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, ContextMap>
+    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, FormatMap, ContextMap>
+  }
+
+  withFormatters<Formatters extends FormattersMap>(formatters: Formatters): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, FormatMap & Formatters, ContextMap> {
+    this.formatters = formatters as FormatMap & Formatters
+    return this as unknown as ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, FormatMap & Formatters, ContextMap>
   }
 
   public column<
@@ -29,8 +36,8 @@ export class ExcelSchemaBuilder<
     FieldValue extends CellKeyPaths | ((data: T) => CellValue),
   >(
     columnKey: Not<K, UsedKeys>,
-    column: Omit<Column<T, FieldValue, K, TransformMap>, 'columnKey' | 'type'>,
-  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, ContextMap> {
+    column: Omit<Column<T, FieldValue, K, TransformMap, FormatMap>, 'columnKey' | 'type'>,
+  ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, FormatMap, ContextMap> {
     if (this.columns.some(c => c.columnKey === columnKey))
       throw new Error(`Column with key '${columnKey}' already exists.`)
 
@@ -43,12 +50,13 @@ export class ExcelSchemaBuilder<
     Context,
   >(
     key: Not<K, UsedKeys>,
-    handler: (builder: ExcelSchemaBuilder<T, CellKeyPaths, never, TransformMap>, context: Context) => void,
+    handler: (builder: ExcelSchemaBuilder<T, CellKeyPaths, never, TransformMap, FormatMap>, context: Context) => void,
   ): ExcelSchemaBuilder<
     T,
     CellKeyPaths,
     UsedKeys | K,
     TransformMap,
+    FormatMap,
     ContextMap & { [key in K]: Context }
   > {
     if (this.columns.some(c => c.columnKey === key))
@@ -56,6 +64,7 @@ export class ExcelSchemaBuilder<
 
     const builder = () => ExcelSchemaBuilder.create<T, CellKeyPaths>()
       .withTransformers(this.transformers)
+      .withFormatters(this.formatters)
 
     this.columns.push({
       type: 'group',
@@ -78,6 +87,7 @@ export class ExcelSchemaBuilder<
 
     return {
       columns,
+      formatPresets: this.formatters as FormattersMap,
     } as ExcelSchema<
       T,
       CellKeyPaths,
@@ -112,7 +122,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
   private defineTable<
     Key extends string,
     T extends GenericObject,
-    Schema extends ExcelSchema<T, any, string>,
+    Schema extends ExcelSchema<T, any, string, any>,
     ColKeys extends SchemaColumnKeys<Schema>,
     SelectCols extends { [key in ColKeys]?: boolean } = {},
   >(
@@ -178,6 +188,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                   fill: { fgColor: { rgb: 'b4c4de' } },
                   font: { sz: 20 },
                 },
+                formatPresets: tableConfig.formatPresets,
               })
             })
 
@@ -193,6 +204,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               value: column.label,
               bordered: params?.bordered ?? true,
               style: getColumnHeaderStyle({ bordered: params?.bordered ?? true, customStyle: column._ref.headerStyle }),
+              formatPresets: tableConfig.formatPresets,
             })
 
             tableConfig.content.forEach((row, rowIndex) => {
@@ -214,6 +226,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                   bordered: params?.bordered ?? true,
                   rowIndex,
                   subRowIndex: valueIndex,
+                  formatPresets: tableConfig.formatPresets,
                 })
               })
 
@@ -223,7 +236,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                     c: colIndex + COL_OFFSET,
                     r: prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 1 : 0) + (valueIndex + 1),
                   })
-                  worksheet[cellRef] = createCell({ value: '', bordered: params?.bordered ?? true })
+                  worksheet[cellRef] = createCell({ value: '', bordered: params?.bordered ?? true, formatPresets: tableConfig.formatPresets })
                 }
                 if (values.length === 1) {
                   worksheet['!merges'].push({
@@ -247,6 +260,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                     value: '',
                     bordered: params?.bordered ?? true,
                     style: getColumnHeaderStyle({ bordered: params?.bordered ?? true }),
+                    formatPresets: tableConfig.formatPresets,
                   })
                   continue
                 }
@@ -263,7 +277,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                     fill: { fgColor: { rgb: 'E9E9E9' } },
                     alignment: { vertical: 'center' },
                   },
-
+                  formatPresets: tableConfig.formatPresets,
                 })
               }
             }
