@@ -105,8 +105,8 @@ ExcelSchemaBuilder.create<{ date: Date, amount: number, currency: 'EUR' | 'USD' 
 ![Column formats](/images/examples/col-format-1.png)
 
 ## `cellStyle`
-- **Description:** Define the style for the cell, either as a static `CellStyle` object or a function for dynamic styling.
-- **Type:** `CellStyle | ((data: T) => CellStyle)`
+- **Description:** Define the style for the cell, either as a static `CellStyle` object or a function for dynamic styling. See [xlsx-js-style](https://github.com/gitbrent/xlsx-js-style?tab=readme-ov-file#cell-style-properties) for more information on `CellStyle`.
+- **Type:** `CellStyle | ((data: T, rowIndex: number, subRowIndex: number) => CellStyle)`
 - **Required:** No
 - **Example:**
 
@@ -121,11 +121,22 @@ ExcelSchemaBuilder.create<{ status: string }>()
   })
 ```
 
-rray<{
-    value: (data: T[]) => BaseCellValue
-    format?: string | ((data: T[]) => string)
-    cellStyle?: CellStyle | ((data: T[]) => CellStyle)
-  }>
+## `headerStyle`
+- **Description:** Define the style for the header cell of the column. See [xlsx-js-style](https://github.com/gitbrent/xlsx-js-style?tab=readme-ov-file#cell-style-properties) for more information on `CellStyle`.
+- **Type:** `CellStyle`
+- **Required:** No
+- **Example:**
+
+```ts twoslash
+import { ExcelSchemaBuilder } from '@chronicstone/typed-xlsx'
+// ---cut-before---
+
+ExcelSchemaBuilder.create<{ status: string }>()
+  .column('Status', {
+    key: 'status',
+    headerStyle: { fill: { fgColor: { rgb: 'FFFF00' } } }
+  })
+```
 
 ## `summary`
 - **Description:** Summaries provide aggregate information at the end of the table.
