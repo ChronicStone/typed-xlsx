@@ -103,7 +103,7 @@ export type Column<
   headerStyle?: CellStyle
   summary?: Array<{
     value: (data: T[]) => BaseCellValue
-    format?: string | ((data: T[]) => string)
+    format?: string | Preset | ((data: T[]) => string | Preset)
     cellStyle?: CellStyle | ((data: T[]) => CellStyle)
   }>
 } & (
