@@ -407,6 +407,10 @@ export class TableCacheManager {
     }, 0)
   }
 
+  getTableHeight() {
+    return Array.from(this.rowMaxHeight.values()).reduce((acc, rowHeight) => acc + rowHeight, 0)
+  }
+
   getPrevRowsHeight(rowIndex: number) {
     return this.prevRowsHeight.get(rowIndex) ?? 0
   }
@@ -510,5 +514,21 @@ export class SheetCacheManager {
 
   getSheetRange(params: { sheetIndex: number }) {
     return this.computedSheets.get(params.sheetIndex)!.range
+  }
+
+  getTableRange(params: { sheetIndex: number, tableIndex: number, rowOffset: number, colOffset: number }) {
+    const sheet = this.computedSheets.get(params.sheetIndex)!
+    const { table, cache } = sheet.tables.get(params.tableIndex)!
+    const { colOffset, rowOffset } = params
+    return utils.encode_range({
+      s: {
+        c: colOffset,
+        r: rowOffset,
+      },
+      e: {
+        c: colOffset + table.columns.length - 1,
+        r: rowOffset + cache.getTableHeight(),
+      },
+    })
   }
 }
