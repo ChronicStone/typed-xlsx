@@ -1,4 +1,4 @@
-import { utils } from 'xlsx-js-style'
+import * as XLSXUtils from 'xlsx-js-style'
 import type XLSX from 'xlsx-js-style'
 import type { CellStyle, ExcelDataType, WorkSheet } from 'xlsx-js-style'
 import { deepmerge } from 'deepmerge-ts'
@@ -158,11 +158,11 @@ function getCellValueLength(object: unknown): number {
 }
 
 function getWorksheetColumnIds(worksheet: WorkSheet): string[] {
-  const columnRange = utils.decode_range(worksheet['!ref'] ?? '')
+  const columnRange = XLSXUtils.utils.decode_range(worksheet['!ref'] ?? '')
 
   const columnIds: string[] = []
   for (let C = columnRange.s.c; C <= columnRange.e.c; C++) {
-    const address = utils.encode_col(C)
+    const address = XLSXUtils.utils.encode_col(C)
     columnIds.push(address)
   }
 
@@ -240,7 +240,7 @@ export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetC
   return {
     sheetHeight,
     sheetWidth,
-    sheetRange: utils.encode_range({ s: { c: 0, r: 0 }, e: { c: sheetWidth - 1, r: sheetHeight - 1 } }), // Adjust end column and row index by subtracting 1
+    sheetRange: XLSXUtils.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: sheetWidth - 1, r: sheetHeight - 1 } }), // Adjust end column and row index by subtracting 1
   }
 }
 
@@ -257,12 +257,12 @@ export function formulaeBuilder<
 }
 
 export function applyGroupBorders(worksheet: WorkSheet, params: { start: string, end: string }) {
-  const start = utils.decode_cell(params.start)
-  const end = utils.decode_cell(params.end)
+  const start = XLSXUtils.utils.decode_cell(params.start)
+  const end = XLSXUtils.utils.decode_cell(params.end)
 
   for (let r = start.r; r <= end.r; r++) {
     for (let c = start.c; c <= end.c; c++) {
-      const cellRef = utils.encode_cell({ c, r })
+      const cellRef = XLSXUtils.utils.encode_cell({ c, r })
       const cell = worksheet[cellRef] || { t: 'z' }
 
       cell.s = deepmerge(cell.s ?? {}, {
@@ -463,7 +463,7 @@ function getSheetHeight(
 }
 
 function getSheetRange(params: { width: number, height: number }) {
-  return utils.encode_range({ s: { c: 0, r: 0 }, e: { c: params.width - 1, r: params.height - 1 } }) // Adjust end column and row index by subtracting 1
+  return XLSXUtils.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: params.width - 1, r: params.height - 1 } }) // Adjust end column and row index by subtracting 1
 }
 
 export class SheetCacheManager {

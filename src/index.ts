@@ -1,5 +1,6 @@
 /* eslint-disable ts/ban-types */
-import XLSX, { type WorkSheet, utils } from 'xlsx-js-style'
+import XLSX, { type WorkSheet } from 'xlsx-js-style'
+import * as XLSXUtils from 'xlsx-js-style'
 import type { CellValue, Column, ColumnGroup, ExcelBuildOutput, ExcelBuildParams, ExcelSchema, FormatterPreset, FormattersMap, GenericObject, NestedPaths, Not, SchemaColumnKeys, SheetConfig, SheetParams, SheetTable, SheetTableBuilder, TOutputType, TransformersMap } from './types'
 import { SheetCacheManager, applyGroupBorders, buildSheetConfig, createCell, getColumnHeaderStyle, getColumnSeparatorIndexes, getWorksheetColumnWidths, tableHasSummary } from './utils'
 
@@ -150,7 +151,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     Output = ExcelBuildOutput<OutputType>,
   >(params: ExcelBuildParams<OutputType>,
   ): Output {
-    const workbook = utils.book_new()
+    const workbook = XLSXUtils.utils.book_new()
     const sheetsConfig = buildSheetConfig(this.sheets)
     const sheetCacheManager = new SheetCacheManager(sheetsConfig)
 
@@ -184,7 +185,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           if (hasTitle) {
             const titleStyle = typeof tableConfig.titleStyle === 'function' ? tableConfig.titleStyle(tableConfig.content) : tableConfig.titleStyle ?? {}
             tableConfig.columns.forEach((_, colIndex) => {
-              const titleCellRef = utils.encode_cell({ c: COL_OFFSET + colIndex, r: ROW_OFFSET })
+              const titleCellRef = XLSXUtils.utils.encode_cell({ c: COL_OFFSET + colIndex, r: ROW_OFFSET })
               worksheet[titleCellRef] = createCell({
                 value: colIndex === 0 ? tableConfig.title : '',
                 style: getColumnHeaderStyle({ bordered: params?.bordered ?? true, customStyle: titleStyle }),
@@ -204,7 +205,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           }
 
           tableConfig.columns.forEach((column, colIndex) => {
-            const headerCellRef = utils.encode_cell({ c: colIndex + COL_OFFSET, r: ROW_OFFSET + (chunk.hasTitle ? 1 : 0) })
+            const headerCellRef = XLSXUtils.utils.encode_cell({ c: colIndex + COL_OFFSET, r: ROW_OFFSET + (chunk.hasTitle ? 1 : 0) })
             worksheet[headerCellRef] = createCell({
               value: column.label,
               bordered: params?.bordered ?? true,
@@ -218,7 +219,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               const values = tableCache.getCellValue({ columnIndex: colIndex, rowIndex })
 
               values.forEach((value, valueIndex) => {
-                const cellRef = utils.encode_cell({
+                const cellRef = XLSXUtils.utils.encode_cell({
                   c: colIndex + COL_OFFSET,
                   r: prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 1 : 0) + (valueIndex + 1),
                 })
@@ -237,7 +238,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
               if (values.length < maxRowHeight && maxRowHeight > 1) {
                 for (let valueIndex = values.length; valueIndex < maxRowHeight; valueIndex++) {
-                  const cellRef = utils.encode_cell({
+                  const cellRef = XLSXUtils.utils.encode_cell({
                     c: colIndex + COL_OFFSET,
                     r: prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 1 : 0) + (valueIndex + 1),
                   })
@@ -256,7 +257,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               const summaryRowIndex = tableConfig.content.length + 1 + tableCache.getNbExtraRows()
               for (const summaryIndex in column._ref?.summary ?? []) {
                 const summary = column._ref?.summary?.[summaryIndex]
-                const cellRef = utils.encode_cell({
+                const cellRef = XLSXUtils.utils.encode_cell({
                   c: +colIndex + COL_OFFSET,
                   r: summaryRowIndex + ROW_OFFSET + +summaryIndex + (chunk.hasTitle ? 1 : 0),
                 })
@@ -293,8 +294,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               const prevRowHeight = tableCache.getPrevRowsHeight(rowIndex)
               const rowStart = prevRowHeight + 1 + ROW_OFFSET + (chunk.hasTitle ? 1 : 0)
               const currentRowHeight = tableCache.getRowMaxHeight(rowIndex)
-              const start = utils.encode_cell({ c: COL_OFFSET, r: rowStart })
-              const end = utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + (currentRowHeight - 1) })
+              const start = XLSXUtils.utils.encode_cell({ c: COL_OFFSET, r: rowStart })
+              const end = XLSXUtils.utils.encode_cell({ c: COL_OFFSET + tableConfig.columns.length - 1, r: rowStart + (currentRowHeight - 1) })
               applyGroupBorders(worksheet, { start, end })
             })
           }
@@ -313,7 +314,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
       worksheet['!cols'] = getWorksheetColumnWidths(worksheet, params?.extraLength ?? 5)
         .map(({ wch }, index) => ({ wch: colSeparatorIndexes.includes(index) ? sheetConfig.sheet.params?.tableSeparatorWidth ?? 25 : wch }))
 
-      utils.book_append_sheet(workbook, worksheet, sheetConfig.sheet.sheet)
+        XLSXUtils.utils.book_append_sheet(workbook, worksheet, sheetConfig.sheet.sheet)
     })
 
     workbook.Workbook ??= {}
