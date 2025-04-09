@@ -1,3 +1,4 @@
+// core/schema.ts
 /* eslint-disable ts/ban-types */
 import type { BaseCellValue, Column, ColumnGroup, ExcelSchema, FormatterPreset, FormattersMap, GenericObject, NestedPaths, Not, TransformersMap } from '../types'
 
@@ -9,7 +10,7 @@ export class ExcelSchemaBuilder<
   FormatMap extends FormattersMap = {},
   ContextMap extends { [key: string]: any } = {},
 > {
-  private columns: Array<Column<T, CellKeyPaths | ((data: T) => BaseCellValue), string, TransformMap, FormatMap> | ColumnGroup<T, string, CellKeyPaths, string, TransformMap, FormatMap, any>> = []
+  private columns: Array<Column<T, CellKeyPaths | ((data: T, rowIndex?: number, subRowIndex?: number) => any), string, TransformMap, FormatMap> | ColumnGroup<T, string, CellKeyPaths, string, TransformMap, FormatMap, any>> = []
   private transformers: TransformMap = {} as TransformMap
   private formatters: FormatMap = {} as FormatMap
 
@@ -32,11 +33,11 @@ export class ExcelSchemaBuilder<
 
   public column<
     K extends string,
-    FieldValue extends CellKeyPaths | ((data: T) => BaseCellValue),
+    AccessorValue extends CellKeyPaths | ((data: T, rowIndex?: number, subRowIndex?: number) => any),
     Preset extends FormatterPreset<FormatMap>[keyof FormatMap],
   >(
     columnKey: Not<K, UsedKeys>,
-    column: Omit<Column<T, FieldValue, K, TransformMap, FormatMap, Preset>, 'columnKey' | 'type'>,
+    column: Omit<Column<T, AccessorValue, K, TransformMap, FormatMap, Preset>, 'columnKey' | 'type'>,
   ): ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, FormatMap, ContextMap> {
     if (this.columns.some(c => c.columnKey === columnKey))
       throw new Error(`Column with key '${columnKey}' already exists.`)

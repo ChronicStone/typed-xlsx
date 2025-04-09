@@ -1,3 +1,4 @@
+// core/builder.ts
 /* eslint-disable ts/ban-types */
 import { Buffer } from 'node:buffer'
 import { Workbook } from 'exceljs'

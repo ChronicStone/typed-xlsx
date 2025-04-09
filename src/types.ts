@@ -1,3 +1,4 @@
+// types.ts
 /* eslint-disable ts/ban-types */
 import type { Buffer, File } from 'node:buffer'
 import type { Cell, Column as ExcelColumn, Style, Workbook, Worksheet } from 'exceljs'
@@ -82,34 +83,42 @@ export type ExtractColumnValue<
   FieldValue extends string | ((data: T) => CellValue),
 > = FieldValue extends string ? TypeFromPathUnion<T, FieldValue> : FieldValue extends (...args: any[]) => any ? ReturnType<FieldValue> : never
 
-export type Column<
+export type ExtractAccessorValue<
   T extends GenericObject,
-  FieldValue extends string | ((data: T) => CellValue),
-  ColKey extends string,
-  TransformMap extends TransformersMap,
-  FormatMap extends FormattersMap,
-  Preset extends FormatterPreset<FormatMap>[keyof FormatMap] = never,
-> = {
-  type: 'column'
-  label?: string
-  columnKey: ColKey
-  key: FieldValue
-  default?: CellValue
-  width?: number
-  format?: Preset | string | ((rowData: T, rowIndex: number, subRowIndex: number) => string | Preset)
-  cellStyle?: Partial<Style> | ((rowData: T, rowIndex: number, subRowIndex: number) => Partial<Style>)
-  headerStyle?: Partial<Style>
-  summary?: Array<{
-    value: (data: T[]) => BaseCellValue
-    format?: string | Preset | ((data: T[]) => string | Preset)
-    cellStyle?: Partial<Style> | ((data: T[]) => Partial<Style>)
-  }>
-} & (
-    ExtractColumnValue<T, FieldValue> extends CellValue
-      ? { transform?: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
-      : { transform: TypedTransformersMap<TransformMap, ExtractColumnValue<T, FieldValue>> | ((value: ExtractColumnValue<T, FieldValue>, index: number) => CellValue) }
-  )
+  AccessorValue extends string | ((data: T, rowIndex?: number, subRowIndex?: number) => any),
+> = AccessorValue extends string
+  ? TypeFromPathUnion<T, AccessorValue>
+  : AccessorValue extends (...args: any[]) => any
+    ? ReturnType<AccessorValue>
+    : never
 
+export type Column<
+    T extends GenericObject,
+    AccessorValue extends string | ((data: T, rowIndex?: number, subRowIndex?: number) => any),
+    ColKey extends string,
+    TransformMap extends TransformersMap,
+    FormatMap extends FormattersMap,
+    Preset extends FormatterPreset<FormatMap>[keyof FormatMap] = never,
+  > = {
+    type: 'column'
+    label?: string
+    columnKey: ColKey
+    accessor: AccessorValue
+    default?: CellValue
+    width?: number
+    format?: Preset | string | ((rowData: T, rowIndex: number, subRowIndex: number) => string | Preset)
+    cellStyle?: Partial<Style> | ((rowData: T, rowIndex: number, subRowIndex: number) => Partial<Style>)
+    headerStyle?: Partial<Style>
+    summary?: Array<{
+      value: (data: T[]) => BaseCellValue
+      format?: string | Preset | ((data: T[]) => string | Preset)
+      cellStyle?: Partial<Style> | ((data: T[]) => Partial<Style>)
+    }>
+  } & (
+      ExtractAccessorValue<T, AccessorValue> extends CellValue
+        ? { transform?: TypedTransformersMap<TransformMap, ExtractAccessorValue<T, AccessorValue>> | ((value: ExtractAccessorValue<T, AccessorValue>, index: number) => CellValue) }
+        : { transform: TypedTransformersMap<TransformMap, ExtractAccessorValue<T, AccessorValue>> | ((value: ExtractAccessorValue<T, AccessorValue>, index: number) => CellValue) }
+    )
 export interface ColumnGroup<
   T extends GenericObject,
   ColKey extends string,

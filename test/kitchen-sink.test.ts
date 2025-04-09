@@ -27,10 +27,10 @@ interface User {
 }
 
 const transformers = {
-  boolean: (key: boolean) => key ? 'Yes' : 'No',
-  list: (key: string[]) => key.join(', '),
-  arrayLength: (key: any[] | string) => key.length,
-  date: (key: Date) => key.toLocaleDateString(),
+  boolean: (accessor: boolean) => accessor ? 'Yes' : 'No',
+  list: (accessor: string[]) => accessor.join(', '),
+  arrayLength: (accessor: any[] | string) => accessor.length,
+  date: (accessor: Date) => accessor.toLocaleDateString(),
 } satisfies TransformersMap
 
 describe('should generate the example excel', () => {
@@ -59,18 +59,18 @@ describe('should generate the example excel', () => {
       .create<User>()
       .withTransformers(transformers)
       .column('id', {
-        key: 'id',
+        accessor: 'id',
         summary: [{ value: () => 'TOTAL BEFORE VAT' }, { value: () => 'TOTAL' }],
       })
-      .column('lastName', { key: 'lastName', transform: (_, i) => i === 0 ? [] : i === 1 ? ['Cyp', 'THAO'] : ['OTHER'] })
-      .column('email', { key: 'email' })
+      .column('lastName', { accessor: 'lastName', transform: (_, i) => i === 0 ? [] : i === 1 ? ['Cyp', 'THAO'] : ['OTHER'] })
+      .column('email', { accessor: 'email' })
       .column('roles', {
-        key: 'roles',
+        accessor: 'roles',
         transform: 'list',
         cellStyle: data => ({ font: { color: { argb: data.roles.includes('admin') ? 'd10808' : undefined } } }),
       })
       .column('balance', {
-        key: 'balance',
+        accessor: 'balance',
         format: '"$"#,##0.00_);\\("$"#,##0.00\\)',
         summary: [
           {
@@ -83,10 +83,10 @@ describe('should generate the example excel', () => {
           },
         ],
       })
-      .column('nbOrgs', { key: 'organizations', transform: 'arrayLength' })
-      .column('orgs', { key: 'organizations', transform: org => org.map(org => org.name).join(', ') })
+      .column('nbOrgs', { accessor: 'organizations', transform: 'arrayLength' })
+      .column('orgs', { accessor: 'organizations', transform: org => org.map(org => org.name).join(', ') })
       .column('generalScore', {
-        key: 'results.general.overall',
+        accessor: 'results.general.overall',
         format: '# / 10',
         summary: [{
           value: data => data.reduce((acc, user) => acc + user.results.general.overall, 0) / data.length,
@@ -94,19 +94,19 @@ describe('should generate the example excel', () => {
         }],
       })
       .column('technicalScore', {
-        key: 'results.technical.overall',
+        accessor: 'results.technical.overall',
         summary: [{
           value: data => data.reduce((acc, user) => acc + user.results.technical.overall, 0) / data.length,
         }],
       })
-      .column('interviewScore', { key: 'results.interview.overall', default: 'N/A' })
-      .column('createdAt', { key: 'createdAt', format: 'd mmm yyyy' })
+      .column('interviewScore', { accessor: 'results.interview.overall', default: 'N/A' })
+      .column('createdAt', { accessor: 'createdAt', format: 'd mmm yyyy' })
       .group('group:org', (builder, context: Organization[]) => {
         for (const org of context) {
           builder
             .column(`orga-${org.id}`, {
               label: `User in ${org.name}`,
-              key: 'organizations',
+              accessor: 'organizations',
               transform: orgs => orgs.some(o => o.id === org.id) ? 'YES' : 'NO',
               cellStyle: data => ({
                 font: {

@@ -30,16 +30,16 @@ describe('excelStreamBuilder 100K Tests', () => {
         date: 'yyyy-mm-dd',
         currency: '$#,##0.00',
       })
-      .column('id', { key: 'id' })
-      .column('name', { key: 'name' })
-      .column('email', { key: 'email' })
+      .column('id', { accessor: 'id' })
+      .column('name', { accessor: 'name' })
+      .column('email', { accessor: 'email' })
       .column('birthDate', {
-        key: 'birthDate',
+        accessor: 'birthDate',
         format: { preset: 'date' },
         width: 15,
       })
       .column('salary', {
-        key: 'salary',
+        accessor: 'salary',
         format: { preset: 'currency' },
         width: 15,
         cellStyle: row => ({
@@ -129,19 +129,19 @@ describe('excelStreamBuilder 100K Tests', () => {
         date: 'yyyy-mm-dd',
         currency: '$#,##0.00',
       })
-      .column('id', { key: 'id' })
+      .column('id', { accessor: 'id' })
       .column('name', {
-        key: 'name',
+        accessor: 'name',
         width: 30,
       })
-      .column('category', { key: 'category' })
+      .column('category', { accessor: 'category' })
       .column('price', {
-        key: 'price',
+        accessor: 'price',
         format: { preset: 'currency' },
         width: 15,
       })
       .column('inStock', {
-        key: 'inStock',
+        accessor: 'inStock',
         cellStyle: row => ({
           fill: {
             type: 'pattern',
@@ -151,7 +151,7 @@ describe('excelStreamBuilder 100K Tests', () => {
         }),
       })
       .column('lastUpdated', {
-        key: 'lastUpdated',
+        accessor: 'lastUpdated',
         format: { preset: 'date' },
         width: 15,
       })

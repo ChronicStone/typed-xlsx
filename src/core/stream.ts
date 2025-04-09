@@ -1,3 +1,4 @@
+// core/stream.ts
 import type { Writable } from 'node:stream'
 import type { Style, Worksheet } from 'exceljs'
 import { stream } from 'exceljs'
@@ -185,12 +186,12 @@ export class StreamSheetBuilder<
 
       // Extract cell values first (needed for creating the row)
       const rowValues = flatColumns.map((column) => {
-        // Extract value using the column key
+        // Extract value using the column accessor
         let value: CellValue
-        if (typeof column.key === 'string')
-          value = getPropertyFromPath(rowData, column.key) as CellValue
+        if (typeof column.accessor === 'string')
+          value = getPropertyFromPath(rowData, column.accessor) as CellValue
         else
-          value = column.key(rowData)
+          value = column.accessor(rowData, rowIdx, 0)
 
         // Apply default value if needed
         if (value === undefined || value === null)

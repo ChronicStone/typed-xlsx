@@ -1,5 +1,5 @@
+// utils.ts
 import type { Cell, Row, Style, Worksheet } from 'exceljs'
-import { Borders } from 'exceljs'
 import { deepmerge } from 'deepmerge-ts'
 import type {
   BaseCellValue,
@@ -34,7 +34,6 @@ export function formatKey(key: string) {
       .join(' ')
   )
 }
-
 export function buildSheetConfig(sheets: Array<SheetConfig>) {
   return sheets.map(sheet => ({
     sheet: sheet.sheetKey,
@@ -72,10 +71,10 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
         .map((column) => {
           return {
             label: column?.label ?? column.columnKey,
-            value: (row: GenericObject, index: number): CellValue => {
-              const value = typeof column.key === 'string'
-                ? getPropertyFromPath(row, column.key)
-                : column.key(row)
+            value: (row: GenericObject, index: number, subIndex: number = 0): CellValue => {
+              const value = typeof column.accessor === 'string'
+                ? getPropertyFromPath(row, column.accessor)
+                : column.accessor(row, index, subIndex)
 
               if (
                 typeof value === 'undefined'
