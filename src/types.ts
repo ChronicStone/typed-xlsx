@@ -1,8 +1,6 @@
 /* eslint-disable ts/ban-types */
 import type { Buffer, File } from 'node:buffer'
-import type { CellStyle } from 'xlsx-js-style'
-import type XLSX from 'xlsx-js-style'
-import type { ExcelBuilder, ExcelSchemaBuilder } from '.'
+import type { Cell, Column as ExcelColumn, Style, Workbook, Worksheet } from 'exceljs'
 
 export type GenericObject = Record<string | number | symbol, any>
 
@@ -43,7 +41,6 @@ export type AllKeysMatch<T extends object, U> = {
   [K in keyof T]: T[K] extends U ? true : false;
 }[keyof T] extends true ? true : false
 
-// https://twitter.com/mattpocockuk/status/1622730173446557697?s=20
 export type Prettify<T> = {
   [K in keyof T]: T[K]
 } & {}
@@ -98,13 +95,14 @@ export type Column<
   columnKey: ColKey
   key: FieldValue
   default?: CellValue
+  width?: number
   format?: Preset | string | ((rowData: T, rowIndex: number, subRowIndex: number) => string | Preset)
-  cellStyle?: CellStyle | ((rowData: T, rowIndex: number, subRowIndex: number) => CellStyle)
-  headerStyle?: CellStyle
+  cellStyle?: Partial<Style> | ((rowData: T, rowIndex: number, subRowIndex: number) => Partial<Style>)
+  headerStyle?: Partial<Style>
   summary?: Array<{
     value: (data: T[]) => BaseCellValue
     format?: string | Preset | ((data: T[]) => string | Preset)
-    cellStyle?: CellStyle | ((data: T[]) => CellStyle)
+    cellStyle?: Partial<Style> | ((data: T[]) => Partial<Style>)
   }>
 } & (
     ExtractColumnValue<T, FieldValue> extends CellValue
@@ -166,7 +164,7 @@ export type SheetTable<
   SelectedContextMap extends ExtractSelectedContext<ContextMap, SelectedCols> = ExtractSelectedContext<ContextMap, SelectedCols>,
 > = {
   title?: string
-  titleStyle?: CellStyle | ((data: T[]) => CellStyle)
+  titleStyle?: Partial<Style> | ((data: T[]) => Partial<Style>)
   schema: Schema
   data: T[]
   select?: SelectColsMap
@@ -191,7 +189,6 @@ export interface SheetTableBuilder<
 export interface SheetParams {
   tableSeparatorWidth?: number
   tablesPerRow?: number
-
 }
 
 export interface SheetConfig {
@@ -221,7 +218,7 @@ export type ExtractSelectedContext<
   [K in keyof ContextMap as K extends SelectedCols ? K : never]: ContextMap[K];
 }
 
-export type TOutputType = 'buffer' | 'workbook' | 'base64' | 'file'
+export type TOutputType = 'buffer' | 'workbook' | 'base64'
 
 export interface ExcelBuildParams<Output extends TOutputType,
 > {
@@ -230,19 +227,80 @@ export interface ExcelBuildParams<Output extends TOutputType,
   extraLength?: number
   rowHeight?: number
   bordered?: boolean
+  autoSizeColumns?: boolean
+  columnSizing?: {
+    minWidth?: number
+    maxWidth?: number
+    headerWidthFactor?: number
+  }
 }
 
 export type ExcelBuildOutput<
   Output extends TOutputType,
 > =
   Output extends 'workbook'
-    ? XLSX.WorkBook
+    ? Workbook
     : Output extends 'base64'
       ? string
       : Output extends 'buffer'
         ? Buffer
-        : Output extends 'file'
-          ? File
-          : never
+        : never
 
 export type MakeRequired<T, K extends keyof T> = Prettify<Omit<T, K> & Required<Pick<T, K>>>
+
+export interface ExcelSchemaBuilder<
+  T extends GenericObject,
+  CellKeyPaths extends string,
+  UsedKeys extends string = never,
+  TransformMap extends TransformersMap = {},
+  FormatMap extends FormattersMap = {},
+  ContextMap extends { [key: string]: any } = {},
+> {
+  column: <
+    K extends string,
+    FieldValue extends CellKeyPaths | ((data: T) => CellValue),
+    Preset extends FormatterPreset<FormatMap>[keyof FormatMap],
+  >(
+    columnKey: Not<K, UsedKeys>,
+    column: Omit<Column<T, FieldValue, K, TransformMap, FormatMap, Preset>, 'columnKey' | 'type'>,
+  ) => ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys | K, TransformMap, FormatMap, ContextMap>
+
+  group: <
+    K extends `group:${string}`,
+    Context,
+  >(
+    key: Not<K, UsedKeys>,
+    handler: (builder: ExcelSchemaBuilder<T, CellKeyPaths, never, TransformMap, FormatMap>, context: Context) => void,
+  ) => ExcelSchemaBuilder<
+    T,
+    CellKeyPaths,
+    UsedKeys | K,
+    TransformMap,
+    FormatMap,
+    ContextMap & { [key in K]: Context }
+  >
+
+  withTransformers: <Transformers extends TransformersMap>(
+    transformers: Transformers
+  ) => ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap & Transformers, FormatMap, ContextMap>
+
+  withFormatters: <Formatters extends FormattersMap>(
+    formatters: Formatters
+  ) => ExcelSchemaBuilder<T, CellKeyPaths, UsedKeys, TransformMap, FormatMap & Formatters, ContextMap>
+
+  build: () => ExcelSchema<T, CellKeyPaths, UsedKeys, ContextMap>
+}
+
+export interface ExcelBuilder<UsedSheetKeys extends string = never> {
+  sheet: <Key extends string>(
+    key: Not<Key, UsedSheetKeys>,
+    params?: SheetParams
+  ) => SheetTableBuilder<ExcelBuilder<UsedSheetKeys | Key>, UsedSheetKeys | Key>
+
+  build: <
+    OutputType extends TOutputType,
+    Output = ExcelBuildOutput<OutputType>,
+  >(params: ExcelBuildParams<OutputType>) => Promise<Output>
+}
+
+export type SchemaData<T extends ExcelSchema<any, any, string>> = T extends ExcelSchema<infer Data, any, any> ? Data : never

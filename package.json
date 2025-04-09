@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "deepmerge-ts": "^5.1.0",
+    "exceljs": "^4.4.0",
     "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {

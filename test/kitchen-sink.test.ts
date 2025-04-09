@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { Buffer } from 'node:buffer'
 import { describe, it } from 'vitest'
 import { faker } from '@faker-js/faker'
 import type { TransformersMap } from '../src/types'
@@ -33,7 +34,7 @@ const transformers = {
 } satisfies TransformersMap
 
 describe('should generate the example excel', () => {
-  it('exported', () => {
+  it('exported', async () => {
     const organizations: Organization[] = Array.from({ length: 10 }, (_, id) => ({
       id,
       name: faker.company.name(),
@@ -66,7 +67,7 @@ describe('should generate the example excel', () => {
       .column('roles', {
         key: 'roles',
         transform: 'list',
-        cellStyle: data => ({ font: { color: { rgb: data.roles.includes('admin') ? 'd10808' : undefined } } }),
+        cellStyle: data => ({ font: { color: { argb: data.roles.includes('admin') ? 'd10808' : undefined } } }),
       })
       .column('balance', {
         key: 'balance',
@@ -109,7 +110,7 @@ describe('should generate the example excel', () => {
               transform: orgs => orgs.some(o => o.id === org.id) ? 'YES' : 'NO',
               cellStyle: data => ({
                 font: {
-                  color: { rgb: data.organizations.some(o => o.id === org.id) ? '61eb34' : 'd10808' },
+                  color: { argb: data.organizations.some(o => o.id === org.id) ? '61eb34' : 'd10808' },
                 },
               }),
             })
@@ -117,7 +118,7 @@ describe('should generate the example excel', () => {
       })
       .build()
 
-    const buffer = ExcelBuilder
+    const buffer = await ExcelBuilder
       .create()
       .sheet('Users - full')
       .addTable({
@@ -175,8 +176,8 @@ describe('should generate the example excel', () => {
         schema: assessmentExport,
         select: { firstName: true, lastName: true, email: true, createdAt: true },
       })
-      .build({ output: 'buffer' })
+      .build({ output: 'buffer', autoSizeColumns: true })
 
-    fs.writeFileSync('./examples/kitchen-sink.xlsx', buffer)
+    fs.writeFileSync('./examples/kitchen-sink.xlsx', new Uint8Array(buffer))
   })
 })

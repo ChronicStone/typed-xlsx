@@ -1,9 +1,17 @@
-import * as XLSXUtils from 'xlsx-js-style'
-import type XLSX from 'xlsx-js-style'
-import type { CellStyle, ExcelDataType, WorkSheet } from 'xlsx-js-style'
+import type { Cell, Row, Style, Worksheet } from 'exceljs'
+import { Borders } from 'exceljs'
 import { deepmerge } from 'deepmerge-ts'
-import type { BaseCellValue, CellValue, Column, FormatterPreset, FormattersMap, GenericObject, SheetConfig, ValueTransformer } from './types'
-import { THICK_BORDER_STYLE, THIN_BORDER_STYLE } from './const'
+import type {
+  BaseCellValue,
+  CellValue,
+  Column,
+  FormatterPreset,
+  FormattersMap,
+  GenericObject,
+  SheetConfig,
+  ValueTransformer,
+} from './types'
+import { THICK_BORDER_STYLE, THIN_BORDER_STYLE } from './constants'
 
 export function getPropertyFromPath(obj: GenericObject, path: string) {
   try {
@@ -25,16 +33,6 @@ export function formatKey(key: string) {
       .split('_')
       .join(' ')
   )
-}
-
-export function getCellDataType(value: CellValue): ExcelDataType {
-  if (value instanceof Date)
-    return 'd'
-  if (typeof value === 'number')
-    return 'n'
-  if (typeof value === 'boolean')
-    return 'b'
-  return 's'
 }
 
 export function buildSheetConfig(sheets: Array<SheetConfig>) {
@@ -106,67 +104,111 @@ export function buildSheetConfig(sheets: Array<SheetConfig>) {
   }))
 }
 
-export function getColumnHeaderStyle(params: { bordered: boolean, customStyle?: CellStyle }) {
+export function getColumnHeaderStyle(params: { bordered: boolean, customStyle?: Partial<Style> }): Partial<Style> {
   return deepmerge(
     {
       font: { bold: true },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      fill: { fgColor: { rgb: 'E9E9E9' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      fill: {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE9E9E9' },
+      },
       border: (params?.bordered ?? true)
         ? THICK_BORDER_STYLE
         : {},
     },
     params?.customStyle ?? {},
-  ) satisfies CellStyle
+  ) as Partial<Style>
 }
 
-export function getWorksheetColumnWidths(worksheet: WorkSheet, extraLength: number = 1) {
-  const columnLetters: string[] = getWorksheetColumnIds(worksheet)
+export function applyStyles(cell: Cell, styles: Partial<Style>) {
+  if (styles.font)
+    cell.font = styles.font
 
-  return columnLetters.map((column) => {
-    const columnCells: string[] = Object.keys(worksheet).filter(cell => cell.replace(/[0-9]/g, '') === column)
-    const maxWidthCell = columnCells.reduce((maxWidth, cellId) => {
-      const cell = worksheet[cellId]
-      const cellContentLength: number = getCellValueLength(cell.v)
+  if (styles.alignment)
+    cell.alignment = styles.alignment
 
-      if (!cell.z)
-        return Math.max(maxWidth, cellContentLength)
+  if (styles.border)
+    cell.border = styles.border
 
-      const cellFormatLength: number = cell.z.length
-      const largestWidth: number = Math.max(cellContentLength, cellFormatLength)
-      return Math.max(maxWidth, largestWidth)
-    }, 0)
+  if (styles.fill)
+    cell.fill = styles.fill
 
-    return { wch: maxWidthCell + extraLength }
-  })
+  if (styles.numFmt)
+    cell.numFmt = styles.numFmt
 }
 
-function getCellValueLength(object: unknown): number {
-  if (typeof object === 'string')
-    return Math.max(...object.split('\n').map(string => string.length))
+export function calculateColumnWidth(value: any): number {
+  if (value === null || value === undefined)
+    return 0
 
-  if (typeof object === 'number')
-    return object.toString().length
+  let text: string
 
-  if (typeof object === 'boolean')
-    return object ? 'true'.length : 'false'.length
-
-  if (object instanceof Date)
-    return object.toString().length
-
-  return 0
-}
-
-function getWorksheetColumnIds(worksheet: WorkSheet): string[] {
-  const columnRange = XLSXUtils.utils.decode_range(worksheet['!ref'] ?? '')
-
-  const columnIds: string[] = []
-  for (let C = columnRange.s.c; C <= columnRange.e.c; C++) {
-    const address = XLSXUtils.utils.encode_col(C)
-    columnIds.push(address)
+  if (value instanceof Date) {
+    // Date values typically need ~10-12 characters
+    return 12
   }
+  else if (typeof value === 'number') {
+    // Add extra space for formatted numbers
+    text = value.toString()
+    return Math.max(text.length + 3, 10)
+  }
+  else if (typeof value === 'boolean') {
+    return 8 // 'true' or 'false'
+  }
+  else {
+    text = String(value)
+    // Estimate width: 1 character ≈ 1 unit
+    // Complex characters like CJK might need special handling
+    return Math.min(Math.max(text.length + 2, 6), 50)
+  }
+}
 
-  return columnIds
+export function autoSizeColumns(worksheet: Worksheet, params: {
+  minWidth?: number
+  maxWidth?: number
+  headerWidthFactor?: number
+} = {}): void {
+  const {
+    minWidth = 6,
+    maxWidth = 50,
+    headerWidthFactor = 1.2,
+  } = params
+
+  // Get all used columns
+  const columnCount = worksheet.columnCount
+
+  // Initialize width array
+  const columnWidths: number[] = Array(columnCount).fill(minWidth)
+
+  // Process header row
+  const headerRow = worksheet.getRow(1)
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    if (cell.value !== null && cell.value !== undefined) {
+      const width = calculateColumnWidth(cell.value) * headerWidthFactor
+      columnWidths[colNumber - 1] = Math.max(columnWidths[colNumber - 1], width)
+    }
+  })
+
+  // Process data rows
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1)
+      return // Skip header row, already processed
+
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (cell.value !== null && cell.value !== undefined) {
+        const width = calculateColumnWidth(cell.value)
+        columnWidths[colNumber - 1] = Math.max(columnWidths[colNumber - 1], width)
+      }
+    })
+  })
+
+  // Apply calculated widths within constraints
+  columnWidths.forEach((width, i) => {
+    const constrainedWidth = Math.min(Math.max(width, minWidth), maxWidth)
+    worksheet.getColumn(i + 1).width = constrainedWidth
+  })
 }
 
 export function splitIntoChunks<T>(array: T[], chunkSize: number | undefined): T[][] {
@@ -179,25 +221,6 @@ export function splitIntoChunks<T>(array: T[], chunkSize: number | undefined): T
   return chunks
 }
 
-export function getSheetChunkMaxHeight(
-  tables: ReturnType<typeof buildSheetConfig>[number]['tables'],
-) {
-  return tables.reduce((acc, table) => {
-    const hasTitle = !!table.title
-    const summaryRowLength = tableSummaryRowLength(table)
-
-    const maxRowSpan = table.content.reduce((max, row, rowIndex) => {
-      return Math.max(max, ...table.columns.map((column) => {
-        const values = column.value(row, rowIndex)
-        return Array.isArray(values) ? values.length : 1
-      }))
-    }, 1)
-
-    const tableHeight = (table.content.length * maxRowSpan) + 1 + summaryRowLength + (hasTitle ? 1 : 0)
-    return Math.max(acc, tableHeight)
-  }, 0)
-}
-
 export function tableHasSummary(table: ReturnType<typeof buildSheetConfig>[number]['tables'][number]) {
   return table.enableSummary
     && table.columns.some(column => column._ref?.summary?.length)
@@ -208,114 +231,6 @@ export function tableSummaryRowLength(table: ReturnType<typeof buildSheetConfig>
     const columnSummaryLength = column._ref?.summary?.length ?? 0
     return Math.max(acc, columnSummaryLength)
   }, 0)
-}
-
-export function computeSheetRange(sheetRows: Array<ReturnType<typeof buildSheetConfig>[number]['tables']>) {
-  const sheetWidth = sheetRows.reduce((acc, tables) => {
-    const rowWidth = tables.reduce((acc, table) => {
-      const tableWidth = table.columns.length
-      return acc + tableWidth + 1
-    }, 0)
-    return Math.max(acc, rowWidth)
-  }, 0)
-
-  const sheetHeight = sheetRows.reduce((acc, tables) => {
-    const rowHeight = tables.reduce((acc, table) => {
-      const hasTitle = !!table.title
-      const summaryRowLength = tableSummaryRowLength(table)
-
-      const maxRowSpan = table.columns.reduce((max, column) => {
-        return Math.max(max, table.content.reduce((maxRow, row, rowIndex) => {
-          const values = column.value(row, rowIndex)
-          return Array.isArray(values) ? Math.max(maxRow, values.length) : maxRow
-        }, 1))
-      }, 1)
-
-      const tableHeight = (table.content.length * maxRowSpan) + summaryRowLength + (hasTitle ? 1 : 0)
-      return Math.max(acc, tableHeight)
-    }, 0)
-    return acc + rowHeight + 1
-  }, 0)
-
-  return {
-    sheetHeight,
-    sheetWidth,
-    sheetRange: XLSXUtils.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: sheetWidth - 1, r: sheetHeight - 1 } }), // Adjust end column and row index by subtracting 1
-  }
-}
-
-export function formulaeBuilder<
-  ColKeys extends string,
->(cols: ColKeys) {
-  return {
-    sum: (start: number, end: number) => `SUM(${cols}${start}:${cols}${end})`,
-    count: (start: number, end: number) => `COUNT(${cols}${start}:${cols}${end})`,
-    average: (start: number, end: number) => `AVERAGE(${cols}${start}:${cols}${end})`,
-    max: (start: number, end: number) => `MAX(${cols}${start}:${cols}${end})`,
-    min: (start: number, end: number) => `MIN(${cols}${start}:${cols}${end})`,
-  }
-}
-
-export function applyGroupBorders(worksheet: WorkSheet, params: { start: string, end: string }) {
-  const start = XLSXUtils.utils.decode_cell(params.start)
-  const end = XLSXUtils.utils.decode_cell(params.end)
-
-  for (let r = start.r; r <= end.r; r++) {
-    for (let c = start.c; c <= end.c; c++) {
-      const cellRef = XLSXUtils.utils.encode_cell({ c, r })
-      const cell = worksheet[cellRef] || { t: 'z' }
-
-      cell.s = deepmerge(cell.s ?? {}, {
-        border: {
-          ...(cell.s?.border ?? {}),
-        },
-      })
-
-      if (r === start.r)
-        cell.s.border.top = THICK_BORDER_STYLE.top
-      if (r === end.r)
-        cell.s.border.bottom = THICK_BORDER_STYLE.bottom
-      if (c === start.c)
-        cell.s.border.left = THICK_BORDER_STYLE.left
-      if (c === end.c)
-        cell.s.border.right = THICK_BORDER_STYLE.right
-
-      worksheet[cellRef] = cell
-    }
-  }
-}
-
-export function getPrevRowsHeight(params: {
-  tableConfig: ReturnType<typeof buildSheetConfig>[number]['tables'][number]
-  rowIndex: number
-}) {
-  return params.tableConfig.columns.reduce((acc, column) => {
-    return Math.max(acc, params.tableConfig.content.filter((_, i) => i < params.rowIndex).reduce((acc, row, rowIndex) => {
-      const value = column.value(row, rowIndex)
-      return acc + (Array.isArray(value) ? value.length : 1)
-    }, 0))
-  }, 0)
-}
-
-export function getRowMaxHeight(params: {
-  tableConfig: ReturnType<typeof buildSheetConfig>[number]['tables'][number]
-  rowIndex: number
-}) {
-  return params.tableConfig.columns.reduce((acc, column) => {
-    const row = params.tableConfig.content[params.rowIndex]
-    const _resolvedValue = column.value(row, params.rowIndex)
-    const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
-    return Math.max(acc, values.length)
-  }, 1)
-}
-
-export function getCellValue(params: {
-  row: GenericObject
-  rowIndex: number
-  value: ReturnType<typeof buildSheetConfig>[number]['tables'][number]['columns'][number]['value']
-}) {
-  const _resolvedValue = params.value(params.row, params.rowIndex)
-  return Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
 }
 
 export function getColumnSeparatorIndexes(params: {
@@ -333,19 +248,28 @@ export function getColumnSeparatorIndexes(params: {
 }
 
 export function createCell(params: {
+  worksheet: Worksheet
+  row: number
+  col: number
   data?: GenericObject
   value?: BaseCellValue
-  style?: CellStyle | ((rowData: any, rowIndex: number, subRowIndex: number) => CellStyle)
+  style?: Partial<Style> | ((rowData: any, rowIndex: number, subRowIndex: number) => Partial<Style>)
   format?: string | FormatterPreset<any> | ((rowData: any, rowIndex: number, subRowIndex: number) => string | FormatterPreset<any>)
-  extraStyle?: CellStyle
+  extraStyle?: Partial<Style>
   bordered?: boolean
   rowIndex?: number
   subRowIndex?: number
   formatPresets: FormattersMap
-}): XLSX.CellObject {
+}): Cell {
+  const cell = params.worksheet.getCell(params.row, params.col)
+  const value = params.value === null ? '' : params.value
+
+  cell.value = value
+
   const style = typeof params.style === 'function'
     ? params.style(params.data ?? {}, params?.rowIndex ?? 0, params?.subRowIndex ?? 0)
     : params.style ?? {}
+
   const rawFormat = typeof params.format === 'function'
     ? params.format(params.data ?? {}, params?.rowIndex ?? 0, params?.subRowIndex ?? 0)
     : params.format
@@ -360,19 +284,51 @@ export function createCell(params: {
         : ''
       : rawFormat
 
-  return {
-    v: params.value === null ? '' : params.value,
-    t: getCellDataType(params.value),
-    z: format,
-    s: deepmerge({
-      border: (params.bordered ?? true)
-        ? THIN_BORDER_STYLE
-        : {},
-      alignment: { vertical: 'center' },
+  const combinedStyle = deepmerge(
+    {
+      border: (params.bordered ?? true) ? THIN_BORDER_STYLE : {},
+      alignment: { vertical: 'middle' },
       numFmt: format,
-    }, style, params.extraStyle ?? {}),
+    },
+    style,
+    params.extraStyle ?? {},
+  ) as Partial<Style>
 
+  applyStyles(cell, combinedStyle)
+
+  return cell
+}
+
+export function createStreamCell(params: {
+  row: Row
+  colIndex: number
+  value?: BaseCellValue
+  style?: Partial<Style>
+  format?: string
+  bordered?: boolean
+}): Cell {
+  const cell = params.row.getCell(params.colIndex)
+  const value = params.value === null ? '' : params.value
+
+  cell.value = value
+
+  const combinedStyle: Partial<Style> = {
+    border: (params.bordered ?? true)
+      ? {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        }
+      : {},
+    alignment: { vertical: 'middle' },
+    numFmt: params.format,
+    ...params.style,
   }
+
+  applyStyles(cell, combinedStyle)
+
+  return cell
 }
 
 export class TableCacheManager {
@@ -388,13 +344,13 @@ export class TableCacheManager {
     this.rows = table.content
 
     table.content.forEach((row, rowIndex) => {
-      const rowHeight = getRowMaxHeight({ tableConfig: this.table, rowIndex })
+      const rowHeight = this.calculateRowMaxHeight(rowIndex)
       const _prevRowsHeight = (this.getPrevRowsHeight(rowIndex - 1) ?? 0) + (this.getRowMaxHeight(rowIndex - 1) ?? 0)
       this.rowMaxHeight.set(rowIndex, rowHeight)
       this.prevRowsHeight.set(rowIndex, _prevRowsHeight)
 
       table.columns.forEach((column, columnIndex) => {
-        const cellValue = getCellValue({ row, rowIndex, value: column.value })
+        const cellValue = this.calculateCellValue(row, rowIndex, column.value)
         this.cellValue.set(`${columnIndex}:${rowIndex}`, cellValue)
       })
     })
@@ -407,63 +363,39 @@ export class TableCacheManager {
     }, 0)
   }
 
-  getTableHeight() {
+  private calculateRowMaxHeight(rowIndex: number): number {
+    return this.table.columns.reduce((acc, column) => {
+      const row = this.table.content[rowIndex]
+      const _resolvedValue = column.value(row, rowIndex)
+      const values = Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+      return Math.max(acc, values.length)
+    }, 1)
+  }
+
+  private calculateCellValue(row: GenericObject, rowIndex: number, valueFn: any): BaseCellValue[] {
+    const _resolvedValue = valueFn(row, rowIndex)
+    return Array.isArray(_resolvedValue) ? _resolvedValue : [_resolvedValue]
+  }
+
+  getTableHeight(): number {
     return Array.from(this.rowMaxHeight.values()).reduce((acc, rowHeight) => acc + rowHeight, 0)
   }
 
-  getPrevRowsHeight(rowIndex: number) {
+  getPrevRowsHeight(rowIndex: number): number {
     return this.prevRowsHeight.get(rowIndex) ?? 0
   }
 
-  getRowMaxHeight(rowIndex: number) {
+  getRowMaxHeight(rowIndex: number): number {
     return this.rowMaxHeight.get(rowIndex) ?? 0
   }
 
-  getCellValue({ columnIndex, rowIndex }: { columnIndex: number, rowIndex: number }) {
+  getCellValue({ columnIndex, rowIndex }: { columnIndex: number, rowIndex: number }): BaseCellValue[] {
     return this.cellValue.get(`${columnIndex}:${rowIndex}`) ?? []
   }
 
-  getNbExtraRows() {
+  getNbExtraRows(): number {
     return this.nbExtraRows
   }
-}
-
-function getSheetWidth(sheetRows: Array<ReturnType<typeof buildSheetConfig>[number]['tables']>) {
-  return sheetRows.reduce((acc, tables) => {
-    const rowWidth = tables.reduce((acc, table) => {
-      const tableWidth = table.columns.length
-      return acc + tableWidth + 1
-    }, 0)
-    return Math.max(acc, rowWidth)
-  }, 0)
-}
-
-function getSheetHeight(
-  sheetChunks: Array<ReturnType<typeof buildSheetConfig>[number]['tables']>,
-  tableCaches: Map<number, { table: ReturnType<typeof buildSheetConfig>[number]['tables'][number], cache: TableCacheManager }>,
-) {
-  return sheetChunks.reduce((acc, tables) => {
-    const chunkHeight = tables.reduce((acc, _, tableIndex) => {
-      const { table, cache } = tableCaches.get(tableIndex)!
-      const hasTitle = !!table.title
-      const summaryRowLength = tableSummaryRowLength(table)
-
-      const maxRowSpan = table.columns.reduce((max, _, columnIndex) => {
-        return Math.max(max, table.content.reduce((maxRow, _, rowIndex) => {
-          const values = cache.getCellValue({ columnIndex, rowIndex })
-          return Array.isArray(values) ? Math.max(maxRow, values.length) : maxRow
-        }, 1))
-      }, 1)
-
-      const tableHeight = (table.content.length * maxRowSpan) + summaryRowLength + (hasTitle ? 1 : 0)
-      return Math.max(acc, tableHeight)
-    }, 0)
-    return acc + chunkHeight + 1
-  }, 0)
-}
-
-function getSheetRange(params: { width: number, height: number }) {
-  return XLSXUtils.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: params.width - 1, r: params.height - 1 } }) // Adjust end column and row index by subtracting 1
 }
 
 export class SheetCacheManager {
@@ -475,7 +407,6 @@ export class SheetCacheManager {
       maxHeight: number
       hasTitle: boolean
     }>
-    range: { height: number, width: number, range: string }
   }> = new Map()
 
   constructor(sheets: ReturnType<typeof buildSheetConfig>) {
@@ -484,20 +415,36 @@ export class SheetCacheManager {
       const tables = new Map<number, { table: ReturnType<typeof buildSheetConfig>[number]['tables'][number], cache: TableCacheManager }>()
 
       sheet.tables.forEach((table, tableIndex) => tables.set(tableIndex, { table, cache: new TableCacheManager(table) }))
-      const width = getSheetWidth(chunks)
-      const height = getSheetHeight(chunks, tables)
-      const range = getSheetRange({ width, height })
+
       this.computedSheets.set(sheetIndex, {
         sheet,
         tables,
         chunks: chunks.map((tables, chunkIndex) => ({
           tables: tables.map((_, tableIndex) => tableIndex + chunkIndex * (sheet.params?.tablesPerRow ?? 1)),
-          maxHeight: getSheetChunkMaxHeight(tables),
+          maxHeight: this.getSheetChunkMaxHeight(tables),
           hasTitle: tables.some(table => !!table.title),
         })),
-        range: { height, width, range },
       })
     })
+  }
+
+  private getSheetChunkMaxHeight(
+    tables: ReturnType<typeof buildSheetConfig>[number]['tables'],
+  ) {
+    return tables.reduce((acc, table) => {
+      const hasTitle = !!table.title
+      const summaryRowLength = tableSummaryRowLength(table)
+
+      const maxRowSpan = table.content.reduce((max, row, rowIndex) => {
+        return Math.max(max, ...table.columns.map((column) => {
+          const values = column.value(row, rowIndex)
+          return Array.isArray(values) ? values.length : 1
+        }))
+      }, 1)
+
+      const tableHeight = (table.content.length * maxRowSpan) + 1 + summaryRowLength + (hasTitle ? 1 : 0)
+      return Math.max(acc, tableHeight)
+    }, 0)
   }
 
   getSheets() {
@@ -510,25 +457,5 @@ export class SheetCacheManager {
 
   getSheetTable(params: { sheetIndex: number, tableIndex: number }) {
     return this.computedSheets.get(params.sheetIndex)!.tables.get(params.tableIndex)!
-  }
-
-  getSheetRange(params: { sheetIndex: number }) {
-    return this.computedSheets.get(params.sheetIndex)!.range
-  }
-
-  getTableRange(params: { sheetIndex: number, tableIndex: number, rowOffset: number, colOffset: number }) {
-    const sheet = this.computedSheets.get(params.sheetIndex)!
-    const { table, cache } = sheet.tables.get(params.tableIndex)!
-    const { colOffset, rowOffset } = params
-    return utils.encode_range({
-      s: {
-        c: colOffset,
-        r: rowOffset,
-      },
-      e: {
-        c: colOffset + table.columns.length - 1,
-        r: rowOffset + cache.getTableHeight(),
-      },
-    })
   }
 }
