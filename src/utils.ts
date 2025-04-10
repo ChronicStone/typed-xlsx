@@ -138,32 +138,6 @@ export function applyStyles(cell: Cell, styles: Partial<Style>) {
     cell.numFmt = styles.numFmt
 }
 
-export function calculateColumnWidth(value: any): number {
-  if (value === null || value === undefined)
-    return 0
-
-  let text: string
-
-  if (value instanceof Date) {
-    // Date values typically need ~10-12 characters
-    return 12
-  }
-  else if (typeof value === 'number') {
-    // Add extra space for formatted numbers
-    text = value.toString()
-    return Math.max(text.length + 3, 10)
-  }
-  else if (typeof value === 'boolean') {
-    return 8 // 'true' or 'false'
-  }
-  else {
-    text = String(value)
-    // Estimate width: 1 character ≈ 1 unit
-    // Complex characters like CJK might need special handling
-    return Math.min(Math.max(text.length + 2, 6), 50)
-  }
-}
-
 export function autoSizeColumns(worksheet: Worksheet, params: {
   minWidth?: number
   maxWidth?: number
@@ -262,7 +236,6 @@ export function createCell(params: {
 }): Cell {
   const cell = params.worksheet.getCell(params.row, params.col)
   const value = params.value === null ? '' : params.value
-
   cell.value = value
 
   const style = typeof params.style === 'function'
@@ -311,17 +284,28 @@ export function createStreamCell(params: {
 
   cell.value = value
 
-  const combinedStyle: Partial<Style> = {
-    border: (params.bordered ?? true)
-      ? {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' },
-        }
-      : {},
+  // Start with default styles
+  const defaultStyle: Partial<Style> = {
     alignment: { vertical: 'middle' },
-    numFmt: params.format,
+  }
+
+  // Add borders only if requested and not overridden in the style
+  if (params.bordered !== false && !params.style?.border) {
+    defaultStyle.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' },
+    }
+  }
+
+  // Add number format if provided
+  if (params.format)
+    defaultStyle.numFmt = params.format
+
+  // Combine with provided styles, letting provided styles override defaults
+  const combinedStyle: Partial<Style> = {
+    ...defaultStyle,
     ...params.style,
   }
 
@@ -457,4 +441,120 @@ export class SheetCacheManager {
   getSheetTable(params: { sheetIndex: number, tableIndex: number }) {
     return this.computedSheets.get(params.sheetIndex)!.tables.get(params.tableIndex)!
   }
+}
+
+export function calculateColumnWidth(value: any): number {
+  if (value === null || value === undefined)
+    return 0
+
+  let text: string
+
+  if (value instanceof Date) {
+    // Date values typically need ~10-12 characters
+    return 12
+  }
+  else if (typeof value === 'number') {
+    // Add extra space for formatted numbers
+    text = value.toString()
+    return Math.max(text.length + 3, 10)
+  }
+  else if (typeof value === 'boolean') {
+    return 8 // 'true' or 'false'
+  }
+  else {
+    text = String(value)
+    // Estimate width: 1 character ≈ 1 unit
+    // Complex characters like CJK might need special handling
+    return Math.min(Math.max(text.length + 2, 6), 50)
+  }
+}
+
+/**
+ * Apply automatic formatting to worksheet columns based on content
+ * @param worksheet Worksheet to format
+ * @param params Formatting parameters and column constraints
+ */
+export function autoFormatColumns(worksheet: Worksheet, params: {
+  minWidth?: number
+  maxWidth?: number
+  headerWidthFactor?: number
+  columnConstraints?: Record<number, { minWidth?: number, maxWidth?: number, width?: number }>
+  preCalculatedWidths?: Array<number> // Added for stream builder support
+} = {}): void {
+  const {
+    minWidth: defaultMinWidth = 6,
+    maxWidth: defaultMaxWidth = 50,
+    headerWidthFactor = 1.2,
+    columnConstraints = {},
+    preCalculatedWidths, // Default to empty object
+  } = params
+
+  // Get all used columns
+  const columnCount = worksheet.columnCount
+
+  // Initialize width array
+  const columnWidths: number[] = Array.isArray(preCalculatedWidths) ? preCalculatedWidths : Array(columnCount).fill(defaultMinWidth)
+  const skipColumns: Set<number> = new Set()
+
+  // Pre-process to identify columns with fixed width that should be skipped
+  for (let i = 0; i < columnCount; i++) {
+    const colNumber = i + 1 // Excel columns are 1-based
+    const constraints = columnConstraints[i] || {}
+
+    // If a column has a fixed width set, use it and skip auto-sizing
+    if (constraints.width !== undefined) {
+      worksheet.getColumn(colNumber).width = constraints.width
+      skipColumns.add(colNumber)
+    }
+
+    else if (Array.isArray(preCalculatedWidths)) {
+      columnWidths[colNumber - 1] = (preCalculatedWidths[colNumber - 1] ?? 1) * headerWidthFactor
+    }
+  }
+
+  if (!Array.isArray(preCalculatedWidths)) {
+    // Otherwise, calculate widths by scanning the worksheet
+    // Process header row
+    const headerRow = worksheet.getRow(1)
+    headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (skipColumns.has(colNumber))
+        return
+
+      if (cell.value !== null && cell.value !== undefined) {
+        const width = calculateColumnWidth(cell.value) * headerWidthFactor
+        columnWidths[colNumber - 1] = Math.max(columnWidths[colNumber - 1], width)
+      }
+    })
+
+    // Process data rows
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1)
+        return // Skip header row, already processed
+
+      row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+        if (skipColumns.has(colNumber))
+          return
+
+        if (cell.value !== null && cell.value !== undefined) {
+          const width = calculateColumnWidth(cell.value)
+          columnWidths[colNumber - 1] = Math.max(columnWidths[colNumber - 1], width)
+        }
+      })
+    })
+  }
+
+  // Apply calculated widths within constraints
+  console.log('final applied widths', columnWidths)
+  columnWidths.forEach((width, i) => {
+    const colNumber = i + 1
+    if (skipColumns.has(colNumber))
+      return
+
+    const constraints = columnConstraints[i] || {}
+    const minWidth = constraints.minWidth !== undefined ? constraints.minWidth : defaultMinWidth
+    const maxWidth = constraints.maxWidth !== undefined ? constraints.maxWidth : defaultMaxWidth
+
+    const constrainedWidth = Math.min(Math.max(width, minWidth), maxWidth)
+    worksheet.getColumn(colNumber).width = constrainedWidth
+  })
 }

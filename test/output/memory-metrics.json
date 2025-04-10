@@ -1,0 +1,304 @@
+[
+  {
+    "phase": "initial",
+    "timestamp": "2025-04-10T15:41:28.744Z",
+    "rss": 135.859375,
+    "heapTotal": 62.578125,
+    "heapUsed": 31.404571533203125,
+    "external": 3.244403839111328
+  },
+  {
+    "phase": "builder_creation",
+    "timestamp": "2025-04-10T15:41:28.747Z",
+    "rss": 136.203125,
+    "heapTotal": 62.578125,
+    "heapUsed": 31.95696258544922,
+    "external": 3.2520341873168945
+  },
+  {
+    "phase": "chunk_1_before",
+    "rows": 0,
+    "timestamp": "2025-04-10T15:41:30.480Z",
+    "rss": 157.984375,
+    "heapTotal": 68.578125,
+    "heapUsed": 35.24021911621094,
+    "external": 3.296036720275879
+  },
+  {
+    "phase": "chunk_1_after",
+    "rows": 10000,
+    "timestamp": "2025-04-10T15:41:30.480Z",
+    "rss": 202.84375,
+    "heapTotal": 120.921875,
+    "heapUsed": 56.12593078613281,
+    "external": 11.480921745300293
+  },
+  {
+    "phase": "chunk_2_before",
+    "rows": 10000,
+    "timestamp": "2025-04-10T15:41:32.051Z",
+    "rss": 203.5625,
+    "heapTotal": 120.921875,
+    "heapUsed": 49.901824951171875,
+    "external": 11.410609245300293
+  },
+  {
+    "phase": "chunk_2_after",
+    "rows": 20000,
+    "timestamp": "2025-04-10T15:41:32.051Z",
+    "rss": 234.078125,
+    "heapTotal": 141.609375,
+    "heapUsed": 118.80744171142578,
+    "external": 19.668421745300293
+  },
+  {
+    "phase": "chunk_3_before",
+    "rows": 20000,
+    "timestamp": "2025-04-10T15:41:33.573Z",
+    "rss": 237.140625,
+    "heapTotal": 145.359375,
+    "heapUsed": 112.00413513183594,
+    "external": 19.613734245300293
+  },
+  {
+    "phase": "chunk_3_after",
+    "rows": 30000,
+    "timestamp": "2025-04-10T15:41:33.573Z",
+    "rss": 270.78125,
+    "heapTotal": 181.828125,
+    "heapUsed": 73.91099548339844,
+    "external": 27.879359245300293
+  },
+  {
+    "phase": "chunk_4_before",
+    "rows": 30000,
+    "timestamp": "2025-04-10T15:41:35.095Z",
+    "rss": 265.390625,
+    "heapTotal": 181.828125,
+    "heapUsed": 67.46085357666016,
+    "external": 27.809046745300293
+  },
+  {
+    "phase": "chunk_4_after",
+    "rows": 40000,
+    "timestamp": "2025-04-10T15:41:35.095Z",
+    "rss": 256.40625,
+    "heapTotal": 182.71875,
+    "heapUsed": 135.0206756591797,
+    "external": 36.19967174530029
+  },
+  {
+    "phase": "chunk_5_before",
+    "rows": 40000,
+    "timestamp": "2025-04-10T15:41:36.692Z",
+    "rss": 258.921875,
+    "heapTotal": 182.71875,
+    "heapUsed": 128.43545532226562,
+    "external": 36.12935924530029
+  },
+  {
+    "phase": "chunk_5_after",
+    "rows": 50000,
+    "timestamp": "2025-04-10T15:41:36.692Z",
+    "rss": 281.546875,
+    "heapTotal": 202.375,
+    "heapUsed": 73.57733917236328,
+    "external": 44.61373424530029
+  },
+  {
+    "phase": "chunk_6_before",
+    "rows": 50000,
+    "timestamp": "2025-04-10T15:41:38.183Z",
+    "rss": 282.21875,
+    "heapTotal": 202.375,
+    "heapUsed": 82.0081787109375,
+    "external": 44.58248424530029
+  },
+  {
+    "phase": "chunk_6_after",
+    "rows": 60000,
+    "timestamp": "2025-04-10T15:41:38.183Z",
+    "rss": 286.015625,
+    "heapTotal": 203.703125,
+    "heapUsed": 135.51278686523438,
+    "external": 52.99654674530029
+  },
+  {
+    "phase": "chunk_7_before",
+    "rows": 60000,
+    "timestamp": "2025-04-10T15:41:39.827Z",
+    "rss": 286.03125,
+    "heapTotal": 203.703125,
+    "heapUsed": 143.62841796875,
+    "external": 52.96529674530029
+  },
+  {
+    "phase": "chunk_7_after",
+    "rows": 70000,
+    "timestamp": "2025-04-10T15:41:39.827Z",
+    "rss": 292.796875,
+    "heapTotal": 228.203125,
+    "heapUsed": 195.18364715576172,
+    "external": 61.43404674530029
+  },
+  {
+    "phase": "chunk_8_before",
+    "rows": 70000,
+    "timestamp": "2025-04-10T15:41:41.541Z",
+    "rss": 287.75,
+    "heapTotal": 228.8125,
+    "heapUsed": 57.92066192626953,
+    "external": 61.37154674530029
+  },
+  {
+    "phase": "chunk_8_after",
+    "rows": 80000,
+    "timestamp": "2025-04-10T15:41:41.541Z",
+    "rss": 280.75,
+    "heapTotal": 228.8125,
+    "heapUsed": 124.37191009521484,
+    "external": 69.8402967453003
+  },
+  {
+    "phase": "chunk_9_before",
+    "rows": 80000,
+    "timestamp": "2025-04-10T15:41:43.187Z",
+    "rss": 279.484375,
+    "heapTotal": 228.8125,
+    "heapUsed": 117.47553253173828,
+    "external": 69.7621717453003
+  },
+  {
+    "phase": "chunk_9_after",
+    "rows": 90000,
+    "timestamp": "2025-04-10T15:41:43.187Z",
+    "rss": 310.765625,
+    "heapTotal": 242.8125,
+    "heapUsed": 198.24594116210938,
+    "external": 78.3012342453003
+  },
+  {
+    "phase": "chunk_10_before",
+    "rows": 90000,
+    "timestamp": "2025-04-10T15:41:44.925Z",
+    "rss": 311.484375,
+    "heapTotal": 242.8125,
+    "heapUsed": 191.34003448486328,
+    "external": 78.2074842453003
+  },
+  {
+    "phase": "chunk_10_after",
+    "rows": 100000,
+    "timestamp": "2025-04-10T15:41:44.925Z",
+    "rss": 287.65625,
+    "heapTotal": 234.21875,
+    "heapUsed": 114.92723846435547,
+    "external": 86.6840467453003
+  },
+  {
+    "phase": "chunk_11_before",
+    "rows": 100000,
+    "timestamp": "2025-04-10T15:41:46.577Z",
+    "rss": 289.5625,
+    "heapTotal": 234.21875,
+    "heapUsed": 123.2983169555664,
+    "external": 86.6215467453003
+  },
+  {
+    "phase": "chunk_11_after",
+    "rows": 110000,
+    "timestamp": "2025-04-10T15:41:46.577Z",
+    "rss": 283.203125,
+    "heapTotal": 234.21875,
+    "heapUsed": 175.1745376586914,
+    "external": 95.1215467453003
+  },
+  {
+    "phase": "chunk_12_before",
+    "rows": 110000,
+    "timestamp": "2025-04-10T15:41:48.195Z",
+    "rss": 285.046875,
+    "heapTotal": 234.46875,
+    "heapUsed": 183.17440795898438,
+    "external": 95.0668592453003
+  },
+  {
+    "phase": "chunk_12_after",
+    "rows": 120000,
+    "timestamp": "2025-04-10T15:41:48.195Z",
+    "rss": 283.1875,
+    "heapTotal": 265.21875,
+    "heapUsed": 234.97303009033203,
+    "external": 103.5668592453003
+  },
+  {
+    "phase": "chunk_13_before",
+    "rows": 120000,
+    "timestamp": "2025-04-10T15:41:49.816Z",
+    "rss": 286.421875,
+    "heapTotal": 267.96875,
+    "heapUsed": 242.88734436035156,
+    "external": 103.5121717453003
+  },
+  {
+    "phase": "chunk_13_after",
+    "rows": 130000,
+    "timestamp": "2025-04-10T15:41:49.816Z",
+    "rss": 323.875,
+    "heapTotal": 273.71875,
+    "heapUsed": 117.04823303222656,
+    "external": 112.0121717453003
+  },
+  {
+    "phase": "chunk_14_before",
+    "rows": 130000,
+    "timestamp": "2025-04-10T15:41:51.379Z",
+    "rss": 327.3125,
+    "heapTotal": 273.96875,
+    "heapUsed": 125.63087463378906,
+    "external": 111.9184217453003
+  },
+  {
+    "phase": "chunk_14_after",
+    "rows": 140000,
+    "timestamp": "2025-04-10T15:41:51.379Z",
+    "rss": 343.71875,
+    "heapTotal": 276.921875,
+    "heapUsed": 180.13174438476562,
+    "external": 120.4574842453003
+  },
+  {
+    "phase": "chunk_15_before",
+    "rows": 140000,
+    "timestamp": "2025-04-10T15:41:53.060Z",
+    "rss": 344.609375,
+    "heapTotal": 277.171875,
+    "heapUsed": 188.36629486083984,
+    "external": 120.3637342453003
+  },
+  {
+    "phase": "chunk_15_after",
+    "rows": 150000,
+    "timestamp": "2025-04-10T15:41:53.060Z",
+    "rss": 292.296875,
+    "heapTotal": 280.671875,
+    "heapUsed": 254.87572479248047,
+    "external": 128.9027967453003
+  },
+  {
+    "phase": "before_save",
+    "timestamp": "2025-04-10T15:41:53.061Z",
+    "rss": 292.8125,
+    "heapTotal": 280.671875,
+    "heapUsed": 254.88629913330078,
+    "external": 128.9027967453003
+  },
+  {
+    "phase": "after_save",
+    "timestamp": "2025-04-10T15:41:54.304Z",
+    "rss": 604.875,
+    "heapTotal": 457.390625,
+    "heapUsed": 252.91986846923828,
+    "external": 158.27344417572021
+  }
+]

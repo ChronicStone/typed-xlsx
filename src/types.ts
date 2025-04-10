@@ -106,6 +106,8 @@ export type Column<
     accessor: AccessorValue
     default?: CellValue
     width?: number
+    minWidth?: number
+    maxWidth?: number
     format?: Preset | string | ((rowData: T, rowIndex: number, subRowIndex: number) => string | Preset)
     cellStyle?: Partial<Style> | ((rowData: T, rowIndex: number, subRowIndex: number) => Partial<Style>)
     headerStyle?: Partial<Style>
@@ -198,6 +200,14 @@ export interface SheetTableBuilder<
 export interface SheetParams {
   tableSeparatorWidth?: number
   tablesPerRow?: number
+  autoFormat?: AutoFormatOptions
+}
+
+export interface AutoFormatOptions {
+  minWidth?: number // Default minimum width for columns
+  maxWidth?: number // Default maximum width for columns
+  headerWidthFactor?: number // Factor to multiply header width by (headers often need more space)
+  disabled?: boolean // Only way to disable auto-formatting
 }
 
 export interface SheetConfig {

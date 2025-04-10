@@ -1,4 +1,3 @@
-// core/builder.ts
 /* eslint-disable ts/ban-types */
 import { Buffer } from 'node:buffer'
 import { Workbook } from 'exceljs'
@@ -17,7 +16,7 @@ import type {
 } from '../types'
 import {
   SheetCacheManager,
-  autoSizeColumns,
+  autoFormatColumns,
   buildSheetConfig,
   createCell,
   getColumnHeaderStyle,
@@ -68,10 +67,40 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
     }
   }
 
+  private getColumnConstraints(sheetsConfig: ReturnType<typeof buildSheetConfig>, sheetIndex: number): Record<number, {
+    minWidth?: number
+    maxWidth?: number
+    width?: number
+  }> {
+    const constraints: Record<number, { minWidth?: number, maxWidth?: number, width?: number }> = {}
+    const sheetConfig = sheetsConfig[sheetIndex]
+    let columnOffset = 0
+
+    // Process each table in the sheet
+    sheetConfig.tables.forEach((tableConfig) => {
+      // Process columns that have already been filtered by buildSheetConfig
+      tableConfig.columns.forEach((column, index) => {
+        // Check if the column has width constraints
+        if (column._ref?.width !== undefined || column._ref?.minWidth !== undefined || column._ref?.maxWidth !== undefined) {
+          constraints[columnOffset + index] = {
+            width: column._ref?.width,
+            minWidth: column._ref?.minWidth,
+            maxWidth: column._ref?.maxWidth,
+          }
+        }
+      })
+
+      // Update column offset for next table
+      columnOffset += tableConfig.columns.length + 1 // +1 for table separator
+    })
+
+    return constraints
+  }
+
   public async build<
-      OutputType extends TOutputType,
-      Output = ExcelBuildOutput<OutputType>,
-    >(params: ExcelBuildParams<OutputType>,
+    OutputType extends TOutputType,
+    Output = ExcelBuildOutput<OutputType>,
+  >(params: ExcelBuildParams<OutputType>,
   ): Promise<Output> {
     const workbook = new Workbook()
 
@@ -83,9 +112,10 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
 
     const TABLE_CELL_OFFSET = 1
 
-    sheetCacheManager.getSheets().forEach((sheetConfig, sheetIndex) => {
-      const tableChunks = sheetConfig.chunks
-      const worksheet = workbook.addWorksheet(sheetConfig.sheet.sheet)
+    sheetsConfig.forEach((sheetConfig, sheetIndex) => {
+      const tableChunks = sheetCacheManager.getSheets()[sheetIndex].chunks
+      const worksheet = workbook.addWorksheet(sheetConfig.sheet)
+      worksheet.properties.defaultRowHeight = params?.rowHeight ?? 20
 
       let COL_OFFSET = 0
       let ROW_OFFSET = 0
@@ -145,7 +175,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
           tableConfig.columns.forEach((column, colIndex) => {
             createCell({
               worksheet,
-              row: ROW_OFFSET + (chunk.hasTitle ? 2 : 1),
+              row: ROW_OFFSET + (hasTitle ? 2 : 1),
               col: colIndex + COL_OFFSET + 1,
               value: column.label,
               style: getColumnHeaderStyle({ bordered: params?.bordered ?? true, customStyle: column._ref.headerStyle }),
@@ -158,7 +188,7 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               worksheet.getColumn(colIndex + COL_OFFSET + 1).width = column._ref.width
           })
 
-          // Create data rows
+          // Create data rows - with fixed offset to prevent overwriting headers
           tableConfig.content.forEach((row, rowIndex) => {
             const maxRowHeight = tableCache.getRowMaxHeight(rowIndex)
             const prevRowHeight = tableCache.getPrevRowsHeight(rowIndex)
@@ -167,7 +197,8 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
               const values = tableCache.getCellValue({ columnIndex: colIndex, rowIndex })
 
               values.forEach((value, valueIndex) => {
-                const rowNum = prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 2 : 1) + valueIndex
+              // Add +1 to ensure data starts after header row
+                const rowNum = prevRowHeight + ROW_OFFSET + (hasTitle ? 2 : 1) + valueIndex + 1
 
                 createCell({
                   worksheet,
@@ -184,9 +215,9 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                 })
               })
 
-              // Handle merging for multi-row cells
+              // Handle merging for multi-row cells - with fixed offset
               if (values.length === 1 && maxRowHeight > 1) {
-                const startRow = prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 2 : 1)
+                const startRow = prevRowHeight + ROW_OFFSET + (hasTitle ? 2 : 1) + 1
                 const endRow = startRow + maxRowHeight - 1
 
                 if (startRow < endRow) {
@@ -199,24 +230,16 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
                 }
               }
             })
-
-            // Set row height if specified
-            if (params?.rowHeight) {
-              for (let i = 0; i < maxRowHeight; i++) {
-                const rowNum = prevRowHeight + ROW_OFFSET + (chunk.hasTitle ? 2 : 1) + i
-                worksheet.getRow(rowNum).height = params.rowHeight
-              }
-            }
           })
 
-          // Create summary rows if needed
+          // Create summary rows if needed - with fixed offset
           if (tableHasSummary(tableConfig)) {
-            const summaryRowIndex = tableConfig.content.length + 1 + tableCache.getNbExtraRows()
+            const summaryRowIndex = tableConfig.content.length + tableCache.getNbExtraRows()
 
             tableConfig.columns.forEach((column, colIndex) => {
               for (const summaryIndex in column._ref?.summary ?? []) {
                 const summary = column._ref?.summary?.[summaryIndex]
-                const rowNum = summaryRowIndex + ROW_OFFSET + Number.parseInt(summaryIndex) + (chunk.hasTitle ? 2 : 1)
+                const rowNum = summaryRowIndex + ROW_OFFSET + Number.parseInt(summaryIndex) + (hasTitle ? 2 : 1) + 1
 
                 if (!summary) {
                   createCell({
@@ -263,9 +286,19 @@ export class ExcelBuilder<UsedSheetKeys extends string = never> {
         worksheet.getRow(rowIndex + 1).height = 40
       })
 
-      // Apply auto-sizing if requested
-      if (params.autoSizeColumns)
-        autoSizeColumns(worksheet, params.columnSizing || {})
+      // Apply auto-formatting based on sheet configuration
+      const sheetAutoFormatConfig = this.sheets[sheetIndex].params.autoFormat
+      const isAutoFormatDisabled = sheetAutoFormatConfig?.disabled === true
+
+      if (!isAutoFormatDisabled) {
+      // Apply auto-formatting with column-specific constraints
+        autoFormatColumns(worksheet, {
+          minWidth: sheetAutoFormatConfig?.minWidth ?? params.columnSizing?.minWidth,
+          maxWidth: sheetAutoFormatConfig?.maxWidth ?? params.columnSizing?.maxWidth,
+          headerWidthFactor: sheetAutoFormatConfig?.headerWidthFactor ?? params.columnSizing?.headerWidthFactor,
+          columnConstraints: this.getColumnConstraints(sheetsConfig, sheetIndex),
+        })
+      }
     })
 
     // Handle output format
