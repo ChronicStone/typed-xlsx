@@ -54,23 +54,27 @@ export const financialReportSchema = createExcelSchema<FinancialReport>()
     header: "Total Revenue",
     accessor: "totalRevenue",
     style: currencyStyle(),
-    summary: {
-      init: () => 0,
-      step: (acc: number, row) => acc + row.totalRevenue,
-      finalize: (acc: number) => acc,
-      style: currencyStyle(),
-    },
+    summary: (summary) => [
+      summary.cell({
+        init: () => 0,
+        step: (acc: number, row) => acc + row.totalRevenue,
+        finalize: (acc: number) => acc,
+        style: currencyStyle(),
+      }),
+    ],
   })
   .column("totalExpenses", {
     header: "Total Expenses",
     accessor: "totalExpenses",
     style: currencyStyle(),
-    summary: {
-      init: () => 0,
-      step: (acc: number, row) => acc + row.totalExpenses,
-      finalize: (acc: number) => acc,
-      style: currencyStyle(),
-    },
+    summary: (summary) => [
+      summary.cell({
+        init: () => 0,
+        step: (acc: number, row) => acc + row.totalExpenses,
+        finalize: (acc: number) => acc,
+        style: currencyStyle(),
+      }),
+    ],
   })
   .column("totalProfit", {
     header: "Total Profit",
@@ -80,16 +84,18 @@ export const financialReportSchema = createExcelSchema<FinancialReport>()
         ...currencyStyle(),
         ...profitColor(row.totalProfit >= 0 ? "007500" : "FF0000"),
       }) satisfies CellStyle,
-    summary: {
-      init: () => 0,
-      step: (acc: number, row) => acc + row.totalProfit,
-      finalize: (acc: number) => acc,
-      style: (value) =>
-        ({
-          ...currencyStyle(),
-          ...profitColor((Number(value) || 0) >= 0 ? "007500" : "FF0000"),
-        }) satisfies CellStyle,
-    },
+    summary: (summary) => [
+      summary.cell({
+        init: () => 0,
+        step: (acc: number, row) => acc + row.totalProfit,
+        finalize: (acc: number) => acc,
+        style: (value) =>
+          ({
+            ...currencyStyle(),
+            ...profitColor((Number(value) || 0) >= 0 ? "007500" : "FF0000"),
+          }) satisfies CellStyle,
+      }),
+    ],
   })
   .column("averageProfitMargin", {
     header: "Average Profit Margin",
@@ -98,18 +104,20 @@ export const financialReportSchema = createExcelSchema<FinancialReport>()
       numFmt: "0.00%",
       ...profitColor(row.averageProfitMargin >= 0 ? "007500" : "FF0000"),
     }),
-    summary: {
-      init: () => ({ total: 0, count: 0 }),
-      step: (acc: { total: number; count: number }, row) => ({
-        total: acc.total + row.averageProfitMargin,
-        count: acc.count + 1,
+    summary: (summary) => [
+      summary.cell({
+        init: () => ({ total: 0, count: 0 }),
+        step: (acc: { total: number; count: number }, row) => ({
+          total: acc.total + row.averageProfitMargin,
+          count: acc.count + 1,
+        }),
+        finalize: (acc: { total: number; count: number }) =>
+          acc.count > 0 ? acc.total / acc.count : 0,
+        style: (value) => ({
+          numFmt: "0.00%",
+          ...profitColor((Number(value) || 0) >= 0 ? "007500" : "FF0000"),
+        }),
       }),
-      finalize: (acc: { total: number; count: number }) =>
-        acc.count > 0 ? acc.total / acc.count : 0,
-      style: (value) => ({
-        numFmt: "0.00%",
-        ...profitColor((Number(value) || 0) >= 0 ? "007500" : "FF0000"),
-      }),
-    },
+    ],
   })
   .build();

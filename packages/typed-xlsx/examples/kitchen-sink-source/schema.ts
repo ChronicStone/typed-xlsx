@@ -17,11 +17,13 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     accessor: "orderId",
     width: 12,
     headerStyle,
-    summary: {
-      init: () => 0,
-      step: (acc: number) => acc + 1,
-      finalize: (acc: number) => acc,
-    },
+    summary: (summary) => [
+      summary.cell({
+        init: () => 0,
+        step: (acc: number) => acc + 1,
+        finalize: (acc: number) => acc,
+      }),
+    ],
   })
   .column("customerName", {
     header: "Customer",
@@ -67,11 +69,13 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
       alignment: { horizontal: "right" },
     },
     headerStyle,
-    summary: {
-      init: () => 0,
-      step: (acc: number, row) => acc + row.items.reduce((sum, item) => sum + item.quantity, 0),
-      finalize: (acc: number) => acc,
-    },
+    summary: (summary) => [
+      summary.cell({
+        init: () => 0,
+        step: (acc: number, row) => acc + row.items.reduce((sum, item) => sum + item.quantity, 0),
+        finalize: (acc: number) => acc,
+      }),
+    ],
   })
   .column("unitPrice", {
     header: "Unit Price",
@@ -96,13 +100,15 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
       };
     },
     headerStyle,
-    summary: {
-      init: () => 0,
-      step: (acc: number, row) =>
-        acc + row.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
-      finalize: (acc: number) => acc,
-      style: currencyStyle,
-    },
+    summary: (summary) => [
+      summary.cell({
+        init: () => 0,
+        step: (acc: number, row) =>
+          acc + row.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        finalize: (acc: number) => acc,
+        style: currencyStyle,
+      }),
+    ],
   })
   .column("fulfilled", {
     header: "Fulfilled",
