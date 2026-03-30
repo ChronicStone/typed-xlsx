@@ -8,6 +8,7 @@
     "preview": "nuxt preview",
     "typecheck": "nuxt prepare",
     "twoslash:verify": "nuxt prepare && nuxt-content-twoslash verify",
+    "check:content": "bun run twoslash:verify",
     "check": "bun run build && bun run twoslash:verify"
   },
   "dependencies": {
