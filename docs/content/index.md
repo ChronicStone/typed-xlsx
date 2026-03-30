@@ -18,7 +18,7 @@ seo:
 ::landing-split{class="landing-two-col landing-two-col--hero relative py-10"}
 :::landing-split-left{class="landing-hero-copy"}
 
-<div class="landing-badge mb-8">Type-safe Excel reporting</div>
+<div class="landing-badge mb-10">Type-safe Excel reporting</div>
 
 <h1 class="landing-hero-title mb-6">
   Feature-rich
