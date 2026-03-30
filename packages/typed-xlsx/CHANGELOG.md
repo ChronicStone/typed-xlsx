@@ -1,5 +1,15 @@
 # @chronicstone/typed-xlsx
 
+## 1.0.4
+
+### Patch Changes
+
+- [`1554b7c`](https://github.com/ChronicStone/typed-xlsx/commit/1554b7c4b04b5deea9ff30d157f34f633ccf2b33) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve schema typing and inference across accessors, groups, and table selection.
+  - tighten accessor typing so path accessors, callback accessors, and derived transform values stay precisely inferred
+  - improve group typing so group ids and group context shapes are preserved from the group callback signature
+  - make table context requirements depend on the selected groups, including fine-grained `include` and `exclude` inference
+  - align runtime behavior and documentation with the updated grouped schema typing model
+
 ## 1.0.3
 
 ### Patch Changes
