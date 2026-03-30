@@ -29,23 +29,59 @@ type SchemaSelectableIds<TSchema extends AnySchemaDefinition> =
   | SchemaColumnIds<TSchema>
   | SchemaGroupIds<TSchema>;
 type SchemaResolvedContext<TSchema extends AnySchemaDefinition> = SchemaGroupContext<TSchema>;
-type WorkbookTableContextField<TSchema extends AnySchemaDefinition> = [
-  SchemaGroupIds<TSchema>,
-] extends [never]
-  ? { context?: SchemaResolvedContext<TSchema> }
-  : { context: SchemaResolvedContext<TSchema> };
+type SchemaContextualGroupIds<TSchema extends AnySchemaDefinition> = Extract<
+  keyof SchemaResolvedContext<TSchema>,
+  string
+>;
+type SelectionIncludedIds<TSelection> = TSelection extends {
+  include: infer TInclude extends readonly unknown[];
+}
+  ? TInclude[number]
+  : never;
+type SelectionExcludedIds<TSelection> = TSelection extends {
+  exclude: infer TExclude extends readonly unknown[];
+}
+  ? TExclude[number]
+  : never;
+type SelectedGroupIds<
+  TSchema extends AnySchemaDefinition,
+  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined,
+> = TSelection extends { include: readonly unknown[] }
+  ? Exclude<
+      Extract<SelectionIncludedIds<TSelection>, SchemaContextualGroupIds<TSchema>>,
+      Extract<SelectionExcludedIds<TSelection>, SchemaContextualGroupIds<TSchema>>
+    >
+  : Exclude<
+      SchemaContextualGroupIds<TSchema>,
+      Extract<SelectionExcludedIds<TSelection>, SchemaContextualGroupIds<TSchema>>
+    >;
+type SelectedSchemaContext<
+  TSchema extends AnySchemaDefinition,
+  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined,
+> = Pick<SchemaResolvedContext<TSchema>, SelectedGroupIds<TSchema, TSelection>>;
+type WorkbookTableContextField<
+  TSchema extends AnySchemaDefinition,
+  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+> = [SelectedGroupIds<TSchema, TSelection>] extends [never]
+  ? { context?: SelectedSchemaContext<TSchema, TSelection> }
+  : { context: SelectedSchemaContext<TSchema, TSelection> };
 
 export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {}
 
-export interface WorkbookTableInput<TSchema extends AnySchemaDefinition> extends Omit<
+export interface WorkbookTableInput<
+  TSchema extends AnySchemaDefinition,
+  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+> extends Omit<
   BufferedTableInput<SchemaRow<TSchema>, SchemaColumnIds<TSchema>>,
   "schema" | "select" | "context"
 > {
   schema: TSchema;
-  select?: TableSelection<SchemaSelectableIds<TSchema>>;
+  select?: TSelection;
 }
-export type WorkbookTableOptions<TSchema extends AnySchemaDefinition> =
-  WorkbookTableInput<TSchema> & WorkbookTableContextField<TSchema>;
+export type WorkbookTableOptions<
+  TSchema extends AnySchemaDefinition,
+  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+> = WorkbookTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema, TSelection>;
 
 export interface Workbook {
   sheet(name: string, options?: WorkbookSheetOptions): WorkbookSheet;
@@ -55,7 +91,12 @@ export interface Workbook {
 }
 
 export interface WorkbookSheet {
-  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableOptions<TSchema>): WorkbookSheet;
+  table<
+    TSchema extends AnySchemaDefinition,
+    const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+  >(
+    input: WorkbookTableOptions<TSchema, TSelection>,
+  ): WorkbookSheet;
 }
 
 export interface WorkbookStreamOptions {
@@ -70,13 +111,19 @@ export type WorkbookStreamMemoryProfile = "balanced" | "low-memory" | "compact-f
 
 export interface WorkbookStreamSheetOptions extends SheetViewOptions {}
 
-export interface WorkbookStreamTableOptions<TSchema extends AnySchemaDefinition> {
+export interface WorkbookStreamTableOptions<
+  TSchema extends AnySchemaDefinition,
+  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+> {
   id: string;
   schema: TSchema;
-  select?: TableSelection<SchemaSelectableIds<TSchema>>;
+  select?: TSelection;
 }
-export type WorkbookStreamResolvedTableOptions<TSchema extends AnySchemaDefinition> =
-  WorkbookStreamTableOptions<TSchema> & WorkbookTableContextField<TSchema>;
+export type WorkbookStreamResolvedTableOptions<
+  TSchema extends AnySchemaDefinition,
+  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+> = WorkbookStreamTableOptions<TSchema, TSelection> &
+  WorkbookTableContextField<TSchema, TSelection>;
 
 export interface WorkbookCommitBatch<TRow extends object> {
   rows: TRow[];
@@ -87,8 +134,11 @@ export interface WorkbookTableStream<TRow extends object> {
 }
 
 export interface WorkbookSheetStream {
-  table<TSchema extends AnySchemaDefinition>(
-    options: WorkbookStreamResolvedTableOptions<TSchema>,
+  table<
+    TSchema extends AnySchemaDefinition,
+    const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+  >(
+    options: WorkbookStreamResolvedTableOptions<TSchema, TSelection>,
   ): Promise<WorkbookTableStream<SchemaRow<TSchema>>>;
 }
 
@@ -104,7 +154,10 @@ export interface WorkbookStream {
 class PublicWorkbookSheet implements WorkbookSheet {
   constructor(private readonly sheetBuilder: ReturnType<BufferedWorkbookBuilder["sheet"]>) {}
 
-  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableOptions<TSchema>) {
+  table<
+    TSchema extends AnySchemaDefinition,
+    const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+  >(input: WorkbookTableOptions<TSchema, TSelection>) {
     this.sheetBuilder.table(input);
     return this;
   }
@@ -148,9 +201,10 @@ class WorkbookTableStreamAdapter<TRow extends object> implements WorkbookTableSt
 class WorkbookSheetStreamAdapter implements WorkbookSheetStream {
   constructor(private readonly sheetBuilder: ReturnType<StreamWorkbookBuilder["sheet"]>) {}
 
-  async table<TSchema extends AnySchemaDefinition>(
-    options: WorkbookStreamResolvedTableOptions<TSchema>,
-  ) {
+  async table<
+    TSchema extends AnySchemaDefinition,
+    const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+  >(options: WorkbookStreamResolvedTableOptions<TSchema, TSelection>) {
     const table = await this.sheetBuilder.table(options);
     return new WorkbookTableStreamAdapter<SchemaRow<TSchema>>(table);
   }

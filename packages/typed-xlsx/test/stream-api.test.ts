@@ -71,7 +71,6 @@ describe("public stream api", () => {
     await workbook.sheet("Sheet").table({
       id: "groups",
       schema,
-      context: { memberships: [1, 2, 3] },
       select: { exclude: ["memberships"] },
     });
 
@@ -85,12 +84,38 @@ describe("public stream api", () => {
       },
     });
 
-    // @ts-expect-error grouped schemas require context at table time
-    const _missingContextInput: WorkbookStreamResolvedTableOptions<typeof schema> = {
+    // @ts-expect-error grouped schemas require context when the group is selected
+    const _missingContextInput: WorkbookStreamResolvedTableOptions<
+      typeof schema,
+      { include: ["memberships"] }
+    > = {
       id: "groups-missing-context",
       schema,
       select: { include: ["memberships"] },
     };
+  });
+
+  it("does not require context for stream groups without a context parameter", async () => {
+    const schema = createExcelSchema<{ name: string; tags: string[] }>()
+      .column("name", { accessor: "name" })
+      .group("derived", (builder) => {
+        builder.column("tagCount", { accessor: (row) => row.tags.length });
+      })
+      .build();
+
+    const workbook = createWorkbookStream({
+      tempStorage: "memory",
+    });
+
+    const table = await workbook.sheet("Sheet").table({
+      id: "derived",
+      schema,
+      select: { include: ["derived", "name"] },
+    });
+
+    await table.commit({
+      rows: [{ name: "Ada", tags: ["a", "b"] }],
+    });
   });
 
   it("can pipe a workbook to a node writable stream", async () => {
@@ -211,7 +236,7 @@ describe("public stream api", () => {
       .column("firstName", {
         accessor: "firstName",
       })
-      .group<Array<{ id: number; name: string }>>("orgs", (builder, orgs) => {
+      .group("orgs", (builder, orgs: Array<{ id: number; name: string }>) => {
         for (const org of orgs) {
           builder.column(`org-${org.id}`, {
             header: org.name,
