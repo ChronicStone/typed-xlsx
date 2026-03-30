@@ -1,5 +1,13 @@
 # @chronicstone/typed-xlsx
 
+## 1.0.2
+
+### Patch Changes
+
+- [#22](https://github.com/ChronicStone/typed-xlsx/pull/22) [`500c374`](https://github.com/ChronicStone/typed-xlsx/commit/500c37499d547b82a5f0d565bf790106b0829475) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve summary ergonomics by supporting the callback builder form with
+  `summary.cell(...)`, `summary.label(...)`, and `summary.empty(...)`, while
+  updating the docs and examples to teach the new API.
+
 ## 1.0.1
 
 ### Patch Changes
