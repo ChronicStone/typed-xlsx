@@ -20,6 +20,44 @@ Type-safe Excel reporting for TypeScript, with one clean schema API and two work
 - Freeze panes, RTL sheets, row expansion, merges, and auto sizing
 - Streamed XLSX generation for very large exports
 
+## What the custom writer makes possible
+
+Now that `typed-xlsx` owns its OOXML writer instead of wrapping SheetJS, it can grow toward more Excel-native report features without inheriting another library's ceiling. For report-style workbooks, the most natural next additions are:
+
+- Excel tables with filters, totals rows, and structured references
+- Formula cells for workbook-native KPIs, rollups, and cross-sheet calculations
+- Conditional formatting for thresholds, variances, and status indicators
+- Hyperlinks and sheet-to-sheet navigation for large report packs
+- Named ranges for stable references in formulas and downstream automation
+- Print setup features such as repeating header rows, margins, and page orientation
+- Sheet protection for locked formulas with selected editable inputs
+- Row and column grouping for collapsible report detail
+
+Illustrative examples of how those features could look:
+
+```ts
+workbook.sheet("Revenue").table({
+  id: "revenue",
+  rows,
+  schema,
+  excelTable: {
+    name: "RevenueTable",
+    autoFilter: true,
+    totalsRow: true,
+  },
+});
+
+workbook.sheet("Board Pack", {
+  freezePane: { rows: 2 },
+  printSetup: {
+    orientation: "landscape",
+    repeatRows: { from: 1, to: 2 },
+  },
+});
+```
+
+These are roadmap examples rather than implemented APIs. Charts, images, pivot tables, slicers, and other richer Excel artifacts are also unlocked by the custom writer, but the features above are likely the best fit for operational and financial reporting first.
+
 ## Installation
 
 ```bash
