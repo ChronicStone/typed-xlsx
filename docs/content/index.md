@@ -87,36 +87,64 @@ const bytes = workbook.toUint8Array();
 
 <div class="mb-8">
   <p class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-primary">Core features</p>
-  <h2 class="text-3xl font-bold sm:text-4xl">Everything from the original typed-xlsx landing, now inside Docus</h2>
+  <h2 class="text-3xl font-bold sm:text-4xl">Explore the full surface area of the package</h2>
 </div>
 
 :::div{class="typed-xlsx-feature-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"}
-::::u-page-card{:spotlight="true" icon="i-lucide-file-type-2" title="Type-safe Schema Builder" description="Construct type-safe spreadsheet schemas with TypeScript."}
-::::
+<a class="landing-card" href="/schema-builder/create-schema">
 
-::::u-page-card{:spotlight="true" icon="i-lucide-palette" title="Dynamic Cell Styling / Formatting" description="Tailor cell styles and formats dynamically with advanced per-row customization."}
-::::
+  <div class="landing-badge">Schema</div>
+  <h3>Type-safe accessors and reusable schema definitions</h3>
+  <p>Build spreadsheet schemas once, then reuse them across exports with typed dot paths, callback accessors, transforms, defaults, and stable column ids.</p>
+</a>
 
-::::u-page-card{:spotlight="true" icon="i-lucide-files" title="Multi-sheet Support" description="Manage complex datasets with support for multiple sheets in one workbook."}
-::::
+<a class="landing-card" href="/schema-builder/groups">
+  <div class="landing-badge">Dynamic columns</div>
+  <h3>Context-driven groups and generated columns</h3>
+  <p>Expand one schema into many columns from runtime context, keep grouped report definitions organized, and generate wide exports without giving up type safety.</p>
+</a>
 
-::::u-page-card{:spotlight="true" icon="i-lucide-layout-list" title="Advanced Row Structures" description="Support sub-rows, merged layouts, and sophisticated table compositions."}
-::::
+<a class="landing-card" href="/schema-builder/cell-styling">
+  <div class="landing-badge">Presentation</div>
+  <h3>Cell styling, formatting, and defaults owned by the library</h3>
+  <p>Apply number formats, header styles, conditional styling, wrap behavior, and fallback values with a package-owned style model instead of backend-specific shapes.</p>
+</a>
 
-::::u-page-card{:spotlight="true" icon="i-lucide-refresh-cw" title="Complex Data Serialization" description="Serialize arrays, booleans, and custom values in a fully type-safe way."}
-::::
+<a class="landing-card" href="/schema-builder/columns">
+  <div class="landing-badge">Data shaping</div>
+  <h3>Summaries, transforms, arrays, and sub-row expansion</h3>
+  <p>Derive values from the row, expand arrays into physical sub-rows, and accumulate one or many summary rows with reducer-based logic that works in both builders.</p>
+</a>
 
-::::u-page-card{:spotlight="true" icon="i-lucide-target" title="Default Value Management" description="Apply simple fallback and default value strategies directly in your schema."}
-::::
+<a class="landing-card" href="/file-builder/define-sheets">
+  <div class="landing-badge">Layout</div>
+  <h3>Multi-table sheets, grid layouts, freeze panes, and RTL</h3>
+  <p>Compose several tables on one worksheet, control placement with <code>tablesPerRow</code>, and add sheet-level view options like frozen headers and right-to-left rendering.</p>
+</a>
 
-::::u-page-card{:spotlight="true" icon="i-lucide-table-properties" title="Multiple Tables Per Sheet" description="Compose several tables on one sheet with linear or grid-style placement."}
-::::
+<a class="landing-card" href="/file-builder/build-excel-file">
+  <div class="landing-badge">Buffered builder</div>
+  <h3>High-level workbook composition for normal-size exports</h3>
+  <p>Use the buffered builder when your dataset fits in memory and you want the simplest API for creating sheets, adding tables, and writing a finished XLSX file.</p>
+</a>
 
-::::u-page-card{:spotlight="true" icon="i-lucide-columns-3" title="Dynamic Column Mapping" description="Generate columns from typed context while keeping report definitions safe."}
-::::
+<a class="landing-card" href="/stream-workbook/overview">
+  <div class="landing-badge">Streaming</div>
+  <h3>Real streaming workbooks with commit-based ingestion</h3>
+  <p>Commit row batches incrementally, keep memory bounded, and pipe the final workbook to files, Node streams, Web streams, or remote destinations like S3.</p>
+</a>
 
-::::u-page-card{:spotlight="true" icon="i-lucide-calculator" title="Column Summaries" description="Automatically calculate summaries to make reports easier to read at a glance."}
-::::
+<a class="landing-card" href="/performance/large-datasets">
+  <div class="landing-badge">Scale</div>
+  <h3>Performance tooling for 100k to 500k+ row workloads</h3>
+  <p>Choose between buffered and stream builders deliberately, tune temp storage and string modes, and follow the benchmark-backed guidance for very large exports.</p>
+</a>
+
+<a class="landing-card" href="/migration/v0-to-v1">
+  <div class="landing-badge">Upgrade</div>
+  <h3>Migration guidance and reference for the new v1 surface</h3>
+  <p>See how <code>key</code> became <code>accessor</code>, how summaries changed, what the new builders look like, and where to find the full API details.</p>
+</a>
 :::
 ::
 
