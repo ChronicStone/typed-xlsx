@@ -63,14 +63,9 @@ const schema = createExcelSchema<Order>()
     style: {
       numFmt: "$#,##0.00",
     },
-    summary: [
-      {
-        init: () => 0,
-        step: (acc, row) =>
-          acc + row.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
-        finalize: () => "TOTAL",
-      },
-      {
+    summary: (summary) => [
+      summary.label("TOTAL"),
+      summary.cell({
         init: () => 0,
         step: (acc, row) =>
           acc + row.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
@@ -78,7 +73,7 @@ const schema = createExcelSchema<Order>()
         style: {
           numFmt: "$#,##0.00",
         },
-      },
+      }),
     ],
   })
   .build();
@@ -111,12 +106,14 @@ const schema = createExcelSchema<{ amount: number; id: string }>()
   .column("amount", {
     header: "Amount",
     accessor: "amount",
-    summary: {
-      init: () => 0,
-      step: (acc, row) => acc + row.amount,
-      finalize: (acc) => acc,
-      style: { numFmt: "$#,##0.00" },
-    },
+    summary: (summary) => [
+      summary.cell({
+        init: () => 0,
+        step: (acc, row) => acc + row.amount,
+        finalize: (acc) => acc,
+        style: { numFmt: "$#,##0.00" },
+      }),
+    ],
   })
   .build();
 
