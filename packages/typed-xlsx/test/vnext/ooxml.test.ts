@@ -224,6 +224,7 @@ describe("vnext ooxml", () => {
 
     const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
     expect(worksheetPart?.xml).toContain('<row r="3" ht="30" customHeight="1">');
     expect(worksheetPart?.xml).toContain('r="B3"');
@@ -231,6 +232,39 @@ describe("vnext ooxml", () => {
     expect(worksheetPart?.xml).not.toContain('r="C3"');
     expect(worksheetPart?.xml).toContain('<c r="C2" s="');
     expect(worksheetPart?.xml).not.toContain("2025-03-03T00:00:00.000Z");
+    expect(stylesPart?.xml).toContain("<numFmts");
+    expect(stylesPart?.xml).toContain('formatCode="yyyy-mm-dd"');
+  });
+
+  it("writes custom number format definitions for currency and percent-point styles", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; margin: number }>()
+      .column("amount", {
+        accessor: "amount",
+        style: {
+          numFmt: "$#,##0.00",
+        },
+      })
+      .column("margin", {
+        accessor: "margin",
+        style: {
+          numFmt: '0.00"%"',
+        },
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Formats").table({
+      id: "formats",
+      schema,
+      rows: [{ amount: 1234.5, margin: 15.92 }],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(stylesPart?.xml).toContain("<numFmts");
+    expect(stylesPart?.xml).toContain('formatCode="$#,##0.00"');
+    expect(stylesPart?.xml).toContain('formatCode="0.00&quot;%&quot;"');
   });
 
   it("writes multiple summary rows when a column defines multiple summaries", () => {
