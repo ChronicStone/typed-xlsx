@@ -11,7 +11,7 @@ if (!existsSync(fallbackPath)) {
 
 const routes = [
   "/",
-  "/getting-started/key-benefits-and-why",
+  "/getting-started/introduction",
   "/getting-started/installation",
   "/schema-builder/create-schema",
   "/schema-builder/columns",

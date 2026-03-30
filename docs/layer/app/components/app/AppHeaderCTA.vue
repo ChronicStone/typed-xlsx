@@ -6,7 +6,7 @@ const isDocsPage = computed(() => route.path.startsWith("/getting-started"));
 
 <template>
   <UButton
-    to="/getting-started/key-benefits-and-why"
+    to="/getting-started/introduction"
     trailing-icon="i-lucide-arrow-right"
     color="primary"
     :variant="isDocsPage ? 'soft' : 'solid'"

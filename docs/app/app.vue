@@ -116,11 +116,22 @@ const { subNavigationMode } = useSubNavigation(navigation);
   border-radius: 1.5rem;
   border: 1px solid color-mix(in oklab, var(--ui-border) 92%, transparent);
   background: color-mix(in oklab, var(--ui-bg) 92%, white 8%);
-  padding: 1.25rem;
   transition:
     transform 160ms ease,
     border-color 160ms ease,
     background 160ms ease;
+}
+
+.landing-card [data-slot="container"] {
+  padding: 1.24rem;
+}
+
+.landing-card-content {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.68rem;
 }
 
 .landing-card:hover {
@@ -129,16 +140,18 @@ const { subNavigationMode } = useSubNavigation(navigation);
   background: color-mix(in oklab, var(--ui-bg) 88%, white 12%);
 }
 
-.landing-card h3 {
+.landing-card-content h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.94rem;
   font-weight: 600;
+  line-height: 1.24;
   color: var(--ui-text-highlighted);
 }
 
-.landing-card p {
-  margin: 0.65rem 0 0;
-  line-height: 1.6;
+.landing-card-content p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.34;
   color: var(--ui-text-toned);
 }
 
@@ -149,12 +162,15 @@ const { subNavigationMode } = useSubNavigation(navigation);
   border-radius: 999px;
   border: 1px solid color-mix(in oklab, var(--ui-primary) 22%, var(--ui-border) 78%);
   background: color-mix(in oklab, var(--ui-primary) 7%, var(--ui-bg) 93%);
-  padding: 0.24rem 0.55rem;
-  font-size: 0.64rem;
+  padding: 0.16rem 0.44rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: color-mix(in oklab, var(--ui-primary) 75%, var(--ui-text) 25%);
+  width: fit-content;
+  max-width: max-content;
+  margin: 0;
 }
 
 .landing-hero-title {

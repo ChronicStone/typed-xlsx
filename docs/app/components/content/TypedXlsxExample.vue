@@ -146,7 +146,8 @@ const currentPaneInteractiveHtml = computed(() =>
     ? currentPane.value.html.interactive.dark
     : currentPane.value.html.interactive.light,
 );
-const githubRawBase = "https://github.com/ChronicStone/typed-xlsx/raw/main/examples";
+const githubRawBase =
+  "https://github.com/ChronicStone/typed-xlsx/raw/main/packages/typed-xlsx/examples";
 const workbookUrl = computed(() => `${githubRawBase}/${props.fileKey}.xlsx`);
 const iframeUrl = computed(
   () =>
