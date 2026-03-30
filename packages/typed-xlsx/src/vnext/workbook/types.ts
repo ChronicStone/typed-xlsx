@@ -3,17 +3,17 @@ import type { PlannerResult } from "../planner/rows";
 import type { SummaryCellValue } from "../summary/runtime";
 import type { CellStyle } from "../styles/types";
 
-export interface TableSelection {
-  include?: string[];
-  exclude?: string[];
+export interface TableSelection<TColumnId extends string = string> {
+  include?: readonly TColumnId[];
+  exclude?: readonly TColumnId[];
 }
 
-export interface BufferedTableInput<T extends object> {
+export interface BufferedTableInput<T extends object, TColumnId extends string = string> {
   id?: string;
   title?: string;
-  schema: SchemaDefinition<T>;
+  schema: SchemaDefinition<T, TColumnId>;
   rows: T[];
-  select?: TableSelection;
+  select?: TableSelection<TColumnId>;
   context?: SchemaContext;
 }
 
@@ -78,9 +78,9 @@ export interface StreamTableCommit<T extends object> {
   rows: T[];
 }
 
-export interface StreamTableInput<T extends object> {
+export interface StreamTableInput<T extends object, TColumnId extends string = string> {
   id: string;
-  schema: SchemaDefinition<T>;
-  select?: TableSelection;
+  schema: SchemaDefinition<T, TColumnId>;
+  select?: TableSelection<TColumnId>;
   context?: SchemaContext;
 }

@@ -1,10 +1,64 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { createExcelSchema, createWorkbook } from "../src";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { createExcelSchema, createWorkbook, type TableSelection } from "../src";
 
 describe("public buffered api", () => {
+  it("infers selection ids from the schema and preserves transform value types", () => {
+    type Order = {
+      amount: number;
+      name: string;
+      lines: Array<{ sku: string; qty: number }>;
+    };
+
+    const schema = createExcelSchema<Order>()
+      .column("name", {
+        accessor: "name",
+      })
+      .column("amount", {
+        accessor: "amount",
+      })
+      .column("lineCount", {
+        accessor: "lines",
+        transform: (lines) => {
+          expectTypeOf(lines).toEqualTypeOf<Order["lines"]>();
+          return lines.length;
+        },
+      })
+      .build();
+
+    type Selection = TableSelection<"name" | "amount" | "lineCount">;
+
+    expectTypeOf<Selection["include"]>().toEqualTypeOf<
+      readonly ("name" | "amount" | "lineCount")[] | undefined
+    >();
+
+    createWorkbook()
+      .sheet("Orders")
+      .table({
+        id: "orders",
+        rows: [],
+        schema,
+        select: {
+          include: ["name", "lineCount"],
+          exclude: ["amount"],
+        },
+      });
+
+    createWorkbook()
+      .sheet("Orders")
+      .table({
+        id: "orders-invalid",
+        rows: [],
+        schema,
+        select: {
+          // @ts-expect-error invalid column id should be rejected
+          include: ["email"],
+        },
+      });
+  });
+
   it("builds a workbook as a Uint8Array", () => {
     const schema = createExcelSchema<{ amount: number; name: string }>()
       .column("name", {

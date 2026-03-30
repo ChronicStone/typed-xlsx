@@ -35,10 +35,10 @@ import { getDefaultRowHeight } from "../planner/metrics";
 import { buildWorksheetNames } from "../ooxml/sheet-names";
 import { groupSummaryRows, resolveSummaryStyle } from "./internal/summaries";
 
-interface StreamTableState<T extends object> {
+interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
-  schema: SchemaDefinition<T>;
-  selection?: TableSelection;
+  schema: SchemaDefinition<T, TColumnId>;
+  selection?: TableSelection<TColumnId>;
   columns: ReturnType<typeof resolveColumns<T>>;
   stats: ReturnType<typeof createPlannerStats>;
   summaryBindings: ReturnType<typeof createSummaryBindings<T>>;
@@ -67,25 +67,25 @@ function encodeRowChunk(value: string) {
   return new TextEncoder().encode(value);
 }
 
-function applySelection<T extends object>(
+function applySelection<T extends object, TColumnId extends string>(
   columns: ReturnType<typeof resolveColumns<T>>,
-  selection?: TableSelection,
+  selection?: TableSelection<TColumnId>,
 ) {
   return applyColumnSelection(columns, selection);
 }
 
-class StreamTableBuilder<T extends object> {
-  private readonly state: StreamTableState<T>;
+class StreamTableBuilder<T extends object, TColumnId extends string> {
+  private readonly state: StreamTableState<T, TColumnId>;
 
   constructor(
     tableId: string,
-    schema: SchemaDefinition<T>,
+    schema: SchemaDefinition<T, TColumnId>,
     spool: StreamSheetSpool,
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
     private readonly stringMode: "inline" | "shared",
     context?: Record<string, unknown>,
-    selection?: TableSelection,
+    selection?: TableSelection<TColumnId>,
   ) {
     const columns = applySelection(resolveColumns(schema, context), selection);
     this.state = {
@@ -190,7 +190,7 @@ class StreamTableBuilder<T extends object> {
 }
 
 class StreamSheetBuilder {
-  private readonly tables: StreamTableBuilder<any>[] = [];
+  private readonly tables: StreamTableBuilder<any, string>[] = [];
 
   constructor(
     private readonly name: string,
@@ -201,9 +201,9 @@ class StreamSheetBuilder {
     private readonly view?: SheetViewOptions,
   ) {}
 
-  async table<T extends object>(params: StreamTableInput<T>) {
+  async table<T extends object, TColumnId extends string>(params: StreamTableInput<T, TColumnId>) {
     const spool = await this.spoolFactory.create(`${this.name}:${params.id}`);
-    const builder = new StreamTableBuilder(
+    const builder = new StreamTableBuilder<T, TColumnId>(
       params.id,
       params.schema,
       spool,

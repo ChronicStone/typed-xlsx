@@ -3,5 +3,10 @@ const { sidebarNavigation } = useSubNavigation();
 </script>
 
 <template>
-  <UContentNavigation highlight :navigation="sidebarNavigation" />
+  <UContentNavigation
+    highlight
+    type="single"
+    :default-open="true"
+    :navigation="sidebarNavigation"
+  />
 </template>

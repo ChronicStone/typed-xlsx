@@ -44,30 +44,34 @@ export interface ColumnGroupDefinition<T extends object, TContext = unknown> {
 export type SchemaNode<T extends object> = ColumnDefinition<T> | ColumnGroupDefinition<T>;
 export type SchemaContext = Record<string, unknown>;
 
-export interface SchemaDefinition<T extends object> {
+export interface SchemaDefinition<T extends object, TColumnId extends string = string> {
   columns: SchemaNode<T>[];
+  readonly __columnIds?: TColumnId | undefined;
 }
 
-export class SchemaBuilder<T extends object> {
+export type SchemaColumnId<TSchema> =
+  TSchema extends SchemaDefinition<any, infer TColumnId> ? TColumnId : never;
+
+export class SchemaBuilder<T extends object, TColumnId extends string = never> {
   private readonly columns: SchemaNode<T>[] = [];
   private readonly ids = new Set<string>();
 
   static create<T extends object>() {
-    return new SchemaBuilder<T>();
+    return new SchemaBuilder<T, never>();
   }
 
-  column<TPath extends Path<T>>(
-    id: string,
+  column<TId extends string, TPath extends Path<T>>(
+    id: TId,
     definition: Omit<ColumnDefinition<T, TPath>, "id" | "accessor"> & { accessor: TPath },
-  ): this;
-  column<TAccessor extends Accessor<T, unknown>>(
-    id: string,
+  ): SchemaBuilder<T, TColumnId | TId>;
+  column<TId extends string, TAccessor extends Accessor<T, unknown>>(
+    id: TId,
     definition: Omit<ColumnDefinition<T, TAccessor>, "id">,
-  ): this;
-  column<TAccessor extends Accessor<T, unknown> | Path<T>>(
-    id: string,
+  ): SchemaBuilder<T, TColumnId | TId>;
+  column<TId extends string, TAccessor extends Accessor<T, unknown> | Path<T>>(
+    id: TId,
     definition: Omit<ColumnDefinition<T, TAccessor>, "id">,
-  ): this {
+  ): SchemaBuilder<T, TColumnId | TId> {
     if (this.ids.has(id)) {
       throw new Error(`Column with id '${id}' already exists.`);
     }
@@ -77,7 +81,7 @@ export class SchemaBuilder<T extends object> {
       id,
       ...definition,
     } as ColumnDefinition<T>);
-    return this;
+    return this as unknown as SchemaBuilder<T, TColumnId | TId>;
   }
 
   group<TContext>(id: string, build: (builder: SchemaBuilder<T>, context: TContext) => void) {
@@ -91,10 +95,10 @@ export class SchemaBuilder<T extends object> {
       kind: "group",
       build: build as ColumnGroupDefinition<T>["build"],
     });
-    return this;
+    return this as SchemaBuilder<T, TColumnId>;
   }
 
-  build(): SchemaDefinition<T> {
+  build(): SchemaDefinition<T, TColumnId> {
     return {
       columns: [...this.columns],
     };
