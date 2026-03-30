@@ -71,11 +71,13 @@ export function createStreamBenchmarkSchema() {
         alignment: { horizontal: "right" },
       },
       headerStyle: headerStyle(),
-      summary: {
-        init: () => 0,
-        step: (acc: number, row) => acc + row.total,
-        finalize: (acc: number) => acc,
-      },
+      summary: (summary) => [
+        summary.cell({
+          init: () => 0,
+          step: (acc: number, row) => acc + row.total,
+          finalize: (acc: number) => acc,
+        }),
+      ],
     })
     .column("subtotal", {
       header: "Subtotal",
@@ -111,11 +113,13 @@ export function createStreamBenchmarkSchema() {
         },
       }),
       headerStyle: headerStyle(),
-      summary: {
-        init: () => 0,
-        step: (acc: number, row) => acc + row.total,
-        finalize: (acc: number) => acc,
-      },
+      summary: (summary) => [
+        summary.cell({
+          init: () => 0,
+          step: (acc: number, row) => acc + row.total,
+          finalize: (acc: number) => acc,
+        }),
+      ],
     })
     .column("notes", {
       header: "Notes",

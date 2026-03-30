@@ -13,6 +13,7 @@ import {
   finalizeSummaryRuntime,
   stepSummaryRuntime,
 } from "../summary/runtime";
+import { normalizeSummaryInput } from "../summary/builder";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./metrics";
 import type { CellStyle } from "../styles/types";
 
@@ -154,7 +155,7 @@ export function createSummaryBindings<T extends object>(
 
   for (const column of columns) {
     if (!column.summary) continue;
-    const summaries = Array.isArray(column.summary) ? column.summary : [column.summary];
+    const summaries = normalizeSummaryInput(column.summary) ?? [];
 
     for (const [summaryIndex, definition] of summaries.entries()) {
       bindings.push({

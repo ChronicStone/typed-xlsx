@@ -1,7 +1,8 @@
 import type { Accessor, AccessorValue } from "../core/accessor";
 import type { Path } from "../core/path";
 import type { CellStyle } from "../styles/types";
-import type { SummaryDefinition } from "../summary/runtime";
+import { normalizeSummaryInput } from "../summary/builder";
+import type { SummaryInput } from "../summary/builder";
 
 export type PrimitiveCellValue = string | number | boolean | Date | null | undefined;
 export type CellValue = PrimitiveCellValue | PrimitiveCellValue[];
@@ -32,7 +33,7 @@ export interface ColumnDefinition<
   autoWidth?: boolean;
   minWidth?: number;
   maxWidth?: number;
-  summary?: SummaryDefinition<T, any> | SummaryDefinition<T, any>[];
+  summary?: SummaryInput<T>;
 }
 
 export interface ColumnGroupDefinition<
@@ -100,6 +101,7 @@ export class SchemaBuilder<
     this.columns.push({
       id,
       ...definition,
+      ...(definition.summary ? { summary: normalizeSummaryInput(definition.summary) } : {}),
     } as ColumnDefinition<T>);
     return this as unknown as SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   }

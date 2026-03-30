@@ -13,11 +13,13 @@ describe("vnext stream builder", () => {
       })
       .column("amount", {
         accessor: "amount",
-        summary: {
-          init: () => 0,
-          step: (acc: number, row) => acc + row.amount,
-          finalize: (acc: number) => acc,
-        },
+        summary: (summary) => [
+          summary.cell({
+            init: () => 0,
+            step: (acc: number, row) => acc + row.amount,
+            finalize: (acc: number) => acc,
+          }),
+        ],
       })
       .build();
 
@@ -212,11 +214,13 @@ describe("vnext stream builder", () => {
       })
       .column("amount", {
         accessor: "amount",
-        summary: {
-          init: () => 0,
-          step: (acc: number, row) => acc + row.amount,
-          finalize: (acc: number) => acc,
-        },
+        summary: (summary) => [
+          summary.cell({
+            init: () => 0,
+            step: (acc: number, row) => acc + row.amount,
+            finalize: (acc: number) => acc,
+          }),
+        ],
       })
       .column("createdAt", {
         accessor: "createdAt",
@@ -251,32 +255,21 @@ describe("vnext stream builder", () => {
     const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
-        summary: [
-          {
-            init: () => 0,
-            step: (acc: number) => acc,
-            finalize: () => "TOTAL BEFORE VAT",
-          },
-          {
-            init: () => 0,
-            step: (acc: number) => acc,
-            finalize: () => "TOTAL",
-          },
-        ],
+        summary: (summary) => [summary.label("TOTAL BEFORE VAT"), summary.label("TOTAL")],
       })
       .column("amount", {
         accessor: "amount",
-        summary: [
-          {
+        summary: (summary) => [
+          summary.cell({
             init: () => 0,
             step: (acc: number, row) => acc + row.amount,
             finalize: (acc: number) => acc,
-          },
-          {
+          }),
+          summary.cell({
             init: () => 0,
             step: (acc: number, row) => acc + row.amount,
             finalize: (acc: number) => acc * 1.2,
-          },
+          }),
         ],
       })
       .build();
