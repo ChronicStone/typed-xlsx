@@ -195,6 +195,12 @@ export class StylesCollector {
   }
 
   toXml() {
+    for (const xf of this.xfs) {
+      if (xf.numFmt) {
+        this.numFmtId(xf.numFmt);
+      }
+    }
+
     const numFmtEntries = [...this.numFmtIds.entries()].map(([format, id]) =>
       xmlSelfClosing("numFmt", { numFmtId: id, formatCode: format }),
     );

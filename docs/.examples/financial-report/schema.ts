@@ -85,12 +85,12 @@ export const financialReportSchema = ExcelSchemaBuilder.create<FinancialReport>(
   .column("averageProfitMargin", {
     key: "averageProfitMargin",
     label: "Average Profit Margin",
-    format: "0.00%",
+    format: '0.00"%"',
     summary: [
       {
         value: (data) =>
           data.reduce((acc, item) => acc + item.averageProfitMargin, 0) / data.length,
-        format: () => "0.00%",
+        format: () => '0.00"%"',
         cellStyle: (data) => ({
           font: {
             color: {

@@ -7,6 +7,12 @@ function currencyStyle(): CellStyle {
   };
 }
 
+function percentPointStyle(): CellStyle {
+  return {
+    numFmt: '0.00"%"',
+  };
+}
+
 function profitColor(rgb: string): CellStyle {
   return {
     font: {
@@ -101,7 +107,7 @@ export const financialReportSchema = createExcelSchema<FinancialReport>()
     header: "Average Profit Margin",
     accessor: "averageProfitMargin",
     style: (row) => ({
-      numFmt: "0.00%",
+      ...percentPointStyle(),
       ...profitColor(row.averageProfitMargin >= 0 ? "007500" : "FF0000"),
     }),
     summary: (summary) => [
@@ -114,7 +120,7 @@ export const financialReportSchema = createExcelSchema<FinancialReport>()
         finalize: (acc: { total: number; count: number }) =>
           acc.count > 0 ? acc.total / acc.count : 0,
         style: (value) => ({
-          numFmt: "0.00%",
+          ...percentPointStyle(),
           ...profitColor((Number(value) || 0) >= 0 ? "007500" : "FF0000"),
         }),
       }),
