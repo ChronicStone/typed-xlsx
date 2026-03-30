@@ -90,7 +90,7 @@ describe("vnext planner", () => {
       .column("firstName", {
         accessor: "firstName",
       })
-      .group<Array<{ id: number; name: string }>>("orgs", (builder, orgs) => {
+      .group("orgs", (builder, orgs: Array<{ id: number; name: string }>) => {
         for (const org of orgs) {
           builder.column(`org-${org.id}`, {
             header: org.name,

@@ -117,7 +117,7 @@ export function resolveColumns<T extends object>(
     }
 
     const groupContext = context?.[node.id];
-    if (groupContext === undefined) {
+    if (node.requiresContext && groupContext === undefined) {
       throw new Error(`Group '${node.id}' requires context.`);
     }
 

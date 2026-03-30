@@ -2,12 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import {
-  createExcelSchema,
-  createWorkbook,
-  type TableSelection,
-  type WorkbookTableOptions,
-} from "../src";
+import { createExcelSchema, createWorkbook, type TableSelection } from "../src";
 
 describe("public buffered api", () => {
   it("infers selection ids from the schema and preserves transform value types", () => {
@@ -94,9 +89,18 @@ describe("public buffered api", () => {
       .table({
         rows: [],
         schema,
-        context: { memberships: [1, 2, 3] },
         select: { exclude: ["memberships"] },
       });
+
+    expect(() => {
+      const workbook = createWorkbook();
+      workbook.sheet("Sheet").table({
+        rows: [{ name: "Ada", orgs: [1, 2] }],
+        schema,
+        select: { exclude: ["memberships"] },
+      });
+      workbook.toUint8Array();
+    }).not.toThrow();
 
     createWorkbook()
       .sheet("Sheet")
@@ -110,12 +114,31 @@ describe("public buffered api", () => {
         },
       });
 
-    // @ts-expect-error grouped schemas require context at table time
-    const _missingContextInput: WorkbookTableOptions<typeof schema> = {
-      rows: [],
-      schema,
-      select: { include: ["memberships"] },
-    };
+    createWorkbook()
+      .sheet("Sheet")
+      // @ts-expect-error grouped schemas require context when the group is selected
+      .table({ rows: [], schema, select: { include: ["memberships"] } });
+  });
+
+  it("does not require context for groups without a context parameter", () => {
+    const schema = createExcelSchema<{ name: string; tags: string[] }>()
+      .column("name", { accessor: "name" })
+      .group("derived", (builder) => {
+        builder.column("tagCount", { accessor: (row) => row.tags.length });
+      })
+      .build();
+
+    const workbook = createWorkbook();
+
+    expect(() => {
+      workbook.sheet("Sheet").table({
+        rows: [{ name: "Ada", tags: ["a", "b"] }],
+        schema,
+        select: { include: ["derived", "name"] },
+      });
+
+      workbook.toUint8Array();
+    }).not.toThrow();
   });
 
   it("builds a workbook as a Uint8Array", () => {
@@ -177,7 +200,7 @@ describe("public buffered api", () => {
       .column("firstName", {
         accessor: "firstName",
       })
-      .group<Array<{ id: number; name: string }>>("orgs", (builder, orgs) => {
+      .group("orgs", (builder, orgs: Array<{ id: number; name: string }>) => {
         for (const org of orgs) {
           builder.column(`org-${org.id}`, {
             header: org.name,

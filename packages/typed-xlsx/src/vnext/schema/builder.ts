@@ -43,6 +43,7 @@ export interface ColumnGroupDefinition<
 > {
   id: TId;
   kind: "group";
+  requiresContext: boolean;
   build: (builder: SchemaBuilder<T, string>, context: TContext) => void;
 }
 
@@ -85,7 +86,7 @@ export class SchemaBuilder<
     id: TId,
     definition: Omit<ColumnDefinition<T, TPath>, "id" | "accessor"> & { accessor: TPath },
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
-  column<TId extends string, TAccessor extends Accessor<T, unknown>>(
+  column<TId extends string, TAccessor extends (row: T) => unknown>(
     id: TId,
     definition: Omit<ColumnDefinition<T, TAccessor>, "id">,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
@@ -106,10 +107,18 @@ export class SchemaBuilder<
     return this as unknown as SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   }
 
-  group<TContext, TId extends string = string>(
+  group<const TId extends string, TContext = undefined>(
     id: TId,
-    build: (builder: SchemaBuilder<T>, context: TContext) => void,
-  ): SchemaBuilder<T, TColumnId, TGroupId | TId, TGroupContext & Record<TId, TContext>> {
+    build: (
+      builder: SchemaBuilder<T>,
+      ...context: [TContext] extends [undefined] ? [] : [context: TContext]
+    ) => void,
+  ): SchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId | TId,
+    [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
+  > {
     if (this.ids.has(id)) {
       throw new Error(`Column with id '${id}' already exists.`);
     }
@@ -118,13 +127,14 @@ export class SchemaBuilder<
     this.columns.push({
       id,
       kind: "group",
+      requiresContext: build.length > 1,
       build: build as ColumnGroupDefinition<T>["build"],
     });
     return this as unknown as SchemaBuilder<
       T,
       TColumnId,
       TGroupId | TId,
-      TGroupContext & Record<TId, TContext>
+      [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
     >;
   }
 
