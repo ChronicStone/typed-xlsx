@@ -40,6 +40,7 @@ const container = ref<HTMLElement | null>(null);
 const iframeFailed = ref(false);
 const colorMode = useColorMode() as { value: string; forced?: string };
 const hasMounted = ref(false);
+const runtimeConfig = useRuntimeConfig();
 
 const isDark = computed(() => colorMode.value === "dark");
 const normalizedDataSource = dataSource.trim();
@@ -149,9 +150,14 @@ const currentPaneInteractiveHtml = computed(() =>
 const githubRawBase =
   "https://github.com/ChronicStone/typed-xlsx/raw/main/packages/typed-xlsx/examples";
 const workbookUrl = computed(() => `${githubRawBase}/${props.fileKey}.xlsx`);
+const previewWorkbookUrl = computed(() => {
+  const url = new URL(workbookUrl.value);
+  url.searchParams.set("preview", runtimeConfig.app.buildId || "dev");
+  return url.toString();
+});
 const iframeUrl = computed(
   () =>
-    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(workbookUrl.value)}&action=embedview&wdHideGridlines=True&wdHideHeaders=True&wdAllowInteractivity=False`,
+    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewWorkbookUrl.value)}&action=embedview&wdHideGridlines=True&wdHideHeaders=True&wdAllowInteractivity=False`,
 );
 const splitStyle = computed(() => ({
   gridTemplateColumns: `${split.value}fr 12px ${1 - split.value}fr`,
