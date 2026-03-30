@@ -1,5 +1,13 @@
 # @chronicstone/typed-xlsx
 
+## 1.0.3
+
+### Patch Changes
+
+- [#25](https://github.com/ChronicStone/typed-xlsx/pull/25) [`13889a2`](https://github.com/ChronicStone/typed-xlsx/commit/13889a27c85fd5a8ef32a90d2c2c00843d1a38d3) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Fix custom number format emission so buffered and streamed workbooks both write the required OOXML `numFmts` definitions for styled currency and percent cells.
+
+  This also aligns the financial report example's average profit margin formatting with its percentage-point values and refreshes the generated example workbooks.
+
 ## 1.0.2
 
 ### Patch Changes
