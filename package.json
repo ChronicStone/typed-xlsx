@@ -1,90 +1,37 @@
 {
-  "name": "@chronicstone/typed-xlsx",
-  "type": "module",
-  "version": "0.2.17",
-  "packageManager": "pnpm@8.11.0",
-  "description": "High-Quality Type-safe Excel Reporting.",
-  "author": "ChronicStone <cthao.pro@gmail.com>",
-  "license": "MIT",
-  "homepage": "https://typed-xlsx.vercel.app/",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Chronicstone/typed-xlsx.git"
-  },
-  "bugs": "https://github.com/Chronicstone/typed-xlsx/issues",
-  "keywords": [],
-  "sideEffects": false,
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "./dist/*",
-        "./dist/index.d.ts"
-      ]
-    }
-  },
-  "files": [
-    "dist"
+  "name": "typed-xlsx-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Workspace root for typed-xlsx package and documentation",
+  "workspaces": [
+    "docs",
+    "packages/*"
   ],
+  "type": "module",
   "scripts": {
-    "build": "unbuild",
-    "dev": "unbuild --stub",
-    "lint": "eslint .",
-    "prepublishOnly": "nr build",
-    "release": "bumpp && npm publish",
-    "start": "esno src/index.ts",
-    "test": "vitest",
-    "typecheck": "tsc --noEmit",
-    "prepare": "simple-git-hooks",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
-  },
-  "dependencies": {
-    "deepmerge-ts": "^5.1.0",
-    "xlsx-js-style": "^1.2.0"
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "lint": "vp lint",
+    "typecheck": "vp run @chronicstone/typed-xlsx#typecheck",
+    "test": "vp run @chronicstone/typed-xlsx#test",
+    "build": "vp run @chronicstone/typed-xlsx#build",
+    "pack:check": "vp run @chronicstone/typed-xlsx#pack:check",
+    "check": "vp run @chronicstone/typed-xlsx#check",
+    "docs:dev": "bun run --cwd docs dev",
+    "docs:build": "bun run --cwd docs build",
+    "docs:check": "bun run --cwd docs check",
+    "ci": "bun run check && bun run docs:check",
+    "prepare": "vp config",
+    "changeset": "changeset",
+    "release:status": "changeset status --verbose",
+    "release:version": "changeset version && bun install",
+    "release:publish": "changeset publish"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^2.1.2",
-    "@antfu/ni": "^0.21.12",
-    "@antfu/utils": "^0.7.6",
-    "@chronicstone/typed-xlsx": "0.2.14",
-    "@faker-js/faker": "^8.3.1",
-    "@shikijs/vitepress-twoslash": "^1.3.0",
-    "@types/node": "^20.12.7",
-    "@vueuse/core": "^10.9.0",
-    "bumpp": "^9.2.0",
-    "dayjs": "^1.11.10",
-    "eslint": "^8.54.0",
-    "esno": "^4.0.0",
-    "lint-staged": "^15.1.0",
-    "markdown-it-container": "^4.0.0",
-    "naive-ui": "^2.38.1",
-    "pnpm": "^8.11.0",
-    "rimraf": "^5.0.5",
-    "simple-git-hooks": "^2.9.0",
-    "typescript": "^5.3.2",
-    "unbuild": "^2.0.0",
-    "unocss": "^0.59.4",
-    "vite": "^5.0.4",
-    "vitepress": "1.1.3",
-    "vitepress-plugin-nprogress": "^0.0.4",
-    "vitepress-plugin-sandpack": "^1.1.4",
-    "vitest": "^1.0.0-beta.6"
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0",
+    "typescript": "^5.9.3",
+    "vite-plus": "^0.1.14"
   },
-  "simple-git-hooks": {
-    "pre-commit": "bun run lint-staged"
-  },
-  "lint-staged": {
-    "*": ""
-  }
+  "packageManager": "bun@1.3.6"
 }

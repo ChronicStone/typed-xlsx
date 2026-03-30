@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="96" viewBox="0 0 520 96" fill="none">
+  <rect x="4" y="8" width="80" height="80" rx="20" fill="#0A0A0A"/>
+  <rect x="28" y="19" width="4" height="58" rx="2" fill="#18181B"/>
+
+  <path d="M15 29C15 24.029 19.029 20 24 20H28V38H24C19.029 38 15 33.971 15 29Z" fill="#217346"/>
+  <path d="M32 20H57C61.971 20 66 24.029 66 29C66 33.971 61.971 38 57 38H32V20Z" fill="#217346"/>
+  <circle cx="42" cy="29" r="3.25" fill="#0A0A0A"/>
+  <rect x="42" y="27.5" width="11" height="3" rx="1.5" fill="#0A0A0A"/>
+
+  <path d="M15 48C15 43.029 19.029 39 24 39H28V57H24C19.029 57 15 52.971 15 48Z" fill="#CFEBD7"/>
+  <path d="M32 39H57C61.971 39 66 43.029 66 48C66 52.971 61.971 57 57 57H32V39Z" fill="#34A853"/>
+  <circle cx="42" cy="48" r="3.25" fill="#0A0A0A"/>
+  <rect x="42" y="46.5" width="11" height="3" rx="1.5" fill="#0A0A0A"/>
+
+  <path d="M15 67C15 62.029 19.029 58 24 58H28V76H24C19.029 76 15 71.971 15 67Z" fill="#A1A1AA"/>
+  <path d="M32 58H57C61.971 58 66 62.029 66 67C66 71.971 61.971 76 57 76H32V58Z" fill="#F0FBF3"/>
+  <circle cx="42" cy="67" r="3.25" fill="#0A0A0A"/>
+  <rect x="42" y="65.5" width="11" height="3" rx="1.5" fill="#0A0A0A"/>
+
+  <rect x="68" y="25" width="4" height="46" rx="2" fill="#34A853"/>
+  <circle cx="70" cy="29" r="5" fill="#34A853"/>
+  <circle cx="70" cy="48" r="5" fill="#34A853"/>
+  <circle cx="70" cy="67" r="5" fill="#34A853"/>
+
+  <text x="112" y="48" fill="#111827" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="34" font-weight="700" letter-spacing="-1.2">typed-xlsx</text>
+  <text x="112" y="73" fill="#217346" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="20" font-weight="500" letter-spacing="0.8">documentation</text>
+</svg>
