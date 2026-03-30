@@ -93,65 +93,74 @@ const bytes = workbook.toUint8Array();
 :::div{class="typed-xlsx-feature-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"}
 ::::u-page-card{:spotlight="true" to="/schema-builder/create-schema" class="landing-card"}
 
-<div class="landing-badge">Schema</div>
-<h3>Type-safe accessors and reusable schema definitions</h3>
-<p>Build spreadsheet schemas once, then reuse them across exports with typed dot paths, callback accessors, transforms, defaults, and stable column ids.</p>
+<span class="landing-badge">Schema</span>
+
+<h3>Typed accessors and reusable schemas</h3>
+<p>Define columns once with typed paths, callback accessors, transforms, defaults, and stable ids.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/schema-builder/groups" class="landing-card"}
 
-<div class="landing-badge">Dynamic columns</div>
-<h3>Context-driven groups and generated columns</h3>
-<p>Expand one schema into many columns from runtime context, keep grouped report definitions organized, and generate wide exports without giving up type safety.</p>
+<span class="landing-badge">Dynamic columns</span>
+
+<h3>Context-driven groups</h3>
+<p>Expand one schema into many columns from runtime context without giving up a typed API.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/schema-builder/cell-styling" class="landing-card"}
 
-<div class="landing-badge">Presentation</div>
-<h3>Cell styling, formatting, and defaults owned by the library</h3>
-<p>Apply number formats, header styles, conditional styling, wrap behavior, and fallback values with a package-owned style model instead of backend-specific shapes.</p>
+<span class="landing-badge">Presentation</span>
+
+<h3>Styling, formatting, and smart defaults</h3>
+<p>Apply number formats, header styles, wrap behavior, and fallback values with a library-owned style model.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/schema-builder/columns" class="landing-card"}
 
-<div class="landing-badge">Data shaping</div>
-<h3>Summaries, transforms, arrays, and sub-row expansion</h3>
-<p>Derive values from the row, expand arrays into physical sub-rows, and accumulate one or many summary rows with reducer-based logic that works in both builders.</p>
+<span class="landing-badge">Data shaping</span>
+
+<h3>Transforms, summaries, and sub-rows</h3>
+<p>Derive values, expand arrays into physical sub-rows, and accumulate one or many summary rows.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/file-builder/define-sheets" class="landing-card"}
 
-<div class="landing-badge">Layout</div>
-<h3>Multi-table sheets, grid layouts, freeze panes, and RTL</h3>
-<p>Compose several tables on one worksheet, control placement with <code>tablesPerRow</code>, and add sheet-level view options like frozen headers and right-to-left rendering.</p>
+<span class="landing-badge">Layout</span>
+
+<h3>Grid layouts, freeze panes, and RTL</h3>
+<p>Compose several tables on one sheet, control placement with <code>tablesPerRow</code>, and tune the view.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/file-builder/build-excel-file" class="landing-card"}
 
-<div class="landing-badge">Buffered builder</div>
-<h3>High-level workbook composition for normal-size exports</h3>
-<p>Use the buffered builder when your dataset fits in memory and you want the simplest API for creating sheets, adding tables, and writing a finished XLSX file.</p>
+<span class="landing-badge">Buffered builder</span>
+
+<h3>Simple workbook composition in memory</h3>
+<p>Use the buffered builder when your dataset fits in memory and you want the smallest API surface.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/stream-workbook/overview" class="landing-card"}
 
-<div class="landing-badge">Streaming</div>
-<h3>Real streaming workbooks with commit-based ingestion</h3>
-<p>Commit row batches incrementally, keep memory bounded, and pipe the final workbook to files, Node streams, Web streams, or remote destinations like S3.</p>
+<span class="landing-badge">Streaming</span>
+
+<h3>Commit-based exports for large datasets</h3>
+<p>Commit row batches incrementally, keep memory bounded, and pipe the final workbook to files or streams.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/performance/large-datasets" class="landing-card"}
 
-<div class="landing-badge">Scale</div>
-<h3>Performance tooling for 100k to 500k+ row workloads</h3>
-<p>Choose between buffered and stream builders deliberately, tune temp storage and string modes, and follow the benchmark-backed guidance for very large exports.</p>
+<span class="landing-badge">Scale</span>
+
+<h3>Benchmark-backed guidance for big exports</h3>
+<p>Tune temp storage and string modes, and choose the right builder for 100k to 500k+ row workloads.</p>
 ::::
 
 ::::u-page-card{:spotlight="true" to="/migration/v0-to-v1" class="landing-card"}
 
-<div class="landing-badge">Upgrade</div>
-<h3>Migration guidance and reference for the new v1 surface</h3>
-<p>See how <code>key</code> became <code>accessor</code>, how summaries changed, what the new builders look like, and where to find the full API details.</p>
+<span class="landing-badge">Upgrade</span>
+
+<h3>Migration notes for the v1 API</h3>
+<p>See how <code>key</code> became <code>accessor</code>, how summaries changed, and where to find the new builders.</p>
 ::::
 :::
 ::
