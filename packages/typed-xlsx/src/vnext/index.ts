@@ -10,6 +10,8 @@ export type {
   SchemaColumnId,
   SchemaContext,
   SchemaDefinition,
+  SchemaGroupContext,
+  SchemaGroupId,
   TypedPath,
 } from "./schema/builder";
 export { SchemaBuilder } from "./schema/builder";

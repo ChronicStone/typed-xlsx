@@ -16,7 +16,7 @@ function planTable<T extends object, TColumnId extends string>(
   fallbackIndex: number,
 ): BufferedTablePlan<T> {
   const resolvedColumns = applyColumnSelection(
-    resolveColumns(table.schema, table.context),
+    resolveColumns(table.schema, table.context, table.select),
     table.select,
   );
   const planner = planRows({ columns: resolvedColumns }, table.rows);

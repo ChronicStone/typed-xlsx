@@ -18,6 +18,7 @@ import type { CellStyle } from "../styles/types";
 
 export interface ResolvedColumn<T extends object> extends ColumnDefinition<T> {
   headerLabel: string;
+  groupId?: string;
 }
 
 export interface PlannedCell<T extends object> {
@@ -84,13 +85,22 @@ function isColumnNode<T extends object>(
 }
 
 export function resolveColumns<T extends object>(
-  schema: SchemaDefinition<T>,
+  schema: SchemaDefinition<T, any, any, any>,
   context?: SchemaContext,
+  selection?: { include?: readonly string[]; exclude?: readonly string[] },
 ): ResolvedColumn<T>[] {
   const columns: ResolvedColumn<T>[] = [];
+  const include = selection?.include ? new Set<string>(selection.include) : null;
+  const exclude = selection?.exclude ? new Set<string>(selection.exclude) : null;
 
   for (const node of schema.columns) {
     if (isColumnNode(node)) {
+      if (include && !include.has(node.id)) {
+        continue;
+      }
+      if (exclude?.has(node.id)) {
+        continue;
+      }
       columns.push({
         ...node,
         headerLabel: node.header ?? defaultColumnHeader(node.id),
@@ -98,9 +108,26 @@ export function resolveColumns<T extends object>(
       continue;
     }
 
+    if (include && !include.has(node.id)) {
+      continue;
+    }
+    if (exclude?.has(node.id)) {
+      continue;
+    }
+
+    const groupContext = context?.[node.id];
+    if (groupContext === undefined) {
+      throw new Error(`Group '${node.id}' requires context.`);
+    }
+
     const groupBuilder = SchemaBuilder.create<T>();
-    node.build(groupBuilder, context?.[node.id] as never);
-    columns.push(...resolveColumns(groupBuilder.build(), context));
+    node.build(groupBuilder, groupContext as never);
+    columns.push(
+      ...resolveColumns(groupBuilder.build(), context).map((column) => ({
+        ...column,
+        groupId: node.id,
+      })),
+    );
   }
 
   return columns;
@@ -143,7 +170,7 @@ export function createSummaryBindings<T extends object>(
 }
 
 export function planRows<T extends object>(
-  schema: SchemaDefinition<T>,
+  schema: SchemaDefinition<T, any, any, any>,
   rows: T[],
 ): PlannerResult<T> {
   const columns = resolveColumns(schema);

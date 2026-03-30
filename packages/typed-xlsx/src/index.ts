@@ -7,12 +7,14 @@ export {
   type WorkbookSheet,
   type WorkbookSheetOptions,
   type WorkbookTableInput,
+  type WorkbookTableOptions,
   type WorkbookStream,
   type WorkbookStreamStringMode,
   type WorkbookStreamMemoryProfile,
   type WorkbookStreamOptions,
   type WorkbookStreamSheetOptions,
   type WorkbookStreamTableOptions,
+  type WorkbookStreamResolvedTableOptions,
   type WorkbookCommitBatch,
   type WorkbookTableStream,
   type WorkbookSheetStream,
@@ -29,6 +31,8 @@ export type {
   SchemaColumnId,
   SchemaContext,
   SchemaDefinition,
+  SchemaGroupContext,
+  SchemaGroupId,
   TypedPath,
 } from "./vnext";
 export type { SummaryDefinition, SummaryCellValue } from "./vnext";

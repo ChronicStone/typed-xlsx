@@ -8,13 +8,17 @@ export interface TableSelection<TColumnId extends string = string> {
   exclude?: readonly TColumnId[];
 }
 
-export interface BufferedTableInput<T extends object, TColumnId extends string = string> {
+export interface BufferedTableInput<
+  T extends object,
+  TSelectableId extends string = string,
+  TSchemaContext extends SchemaContext = SchemaContext,
+> {
   id?: string;
   title?: string;
-  schema: SchemaDefinition<T, TColumnId>;
+  schema: SchemaDefinition<T, string, string, SchemaContext>;
   rows: T[];
-  select?: TableSelection<TColumnId>;
-  context?: SchemaContext;
+  select?: TableSelection<TSelectableId>;
+  context?: TSchemaContext;
 }
 
 export interface FreezePane {
@@ -78,9 +82,13 @@ export interface StreamTableCommit<T extends object> {
   rows: T[];
 }
 
-export interface StreamTableInput<T extends object, TColumnId extends string = string> {
+export interface StreamTableInput<
+  T extends object,
+  TSelectableId extends string = string,
+  TSchemaContext extends SchemaContext = SchemaContext,
+> {
   id: string;
-  schema: SchemaDefinition<T, TColumnId>;
-  select?: TableSelection<TColumnId>;
-  context?: SchemaContext;
+  schema: SchemaDefinition<T, string, string, SchemaContext>;
+  select?: TableSelection<TSelectableId>;
+  context?: TSchemaContext;
 }

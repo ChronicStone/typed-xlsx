@@ -3,7 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createExcelSchema, createWorkbookStream, type TableSelection } from "../src";
+import {
+  createExcelSchema,
+  createWorkbookStream,
+  type TableSelection,
+  type WorkbookStreamResolvedTableOptions,
+} from "../src";
 
 describe("public stream api", () => {
   it("infers stream selection ids from the schema", async () => {
@@ -43,6 +48,49 @@ describe("public stream api", () => {
         include: ["email"],
       },
     });
+  });
+
+  it("supports typed stream selection for group ids and requires group context", async () => {
+    type Row = { name: string; orgs: number[] };
+
+    const schema = createExcelSchema<Row>()
+      .column("name", { accessor: "name" })
+      .group("memberships", (builder, orgIds: number[]) => {
+        for (const id of orgIds) {
+          builder.column(`org-${id}`, {
+            accessor: (row) => row.orgs.includes(id),
+          });
+        }
+      })
+      .build();
+
+    const workbook = createWorkbookStream({
+      tempStorage: "memory",
+    });
+
+    await workbook.sheet("Sheet").table({
+      id: "groups",
+      schema,
+      context: { memberships: [1, 2, 3] },
+      select: { exclude: ["memberships"] },
+    });
+
+    await workbook.sheet("Sheet").table({
+      id: "groups-invalid",
+      schema,
+      context: { memberships: [1, 2, 3] },
+      select: {
+        // @ts-expect-error generated child ids are not part of the public select API
+        exclude: ["org-2"],
+      },
+    });
+
+    // @ts-expect-error grouped schemas require context at table time
+    const _missingContextInput: WorkbookStreamResolvedTableOptions<typeof schema> = {
+      id: "groups-missing-context",
+      schema,
+      select: { include: ["memberships"] },
+    };
   });
 
   it("can pipe a workbook to a node writable stream", async () => {
