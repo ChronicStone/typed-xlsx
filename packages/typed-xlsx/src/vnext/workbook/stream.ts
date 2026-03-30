@@ -37,7 +37,7 @@ import { groupSummaryRows, resolveSummaryStyle } from "./internal/summaries";
 
 interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
-  schema: SchemaDefinition<T, TColumnId>;
+  schema: SchemaDefinition<T, any, any, any>;
   selection?: TableSelection<TColumnId>;
   columns: ReturnType<typeof resolveColumns<T>>;
   stats: ReturnType<typeof createPlannerStats>;
@@ -79,7 +79,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
 
   constructor(
     tableId: string,
-    schema: SchemaDefinition<T, TColumnId>,
+    schema: SchemaDefinition<T, any, any, any>,
     spool: StreamSheetSpool,
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
@@ -87,7 +87,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     context?: Record<string, unknown>,
     selection?: TableSelection<TColumnId>,
   ) {
-    const columns = applySelection(resolveColumns(schema, context), selection);
+    const columns = applySelection(resolveColumns(schema, context, selection), selection);
     this.state = {
       tableId,
       schema,

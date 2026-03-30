@@ -11,8 +11,10 @@ export function applyColumnSelection<T extends object, TColumnId extends string>
   const exclude = selection.exclude ? new Set<string>(selection.exclude) : null;
 
   return columns.filter((column) => {
-    if (include && !include.has(column.id)) return false;
-    if (exclude && exclude.has(column.id)) return false;
+    const selectedIds = column.groupId ? [column.id, column.groupId] : [column.id];
+
+    if (include && !selectedIds.some((id) => include.has(id))) return false;
+    if (exclude && selectedIds.some((id) => exclude.has(id))) return false;
     return true;
   });
 }

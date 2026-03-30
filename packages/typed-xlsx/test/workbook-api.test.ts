@@ -2,7 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createExcelSchema, createWorkbook, type TableSelection } from "../src";
+import {
+  createExcelSchema,
+  createWorkbook,
+  type TableSelection,
+  type WorkbookTableOptions,
+} from "../src";
 
 describe("public buffered api", () => {
   it("infers selection ids from the schema and preserves transform value types", () => {
@@ -57,6 +62,49 @@ describe("public buffered api", () => {
           include: ["email"],
         },
       });
+  });
+
+  it("supports typed selection for group ids and requires group context", () => {
+    type Row = { name: string; orgs: number[] };
+
+    const schema = createExcelSchema<Row>()
+      .column("name", { accessor: "name" })
+      .group("memberships", (builder, orgIds: number[]) => {
+        for (const id of orgIds) {
+          builder.column(`org-${id}`, {
+            accessor: (row) => row.orgs.includes(id),
+          });
+        }
+      })
+      .build();
+
+    createWorkbook()
+      .sheet("Sheet")
+      .table({
+        rows: [],
+        schema,
+        context: { memberships: [1, 2, 3] },
+        select: { exclude: ["memberships"] },
+      });
+
+    createWorkbook()
+      .sheet("Sheet")
+      .table({
+        rows: [],
+        schema,
+        context: { memberships: [1, 2, 3] },
+        select: {
+          // @ts-expect-error generated child ids are not part of the public select API
+          exclude: ["org-2"],
+        },
+      });
+
+    // @ts-expect-error grouped schemas require context at table time
+    const _missingContextInput: WorkbookTableOptions<typeof schema> = {
+      rows: [],
+      schema,
+      select: { include: ["memberships"] },
+    };
   });
 
   it("builds a workbook as a Uint8Array", () => {

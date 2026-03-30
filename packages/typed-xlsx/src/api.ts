@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import type { SchemaContext, SchemaDefinition } from "./vnext/schema/builder";
+import type { SchemaDefinition, SchemaGroupContext, SchemaGroupId } from "./vnext/schema/builder";
 import { SchemaBuilder } from "./vnext/schema/builder";
 import { BufferedWorkbookBuilder } from "./vnext/workbook/buffered";
 import { StreamWorkbookBuilder } from "./vnext/workbook/stream";
@@ -19,11 +19,21 @@ import {
 import { FileWorkbookSink } from "./vnext/workbook/internal/file-sink";
 
 export interface WorkbookOptions {}
-type AnySchemaDefinition = SchemaDefinition<any, string>;
+type AnySchemaDefinition = SchemaDefinition<any, any, any, any>;
 type SchemaRow<TSchema extends AnySchemaDefinition> =
-  TSchema extends SchemaDefinition<infer TRow, string> ? TRow : never;
+  TSchema extends SchemaDefinition<infer TRow, any, any, any> ? TRow : never;
 type SchemaColumnIds<TSchema extends AnySchemaDefinition> =
-  TSchema extends SchemaDefinition<any, infer TColumnId> ? TColumnId : never;
+  TSchema extends SchemaDefinition<any, infer TColumnId, any, any> ? TColumnId : never;
+type SchemaGroupIds<TSchema extends AnySchemaDefinition> = SchemaGroupId<TSchema>;
+type SchemaSelectableIds<TSchema extends AnySchemaDefinition> =
+  | SchemaColumnIds<TSchema>
+  | SchemaGroupIds<TSchema>;
+type SchemaResolvedContext<TSchema extends AnySchemaDefinition> = SchemaGroupContext<TSchema>;
+type WorkbookTableContextField<TSchema extends AnySchemaDefinition> = [
+  SchemaGroupIds<TSchema>,
+] extends [never]
+  ? { context?: SchemaResolvedContext<TSchema> }
+  : { context: SchemaResolvedContext<TSchema> };
 
 export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {}
 
@@ -32,9 +42,10 @@ export interface WorkbookTableInput<TSchema extends AnySchemaDefinition> extends
   "schema" | "select" | "context"
 > {
   schema: TSchema;
-  select?: TableSelection<SchemaColumnIds<TSchema>>;
-  context?: SchemaContext;
+  select?: TableSelection<SchemaSelectableIds<TSchema>>;
 }
+export type WorkbookTableOptions<TSchema extends AnySchemaDefinition> =
+  WorkbookTableInput<TSchema> & WorkbookTableContextField<TSchema>;
 
 export interface Workbook {
   sheet(name: string, options?: WorkbookSheetOptions): WorkbookSheet;
@@ -44,7 +55,7 @@ export interface Workbook {
 }
 
 export interface WorkbookSheet {
-  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableInput<TSchema>): WorkbookSheet;
+  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableOptions<TSchema>): WorkbookSheet;
 }
 
 export interface WorkbookStreamOptions {
@@ -62,9 +73,10 @@ export interface WorkbookStreamSheetOptions extends SheetViewOptions {}
 export interface WorkbookStreamTableOptions<TSchema extends AnySchemaDefinition> {
   id: string;
   schema: TSchema;
-  select?: TableSelection<SchemaColumnIds<TSchema>>;
-  context?: SchemaContext;
+  select?: TableSelection<SchemaSelectableIds<TSchema>>;
 }
+export type WorkbookStreamResolvedTableOptions<TSchema extends AnySchemaDefinition> =
+  WorkbookStreamTableOptions<TSchema> & WorkbookTableContextField<TSchema>;
 
 export interface WorkbookCommitBatch<TRow extends object> {
   rows: TRow[];
@@ -76,7 +88,7 @@ export interface WorkbookTableStream<TRow extends object> {
 
 export interface WorkbookSheetStream {
   table<TSchema extends AnySchemaDefinition>(
-    options: WorkbookStreamTableOptions<TSchema>,
+    options: WorkbookStreamResolvedTableOptions<TSchema>,
   ): Promise<WorkbookTableStream<SchemaRow<TSchema>>>;
 }
 
@@ -92,7 +104,7 @@ export interface WorkbookStream {
 class PublicWorkbookSheet implements WorkbookSheet {
   constructor(private readonly sheetBuilder: ReturnType<BufferedWorkbookBuilder["sheet"]>) {}
 
-  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableInput<TSchema>) {
+  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableOptions<TSchema>) {
     this.sheetBuilder.table(input);
     return this;
   }
@@ -136,7 +148,9 @@ class WorkbookTableStreamAdapter<TRow extends object> implements WorkbookTableSt
 class WorkbookSheetStreamAdapter implements WorkbookSheetStream {
   constructor(private readonly sheetBuilder: ReturnType<StreamWorkbookBuilder["sheet"]>) {}
 
-  async table<TSchema extends AnySchemaDefinition>(options: WorkbookStreamTableOptions<TSchema>) {
+  async table<TSchema extends AnySchemaDefinition>(
+    options: WorkbookStreamResolvedTableOptions<TSchema>,
+  ) {
     const table = await this.sheetBuilder.table(options);
     return new WorkbookTableStreamAdapter<SchemaRow<TSchema>>(table);
   }
