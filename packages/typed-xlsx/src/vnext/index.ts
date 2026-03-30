@@ -34,6 +34,8 @@ export {
   resolveColumnWidth,
 } from "./planner/metrics";
 export type { SummaryDefinition, SummaryCellValue } from "./summary/runtime";
+export type { SummaryBuilder, SummaryInput } from "./summary/builder";
+export { createSummaryBuilder, normalizeSummaryInput } from "./summary/builder";
 export {
   createSummaryRuntime,
   finalizeSummaryRuntime,

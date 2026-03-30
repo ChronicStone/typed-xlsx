@@ -30,6 +30,17 @@ describe("public buffered api", () => {
           expectTypeOf(lines).toEqualTypeOf<Order["lines"]>();
           return lines.length;
         },
+        summary: (summary) => [
+          summary.cell({
+            init: () => 0,
+            step: (acc, row) => {
+              expectTypeOf(acc).toEqualTypeOf<number>();
+              expectTypeOf(row).toEqualTypeOf<Order>();
+              return acc + row.lines.length;
+            },
+            finalize: (acc) => acc,
+          }),
+        ],
       })
       .build();
 

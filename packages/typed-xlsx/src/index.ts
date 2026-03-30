@@ -35,7 +35,7 @@ export type {
   SchemaGroupId,
   TypedPath,
 } from "./vnext";
-export type { SummaryDefinition, SummaryCellValue } from "./vnext";
+export type { SummaryBuilder, SummaryCellValue, SummaryDefinition, SummaryInput } from "./vnext";
 export type {
   FreezePane,
   SheetLayoutOptions,
