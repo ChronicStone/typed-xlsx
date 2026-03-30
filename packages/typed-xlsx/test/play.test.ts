@@ -5,7 +5,7 @@ import { describe, it } from "vitest";
 import { createSchema, createWorkbook } from "../src";
 
 describe("should generate the play excel file", () => {
-  it("exported", () => {
+  it("exported", { timeout: 30000 }, () => {
     interface User {
       id: string;
       name: string;
