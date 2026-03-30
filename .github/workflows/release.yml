@@ -20,45 +20,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect pending changesets
-        id: changesets
-        shell: bash
-        run: |
-          shopt -s nullglob
-          files=(.changeset/*.md)
-
-          for file in "${files[@]}"; do
-            if [[ "$(basename "$file")" != "README.md" ]]; then
-              echo "has_changesets=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          done
-
-          echo "has_changesets=false" >> "$GITHUB_OUTPUT"
-
       - name: Setup Bun
-        if: steps.changesets.outputs.has_changesets == 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.6
 
       - name: Setup Node
-        if: steps.changesets.outputs.has_changesets == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        if: steps.changesets.outputs.has_changesets == 'true'
         run: bun install --frozen-lockfile
 
       - name: Run release checks
-        if: steps.changesets.outputs.has_changesets == 'true'
         run: bun run ci
 
       - name: Create release PR or publish
-        if: steps.changesets.outputs.has_changesets == 'true'
         uses: changesets/action@v1
         with:
           version: bun run release:version
