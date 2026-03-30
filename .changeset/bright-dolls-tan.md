@@ -6,7 +6,7 @@ Promote the new typed-xlsx API as the main package surface and retire the legacy
 
 Highlights:
 
-- add `createSchema()` with `id + accessor` columns, typed path accessors, and accessor callbacks
+- add `createExcelSchema()` with `id + accessor` columns, typed path accessors, and accessor callbacks
 - add `createWorkbook()` for polished buffered exports
 - add `createWorkbookStream()` for commit-based large exports with stream-native outputs
 - replace array-wide summary callbacks with reducer-based summaries using `init`, `step`, and `finalize`
