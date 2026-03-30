@@ -49,13 +49,8 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: Install root dependencies
+      - name: Install dependencies
         if: steps.changesets.outputs.has_changesets == 'true'
-        run: bun install --frozen-lockfile
-
-      - name: Install docs dependencies
-        if: steps.changesets.outputs.has_changesets == 'true'
-        working-directory: docs
         run: bun install --frozen-lockfile
 
       - name: Run release checks
