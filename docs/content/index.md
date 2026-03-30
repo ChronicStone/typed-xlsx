@@ -53,11 +53,7 @@ View on GitHub
 ```ts twoslash [report.ts]
 import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
 
-type User = {
-  firstName: string;
-  lastName: string;
-  countries: string[];
-};
+type User = { firstName: string; lastName: string; countries: string[] };
 
 const schema = createExcelSchema<User>()
   .column("firstName", { header: "First name", accessor: "firstName" })
