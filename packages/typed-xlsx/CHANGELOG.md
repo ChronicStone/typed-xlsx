@@ -1,5 +1,15 @@
 # @chronicstone/typed-xlsx
 
+## 1.0.1
+
+### Patch Changes
+
+- [#19](https://github.com/ChronicStone/typed-xlsx/pull/19) [`44cd7ee`](https://github.com/ChronicStone/typed-xlsx/commit/44cd7eeee3e5adda011731b9a1a48c61edcbdc8b) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve the public API developer experience by strongly typing `select.include` and
+  `select.exclude` against schema column ids, and tighten the docs navigation to use
+  single-open accordion behavior in the sidebar.
+
+- [#20](https://github.com/ChronicStone/typed-xlsx/pull/20) [`ee30976`](https://github.com/ChronicStone/typed-xlsx/commit/ee309766ff097bb70c5d26f60963b8730dc80aa6) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Tighten grouped schema typing so `select.include` and `select.exclude` accept group ids as first-class entries, and require matching `context` when grouped schemas are used. This also updates the groups and reference docs to reflect the V1-style group selection model.
+
 ## 1.0.0
 
 ### Major Changes
