@@ -7,6 +7,7 @@ export type {
   CellValue,
   ColumnDefinition,
   PrimitiveCellValue,
+  SchemaColumnId,
   SchemaContext,
   SchemaDefinition,
   TypedPath,

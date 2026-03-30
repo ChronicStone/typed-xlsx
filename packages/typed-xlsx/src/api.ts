@@ -19,14 +19,20 @@ import {
 import { FileWorkbookSink } from "./vnext/workbook/internal/file-sink";
 
 export interface WorkbookOptions {}
+type AnySchemaDefinition = SchemaDefinition<any, string>;
+type SchemaRow<TSchema extends AnySchemaDefinition> =
+  TSchema extends SchemaDefinition<infer TRow, string> ? TRow : never;
+type SchemaColumnIds<TSchema extends AnySchemaDefinition> =
+  TSchema extends SchemaDefinition<any, infer TColumnId> ? TColumnId : never;
 
 export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {}
 
-export interface WorkbookTableInput<T extends object> extends Omit<
-  BufferedTableInput<T>,
-  "select"
+export interface WorkbookTableInput<TSchema extends AnySchemaDefinition> extends Omit<
+  BufferedTableInput<SchemaRow<TSchema>, SchemaColumnIds<TSchema>>,
+  "schema" | "select" | "context"
 > {
-  select?: TableSelection;
+  schema: TSchema;
+  select?: TableSelection<SchemaColumnIds<TSchema>>;
   context?: SchemaContext;
 }
 
@@ -38,7 +44,7 @@ export interface Workbook {
 }
 
 export interface WorkbookSheet {
-  table<T extends object>(input: WorkbookTableInput<T>): WorkbookSheet;
+  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableInput<TSchema>): WorkbookSheet;
 }
 
 export interface WorkbookStreamOptions {
@@ -53,23 +59,25 @@ export type WorkbookStreamMemoryProfile = "balanced" | "low-memory" | "compact-f
 
 export interface WorkbookStreamSheetOptions extends SheetViewOptions {}
 
-export interface WorkbookStreamTableOptions<T extends object> {
+export interface WorkbookStreamTableOptions<TSchema extends AnySchemaDefinition> {
   id: string;
-  schema: SchemaDefinition<T>;
-  select?: TableSelection;
+  schema: TSchema;
+  select?: TableSelection<SchemaColumnIds<TSchema>>;
   context?: SchemaContext;
 }
 
-export interface WorkbookCommitBatch<T extends object> {
-  rows: T[];
+export interface WorkbookCommitBatch<TRow extends object> {
+  rows: TRow[];
 }
 
-export interface WorkbookTableStream<T extends object> {
-  commit(batch: WorkbookCommitBatch<T>): Promise<void>;
+export interface WorkbookTableStream<TRow extends object> {
+  commit(batch: WorkbookCommitBatch<TRow>): Promise<void>;
 }
 
 export interface WorkbookSheetStream {
-  table<T extends object>(options: WorkbookStreamTableOptions<T>): Promise<WorkbookTableStream<T>>;
+  table<TSchema extends AnySchemaDefinition>(
+    options: WorkbookStreamTableOptions<TSchema>,
+  ): Promise<WorkbookTableStream<SchemaRow<TSchema>>>;
 }
 
 export interface WorkbookStream {
@@ -84,7 +92,7 @@ export interface WorkbookStream {
 class PublicWorkbookSheet implements WorkbookSheet {
   constructor(private readonly sheetBuilder: ReturnType<BufferedWorkbookBuilder["sheet"]>) {}
 
-  table<T extends object>(input: WorkbookTableInput<T>) {
+  table<TSchema extends AnySchemaDefinition>(input: WorkbookTableInput<TSchema>) {
     this.sheetBuilder.table(input);
     return this;
   }
@@ -115,10 +123,12 @@ class PublicWorkbook implements Workbook {
   }
 }
 
-class WorkbookTableStreamAdapter<T extends object> implements WorkbookTableStream<T> {
-  constructor(private readonly table: { commit(batch: WorkbookCommitBatch<T>): Promise<void> }) {}
+class WorkbookTableStreamAdapter<TRow extends object> implements WorkbookTableStream<TRow> {
+  constructor(
+    private readonly table: { commit(batch: WorkbookCommitBatch<TRow>): Promise<void> },
+  ) {}
 
-  async commit(batch: WorkbookCommitBatch<T>) {
+  async commit(batch: WorkbookCommitBatch<TRow>) {
     await this.table.commit(batch);
   }
 }
@@ -126,9 +136,9 @@ class WorkbookTableStreamAdapter<T extends object> implements WorkbookTableStrea
 class WorkbookSheetStreamAdapter implements WorkbookSheetStream {
   constructor(private readonly sheetBuilder: ReturnType<StreamWorkbookBuilder["sheet"]>) {}
 
-  async table<T extends object>(options: WorkbookStreamTableOptions<T>) {
+  async table<TSchema extends AnySchemaDefinition>(options: WorkbookStreamTableOptions<TSchema>) {
     const table = await this.sheetBuilder.table(options);
-    return new WorkbookTableStreamAdapter<T>(table);
+    return new WorkbookTableStreamAdapter<SchemaRow<TSchema>>(table);
   }
 }
 

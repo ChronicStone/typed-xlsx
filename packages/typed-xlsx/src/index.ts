@@ -26,6 +26,7 @@ export type {
   CellValue,
   PrimitiveCellValue,
   ColumnDefinition,
+  SchemaColumnId,
   SchemaContext,
   SchemaDefinition,
   TypedPath,

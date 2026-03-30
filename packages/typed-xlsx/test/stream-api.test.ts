@@ -2,10 +2,49 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
-import { createExcelSchema, createWorkbookStream } from "../src";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { createExcelSchema, createWorkbookStream, type TableSelection } from "../src";
 
 describe("public stream api", () => {
+  it("infers stream selection ids from the schema", async () => {
+    const schema = createExcelSchema<{ amount: number; name: string }>()
+      .column("name", {
+        accessor: "name",
+      })
+      .column("amount", {
+        accessor: "amount",
+      })
+      .build();
+
+    type Selection = TableSelection<"name" | "amount">;
+
+    expectTypeOf<Selection["exclude"]>().toEqualTypeOf<
+      readonly ("name" | "amount")[] | undefined
+    >();
+
+    const workbook = createWorkbookStream({
+      tempStorage: "memory",
+    });
+
+    await workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+      select: {
+        include: ["name"],
+        exclude: ["amount"],
+      },
+    });
+
+    await workbook.sheet("Orders").table({
+      id: "orders-invalid",
+      schema,
+      select: {
+        // @ts-expect-error invalid column id should be rejected
+        include: ["email"],
+      },
+    });
+  });
+
   it("can pipe a workbook to a node writable stream", async () => {
     const schema = createExcelSchema<{ amount: number; name: string }>()
       .column("name", {

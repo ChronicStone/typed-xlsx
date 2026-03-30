@@ -11,8 +11,8 @@ import type {
 import { applyColumnSelection } from "./internal/selection";
 import { computeSummaries } from "./internal/summaries";
 
-function planTable<T extends object>(
-  table: BufferedTableInput<T>,
+function planTable<T extends object, TColumnId extends string>(
+  table: BufferedTableInput<T, TColumnId>,
   fallbackIndex: number,
 ): BufferedTablePlan<T> {
   const resolvedColumns = applyColumnSelection(
@@ -32,7 +32,7 @@ function planTable<T extends object>(
 }
 
 class BufferedSheetBuilder {
-  private readonly tables: BufferedTableInput<any>[] = [];
+  private readonly tables: BufferedTableInput<any, string>[] = [];
   private layout: SheetLayoutOptions | undefined;
   private view: SheetViewOptions | undefined;
 
@@ -49,7 +49,7 @@ class BufferedSheetBuilder {
     return this;
   }
 
-  table<T extends object>(input: BufferedTableInput<T>) {
+  table<T extends object, TColumnId extends string>(input: BufferedTableInput<T, TColumnId>) {
     this.tables.push(input);
     return this;
   }
