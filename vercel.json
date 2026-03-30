@@ -1,3 +1,7 @@
 {
+  "framework": null,
+  "buildCommand": "bun run build && bun run --cwd docs generate",
+  "outputDirectory": "docs/.output/public",
+  "installCommand": "bun install",
   "cleanUrls": true
 }
