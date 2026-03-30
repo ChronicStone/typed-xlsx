@@ -1,4 +1,4 @@
-import type { SchemaDefinition } from "../schema/builder";
+import type { SchemaContext, SchemaDefinition } from "../schema/builder";
 import type { PlannerResult } from "../planner/rows";
 import type { SummaryCellValue } from "../summary/runtime";
 import type { CellStyle } from "../styles/types";
@@ -14,6 +14,7 @@ export interface BufferedTableInput<T extends object> {
   schema: SchemaDefinition<T>;
   rows: T[];
   select?: TableSelection;
+  context?: SchemaContext;
 }
 
 export interface FreezePane {
@@ -75,4 +76,11 @@ export interface StreamSpoolFactory {
 
 export interface StreamTableCommit<T extends object> {
   rows: T[];
+}
+
+export interface StreamTableInput<T extends object> {
+  id: string;
+  schema: SchemaDefinition<T>;
+  select?: TableSelection;
+  context?: SchemaContext;
 }

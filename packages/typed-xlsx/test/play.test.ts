@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { faker } from "@faker-js/faker";
 import { describe, it } from "vitest";
-import { createSchema, createWorkbook } from "../src";
+import { createExcelSchema, createWorkbook } from "../src";
 
 describe("should generate the play excel file", () => {
   it("exported", { timeout: 30000 }, () => {
@@ -12,7 +12,7 @@ describe("should generate the play excel file", () => {
       birthDate: Date;
       balance: number;
     }
-    const schema = createSchema<User>()
+    const schema = createExcelSchema<User>()
       .column("id", { accessor: "id" })
       .column("name", {
         accessor: "name",

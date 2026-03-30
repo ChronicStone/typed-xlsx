@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import type { SchemaDefinition } from "./vnext/schema/builder";
+import type { SchemaContext, SchemaDefinition } from "./vnext/schema/builder";
 import { SchemaBuilder } from "./vnext/schema/builder";
 import { BufferedWorkbookBuilder } from "./vnext/workbook/buffered";
 import { StreamWorkbookBuilder } from "./vnext/workbook/stream";
@@ -27,6 +27,7 @@ export interface WorkbookTableInput<T extends object> extends Omit<
   "select"
 > {
   select?: TableSelection;
+  context?: SchemaContext;
 }
 
 export interface Workbook {
@@ -56,6 +57,7 @@ export interface WorkbookStreamTableOptions<T extends object> {
   id: string;
   schema: SchemaDefinition<T>;
   select?: TableSelection;
+  context?: SchemaContext;
 }
 
 export interface WorkbookCommitBatch<T extends object> {
@@ -197,7 +199,7 @@ class PublicWorkbookStream implements WorkbookStream {
   }
 }
 
-export function createSchema<T extends object>() {
+export function createExcelSchema<T extends object>() {
   return SchemaBuilder.create<T>();
 }
 

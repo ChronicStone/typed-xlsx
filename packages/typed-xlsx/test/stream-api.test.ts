@@ -3,11 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { createSchema, createWorkbookStream } from "../src";
+import { createExcelSchema, createWorkbookStream } from "../src";
 
 describe("public stream api", () => {
   it("can pipe a workbook to a node writable stream", async () => {
-    const schema = createSchema<{ amount: number; name: string }>()
+    const schema = createExcelSchema<{ amount: number; name: string }>()
       .column("name", {
         accessor: "name",
       })
@@ -45,7 +45,7 @@ describe("public stream api", () => {
   });
 
   it("can write a workbook directly to a file path", async () => {
-    const schema = createSchema<{ value: string }>()
+    const schema = createExcelSchema<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
@@ -72,7 +72,7 @@ describe("public stream api", () => {
   });
 
   it("supports stream sheet view options and low-memory string mode", async () => {
-    const schema = createSchema<{ notes: string }>()
+    const schema = createExcelSchema<{ notes: string }>()
       .column("notes", {
         accessor: "notes",
       })
@@ -112,5 +112,64 @@ describe("public stream api", () => {
     expect(content).toContain('state="frozen"');
     expect(content).toContain('t="inlineStr"');
     expect(content).not.toContain("sharedStrings.xml");
+  });
+
+  it("expands grouped columns from table context in stream mode", async () => {
+    type User = {
+      firstName: string;
+      organizations: Array<{ id: number; name: string }>;
+    };
+
+    const schema = createExcelSchema<User>()
+      .column("firstName", {
+        accessor: "firstName",
+      })
+      .group<Array<{ id: number; name: string }>>("orgs", (builder, orgs) => {
+        for (const org of orgs) {
+          builder.column(`org-${org.id}`, {
+            header: org.name,
+            accessor: (row) => row.organizations.some((entry) => entry.id === org.id),
+          });
+        }
+      })
+      .build();
+
+    const workbook = createWorkbookStream({
+      tempStorage: "memory",
+    });
+    const table = await workbook.sheet("Users").table({
+      id: "users",
+      schema,
+      context: {
+        orgs: [
+          { id: 1, name: "Core" },
+          { id: 2, name: "Finance" },
+        ],
+      },
+    });
+
+    await table.commit({
+      rows: [
+        {
+          firstName: "Ada",
+          organizations: [{ id: 2, name: "Finance" }],
+        },
+      ],
+    });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("Core");
+    expect(content).toContain("Finance");
   });
 });

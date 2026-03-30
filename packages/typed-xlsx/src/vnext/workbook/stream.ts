@@ -10,6 +10,7 @@ import type {
   StreamSheetSpool,
   StreamSpoolFactory,
   StreamTableCommit,
+  StreamTableInput,
   StreamWorkbookSink,
   TableSelection,
 } from "./types";
@@ -83,9 +84,10 @@ class StreamTableBuilder<T extends object> {
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
     private readonly stringMode: "inline" | "shared",
+    context?: Record<string, unknown>,
     selection?: TableSelection,
   ) {
-    const columns = applySelection(resolveColumns(schema), selection);
+    const columns = applySelection(resolveColumns(schema, context), selection);
     this.state = {
       tableId,
       schema,
@@ -199,11 +201,7 @@ class StreamSheetBuilder {
     private readonly view?: SheetViewOptions,
   ) {}
 
-  async table<T extends object>(params: {
-    id: string;
-    schema: SchemaDefinition<T>;
-    select?: TableSelection;
-  }) {
+  async table<T extends object>(params: StreamTableInput<T>) {
     const spool = await this.spoolFactory.create(`${this.name}:${params.id}`);
     const builder = new StreamTableBuilder(
       params.id,
@@ -212,6 +210,7 @@ class StreamSheetBuilder {
       this.sharedStrings,
       this.styles,
       this.stringMode,
+      params.context,
       params.select,
     );
     this.tables.push(builder);

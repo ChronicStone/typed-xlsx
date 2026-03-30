@@ -7,6 +7,7 @@ export type {
   CellValue,
   ColumnDefinition,
   PrimitiveCellValue,
+  SchemaContext,
   SchemaDefinition,
   TypedPath,
 } from "./schema/builder";
@@ -44,6 +45,7 @@ export type {
   StreamSheetSpool,
   StreamSpoolFactory,
   StreamTableCommit,
+  StreamTableInput,
   StreamWorkbookSink,
   TableSelection,
 } from "./workbook/types";

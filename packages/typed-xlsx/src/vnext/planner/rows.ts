@@ -3,8 +3,10 @@ import type {
   ColumnDefinition,
   ColumnGroupDefinition,
   PrimitiveCellValue,
+  SchemaContext,
   SchemaDefinition,
 } from "../schema/builder";
+import { SchemaBuilder } from "../schema/builder";
 import type { SummaryDefinition, SummaryRuntime } from "../summary/runtime";
 import {
   createSummaryRuntime,
@@ -81,15 +83,24 @@ function isColumnNode<T extends object>(
   return !("kind" in node && node.kind === "group");
 }
 
-export function resolveColumns<T extends object>(schema: SchemaDefinition<T>): ResolvedColumn<T>[] {
+export function resolveColumns<T extends object>(
+  schema: SchemaDefinition<T>,
+  context?: SchemaContext,
+): ResolvedColumn<T>[] {
   const columns: ResolvedColumn<T>[] = [];
 
   for (const node of schema.columns) {
-    if (!isColumnNode(node)) continue;
-    columns.push({
-      ...node,
-      headerLabel: node.header ?? defaultColumnHeader(node.id),
-    });
+    if (isColumnNode(node)) {
+      columns.push({
+        ...node,
+        headerLabel: node.header ?? defaultColumnHeader(node.id),
+      });
+      continue;
+    }
+
+    const groupBuilder = SchemaBuilder.create<T>();
+    node.build(groupBuilder, context?.[node.id] as never);
+    columns.push(...resolveColumns(groupBuilder.build(), context));
   }
 
   return columns;

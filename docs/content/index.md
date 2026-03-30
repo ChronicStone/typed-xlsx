@@ -51,7 +51,7 @@ View on GitHub
 :::landing-split-right{class="landing-code-panel"}
 
 ```ts twoslash [report.ts]
-import { createSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
 
 type User = {
   firstName: string;
@@ -59,7 +59,7 @@ type User = {
   countries: string[];
 };
 
-const schema = createSchema<User>()
+const schema = createExcelSchema<User>()
   .column("firstName", { header: "First name", accessor: "firstName" })
   .column("lastName", { header: "Last name", accessor: "lastName" })
   .column("countries", {

@@ -15,7 +15,10 @@ function planTable<T extends object>(
   table: BufferedTableInput<T>,
   fallbackIndex: number,
 ): BufferedTablePlan<T> {
-  const resolvedColumns = applyColumnSelection(resolveColumns(table.schema), table.select);
+  const resolvedColumns = applyColumnSelection(
+    resolveColumns(table.schema, table.context),
+    table.select,
+  );
   const planner = planRows({ columns: resolvedColumns }, table.rows);
   const summaries = computeSummaries(resolvedColumns, table.rows);
 

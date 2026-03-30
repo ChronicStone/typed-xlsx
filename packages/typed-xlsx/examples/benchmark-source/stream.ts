@@ -1,4 +1,4 @@
-import { createSchema, type CellStyle } from "../../src";
+import { createExcelSchema, type CellStyle } from "../../src";
 
 export interface StreamBenchmarkRow {
   orderId: string;
@@ -25,7 +25,7 @@ function headerStyle(): CellStyle {
 }
 
 export function createStreamBenchmarkSchema() {
-  return createSchema<StreamBenchmarkRow>()
+  return createExcelSchema<StreamBenchmarkRow>()
     .column("orderId", {
       header: "Order ID",
       accessor: "orderId",

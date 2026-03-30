@@ -1,4 +1,4 @@
-import { createSchema, type CellStyle } from "../../src";
+import { createExcelSchema, type CellStyle } from "../../src";
 import type { FinancialReport } from "./data";
 
 function currencyStyle(): CellStyle {
@@ -15,7 +15,7 @@ function profitColor(rgb: string): CellStyle {
   };
 }
 
-export const financialReportSchema = createSchema<FinancialReport>()
+export const financialReportSchema = createExcelSchema<FinancialReport>()
   .column("month", {
     header: "Month",
     accessor: "month",

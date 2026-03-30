@@ -1,5 +1,5 @@
 export {
-  createSchema,
+  createExcelSchema,
   createWorkbook,
   createWorkbookStream,
   type Workbook,
@@ -26,6 +26,7 @@ export type {
   CellValue,
   PrimitiveCellValue,
   ColumnDefinition,
+  SchemaContext,
   SchemaDefinition,
   TypedPath,
 } from "./vnext";

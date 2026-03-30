@@ -1,4 +1,4 @@
-import type { Accessor } from "../core/accessor";
+import type { Accessor, AccessorValue } from "../core/accessor";
 import type { Path } from "../core/path";
 import type { CellStyle } from "../styles/types";
 import type { SummaryDefinition } from "../summary/runtime";
@@ -16,12 +16,15 @@ export type FormatFn<T> = (row: T, rowIndex: number, subRowIndex: number) => str
 
 export type StyleFn<T> = (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined;
 
-export interface ColumnDefinition<T extends object, TAccessor = Accessor<T, unknown>> {
+export interface ColumnDefinition<
+  T extends object,
+  TAccessor extends Accessor<T, unknown> | Path<T> = Accessor<T, unknown> | Path<T>,
+> {
   id: string;
   header?: string;
   accessor: TAccessor;
   defaultValue?: CellValue;
-  transform?: TransformFn<T>;
+  transform?: TransformFn<T, AccessorValue<T, TAccessor>>;
   format?: string | FormatFn<T>;
   style?: CellStyle | StyleFn<T>;
   headerStyle?: CellStyle;
@@ -39,6 +42,7 @@ export interface ColumnGroupDefinition<T extends object, TContext = unknown> {
 }
 
 export type SchemaNode<T extends object> = ColumnDefinition<T> | ColumnGroupDefinition<T>;
+export type SchemaContext = Record<string, unknown>;
 
 export interface SchemaDefinition<T extends object> {
   columns: SchemaNode<T>[];

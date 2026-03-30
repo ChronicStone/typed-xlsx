@@ -1,4 +1,4 @@
-import { createSchema, type CellStyle } from "../../src";
+import { createExcelSchema, type CellStyle } from "../../src";
 import type { KitchenSinkOrder } from "./data";
 
 const headerStyle: CellStyle = {
@@ -11,7 +11,7 @@ const currencyStyle: CellStyle = {
   alignment: { horizontal: "right" },
 };
 
-export const kitchenSinkSchema = createSchema<KitchenSinkOrder>()
+export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
   .column("orderId", {
     header: "Order",
     accessor: "orderId",

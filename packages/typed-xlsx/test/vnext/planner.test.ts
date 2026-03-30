@@ -79,4 +79,35 @@ describe("vnext planner", () => {
     expect(result.rows[0]?.height).toBeGreaterThan(VNext.getDefaultRowHeight());
     expect(result.stats.rowHeights.get(0)).toBe(result.rows[0]?.height);
   });
+
+  it("resolves grouped columns from context during planning", () => {
+    type User = {
+      firstName: string;
+      organizations: Array<{ id: number; name: string }>;
+    };
+
+    const schema = VNext.SchemaBuilder.create<User>()
+      .column("firstName", {
+        accessor: "firstName",
+      })
+      .group<Array<{ id: number; name: string }>>("orgs", (builder, orgs) => {
+        for (const org of orgs) {
+          builder.column(`org-${org.id}`, {
+            header: org.name,
+            accessor: (row) => row.organizations.some((entry) => entry.id === org.id),
+          });
+        }
+      })
+      .build();
+
+    const columns = VNext.resolveColumns(schema, {
+      orgs: [
+        { id: 1, name: "Core" },
+        { id: 2, name: "Finance" },
+      ],
+    });
+
+    expect(columns.map((column) => column.id)).toEqual(["firstName", "org-1", "org-2"]);
+    expect(columns.map((column) => column.headerLabel)).toEqual(["First name", "Core", "Finance"]);
+  });
 });

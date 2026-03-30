@@ -29,7 +29,7 @@ pnpm add @chronicstone/typed-xlsx
 ## Buffered example
 
 ```ts
-import { createSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
 
 type Order = {
   id: string;
@@ -44,7 +44,7 @@ type Order = {
   }>;
 };
 
-const schema = createSchema<Order>()
+const schema = createExcelSchema<Order>()
   .column("orderId", {
     header: "Order",
     accessor: "id",
@@ -101,9 +101,9 @@ const bytes = workbook.toUint8Array();
 ## Stream example
 
 ```ts
-import { createSchema, createWorkbookStream } from "@chronicstone/typed-xlsx";
+import { createExcelSchema, createWorkbookStream } from "@chronicstone/typed-xlsx";
 
-const schema = createSchema<{ amount: number; id: string }>()
+const schema = createExcelSchema<{ amount: number; id: string }>()
   .column("id", {
     header: "ID",
     accessor: "id",
