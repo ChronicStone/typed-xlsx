@@ -1,6 +1,6 @@
 {
   "name": "@chronicstone/typed-xlsx",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "High-quality type-safe Excel reporting.",
   "keywords": [
     "excel",
