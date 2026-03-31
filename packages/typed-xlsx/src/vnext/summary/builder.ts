@@ -1,7 +1,11 @@
-import type { SummaryDefinition } from "./runtime";
+import type { SummaryDefinition, SummaryFormulaFunction } from "./runtime";
 
 export interface SummaryBuilder<T> {
   cell<TAcc>(definition: SummaryDefinition<T, TAcc>): SummaryDefinition<T, TAcc>;
+  formula(
+    fn: SummaryFormulaFunction,
+    options?: Pick<SummaryDefinition<T>, "format" | "style">,
+  ): SummaryDefinition<T, undefined>;
   label(
     label: string,
     options?: Pick<SummaryDefinition<T>, "format" | "style">,
@@ -18,6 +22,18 @@ export function createSummaryBuilder<T>(): SummaryBuilder<T> {
   return {
     cell<TAcc>(definition: SummaryDefinition<T, TAcc>) {
       return definition;
+    },
+    formula(fn, options) {
+      return {
+        init: () => undefined,
+        step: (accumulator) => accumulator,
+        finalize: () => null,
+        formula: {
+          kind: "formula",
+          fn,
+        },
+        ...options,
+      };
     },
     label(label, options) {
       return {

@@ -255,4 +255,30 @@ describe("public buffered api", () => {
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
     expect(content).toContain('<autoFilter ref="A1:A2"/>');
   });
+
+  it("supports formula summaries through the public buffered api", () => {
+    const schema = createExcelSchema<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL")],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [summary.formula("sum")],
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      rows: [
+        { amount: 3, label: "A" },
+        { amount: 7, label: "B" },
+      ],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>SUM(B2:B3)</f>");
+  });
 });

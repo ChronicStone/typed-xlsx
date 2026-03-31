@@ -204,6 +204,34 @@ describe("vnext ooxml", () => {
     );
   });
 
+  it("writes formula-based summary cells for buffered worksheets", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL")],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [summary.formula("sum")],
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+      rows: [
+        { label: "A", amount: 3 },
+        { label: "B", amount: 7 },
+      ],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>SUM(B2:B3)</f>");
+  });
+
   it("rejects multiple buffered tables with autoFilter on the same worksheet", () => {
     const schema = VNext.SchemaBuilder.create<{ value: string }>()
       .column("value", {

@@ -16,7 +16,7 @@ import type {
   TableSelection,
 } from "./types";
 import { applyColumnSelection } from "./internal/selection";
-import { finalizeSummaryRuntime } from "../summary/runtime";
+import type { SummaryResolvedValue } from "../summary/runtime";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
 import type { PlannedMergeRange } from "../planner/rows";
 import {
@@ -35,8 +35,15 @@ import { serializeCell, serializeInlineStringCell } from "../ooxml/cells";
 import type { CellStyle } from "../styles/types";
 import { getDefaultRowHeight } from "../planner/metrics";
 import { buildWorksheetNames } from "../ooxml/sheet-names";
-import { groupSummaryRows, resolveSummaryStyle } from "./internal/summaries";
+import { groupSummaryRows } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
+import { buildPlannedSummaries, resolveSummaryValue } from "./internal/summaries";
+
+function normalizeColumnSummary(
+  summary: ReturnType<typeof resolveColumns<any>>[number]["summary"],
+) {
+  return Array.isArray(summary) ? summary : undefined;
+}
 
 interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
@@ -54,7 +61,12 @@ interface StreamTableState<T extends object, TColumnId extends string> {
 
 interface StreamTableFinalization {
   tableId: string;
-  columns: Array<{ id: string; headerLabel: string; width: number }>;
+  columns: Array<{
+    id: string;
+    headerLabel: string;
+    width: number;
+    summary: ReturnType<typeof normalizeColumnSummary>;
+  }>;
   committedLogicalRows: number;
   committedPhysicalRows: number;
   merges: PlannedMergeRange[];
@@ -174,15 +186,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
   }
 
   finalizeSummaries(): PlannedSummaryCell[] {
-    return this.state.summaryBindings.map((binding) => {
-      const value = finalizeSummaryRuntime(binding.definition, binding.runtime);
-      return {
-        columnId: binding.columnId,
-        summaryIndex: binding.summaryIndex,
-        value,
-        style: resolveSummaryStyle(binding.definition, value),
-      };
-    });
+    return buildPlannedSummaries(this.state.summaryBindings);
   }
 
   getFinalization(): StreamTableFinalization {
@@ -193,6 +197,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         id: column.id,
         headerLabel: column.headerLabel,
         width: this.state.stats.columnWidths.get(column.id) ?? column.width ?? 8,
+        summary: normalizeColumnSummary(column.summary),
       })),
       committedLogicalRows: this.state.committedLogicalRows,
       committedPhysicalRows: this.state.committedPhysicalRows,
@@ -424,7 +429,15 @@ async function* streamWorksheetXml(table: StreamTableFinalization): AsyncIterabl
             serializeSummaryCell(
               summaryRowNumber,
               columnIndex,
-              summary.value,
+              resolveSummaryValue({
+                definition: column.summary?.[summary.summaryIndex]!,
+                value: summary.value,
+                formulaContext: {
+                  startRow: 1,
+                  endRow: table.committedPhysicalRows,
+                  column: columnIndex,
+                },
+              }),
               getSummaryStyleIndex(table, summary),
             ),
           ];
@@ -458,20 +471,14 @@ function serializeHeaderCell(columnIndex: number, value: string, styleIndex?: nu
 function serializeSummaryCell(
   rowNumber: number,
   columnIndex: number,
-  value: unknown,
+  value: SummaryResolvedValue,
   styleIndex?: number,
 ) {
   if (typeof value === "string") {
     return serializeInlineStringCell(rowNumber - 1, columnIndex, value, styleIndex);
   }
 
-  return serializeCell(
-    rowNumber - 1,
-    columnIndex,
-    value as null | string | number | boolean | Date | undefined,
-    tablelessSharedStrings,
-    styleIndex,
-  );
+  return serializeCell(rowNumber - 1, columnIndex, value, tablelessSharedStrings, styleIndex);
 }
 
 const tablelessSharedStrings: SharedStringsCollector = {

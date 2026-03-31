@@ -1,6 +1,6 @@
 import type { SchemaContext, SchemaDefinition } from "../schema/builder";
 import type { PlannerResult } from "../planner/rows";
-import type { SummaryCellValue } from "../summary/runtime";
+import type { SummaryResolvedValue } from "../summary/runtime";
 import type { CellStyle } from "../styles/types";
 
 export interface TableSelection<TColumnId extends string = string> {
@@ -45,7 +45,7 @@ export interface SheetViewOptions {
 export interface PlannedSummaryCell {
   columnId: string;
   summaryIndex: number;
-  value: SummaryCellValue;
+  value: SummaryResolvedValue;
   style?: CellStyle;
 }
 
