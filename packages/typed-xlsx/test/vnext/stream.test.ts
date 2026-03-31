@@ -392,4 +392,35 @@ describe("vnext stream builder", () => {
     expect(xml).toContain("<f>A2*2</f>");
     expect(xml).toContain("<v>4</v>");
   });
+
+  it("writes worksheet autoFilter metadata in streamed worksheets", async () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; name: string }>()
+      .column("name", {
+        accessor: "name",
+      })
+      .column("amount", {
+        accessor: "amount",
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table({
+      id: "orders",
+      autoFilter: true,
+      schema,
+    });
+
+    await table.commit({
+      rows: [
+        { amount: 3, name: "A" },
+        { amount: 7, name: "B" },
+      ],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain('<autoFilter ref="A1:B3"/>');
+  });
 });

@@ -170,6 +170,52 @@ describe("vnext ooxml", () => {
     expect(stylesPart?.xml).toContain('applyFont="1"');
   });
 
+  it("writes worksheet autoFilter metadata for buffered report tables", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; name: string }>()
+      .column("name", {
+        accessor: "name",
+      })
+      .column("amount", {
+        accessor: "amount",
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      autoFilter: true,
+      schema,
+      rows: [
+        { name: "A", amount: 3 },
+        { name: "B", amount: 7 },
+      ],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain('<autoFilter ref="A1:B3"/>');
+  });
+
+  it("rejects multiple buffered tables with autoFilter on the same worksheet", () => {
+    const schema = VNext.SchemaBuilder.create<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook
+      .sheet("Orders")
+      .options({ tablesPerRow: 2 })
+      .table({ id: "left", autoFilter: true, schema, rows: [{ value: "A" }] })
+      .table({ id: "right", autoFilter: true, schema, rows: [{ value: "B" }] });
+
+    expect(() => VNext.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
+      "Only one table with autoFilter can be rendered on the same buffered worksheet.",
+    );
+  });
+
   it("writes custom row heights when planned rows need more vertical space", () => {
     const schema = VNext.SchemaBuilder.create<{ notes: string }>()
       .column("notes", {

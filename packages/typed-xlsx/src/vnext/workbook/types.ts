@@ -8,6 +8,10 @@ export interface TableSelection<TColumnId extends string = string> {
   exclude?: readonly TColumnId[];
 }
 
+export interface TableAutoFilterOptions {
+  enabled?: boolean;
+}
+
 export interface BufferedTableInput<
   T extends object,
   TSelectableId extends string = string,
@@ -19,6 +23,7 @@ export interface BufferedTableInput<
   rows: T[];
   select?: TableSelection<TSelectableId>;
   context?: TSchemaContext;
+  autoFilter?: boolean | TableAutoFilterOptions;
 }
 
 export interface FreezePane {
@@ -50,6 +55,7 @@ export interface BufferedTablePlan<T extends object> {
   rowCount: number;
   planner: PlannerResult<T>;
   summaries: PlannedSummaryCell[];
+  autoFilter: boolean;
 }
 
 export interface BufferedSheetPlan {
@@ -91,4 +97,5 @@ export interface StreamTableInput<
   schema: SchemaDefinition<T, string, string, SchemaContext>;
   select?: TableSelection<TSelectableId>;
   context?: TSchemaContext;
+  autoFilter?: boolean | TableAutoFilterOptions;
 }

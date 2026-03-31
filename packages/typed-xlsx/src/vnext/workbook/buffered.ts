@@ -11,6 +11,14 @@ import type {
 import { applyColumnSelection } from "./internal/selection";
 import { computeSummaries } from "./internal/summaries";
 
+function isAutoFilterEnabled(autoFilter: BufferedTableInput<any, any>["autoFilter"]) {
+  if (typeof autoFilter === "boolean") {
+    return autoFilter;
+  }
+
+  return autoFilter?.enabled ?? false;
+}
+
 function planTable<T extends object, TColumnId extends string>(
   table: BufferedTableInput<T, TColumnId>,
   fallbackIndex: number,
@@ -28,6 +36,7 @@ function planTable<T extends object, TColumnId extends string>(
     rowCount: table.rows.length,
     planner,
     summaries,
+    autoFilter: isAutoFilterEnabled(table.autoFilter),
   };
 }
 

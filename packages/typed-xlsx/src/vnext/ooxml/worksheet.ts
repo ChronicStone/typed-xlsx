@@ -13,9 +13,11 @@ import {
 } from "../styles/defaults";
 import {
   createWorksheetRowNode,
+  writeWorksheetAutoFilter,
   writeWorksheetColumns,
   writeWorksheetViews,
   writeWorksheetMerges,
+  type WorksheetAutoFilterRange,
   type WorksheetColumnDefinition,
 } from "./worksheet-parts";
 import { groupSummaryRows } from "../workbook/internal/summaries";
@@ -48,6 +50,7 @@ export function writeWorksheetXml(
   const rowHeights = new Map<number, number>();
   const positionedTables = layoutTables(sheet);
   const merges: PositionedMergeRange[] = [];
+  const autoFilter = resolveSheetAutoFilter(positionedTables);
 
   for (const positioned of positionedTables) {
     writeTableIntoRowMap(rowMap, rowHeights, positioned, sharedStrings, styles);
@@ -76,10 +79,36 @@ export function writeWorksheetXml(
       writeWorksheetViews(sheet.view),
       xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() }),
       writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
+      writeWorksheetAutoFilter(autoFilter),
       xmlElement("sheetData", undefined, rowNodes),
       writeWorksheetMerges(merges),
     ],
   );
+}
+
+function resolveSheetAutoFilter(
+  positionedTables: PositionedTable[],
+): WorksheetAutoFilterRange | undefined {
+  const autoFilteredTables = positionedTables.filter((positioned) => positioned.table.autoFilter);
+
+  if (autoFilteredTables.length === 0) {
+    return undefined;
+  }
+
+  if (autoFilteredTables.length > 1) {
+    throw new Error(
+      "Only one table with autoFilter can be rendered on the same buffered worksheet.",
+    );
+  }
+
+  const positioned = autoFilteredTables[0]!;
+
+  return {
+    startRow: positioned.rowOffset,
+    endRow: positioned.rowOffset + positioned.height - 1,
+    startCol: positioned.columnOffset,
+    endCol: positioned.columnOffset + positioned.width - 1,
+  };
 }
 
 function layoutTables(sheet: BufferedSheetPlan): PositionedTable[] {
