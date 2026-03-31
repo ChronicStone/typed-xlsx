@@ -1,20 +1,30 @@
 import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
 import { writeXlsxPackageToSink } from "../ooxml/package";
+import {
+  writeExcelTableXml,
+  writeWorksheetRelationshipsXml,
+  writeWorksheetTableParts,
+  type WorksheetTablePart,
+} from "../ooxml/table";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
 import { appendExpandedRowXml, expandCommittedRow, updateColumnWidthStats } from "../stream/rows";
 import type { SchemaDefinition } from "../schema/builder";
 import type {
+  AnyStreamTableInput,
   PlannedSummaryCell,
+  SheetLayoutOptions,
   SheetViewOptions,
   StreamSheetSpool,
   StreamSpoolFactory,
   StreamTableCommit,
-  StreamTableInput,
+  StreamExcelTableInput,
+  StreamReportTableInput,
   StreamWorkbookSink,
   TableAutoFilterOptions,
   TableSelection,
 } from "./types";
+import { serializeExcelTotalsRowFormula } from "./types";
 import { applyColumnSelection } from "./internal/selection";
 import type { SummaryResolvedValue } from "../summary/runtime";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
@@ -38,6 +48,8 @@ import { buildWorksheetNames } from "../ooxml/sheet-names";
 import { groupSummaryRows } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
 import { buildPlannedSummaries, resolveSummaryValue } from "./internal/summaries";
+import { resolveExcelTableOptions } from "./internal/excel-table";
+import { layoutTables, positionTableMerges, type PositionedTable } from "./internal/layout";
 
 function normalizeColumnSummary(
   summary: ReturnType<typeof resolveColumns<any>>[number]["summary"],
@@ -47,7 +59,7 @@ function normalizeColumnSummary(
 
 interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
-  schema: SchemaDefinition<T, any, any, any>;
+  schema: SchemaDefinition<T, any, any, any, any>;
   selection?: TableSelection<TColumnId>;
   columns: ReturnType<typeof resolveColumns<T>>;
   stats: ReturnType<typeof createPlannerStats>;
@@ -57,6 +69,7 @@ interface StreamTableState<T extends object, TColumnId extends string> {
   merges: PlannedMergeRange[];
   spool: StreamSheetSpool;
   autoFilter: boolean;
+  excelTable?: import("./types").ResolvedExcelTableOptions;
 }
 
 interface StreamTableFinalization {
@@ -64,6 +77,8 @@ interface StreamTableFinalization {
   columns: Array<{
     id: string;
     headerLabel: string;
+    style?: CellStyle;
+    totalsStyleIndex?: number;
     width: number;
     summary: ReturnType<typeof normalizeColumnSummary>;
   }>;
@@ -76,6 +91,27 @@ interface StreamTableFinalization {
   spool: StreamSheetSpool;
   view?: SheetViewOptions;
   autoFilter: boolean;
+  excelTable?: import("./types").ResolvedExcelTableOptions;
+  planner: {
+    columns: Array<{ id: string }>;
+    merges: PlannedMergeRange[];
+    rows: Array<unknown>;
+    stats: {
+      columnWidths: Map<string, number>;
+    };
+  };
+}
+
+interface StreamWorksheetPart {
+  path: string;
+  source: AsyncIterable<Uint8Array> | string;
+}
+
+interface StreamSheetFinalization {
+  layout?: SheetLayoutOptions;
+  name: string;
+  tables: StreamTableFinalization[];
+  view?: SheetViewOptions;
 }
 
 const encoder = new TextEncoder();
@@ -96,16 +132,34 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
 
   constructor(
     tableId: string,
-    schema: SchemaDefinition<T, any, any, any>,
+    schema: SchemaDefinition<T, any, any, any, any>,
     spool: StreamSheetSpool,
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
     private readonly stringMode: "inline" | "shared",
     context?: Record<string, unknown>,
     selection?: TableSelection<TColumnId>,
-    autoFilter?: boolean | TableAutoFilterOptions,
+    options?: {
+      autoFilter?: boolean;
+      reportAutoFilter?: boolean | TableAutoFilterOptions;
+      name?: string;
+      style?: import("./types").ExcelTableStyle;
+      totalsRow?: boolean;
+    },
   ) {
     const columns = applySelection(resolveColumns(schema, context, selection), selection);
+    const isExcelTable = schema.kind === "excel-table";
+    const resolvedExcelTable = isExcelTable
+      ? resolveExcelTableOptions({
+          autoFilter: options?.autoFilter,
+          columns,
+          hasMerges: false,
+          id: tableId,
+          name: options?.name,
+          style: options?.style,
+          totalsRow: options?.totalsRow,
+        })
+      : undefined;
     this.state = {
       tableId,
       schema,
@@ -118,10 +172,11 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       merges: [],
       spool,
       autoFilter: false,
+      excelTable: resolvedExcelTable,
     };
 
     this.state.autoFilter = resolveAutoFilter({
-      autoFilter,
+      autoFilter: resolvedExcelTable ? false : options?.reportAutoFilter,
       merges: this.state.merges,
       tableId,
       mode: "stream",
@@ -131,7 +186,12 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
 
   async commit(batch: StreamTableCommit<T>) {
     for (const row of batch.rows) {
-      const expanded = expandCommittedRow(this.state.columns, row, this.state.committedLogicalRows);
+      const expanded = expandCommittedRow(
+        this.state.columns,
+        row,
+        this.state.committedLogicalRows,
+        this.state.schema.kind,
+      );
       const startRow = this.state.committedPhysicalRows;
       const endRow = startRow + expanded.height - 1;
 
@@ -196,6 +256,10 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       columns: this.state.columns.map((column) => ({
         id: column.id,
         headerLabel: column.headerLabel,
+        style: typeof column.style === "function" ? undefined : column.style,
+        totalsStyleIndex: this.styles.addStyle(
+          withDefaultSummaryStyle(typeof column.style === "function" ? undefined : column.style),
+        ),
         width: this.state.stats.columnWidths.get(column.id) ?? column.width ?? 8,
         summary: normalizeColumnSummary(column.summary),
       })),
@@ -211,12 +275,33 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       ),
       spool: this.state.spool,
       autoFilter: this.state.autoFilter,
+      excelTable: this.state.excelTable,
+      planner: {
+        columns: this.state.columns.map((column) => ({ id: column.id })),
+        merges: [...this.state.merges],
+        rows: Array.from({ length: this.state.committedPhysicalRows }),
+        stats: {
+          columnWidths: this.state.stats.columnWidths,
+        },
+      },
     };
   }
 
   async close() {
     await this.state.spool.close();
   }
+}
+
+function isStreamReportTableInput<T extends object, TColumnId extends string>(
+  params: AnyStreamTableInput<T, TColumnId>,
+): params is StreamReportTableInput<T, TColumnId> {
+  return params.schema.kind === "report";
+}
+
+function isStreamExcelTableInput<T extends object, TColumnId extends string>(
+  params: AnyStreamTableInput<T, TColumnId>,
+): params is StreamExcelTableInput<T, TColumnId> {
+  return params.schema.kind === "excel-table";
 }
 
 class StreamSheetBuilder {
@@ -228,21 +313,34 @@ class StreamSheetBuilder {
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
     private readonly stringMode: "inline" | "shared",
+    private readonly layout?: SheetLayoutOptions,
     private readonly view?: SheetViewOptions,
   ) {}
 
-  async table<T extends object, TColumnId extends string>(params: StreamTableInput<T, TColumnId>) {
-    const spool = await this.spoolFactory.create(`${this.name}:${params.id}`);
+  async table<T extends object, TColumnId extends string>(
+    id: string,
+    params: AnyStreamTableInput<T, TColumnId>,
+  ) {
+    const spool = await this.spoolFactory.create(`${this.name}:${id}`);
     const builder = new StreamTableBuilder<T, TColumnId>(
-      params.id,
+      id,
       params.schema,
       spool,
       this.sharedStrings,
       this.styles,
       this.stringMode,
-      params.context,
+      isStreamReportTableInput(params) ? params.context : undefined,
       params.select,
-      params.autoFilter,
+      isStreamExcelTableInput(params)
+        ? {
+            autoFilter: params.autoFilter,
+            name: params.name,
+            style: params.style,
+            totalsRow: params.totalsRow,
+          }
+        : {
+            reportAutoFilter: params.autoFilter,
+          },
     );
     this.tables.push(builder);
     return builder;
@@ -259,6 +357,7 @@ class StreamSheetBuilder {
     }
 
     return {
+      layout: this.layout,
       name: this.name,
       view: this.view,
       tables,
@@ -297,13 +396,19 @@ export class StreamWorkbookBuilder {
     );
   }
 
-  sheet(name: string, view?: SheetViewOptions) {
+  sheet(name: string, options?: SheetLayoutOptions & SheetViewOptions) {
+    const { tablesPerRow, tableColumnGap, tableRowGap, ...view } = options ?? {};
     const builder = new StreamSheetBuilder(
       name,
       this.spoolFactory,
       this.sharedStrings,
       this.styles,
       this.stringMode,
+      {
+        tablesPerRow,
+        tableColumnGap,
+        tableRowGap,
+      },
       view,
     );
     this.sheets.push(builder);
@@ -321,29 +426,46 @@ export class StreamWorkbookBuilder {
     }
 
     this.finished = true;
-    const finalizedSheets = await Promise.all(this.sheets.map((sheet) => sheet.finalize()));
+    const finalizedSheets = (await Promise.all(
+      this.sheets.map((sheet) => sheet.finalize()),
+    )) as StreamSheetFinalization[];
     const workbookSheetDefs: Array<{ name: string; id: number }> = [];
-    const worksheetParts: Array<{ path: string; source: AsyncIterable<Uint8Array> }> = [];
-    const rawSheetNames = finalizedSheets.flatMap((sheet) =>
-      sheet.tables.map((table, tableIndex) =>
-        sheet.tables.length > 1 ? `${sheet.name} ${table.tableId || tableIndex + 1}` : sheet.name,
-      ),
-    );
+    const worksheetParts: StreamWorksheetPart[] = [];
+    const worksheetRelationshipParts: StreamWorksheetPart[] = [];
+    const tableParts: StreamWorksheetPart[] = [];
+    const rawSheetNames = finalizedSheets.map((sheet) => sheet.name);
     const worksheetNames = buildWorksheetNames(rawSheetNames);
     let worksheetIndex = 0;
+    let tableIndex = 0;
 
     for (const sheet of finalizedSheets) {
-      for (const table of sheet.tables) {
-        worksheetIndex += 1;
-        workbookSheetDefs.push({
-          name: worksheetNames[worksheetIndex - 1] ?? `Sheet ${worksheetIndex}`,
-          id: worksheetIndex,
+      worksheetIndex += 1;
+      const positionedTables = layoutTables({ layout: sheet.layout, tables: sheet.tables });
+      const worksheetTableParts = buildStreamWorksheetTableParts(positionedTables, tableIndex);
+
+      workbookSheetDefs.push({
+        name: worksheetNames[worksheetIndex - 1] ?? `Sheet ${worksheetIndex}`,
+        id: worksheetIndex,
+      });
+      worksheetParts.push({
+        path: `xl/worksheets/sheet${worksheetIndex}.xml`,
+        source: streamWorksheetXml(sheet, positionedTables, worksheetTableParts),
+      });
+
+      if (worksheetTableParts.length > 0) {
+        worksheetRelationshipParts.push({
+          path: `xl/worksheets/_rels/sheet${worksheetIndex}.xml.rels`,
+          source: writeWorksheetRelationshipsXml(worksheetTableParts),
         });
-        worksheetParts.push({
-          path: `xl/worksheets/sheet${worksheetIndex}.xml`,
-          source: streamWorksheetXml(table),
-        });
+        tableParts.push(
+          ...worksheetTableParts.map((part) => ({
+            path: part.path,
+            source: part.xml,
+          })),
+        );
       }
+
+      tableIndex += worksheetTableParts.length;
     }
 
     const parts = [
@@ -364,6 +486,8 @@ export class StreamWorkbookBuilder {
           ]
         : []),
       ...worksheetParts,
+      ...worksheetRelationshipParts,
+      ...tableParts,
     ];
 
     await writeXlsxPackageToSink(
@@ -371,6 +495,7 @@ export class StreamWorkbookBuilder {
       {
         worksheetCount: worksheetParts.length,
         hasSharedStrings: this.sharedStrings.count() > 0,
+        tableCount: tableIndex,
       },
       targetSink,
     );
@@ -382,44 +507,117 @@ function encodeXml(value: string) {
   return encoder.encode(value);
 }
 
-async function* streamWorksheetXml(table: StreamTableFinalization): AsyncIterable<Uint8Array> {
-  const summaryRows = groupSummaryRows(table.summaries);
-  const lastRow = table.committedPhysicalRows + 1 + summaryRows.length;
-  const lastCol = table.columns.length > 0 ? toWorksheetCol(table.columns.length - 1) : "A";
+function buildStreamWorksheetTableParts(
+  positionedTables: PositionedTable<StreamTableFinalization>[],
+  startingTableIndex: number,
+): WorksheetTablePart[] {
+  const parts: WorksheetTablePart[] = [];
+  let worksheetTableIndex = 0;
+
+  positionedTables.forEach((positioned) => {
+    if (!positioned.table.excelTable) {
+      return;
+    }
+
+    worksheetTableIndex += 1;
+    const tableIndex = startingTableIndex + worksheetTableIndex;
+
+    parts.push({
+      id: `table${tableIndex}`,
+      relId: `rIdTable${worksheetTableIndex}`,
+      path: `xl/tables/table${tableIndex}.xml`,
+      xml: writeExcelTableXml({
+        tableId: tableIndex,
+        displayName: positioned.table.excelTable.name,
+        reference: {
+          startRow: positioned.rowOffset,
+          endRow: positioned.rowOffset + positioned.table.committedPhysicalRows,
+          startCol: positioned.columnOffset,
+          endCol: positioned.columnOffset + positioned.width - 1,
+        },
+        columns: positioned.table.columns.map((column) => ({
+          id: column.id,
+          headerLabel: column.headerLabel,
+        })),
+        options: positioned.table.excelTable,
+      }),
+    });
+  });
+
+  return parts;
+}
+
+async function* streamWorksheetXml(
+  sheet: StreamSheetFinalization,
+  positionedTables: PositionedTable<StreamTableFinalization>[],
+  tableParts: WorksheetTablePart[],
+): AsyncIterable<Uint8Array> {
+  const merges = positionedTables.flatMap((positioned) => positionTableMerges(positioned));
+  const autoFilteredTables = positionedTables.filter((positioned) => positioned.table.autoFilter);
+  const autoFilter =
+    autoFilteredTables.length === 1
+      ? writeWorksheetAutoFilter({
+          startRow: autoFilteredTables[0]!.rowOffset,
+          endRow: autoFilteredTables[0]!.rowOffset + autoFilteredTables[0]!.height - 1,
+          startCol: autoFilteredTables[0]!.columnOffset,
+          endCol: autoFilteredTables[0]!.columnOffset + autoFilteredTables[0]!.width - 1,
+        })
+      : "";
+  const lastRow = positionedTables.reduce(
+    (max, positioned) => Math.max(max, positioned.rowOffset + positioned.height),
+    1,
+  );
+  const lastColIndex = positionedTables.reduce(
+    (max, positioned) => Math.max(max, positioned.columnOffset + positioned.width - 1),
+    0,
+  );
+  const lastCol = toWorksheetCol(lastColIndex);
+  const rowMap = new Map<number, string[]>();
 
   yield encodeXml(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
       `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
       `${xmlSelfClosing("dimension", { ref: `A1:${lastCol}${lastRow}` })}` +
-      `${writeWorksheetViews(table.view)}` +
+      `${writeWorksheetViews(sheet.view)}` +
       `${xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() })}` +
-      `${writeStreamColumns(table)}` +
+      `${writeStreamColumns(positionedTables)}` +
       `<sheetData>`,
   );
 
-  yield encodeXml(
-    xmlElement(
-      "row",
-      { r: 1, ht: getDefaultRowHeight(), customHeight: 1 },
-      table.columns.map((column, columnIndex) =>
-        serializeHeaderCell(columnIndex, column.headerLabel, table.headerStyleIndexes[columnIndex]),
+  for (const positioned of positionedTables) {
+    appendCells(
+      rowMap,
+      positioned.rowOffset,
+      positioned.table.columns.map((column, columnIndex) =>
+        serializeHeaderCellAt(
+          positioned.rowOffset,
+          positioned.columnOffset + columnIndex,
+          column.headerLabel,
+          positioned.table.headerStyleIndexes[columnIndex],
+        ),
       ),
-    ),
-  );
+    );
 
-  for await (const chunk of table.spool.read()) {
-    yield chunk;
-  }
+    for await (const chunk of positioned.table.spool.read()) {
+      appendShiftedWorksheetChunkRowsAndColumns(
+        rowMap,
+        chunk,
+        positioned.rowOffset,
+        positioned.columnOffset,
+      );
+    }
 
-  for (const [summaryRowIndex, summaryRow] of summaryRows.entries()) {
-    const summaryRowNumber = table.committedPhysicalRows + 2 + summaryRowIndex;
-    const values = new Map(summaryRow.map((summary) => [summary.columnId, summary]));
+    const summaryRows = groupSummaryRows(positioned.table.summaries);
 
-    yield encodeXml(
-      xmlElement(
-        "row",
-        { r: summaryRowNumber, ht: getDefaultRowHeight(), customHeight: 1 },
-        table.columns.flatMap((column, columnIndex) => {
+    for (const [summaryRowIndex, summaryRow] of summaryRows.entries()) {
+      const summaryRowNumber =
+        positioned.rowOffset + positioned.table.committedPhysicalRows + 2 + summaryRowIndex;
+      const values = new Map(summaryRow.map((summary) => [summary.columnId, summary]));
+
+      appendCells(
+        rowMap,
+        summaryRowNumber - 1,
+        positioned.table.columns.flatMap((column, columnIndex) => {
           const summary = values.get(column.id);
           if (!summary) {
             return [];
@@ -428,44 +626,82 @@ async function* streamWorksheetXml(table: StreamTableFinalization): AsyncIterabl
           return [
             serializeSummaryCell(
               summaryRowNumber,
-              columnIndex,
+              positioned.columnOffset + columnIndex,
               resolveSummaryValue({
                 definition: column.summary?.[summary.summaryIndex]!,
                 value: summary.value,
                 formulaContext: {
-                  startRow: 1,
-                  endRow: table.committedPhysicalRows,
-                  column: columnIndex,
+                  startRow: positioned.rowOffset + 1,
+                  endRow: positioned.rowOffset + positioned.table.committedPhysicalRows,
+                  column: positioned.columnOffset + columnIndex,
                 },
               }),
-              getSummaryStyleIndex(table, summary),
+              getSummaryStyleIndex(positioned.table, summary),
             ),
           ];
         }),
+      );
+    }
+
+    if (positioned.table.excelTable?.totalsRow) {
+      const totalsRowIndex = positioned.rowOffset + positioned.table.committedPhysicalRows + 1;
+      appendCells(
+        rowMap,
+        totalsRowIndex,
+        positioned.table.columns.flatMap((column, columnIndex) => {
+          const totalsRow = positioned.table.excelTable?.totalsRowColumns[columnIndex]?.totalsRow;
+          if (!totalsRow) {
+            return [];
+          }
+
+          const value =
+            "label" in totalsRow
+              ? totalsRow.label
+              : {
+                  kind: "formula" as const,
+                  formula: serializeExcelTotalsRowFormula(
+                    positioned.table.excelTable!.name,
+                    positioned.table.excelTable!.totalsRowColumns[columnIndex]?.headerLabel ??
+                      column.headerLabel,
+                    totalsRow.function,
+                  )!,
+                };
+
+          return [
+            serializeSummaryCell(
+              totalsRowIndex + 1,
+              positioned.columnOffset + columnIndex,
+              value,
+              column.totalsStyleIndex,
+            ),
+          ];
+        }),
+      );
+    }
+  }
+
+  for (const rowIndex of [...rowMap.keys()].sort((left, right) => left - right)) {
+    yield encodeXml(
+      xmlElement(
+        "row",
+        { r: rowIndex + 1, ht: getDefaultRowHeight(), customHeight: 1 },
+        rowMap.get(rowIndex) ?? [],
       ),
     );
   }
 
   yield encodeXml(
-    `</sheetData>${writeStreamAutoFilter(table, lastRow)}${writeStreamMerges(table)}</worksheet>`,
+    `</sheetData>${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
   );
 }
 
-function writeStreamAutoFilter(table: StreamTableFinalization, lastRow: number) {
-  if (!table.autoFilter) {
-    return "";
-  }
-
-  return writeWorksheetAutoFilter({
-    startRow: 0,
-    endRow: lastRow - 1,
-    startCol: 0,
-    endCol: table.columns.length - 1,
-  });
-}
-
-function serializeHeaderCell(columnIndex: number, value: string, styleIndex?: number) {
-  return serializeInlineStringCell(0, columnIndex, value, styleIndex);
+function serializeHeaderCellAt(
+  rowIndex: number,
+  columnIndex: number,
+  value: string,
+  styleIndex?: number,
+) {
+  return serializeInlineStringCell(rowIndex, columnIndex, value, styleIndex);
 }
 
 function serializeSummaryCell(
@@ -521,24 +757,74 @@ function writeStreamWorkbookXml(sheets: Array<{ name: string; id: number }>) {
   );
 }
 
-function writeStreamColumns(table: StreamTableFinalization) {
+function writeStreamColumns(positionedTables: PositionedTable<StreamTableFinalization>[]) {
+  const columns = new Map<number, number>();
+
+  positionedTables.forEach((positioned) => {
+    positioned.table.columns.forEach((column, columnIndex) => {
+      columns.set(positioned.columnOffset + columnIndex, column.width);
+    });
+  });
+
   return writeWorksheetColumns(
-    table.columns.map((column, columnIndex) => ({
-      index: columnIndex,
-      width: column.width,
-    })),
+    [...columns.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([index, width]) => ({ index, width })),
   );
 }
 
-function writeStreamMerges(table: StreamTableFinalization) {
-  return writeWorksheetMerges(
-    table.merges.map((merge) => ({
-      startRow: 1 + merge.startRow,
-      endRow: 1 + merge.endRow,
-      startCol: merge.startCol,
-      endCol: merge.endCol,
-    })),
-  );
+function appendShiftedWorksheetChunkRowsAndColumns(
+  rowMap: Map<number, string[]>,
+  chunk: Uint8Array,
+  rowOffset: number,
+  columnOffset: number,
+) {
+  const content = new TextDecoder().decode(chunk);
+  const rowMatches = [...content.matchAll(/<row\s+[^>]*r="(\d+)"[^>]*>(.*?)<\/row>/g)];
+
+  rowMatches.forEach((match) => {
+    const rowIndex = Number(match[1]) - 1 + rowOffset;
+    const cellNodes = (match[2] ?? "").match(/<c\b[^>]*\/>|<c\b[^>]*>.*?<\/c>/gs) ?? [];
+    const cells = cellNodes.map((cellNode) => {
+      const refMatch = cellNode.match(/\br="([A-Z]+)(\d+)"/);
+      if (!refMatch) {
+        return cellNode;
+      }
+
+      const [, col, row] = refMatch;
+      if (!col || !row) {
+        return cellNode;
+      }
+
+      const baseColumn = fromWorksheetCol(col) + columnOffset;
+      return cellNode.replace(
+        /\br="([A-Z]+)(\d+)"/,
+        `r="${toWorksheetCol(baseColumn)}${Number(row) + rowOffset}"`,
+      );
+    });
+
+    appendCells(rowMap, rowIndex, cells);
+  });
+}
+
+function fromWorksheetCol(column: string) {
+  let value = 0;
+
+  for (const char of column) {
+    value = value * 26 + (char.charCodeAt(0) - 64);
+  }
+
+  return value - 1;
+}
+
+function appendCells(rowMap: Map<number, string[]>, rowIndex: number, cells: string[]) {
+  const existing = rowMap.get(rowIndex);
+  if (existing) {
+    existing.push(...cells);
+    return;
+  }
+
+  rowMap.set(rowIndex, [...cells]);
 }
 
 function buildStyleIndexesByRow<T extends object>(

@@ -1,4 +1,8 @@
-import type { BufferedSheetPlan, BufferedTablePlan } from "../workbook/types";
+import {
+  serializeExcelTotalsRowFormula,
+  type BufferedSheetPlan,
+  type BufferedTablePlan,
+} from "../workbook/types";
 import type { PlannedCell, ResolvedColumn } from "../planner/rows";
 import type { CellStyle } from "../styles/types";
 import { StylesCollector } from "../styles/collector";
@@ -20,38 +24,28 @@ import {
   type WorksheetAutoFilterRange,
   type WorksheetColumnDefinition,
 } from "./worksheet-parts";
+import { writeExcelTableXml, writeWorksheetTableParts, type WorksheetTablePart } from "./table";
 import { groupSummaryRows } from "../workbook/internal/summaries";
 import { resolveSummaryValue } from "../workbook/internal/summaries";
+import {
+  layoutTables,
+  positionTableMerges,
+  type PositionedMergeRange,
+  type PositionedTable,
+} from "../workbook/internal/layout";
 
-interface PositionedTable {
-  table: BufferedTablePlan<any>;
-  rowOffset: number;
-  columnOffset: number;
-  width: number;
-  height: number;
-}
-
-interface PositionedMergeRange {
-  startRow: number;
-  endRow: number;
-  startCol: number;
-  endCol: number;
-}
-
-function getTableHeight(table: BufferedTablePlan<any>) {
-  return 1 + table.planner.rows.length + groupSummaryRows(table.summaries).length;
-}
-
-export function writeWorksheetXml(
+export function serializeWorksheet(
   sheet: BufferedSheetPlan,
   sharedStrings: SharedStringsCollector,
   styles: StylesCollector,
+  startingTableIndex = 0,
 ) {
   const rowMap = new Map<number, string[]>();
   const rowHeights = new Map<number, number>();
-  const positionedTables = layoutTables(sheet);
+  const positionedTables = layoutTables({ layout: sheet.layout, tables: sheet.tables });
   const merges: PositionedMergeRange[] = [];
   const autoFilter = resolveSheetAutoFilter(positionedTables);
+  const tableParts = buildWorksheetTableParts(positionedTables, startingTableIndex);
 
   for (const positioned of positionedTables) {
     writeTableIntoRowMap(rowMap, rowHeights, positioned, sharedStrings, styles);
@@ -67,28 +61,80 @@ export function writeWorksheetXml(
     return Math.max(max, positioned.columnOffset + positioned.width - 1);
   }, 0);
 
-  return xmlDocument(
-    "worksheet",
-    {
-      xmlns: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-      "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-    },
-    [
-      xmlSelfClosing("dimension", {
-        ref: `A1:${endCol >= 0 ? toWorksheetCol(endCol) : "A"}${endRow + 1}`,
+  return {
+    xml: xmlDocument(
+      "worksheet",
+      {
+        xmlns: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+        "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+      },
+      [
+        xmlSelfClosing("dimension", {
+          ref: `A1:${endCol >= 0 ? toWorksheetCol(endCol) : "A"}${endRow + 1}`,
+        }),
+        writeWorksheetViews(sheet.view),
+        xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() }),
+        writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
+        xmlElement("sheetData", undefined, rowNodes),
+        writeWorksheetAutoFilter(autoFilter),
+        writeWorksheetMerges(merges),
+        writeWorksheetTableParts(tableParts),
+      ],
+    ),
+    tableParts,
+  };
+}
+
+export function writeWorksheetXml(
+  sheet: BufferedSheetPlan,
+  sharedStrings: SharedStringsCollector,
+  styles: StylesCollector,
+) {
+  return serializeWorksheet(sheet, sharedStrings, styles).xml;
+}
+
+export function buildWorksheetTableParts(
+  positionedTables: PositionedTable<BufferedTablePlan<any>>[],
+  startingTableIndex = 0,
+): WorksheetTablePart[] {
+  const parts: WorksheetTablePart[] = [];
+  let worksheetTableIndex = 0;
+
+  positionedTables.forEach((positioned) => {
+    if (!positioned.table.excelTable) {
+      return;
+    }
+
+    worksheetTableIndex += 1;
+    const tableIndex = startingTableIndex + worksheetTableIndex;
+
+    parts.push({
+      id: `table${tableIndex}`,
+      relId: `rIdTable${worksheetTableIndex}`,
+      path: `xl/tables/table${tableIndex}.xml`,
+      xml: writeExcelTableXml({
+        tableId: tableIndex,
+        displayName: positioned.table.excelTable.name,
+        reference: {
+          startRow: positioned.rowOffset,
+          endRow: positioned.rowOffset + positioned.table.planner.rows.length,
+          startCol: positioned.columnOffset,
+          endCol: positioned.columnOffset + positioned.width - 1,
+        },
+        columns: positioned.table.planner.columns.map((column) => ({
+          id: column.id,
+          headerLabel: column.headerLabel,
+        })),
+        options: positioned.table.excelTable,
       }),
-      writeWorksheetViews(sheet.view),
-      xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() }),
-      writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
-      xmlElement("sheetData", undefined, rowNodes),
-      writeWorksheetAutoFilter(autoFilter),
-      writeWorksheetMerges(merges),
-    ],
-  );
+    });
+  });
+
+  return parts;
 }
 
 function resolveSheetAutoFilter(
-  positionedTables: PositionedTable[],
+  positionedTables: PositionedTable<BufferedTablePlan<any>>[],
 ): WorksheetAutoFilterRange | undefined {
   const autoFilteredTables = positionedTables.filter((positioned) => positioned.table.autoFilter);
 
@@ -112,44 +158,10 @@ function resolveSheetAutoFilter(
   };
 }
 
-function layoutTables(sheet: BufferedSheetPlan): PositionedTable[] {
-  const tablesPerRow = Math.max(sheet.layout?.tablesPerRow ?? 1, 1);
-  const columnGap = Math.max(sheet.layout?.tableColumnGap ?? 1, 0);
-  const rowGap = Math.max(sheet.layout?.tableRowGap ?? 1, 0);
-  const positioned: PositionedTable[] = [];
-
-  let rowOffset = 0;
-
-  for (let index = 0; index < sheet.tables.length; index += tablesPerRow) {
-    const chunk = sheet.tables.slice(index, index + tablesPerRow);
-    let columnOffset = 0;
-    let maxChunkHeight = 0;
-
-    for (const table of chunk) {
-      const width = table.planner.columns.length;
-      const height = getTableHeight(table);
-      positioned.push({
-        table,
-        rowOffset,
-        columnOffset,
-        width,
-        height,
-      });
-
-      columnOffset += width + columnGap;
-      maxChunkHeight = Math.max(maxChunkHeight, height);
-    }
-
-    rowOffset += maxChunkHeight + rowGap;
-  }
-
-  return positioned;
-}
-
 function writeTableIntoRowMap(
   rowMap: Map<number, string[]>,
   rowHeights: Map<number, number>,
-  positioned: PositionedTable,
+  positioned: PositionedTable<BufferedTablePlan<any>>,
   sharedStrings: SharedStringsCollector,
   styles: StylesCollector,
 ) {
@@ -224,6 +236,48 @@ function writeTableIntoRowMap(
       }),
     );
   });
+
+  if (table.excelTable?.totalsRow) {
+    const excelTable = table.excelTable;
+    const worksheetRowIndex = rowOffset + 1 + table.planner.rows.length;
+    rowHeights.set(worksheetRowIndex, getDefaultRowHeight());
+    writeCells(
+      rowMap,
+      worksheetRowIndex,
+      table.planner.columns.flatMap((column, columnIndex) => {
+        const totalsRow = excelTable.totalsRowColumns[columnIndex]?.totalsRow;
+        if (!totalsRow) {
+          return [];
+        }
+
+        const value =
+          "label" in totalsRow
+            ? totalsRow.label
+            : {
+                kind: "formula" as const,
+                formula: serializeExcelTotalsRowFormula(
+                  excelTable.name,
+                  excelTable.totalsRowColumns[columnIndex]?.headerLabel ?? column.headerLabel,
+                  totalsRow.function,
+                )!,
+              };
+
+        return [
+          serializeCell(
+            worksheetRowIndex,
+            columnOffset + columnIndex,
+            value,
+            sharedStrings,
+            styles.addStyle(
+              withDefaultSummaryStyle(
+                typeof column.style === "function" ? undefined : column.style,
+              ),
+            ),
+          ),
+        ];
+      }),
+    );
+  }
 }
 
 function resolveDataCellStyle<T extends object>(
@@ -237,16 +291,9 @@ function resolveDataCellStyle<T extends object>(
   return column.style;
 }
 
-function positionTableMerges(positioned: PositionedTable): PositionedMergeRange[] {
-  return positioned.table.planner.merges.map((merge) => ({
-    startRow: positioned.rowOffset + 1 + merge.startRow,
-    endRow: positioned.rowOffset + 1 + merge.endRow,
-    startCol: positioned.columnOffset + merge.startCol,
-    endCol: positioned.columnOffset + merge.endCol,
-  }));
-}
-
-function buildWorksheetColumns(positionedTables: PositionedTable[]): WorksheetColumnDefinition[] {
+function buildWorksheetColumns(
+  positionedTables: PositionedTable<BufferedTablePlan<any>>[],
+): WorksheetColumnDefinition[] {
   return positionedTables.flatMap((positioned) =>
     positioned.table.planner.columns.map((column, columnIndex) => {
       const width = positioned.table.planner.stats.columnWidths.get(column.id) ?? column.width ?? 8;

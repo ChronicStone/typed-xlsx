@@ -1,4 +1,4 @@
-import { createWorkbook } from "../../src";
+import { createExcelSchema, createWorkbook } from "../../src";
 import { createKitchenSinkOrders } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
@@ -6,9 +6,58 @@ import {
   kitchenSinkSchema,
 } from "./schema";
 
+const kitchenSinkNativeExcelTableSchema = createExcelSchema<{
+  orderId: string;
+  customerName: string;
+  accountLabel: string;
+  email: string;
+  itemCount: number;
+  lineTotal: number;
+  createdAt: Date;
+}>({ mode: "excel-table" })
+  .column("orderId", {
+    header: "Order",
+    accessor: "orderId",
+    width: 12,
+    totalsRow: { label: "TOTAL" },
+  })
+  .column("customerName", { header: "Customer", accessor: "customerName", minWidth: 18 })
+  .column("accountLabel", { header: "Account", accessor: "accountLabel", minWidth: 18 })
+  .column("email", { header: "Email", accessor: "email", minWidth: 20 })
+  .column("itemCount", {
+    header: "Items",
+    accessor: "itemCount",
+    width: 8,
+    style: { alignment: { horizontal: "right" } },
+  })
+  .column("lineTotal", {
+    header: "Line Total",
+    accessor: "lineTotal",
+    minWidth: 12,
+    style: { numFmt: '"$"#,##0.00', alignment: { horizontal: "right" } },
+    totalsRow: { function: "sum" },
+  })
+  .column("createdAt", {
+    header: "Created",
+    accessor: "createdAt",
+    width: 22,
+    style: { numFmt: "yyyy-mm-dd hh:mm" },
+    totalsRow: { function: "max" },
+  })
+  .build();
+
 export function buildKitchenSinkBufferedExample() {
   const workbook = createWorkbook();
   const orders = createKitchenSinkOrders();
+  const nativeExcelTableRows = orders.slice(0, 5).map((order) => ({
+    orderId: order.orderId,
+    customerName: order.customer.name,
+    accountLabel: `${order.customer.tier.toUpperCase()} / ${order.region}`,
+    email: order.customer.email,
+    itemCount: order.items.length,
+    lineTotal: order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+    createdAt: order.createdAt,
+  }));
 
   workbook
     .sheet("Kitchen Sink Grid", {
@@ -17,14 +66,12 @@ export function buildKitchenSinkBufferedExample() {
       tableRowGap: 2,
       freezePane: { rows: 1, columns: 4 },
     })
-    .table({
-      id: "all-orders",
+    .table("all-orders", {
       title: "Orders Overview",
       schema: kitchenSinkSchema,
       rows: orders,
     })
-    .table({
-      id: "enterprise-only",
+    .table("enterprise-only", {
       title: "Enterprise Accounts",
       schema: kitchenSinkSchema,
       rows: orders.filter((order) => order.customer.tier === "enterprise"),
@@ -41,8 +88,7 @@ export function buildKitchenSinkBufferedExample() {
         ],
       },
     })
-    .table({
-      id: "operations-view",
+    .table("operations-view", {
       title: "Operations View",
       schema: kitchenSinkSchema,
       rows: orders,
@@ -56,8 +102,7 @@ export function buildKitchenSinkBufferedExample() {
       rightToLeft: true,
       freezePane: { rows: 1, columns: 2 },
     })
-    .table({
-      id: "rtl-orders",
+    .table("rtl-orders", {
       title: "RTL Snapshot",
       schema: kitchenSinkSchema,
       rows: orders.slice(0, 2),
@@ -67,8 +112,7 @@ export function buildKitchenSinkBufferedExample() {
     .sheet("Filtered Review", {
       freezePane: { rows: 1 },
     })
-    .table({
-      id: "filtered-orders",
+    .table("filtered-orders", {
       title: "Filtered Snapshot",
       autoFilter: true,
       schema: kitchenSinkSchema,
@@ -90,8 +134,7 @@ export function buildKitchenSinkBufferedExample() {
     .sheet("Formula Summaries", {
       freezePane: { rows: 1 },
     })
-    .table({
-      id: "formula-summary-orders",
+    .table("formula-summary-orders", {
       title: "Formula Summary Snapshot",
       rows: orders.slice(0, 5).map((order) => ({
         amount: order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
@@ -108,8 +151,7 @@ export function buildKitchenSinkBufferedExample() {
     .sheet("Formula Columns", {
       freezePane: { rows: 1 },
     })
-    .table({
-      id: "formula-column-orders",
+    .table("formula-column-orders", {
       title: "Formula Column Snapshot",
       rows: orders.slice(0, 5).map((order) => ({
         activatedSeats: order.items.reduce(
@@ -130,6 +172,19 @@ export function buildKitchenSinkBufferedExample() {
         segment: order.customer.tier,
       })),
       schema: kitchenSinkFormulaColumnSchema,
+    });
+
+  workbook
+    .sheet("Native Excel Table", {
+      freezePane: { rows: 1 },
+    })
+    .table("native-orders", {
+      autoFilter: true,
+      name: "KitchenSinkOrders",
+      rows: nativeExcelTableRows,
+      schema: kitchenSinkNativeExcelTableSchema,
+      style: "TableStyleMedium2",
+      totalsRow: true,
     });
 
   return workbook.toUint8Array();

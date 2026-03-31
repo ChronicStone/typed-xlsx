@@ -131,15 +131,15 @@ const _cid3: SchemaColumnId<typeof basicSchema> = "unknown";
 // valid include / exclude
 createWorkbook()
   .sheet("S")
-  .table({ rows: [], schema: basicSchema, select: { include: ["name"] } });
+  .table("basic-include", { rows: [], schema: basicSchema, select: { include: ["name"] } });
 createWorkbook()
   .sheet("S")
-  .table({ rows: [], schema: basicSchema, select: { exclude: ["age"] } });
+  .table("basic-exclude", { rows: [], schema: basicSchema, select: { exclude: ["age"] } });
 
 // undeclared column id in include
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("basic-invalid-include", {
     rows: [],
     schema: basicSchema,
     select: {
@@ -151,7 +151,7 @@ createWorkbook()
 // undeclared column id in exclude
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("basic-invalid-exclude", {
     rows: [],
     schema: basicSchema,
     select: {
@@ -165,12 +165,12 @@ createWorkbook()
 // valid rows compile
 createWorkbook()
   .sheet("S")
-  .table({ rows: [{ name: "Ada", age: 42 }], schema: basicSchema });
+  .table("basic-rows", { rows: [{ name: "Ada", age: 42 }], schema: basicSchema });
 
 // extra property in row is rejected (excess property check)
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("basic-extra-row-field", {
     // @ts-expect-error — unknownField does not exist on FlatRow
     rows: [{ name: "Ada", age: 42, unknownField: true }],
     schema: basicSchema,
@@ -193,12 +193,12 @@ const groupSchema = createExcelSchema<GroupRow>()
 createWorkbook()
   .sheet("S")
   // @ts-expect-error — context is required when the schema contains groups
-  .table({ rows: [], schema: groupSchema });
+  .table("group-missing-context", { rows: [], schema: groupSchema });
 
 // context with wrong value type errors
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("group-bad-context", {
     rows: [],
     schema: groupSchema,
     // @ts-expect-error — orgIds must be number[], not string
@@ -208,12 +208,12 @@ createWorkbook()
 // correct context compiles
 createWorkbook()
   .sheet("S")
-  .table({ rows: [], schema: groupSchema, context: { orgIds: [1, 2, 3] } });
+  .table("group-context", { rows: [], schema: groupSchema, context: { orgIds: [1, 2, 3] } });
 
 // excluding the only contextful group means context is no longer required
 createWorkbook()
   .sheet("S")
-  .table({ rows: [], schema: groupSchema, select: { exclude: ["orgIds"] } });
+  .table("group-excluded", { rows: [], schema: groupSchema, select: { exclude: ["orgIds"] } });
 
 // ── SchemaGroupContext: shape matches the group generic ──────────────────────
 
@@ -272,20 +272,28 @@ const _dgc6: keyof DetailedGroupCtx = "derived";
 
 createWorkbook()
   .sheet("S")
-  .table({ rows: [], schema: detailedGroupSchema, select: { include: ["name"] } });
+  .table("detailed-name", { rows: [], schema: detailedGroupSchema, select: { include: ["name"] } });
 
 createWorkbook()
   .sheet("S")
-  .table({ rows: [], schema: detailedGroupSchema, select: { include: ["derived"] } });
+  .table("detailed-derived", {
+    rows: [],
+    schema: detailedGroupSchema,
+    select: { include: ["derived"] },
+  });
 
 createWorkbook()
   .sheet("S")
   // @ts-expect-error — context is required when selecting the orgs group
-  .table({ rows: [], schema: detailedGroupSchema, select: { include: ["orgs"] } });
+  .table("detailed-missing-orgs-context", {
+    rows: [],
+    schema: detailedGroupSchema,
+    select: { include: ["orgs"] },
+  });
 
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("detailed-orgs-context", {
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["orgs"] },
@@ -294,7 +302,7 @@ createWorkbook()
 
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("detailed-extra-context", {
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["orgs"] },
@@ -305,11 +313,15 @@ createWorkbook()
 createWorkbook()
   .sheet("S")
   // @ts-expect-error — excluding tags still leaves orgs selected, so context is required
-  .table({ rows: [], schema: detailedGroupSchema, select: { exclude: ["tags"] } });
+  .table("detailed-missing-context-after-exclude", {
+    rows: [],
+    schema: detailedGroupSchema,
+    select: { exclude: ["tags"] },
+  });
 
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("detailed-exclude-tags", {
     rows: [],
     schema: detailedGroupSchema,
     select: { exclude: ["tags"] },
@@ -318,7 +330,7 @@ createWorkbook()
 
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("detailed-exclude-all-context-groups", {
     rows: [],
     schema: detailedGroupSchema,
     select: { exclude: ["orgs", "tags"] },
@@ -326,7 +338,7 @@ createWorkbook()
 
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("detailed-include-exclude", {
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["orgs", "tags"], exclude: ["tags"] },
@@ -335,7 +347,7 @@ createWorkbook()
 
 createWorkbook()
   .sheet("S")
-  .table({
+  .table("detailed-derived-name", {
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["derived", "name"] },

@@ -31,8 +31,7 @@ describe("public stream api", () => {
       tempStorage: "memory",
     });
 
-    await workbook.sheet("Orders").table({
-      id: "orders",
+    await workbook.sheet("Orders").table("orders", {
       schema,
       select: {
         include: ["name"],
@@ -40,8 +39,7 @@ describe("public stream api", () => {
       },
     });
 
-    await workbook.sheet("Orders").table({
-      id: "orders-invalid",
+    await workbook.sheet("Orders").table("orders-invalid", {
       schema,
       select: {
         // @ts-expect-error invalid column id should be rejected
@@ -68,14 +66,12 @@ describe("public stream api", () => {
       tempStorage: "memory",
     });
 
-    await workbook.sheet("Sheet").table({
-      id: "groups",
+    await workbook.sheet("Sheet").table("groups", {
       schema,
       select: { exclude: ["memberships"] },
     });
 
-    await workbook.sheet("Sheet").table({
-      id: "groups-invalid",
+    await workbook.sheet("Sheet").table("groups-invalid", {
       schema,
       context: { memberships: [1, 2, 3] },
       select: {
@@ -89,7 +85,6 @@ describe("public stream api", () => {
       typeof schema,
       { include: ["memberships"] }
     > = {
-      id: "groups-missing-context",
       schema,
       select: { include: ["memberships"] },
     };
@@ -107,8 +102,7 @@ describe("public stream api", () => {
       tempStorage: "memory",
     });
 
-    const table = await workbook.sheet("Sheet").table({
-      id: "derived",
+    const table = await workbook.sheet("Sheet").table("derived", {
       schema,
       select: { include: ["derived", "name"] },
     });
@@ -131,8 +125,7 @@ describe("public stream api", () => {
     const workbook = createWorkbookStream({
       tempStorage: "memory",
     });
-    const table = await workbook.sheet("Orders").table({
-      id: "orders",
+    const table = await workbook.sheet("Orders").table("orders", {
       schema,
     });
 
@@ -164,8 +157,7 @@ describe("public stream api", () => {
       .build();
 
     const workbook = createWorkbookStream();
-    const table = await workbook.sheet("Logs").table({
-      id: "logs",
+    const table = await workbook.sheet("Logs").table("logs", {
       schema,
     });
 
@@ -199,8 +191,7 @@ describe("public stream api", () => {
         freezePane: { rows: 1 },
         rightToLeft: true,
       })
-      .table({
-        id: "audit",
+      .table("audit", {
         schema,
       });
 
@@ -249,8 +240,7 @@ describe("public stream api", () => {
     const workbook = createWorkbookStream({
       tempStorage: "memory",
     });
-    const table = await workbook.sheet("Users").table({
-      id: "users",
+    const table = await workbook.sheet("Users").table("users", {
       schema,
       context: {
         orgs: [
@@ -295,8 +285,7 @@ describe("public stream api", () => {
     const workbook = createWorkbookStream({
       tempStorage: "memory",
     });
-    const table = await workbook.sheet("Logs").table({
-      id: "logs",
+    const table = await workbook.sheet("Logs").table("logs", {
       autoFilter: { enabled: true },
       schema,
     });
@@ -318,5 +307,48 @@ describe("public stream api", () => {
 
     const content = Buffer.concat(chunks).toString("latin1");
     expect(content).toContain('<autoFilter ref="A1:A2"/>');
+  });
+
+  it("accepts stream native Excel table options through the public api", async () => {
+    const schema = createExcelSchema<{ amount: number; id: string }>({ mode: "excel-table" })
+      .column("id", {
+        accessor: "id",
+      })
+      .column("amount", {
+        accessor: "amount",
+      })
+      .build();
+
+    const workbook = createWorkbookStream({
+      tempStorage: "memory",
+    });
+    const table = await workbook.sheet("Orders").table("orders", {
+      autoFilter: true,
+      name: "OrdersTable",
+      schema,
+      style: "TableStyleMedium2",
+    });
+
+    await table.commit({
+      rows: [{ amount: 42, id: "A-1" }],
+    });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("xl/tables/table1.xml");
+    expect(content).toContain("sheet1.xml.rels");
+    expect(content).toContain('<tableParts count="1">');
+    expect(content).toContain('Target="../tables/table1.xml"');
+    expect(content).toContain('displayName="OrdersTable"');
   });
 });

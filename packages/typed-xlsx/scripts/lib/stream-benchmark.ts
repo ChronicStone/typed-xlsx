@@ -119,8 +119,7 @@ export async function runBenchmark(params: {
     tempStorage: "file",
     tempDirectory: spoolDirectory,
   });
-  const table = await workbook.sheet(`Benchmark ${params.logicalRows}`).table({
-    id: "orders",
+  const table = await workbook.sheet(`Benchmark ${params.logicalRows}`).table("orders", {
     schema,
   });
 

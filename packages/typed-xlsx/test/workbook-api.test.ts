@@ -2,7 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { createExcelSchema, createWorkbook, type TableSelection } from "../src";
+import {
+  createExcelSchema,
+  createWorkbook,
+  type ExcelTableSchemaDefinition,
+  type TableSelection,
+} from "../src";
 
 describe("public buffered api", () => {
   it("infers selection ids from the schema and preserves transform value types", () => {
@@ -12,7 +17,7 @@ describe("public buffered api", () => {
       lines: Array<{ sku: string; qty: number }>;
     };
 
-    const schema = createExcelSchema<Order>()
+    const schema = createExcelSchema<Order>({ mode: "report" })
       .column("name", {
         accessor: "name",
       })
@@ -47,8 +52,7 @@ describe("public buffered api", () => {
 
     createWorkbook()
       .sheet("Orders")
-      .table({
-        id: "orders",
+      .table("orders", {
         rows: [],
         schema,
         select: {
@@ -59,8 +63,7 @@ describe("public buffered api", () => {
 
     createWorkbook()
       .sheet("Orders")
-      .table({
-        id: "orders-invalid",
+      .table("orders-invalid", {
         rows: [],
         schema,
         select: {
@@ -73,7 +76,7 @@ describe("public buffered api", () => {
   it("supports typed selection for group ids and requires group context", () => {
     type Row = { name: string; orgs: number[] };
 
-    const schema = createExcelSchema<Row>()
+    const schema = createExcelSchema<Row>({ mode: "report" })
       .column("name", { accessor: "name" })
       .group("memberships", (builder, orgIds: number[]) => {
         for (const id of orgIds) {
@@ -86,7 +89,7 @@ describe("public buffered api", () => {
 
     createWorkbook()
       .sheet("Sheet")
-      .table({
+      .table("groups", {
         rows: [],
         schema,
         select: { exclude: ["memberships"] },
@@ -94,7 +97,7 @@ describe("public buffered api", () => {
 
     expect(() => {
       const workbook = createWorkbook();
-      workbook.sheet("Sheet").table({
+      workbook.sheet("Sheet").table("groups-runtime", {
         rows: [{ name: "Ada", orgs: [1, 2] }],
         schema,
         select: { exclude: ["memberships"] },
@@ -104,7 +107,7 @@ describe("public buffered api", () => {
 
     createWorkbook()
       .sheet("Sheet")
-      .table({
+      .table("groups-invalid", {
         rows: [],
         schema,
         context: { memberships: [1, 2, 3] },
@@ -117,11 +120,11 @@ describe("public buffered api", () => {
     createWorkbook()
       .sheet("Sheet")
       // @ts-expect-error grouped schemas require context when the group is selected
-      .table({ rows: [], schema, select: { include: ["memberships"] } });
+      .table("groups-missing-context", { rows: [], schema, select: { include: ["memberships"] } });
   });
 
   it("does not require context for groups without a context parameter", () => {
-    const schema = createExcelSchema<{ name: string; tags: string[] }>()
+    const schema = createExcelSchema<{ name: string; tags: string[] }>({ mode: "report" })
       .column("name", { accessor: "name" })
       .group("derived", (builder) => {
         builder.column("tagCount", { accessor: (row) => row.tags.length });
@@ -131,7 +134,7 @@ describe("public buffered api", () => {
     const workbook = createWorkbook();
 
     expect(() => {
-      workbook.sheet("Sheet").table({
+      workbook.sheet("Sheet").table("derived", {
         rows: [{ name: "Ada", tags: ["a", "b"] }],
         schema,
         select: { include: ["derived", "name"] },
@@ -142,7 +145,7 @@ describe("public buffered api", () => {
   });
 
   it("builds a workbook as a Uint8Array", () => {
-    const schema = createExcelSchema<{ amount: number; name: string }>()
+    const schema = createExcelSchema<{ amount: number; name: string }>({ mode: "report" })
       .column("name", {
         accessor: "name",
       })
@@ -152,8 +155,7 @@ describe("public buffered api", () => {
       .build();
 
     const workbook = createWorkbook();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       rows: [
         { amount: 3, name: "A" },
         { amount: 7, name: "B" },
@@ -167,15 +169,14 @@ describe("public buffered api", () => {
   });
 
   it("can write a buffered workbook directly to a file path", async () => {
-    const schema = createExcelSchema<{ value: string }>()
+    const schema = createExcelSchema<{ value: string }>({ mode: "excel-table" })
       .column("value", {
         accessor: "value",
       })
       .build();
 
     const workbook = createWorkbook();
-    workbook.sheet("Logs").table({
-      id: "logs",
+    workbook.sheet("Logs").table("logs", {
       rows: [{ value: "line-1" }, { value: "line-2" }],
       schema,
     });
@@ -196,7 +197,7 @@ describe("public buffered api", () => {
       organizations: Array<{ id: number; name: string }>;
     };
 
-    const schema = createExcelSchema<User>()
+    const schema = createExcelSchema<User>({ mode: "report" })
       .column("firstName", {
         accessor: "firstName",
       })
@@ -211,7 +212,7 @@ describe("public buffered api", () => {
       .build();
 
     const workbook = createWorkbook();
-    workbook.sheet("Users").table({
+    workbook.sheet("Users").table("users", {
       rows: [
         {
           firstName: "Ada",
@@ -238,15 +239,14 @@ describe("public buffered api", () => {
   });
 
   it("accepts buffered autoFilter table options through the public api", () => {
-    const schema = createExcelSchema<{ value: string }>()
+    const schema = createExcelSchema<{ value: string }>({ mode: "report" })
       .column("value", {
         accessor: "value",
       })
       .build();
 
     const workbook = createWorkbook();
-    workbook.sheet("Logs").table({
-      id: "logs",
+    workbook.sheet("Logs").table("logs", {
       autoFilter: { enabled: true },
       rows: [{ value: "line-1" }],
       schema,
@@ -256,8 +256,111 @@ describe("public buffered api", () => {
     expect(content).toContain('<autoFilter ref="A1:A2"/>');
   });
 
+  it("accepts buffered native Excel table options through the public api", () => {
+    const schema = createExcelSchema<{ value: string }>({ mode: "excel-table" })
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+
+    expect(() => {
+      const workbook = createWorkbook();
+      workbook.sheet("Logs").table("logs", {
+        autoFilter: true,
+        name: "LogsTable",
+        rows: [{ value: "line-1" }],
+        schema,
+      });
+      workbook.toUint8Array();
+    }).not.toThrow();
+
+    expect(() => {
+      const workbook = createWorkbook();
+      workbook.sheet("Logs").table("logs", {
+        autoFilter: true,
+        rows: [{ value: "line-1" }],
+        schema,
+      });
+      workbook.toUint8Array();
+    }).not.toThrow();
+  });
+
+  it("accepts buffered native Excel totals-row options through the public api", () => {
+    const schema = createExcelSchema<{ amount: number; label: string }>({ mode: "excel-table" })
+      .column("label", {
+        accessor: "label",
+        totalsRow: { label: "TOTAL" },
+      })
+      .column("amount", {
+        accessor: "amount",
+        totalsRow: { function: "sum" },
+      })
+      .build();
+
+    expect(() => {
+      const workbook = createWorkbook();
+      workbook.sheet("Orders").table("orders", {
+        rows: [
+          { amount: 3, label: "A" },
+          { amount: 7, label: "B" },
+        ],
+        schema,
+        totalsRow: true,
+      });
+      workbook.toUint8Array();
+    }).not.toThrow();
+  });
+
+  it("accepts excel-table formula columns through the public buffered api", () => {
+    const schema = createExcelSchema<{ qty: number; unitPrice: number }>({ mode: "excel-table" })
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ qty: 3, unitPrice: 7 }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>([@Qty]*[@Unit price])</f>");
+  });
+
+  it("rejects buffered native Excel tables that would produce merged body rows", () => {
+    const schema = {
+      kind: "excel-table",
+      columns: [
+        { accessor: "id", id: "id" },
+        {
+          accessor: (row: { id: string; tags: string[] }) => row.tags.join(", "),
+          id: "tagList",
+          transform: (_value: string, row: { id: string; tags: string[] }) => row.tags,
+        },
+      ],
+    } as unknown as ExcelTableSchemaDefinition<{ id: string; tags: string[] }, "id" | "tagList">;
+
+    expect(() => {
+      const workbook = createWorkbook();
+      workbook.sheet("Logs").table("logs", {
+        rows: [{ id: "1", tags: ["a", "b"] }],
+        schema,
+      });
+      workbook.toUint8Array();
+    }).toThrow(
+      "Native Excel tables require flat physical rows. Remove array-expanded columns and merged body cells, or use the default report table mode.",
+    );
+  });
+
   it("supports formula summaries through the public buffered api", () => {
-    const schema = createExcelSchema<{ amount: number; label: string }>()
+    const schema = createExcelSchema<{ amount: number; label: string }>({ mode: "report" })
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL")],
@@ -269,8 +372,7 @@ describe("public buffered api", () => {
       .build();
 
     const workbook = createWorkbook();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       rows: [
         { amount: 3, label: "A" },
         { amount: 7, label: "B" },
@@ -283,7 +385,7 @@ describe("public buffered api", () => {
   });
 
   it("supports richer summary formula callbacks through the public buffered api", () => {
-    const schema = createExcelSchema<{ amount: number; label: string }>()
+    const schema = createExcelSchema<{ amount: number; label: string }>({ mode: "report" })
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL")],
@@ -297,8 +399,7 @@ describe("public buffered api", () => {
       .build();
 
     const workbook = createWorkbook();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       rows: [
         { amount: 3.125, label: "A" },
         { amount: 7.333, label: "B" },
@@ -311,7 +412,7 @@ describe("public buffered api", () => {
   });
 
   it("supports formula columns through the public buffered api", () => {
-    const schema = createExcelSchema<{ qty: number; unitPrice: number }>()
+    const schema = createExcelSchema<{ qty: number; unitPrice: number }>({ mode: "report" })
       .column("qty", {
         accessor: "qty",
       })
@@ -324,8 +425,7 @@ describe("public buffered api", () => {
       .build();
 
     const workbook = createWorkbook();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       rows: [{ qty: 3, unitPrice: 7 }],
       schema,
     });

@@ -1,6 +1,7 @@
 import { planRows, resolveColumns } from "../planner/rows";
 import { buildBufferedWorkbookXlsx } from "../ooxml/package";
 import type {
+  BufferedExcelTablePart,
   BufferedSheetPlan,
   BufferedTableInput,
   BufferedTablePlan,
@@ -11,35 +12,66 @@ import type {
 import { applyColumnSelection } from "./internal/selection";
 import { computeSummaries } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
+import { resolveExcelTableOptions } from "./internal/excel-table";
+
+function isBufferedExcelTableInput<T extends object, TColumnId extends string>(
+  table: BufferedTableInput<T, TColumnId>,
+): table is import("./types").BufferedExcelTableInput<T, TColumnId> {
+  return table.schema.kind === "excel-table";
+}
 
 function planTable<T extends object, TColumnId extends string>(
+  id: string,
   table: BufferedTableInput<T, TColumnId>,
-  fallbackIndex: number,
 ): BufferedTablePlan<T> {
+  const context = "context" in table ? table.context : undefined;
   const resolvedColumns = applyColumnSelection(
-    resolveColumns(table.schema, table.context, table.select),
+    resolveColumns(table.schema, context, table.select),
     table.select,
   );
-  const planner = planRows({ columns: resolvedColumns }, table.rows);
+  const planner = planRows({ kind: table.schema.kind, columns: resolvedColumns }, table.rows);
+
+  if (isBufferedExcelTableInput(table)) {
+    const excelTable = resolveExcelTableOptions({
+      autoFilter: table.autoFilter,
+      columns: resolvedColumns,
+      hasMerges: planner.merges.length > 0,
+      id,
+      name: table.name,
+      style: table.style,
+      totalsRow: table.totalsRow,
+    });
+
+    return {
+      id,
+      rowCount: table.rows.length,
+      planner,
+      summaries: [],
+      autoFilter: false,
+      excelTable,
+    };
+  }
+
+  const reportTable = table;
   const summaries = computeSummaries(resolvedColumns, table.rows);
 
   return {
-    id: table.id ?? `table-${fallbackIndex + 1}`,
-    title: table.title,
+    id,
+    title: reportTable.title,
     rowCount: table.rows.length,
     planner,
     summaries,
     autoFilter: resolveAutoFilter({
-      autoFilter: table.autoFilter,
+      autoFilter: reportTable.autoFilter,
       merges: planner.merges,
-      tableId: table.id ?? `table-${fallbackIndex + 1}`,
+      tableId: id,
       mode: "buffered",
     }),
   };
 }
 
 class BufferedSheetBuilder {
-  private readonly tables: BufferedTableInput<any, string>[] = [];
+  private readonly tables: Array<{ id: string; input: BufferedTableInput<any, string> }> = [];
   private layout: SheetLayoutOptions | undefined;
   private view: SheetViewOptions | undefined;
 
@@ -56,8 +88,11 @@ class BufferedSheetBuilder {
     return this;
   }
 
-  table<T extends object, TColumnId extends string>(input: BufferedTableInput<T, TColumnId>) {
-    this.tables.push(input);
+  table<T extends object, TColumnId extends string>(
+    id: string,
+    input: BufferedTableInput<T, TColumnId>,
+  ) {
+    this.tables.push({ id, input });
     return this;
   }
 
@@ -66,7 +101,7 @@ class BufferedSheetBuilder {
       name: this.name,
       layout: this.layout,
       view: this.view,
-      tables: this.tables.map((table, index) => planTable(table, index)),
+      tables: this.tables.map((table) => planTable(table.id, table.input)),
     };
   }
 }
@@ -85,8 +120,24 @@ export class BufferedWorkbookBuilder {
   }
 
   buildPlan(): BufferedWorkbookPlan {
+    const sheets = this.sheets.map((sheet) => sheet.build());
+    const excelTables: BufferedExcelTablePart[] = [];
+
+    sheets.forEach((sheet, sheetIndex) => {
+      sheet.tables.forEach((table) => {
+        if (!table.excelTable) return;
+        excelTables.push({
+          sheetIndex,
+          tableId: table.id,
+          relId: `rIdTable${excelTables.length + 1}`,
+          xml: "",
+        });
+      });
+    });
+
     return {
-      sheets: this.sheets.map((sheet) => sheet.build()),
+      sheets,
+      excelTables,
     };
   }
 

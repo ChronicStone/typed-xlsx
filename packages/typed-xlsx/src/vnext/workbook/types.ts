@@ -1,4 +1,10 @@
-import type { SchemaContext, SchemaDefinition } from "../schema/builder";
+import type {
+  ExcelTableTotalsRowDefinition,
+  ExcelTableSchemaDefinition,
+  ReportSchemaDefinition,
+  SchemaContext,
+  SchemaDefinition,
+} from "../schema/builder";
 import type { PlannerResult } from "../planner/rows";
 import type { SummaryResolvedValue } from "../summary/runtime";
 import type { CellStyle } from "../styles/types";
@@ -12,19 +18,140 @@ export interface TableAutoFilterOptions {
   enabled?: boolean;
 }
 
-export interface BufferedTableInput<
+export type ExcelTableStyle =
+  | "TableStyleLight1"
+  | "TableStyleLight2"
+  | "TableStyleLight3"
+  | "TableStyleLight4"
+  | "TableStyleLight5"
+  | "TableStyleLight6"
+  | "TableStyleLight7"
+  | "TableStyleLight8"
+  | "TableStyleLight9"
+  | "TableStyleLight10"
+  | "TableStyleLight11"
+  | "TableStyleLight12"
+  | "TableStyleLight13"
+  | "TableStyleLight14"
+  | "TableStyleLight15"
+  | "TableStyleLight16"
+  | "TableStyleLight17"
+  | "TableStyleLight18"
+  | "TableStyleLight19"
+  | "TableStyleLight20"
+  | "TableStyleLight21"
+  | "TableStyleMedium1"
+  | "TableStyleMedium2"
+  | "TableStyleMedium3"
+  | "TableStyleMedium4"
+  | "TableStyleMedium5"
+  | "TableStyleMedium6"
+  | "TableStyleMedium7"
+  | "TableStyleMedium8"
+  | "TableStyleMedium9"
+  | "TableStyleMedium10"
+  | "TableStyleMedium11"
+  | "TableStyleMedium12"
+  | "TableStyleMedium13"
+  | "TableStyleMedium14"
+  | "TableStyleMedium15"
+  | "TableStyleMedium16"
+  | "TableStyleMedium17"
+  | "TableStyleMedium18"
+  | "TableStyleMedium19"
+  | "TableStyleMedium20"
+  | "TableStyleMedium21"
+  | "TableStyleMedium22"
+  | "TableStyleMedium23"
+  | "TableStyleMedium24"
+  | "TableStyleMedium25"
+  | "TableStyleMedium26"
+  | "TableStyleMedium27"
+  | "TableStyleMedium28"
+  | "TableStyleDark1"
+  | "TableStyleDark2"
+  | "TableStyleDark3"
+  | "TableStyleDark4"
+  | "TableStyleDark5"
+  | "TableStyleDark6"
+  | "TableStyleDark7"
+  | "TableStyleDark8"
+  | "TableStyleDark9"
+  | "TableStyleDark10"
+  | "TableStyleDark11";
+
+export interface ResolvedExcelTableOptions {
+  name: string;
+  style: ExcelTableStyle;
+  autoFilter: boolean;
+  totalsRow: boolean;
+  totalsRowColumns: Array<{
+    id: string;
+    headerLabel: string;
+    totalsRow?: ExcelTableTotalsRowDefinition;
+  }>;
+}
+
+export function serializeExcelTotalsRowFormula(
+  _displayName: string,
+  headerLabel: string,
+  functionName: string,
+) {
+  const escapedHeader = headerLabel.replaceAll("]", "]]");
+  const localColumnRef = `[${escapedHeader}]`;
+
+  switch (functionName) {
+    case "sum":
+      return `SUBTOTAL(109,${localColumnRef})`;
+    case "average":
+      return `SUBTOTAL(101,${localColumnRef})`;
+    case "count":
+      return `SUBTOTAL(103,${localColumnRef})`;
+    case "countNums":
+      return `SUBTOTAL(102,${localColumnRef})`;
+    case "min":
+      return `SUBTOTAL(105,${localColumnRef})`;
+    case "max":
+      return `SUBTOTAL(104,${localColumnRef})`;
+    case "stdDev":
+      return `SUBTOTAL(107,${localColumnRef})`;
+    case "var":
+      return `SUBTOTAL(110,${localColumnRef})`;
+    default:
+      return undefined;
+  }
+}
+
+export interface BufferedReportTableInput<
   T extends object,
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > {
-  id?: string;
   title?: string;
-  schema: SchemaDefinition<T, string, string, SchemaContext>;
+  schema: ReportSchemaDefinition<T, string, string, SchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
   context?: TSchemaContext;
   autoFilter?: boolean | TableAutoFilterOptions;
 }
+
+export interface BufferedExcelTableInput<T extends object, TSelectableId extends string = string> {
+  schema: ExcelTableSchemaDefinition<T, string>;
+  rows: T[];
+  select?: TableSelection<TSelectableId>;
+  name?: string;
+  style?: ExcelTableStyle;
+  autoFilter?: boolean;
+  totalsRow?: boolean;
+}
+
+export type BufferedTableInput<
+  T extends object,
+  TSelectableId extends string = string,
+  TSchemaContext extends SchemaContext = SchemaContext,
+> =
+  | BufferedReportTableInput<T, TSelectableId, TSchemaContext>
+  | BufferedExcelTableInput<T, TSelectableId>;
 
 export interface FreezePane {
   rows?: number;
@@ -57,6 +184,14 @@ export interface BufferedTablePlan<T extends object> {
   planner: PlannerResult<T>;
   summaries: PlannedSummaryCell[];
   autoFilter: boolean;
+  excelTable?: ResolvedExcelTableOptions;
+}
+
+export interface BufferedExcelTablePart {
+  sheetIndex: number;
+  tableId: string;
+  xml: string;
+  relId: string;
 }
 
 export interface BufferedSheetPlan {
@@ -68,6 +203,7 @@ export interface BufferedSheetPlan {
 
 export interface BufferedWorkbookPlan {
   sheets: BufferedSheetPlan[];
+  excelTables: BufferedExcelTablePart[];
 }
 
 export interface StreamWorkbookSink {
@@ -89,14 +225,36 @@ export interface StreamTableCommit<T extends object> {
   rows: T[];
 }
 
-export interface StreamTableInput<
+export interface StreamTableInput<T extends object, TSelectableId extends string = string> {
+  schema: SchemaDefinition<T, string, string, SchemaContext, any>;
+  select?: TableSelection<TSelectableId>;
+}
+
+export interface StreamReportTableInput<
   T extends object,
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
-> {
-  id: string;
-  schema: SchemaDefinition<T, string, string, SchemaContext>;
-  select?: TableSelection<TSelectableId>;
+> extends StreamTableInput<T, TSelectableId> {
+  schema: ReportSchemaDefinition<T, string, string, SchemaContext>;
   context?: TSchemaContext;
   autoFilter?: boolean | TableAutoFilterOptions;
 }
+
+export interface StreamExcelTableInput<
+  T extends object,
+  TSelectableId extends string = string,
+> extends StreamTableInput<T, TSelectableId> {
+  schema: ExcelTableSchemaDefinition<T, string>;
+  name?: string;
+  style?: ExcelTableStyle;
+  autoFilter?: boolean;
+  totalsRow?: boolean;
+}
+
+export type AnyStreamTableInput<
+  T extends object,
+  TSelectableId extends string = string,
+  TSchemaContext extends SchemaContext = SchemaContext,
+> =
+  | StreamReportTableInput<T, TSelectableId, TSchemaContext>
+  | StreamExcelTableInput<T, TSelectableId>;
