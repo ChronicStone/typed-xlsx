@@ -97,7 +97,7 @@ function resolveSheetAutoFilter(
 
   if (autoFilteredTables.length > 1) {
     throw new Error(
-      "Only one table with autoFilter can be rendered on the same buffered worksheet.",
+      "Buffered worksheets can only apply autoFilter to one report table per sheet. Worksheet-level autoFilter supports a single contiguous range; if you need multiple filtered tables on the same sheet, use native Excel tables instead.",
     );
   }
 

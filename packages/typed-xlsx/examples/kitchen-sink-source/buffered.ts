@@ -59,5 +59,17 @@ export function buildKitchenSinkBufferedExample() {
       rows: orders.slice(0, 2),
     });
 
+  workbook
+    .sheet("Filtered Review", {
+      freezePane: { rows: 1 },
+    })
+    .table({
+      id: "filtered-orders",
+      title: "Filtered Snapshot",
+      autoFilter: true,
+      schema: kitchenSinkSchema,
+      rows: orders.slice(0, 5),
+    });
+
   return workbook.toUint8Array();
 }

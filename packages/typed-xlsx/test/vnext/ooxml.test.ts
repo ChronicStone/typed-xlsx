@@ -212,7 +212,7 @@ describe("vnext ooxml", () => {
       .table({ id: "right", autoFilter: true, schema, rows: [{ value: "B" }] });
 
     expect(() => VNext.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
-      "Only one table with autoFilter can be rendered on the same buffered worksheet.",
+      "Buffered worksheets can only apply autoFilter to one report table per sheet. Worksheet-level autoFilter supports a single contiguous range; if you need multiple filtered tables on the same sheet, use native Excel tables instead.",
     );
   });
 
