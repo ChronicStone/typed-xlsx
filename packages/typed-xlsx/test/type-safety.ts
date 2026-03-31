@@ -71,6 +71,49 @@ createExcelSchema<FlatRow>()
   })
   .build();
 
+// ── formula columns: predecessor refs are typed ───────────────────────────────
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("doubleAge", {
+    formula: ({ row }) => row.ref("age").mul(2),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("status", {
+    formula: ({ row, fx }) => fx.if(row.ref("age").gte(18), "adult", "minor"),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("bucket", {
+    formula: ({ row, fx }) =>
+      fx.if(row.ref("age").gt(65).or(row.ref("age").lt(18)), "edge", "core"),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("doubleAge", {
+    formula: ({ row }) => {
+      const age = row.ref("age");
+      return age.add(age.toExpr());
+    },
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("doubleAge", {
+    formula: ({ row }) =>
+      // @ts-expect-error formula columns can only reference previously declared column ids
+      row.ref("future"),
+  })
+  .build();
+
 // ── SchemaColumnId: union grows with each .column() call ─────────────────────
 
 const basicSchema = createExcelSchema<FlatRow>()

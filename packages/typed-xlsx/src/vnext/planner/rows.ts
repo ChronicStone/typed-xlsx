@@ -17,6 +17,13 @@ import { normalizeSummaryInput } from "../summary/builder";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./metrics";
 import type { CellStyle } from "../styles/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
+import {
+  createFormulaFunctionsContext,
+  createFormulaRowContext,
+  toExpr,
+  type FormulaExpr,
+} from "../formula/expr";
+import { toCellRef } from "../ooxml/cells";
 
 export interface ResolvedColumn<T extends object> extends Omit<ColumnDefinition<T>, "summary"> {
   headerLabel: string;
@@ -83,6 +90,60 @@ function toCellDataValues(value: unknown): CellData[] {
   return Array.isArray(value) ? (value as CellData[]) : [value as CellData];
 }
 
+function resolveFormulaCell<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  columns: ResolvedColumn<T>[];
+  columnIndex: number;
+  rowIndex: number;
+}) {
+  if (!params.column.formula) {
+    return undefined;
+  }
+
+  const expr = params.column.formula({
+    row: createFormulaRowContext<any>(),
+    fx: createFormulaFunctionsContext<any>(),
+  } as Parameters<NonNullable<typeof params.column.formula>>[0]);
+
+  return {
+    kind: "formula" as const,
+    formula: serializeFormulaExpr(toExpr(expr), params.columns, params.rowIndex),
+  };
+}
+
+function serializeFormulaExpr<T extends object>(
+  expr: FormulaExpr<string>,
+  columns: ResolvedColumn<T>[],
+  rowIndex: number,
+): string {
+  if (expr.kind === "literal") {
+    if (typeof expr.value === "string") {
+      return `"${expr.value.replaceAll('"', '""')}"`;
+    }
+
+    if (typeof expr.value === "boolean") {
+      return expr.value ? "TRUE" : "FALSE";
+    }
+
+    return String(expr.value);
+  }
+
+  if (expr.kind === "ref") {
+    const columnIndex = columns.findIndex((column) => column.id === expr.columnId);
+    if (columnIndex < 0) {
+      throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
+    }
+
+    return toCellRef(rowIndex + 1, columnIndex);
+  }
+
+  if (expr.kind === "function") {
+    return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, rowIndex)).join(",")})`;
+  }
+
+  return `(${serializeFormulaExpr(expr.left, columns, rowIndex)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex)})`;
+}
+
 function isColumnNode<T extends object>(
   node: ColumnDefinition<T> | ColumnGroupDefinition<T>,
 ): node is ColumnDefinition<T> {
@@ -126,7 +187,7 @@ export function resolveColumns<T extends object>(
     }
 
     const groupBuilder = SchemaBuilder.create<T>();
-    node.build(groupBuilder, groupContext as never);
+    node.build(groupBuilder as unknown as SchemaBuilder<T, any>, groupContext as never);
     columns.push(
       ...resolveColumns(groupBuilder.build(), context).map((column) => ({
         ...column,
@@ -192,11 +253,25 @@ export function planRows<T extends object>(
       columnId: string;
       column: ResolvedColumn<T>;
       values: CellData[];
-    }> = columns.map((column) => {
-      const rawValue = resolveAccessor(row, column.accessor);
-      const transformed = column.transform
-        ? column.transform(rawValue, row, logicalRowIndex)
-        : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
+    }> = columns.map((column, columnIndex) => {
+      const formulaCell = resolveFormulaCell({
+        column,
+        columns,
+        columnIndex,
+        rowIndex: logicalRowIndex,
+      });
+      const rawValue = column.formula
+        ? undefined
+        : column.accessor
+          ? resolveAccessor(row, column.accessor)
+          : undefined;
+      const transformed = formulaCell
+        ? formulaCell
+        : column.transform
+          ? column.transform(rawValue, row, logicalRowIndex)
+          : ((rawValue ?? column.defaultValue ?? null) as
+              | PrimitiveCellValue
+              | PrimitiveCellValue[]);
       const values = toCellDataValues(transformed);
       rowHeight = Math.max(rowHeight, values.length);
 

@@ -1,4 +1,4 @@
-import { xmlElement, xmlSelfClosing } from "./xml";
+import { xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "./shared-strings";
 import { isFormulaCell, type CellData } from "../cell-data";
@@ -73,7 +73,7 @@ function serializeFormulaCell(
   formula: string,
   value?: PrimitiveCellValue,
 ) {
-  const children = [xmlElement("f", undefined, formula)];
+  const children = [xmlElement("f", undefined, xmlEscape(formula))];
   const formulaAttributes: Record<string, number | string | undefined> = { ...attributes };
 
   if (value === undefined || value === null) {

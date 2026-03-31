@@ -60,6 +60,7 @@ describe("vnext planner", () => {
         summaryIndex: 0,
         value: 7,
         style: undefined,
+        unstyled: false,
       },
     ]);
   });
@@ -78,6 +79,51 @@ describe("vnext planner", () => {
 
     expect(result.rows[0]?.height).toBeGreaterThan(VNext.getDefaultRowHeight());
     expect(result.stats.rowHeights.get(0)).toBe(result.rows[0]?.height);
+  });
+
+  it("plans formula-based columns using predecessor references", () => {
+    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice").toExpr()),
+      })
+      .build();
+
+    const result = VNext.planRows(schema, [{ qty: 3, unitPrice: 7 }]);
+    const formulaCell = result.rows[0]?.cells[2]?.value;
+
+    expect(formulaCell).toEqual({
+      kind: "formula",
+      formula: "(A2*B2)",
+    });
+  });
+
+  it("plans richer conditional formulas", () => {
+    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("status", {
+        formula: ({ row, fx }) =>
+          fx.if(row.ref("qty").gt(10).and(row.ref("unitPrice").gte(100)), "PRIORITY", "STANDARD"),
+      })
+      .build();
+
+    const result = VNext.planRows(schema, [{ qty: 12, unitPrice: 120 }]);
+    const formulaCell = result.rows[0]?.cells[2]?.value;
+
+    expect(formulaCell).toEqual({
+      kind: "formula",
+      formula: 'IF(AND((A2>10),(B2>=100)),"PRIORITY","STANDARD")',
+    });
   });
 
   it("resolves grouped columns from context during planning", () => {
