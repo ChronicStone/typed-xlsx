@@ -21,6 +21,7 @@ import {
   type WorksheetColumnDefinition,
 } from "./worksheet-parts";
 import { groupSummaryRows } from "../workbook/internal/summaries";
+import { resolveSummaryValue } from "../workbook/internal/summaries";
 
 interface PositionedTable {
   table: BufferedTablePlan<any>;
@@ -207,7 +208,15 @@ function writeTableIntoRowMap(
           serializeCell(
             worksheetRowIndex,
             columnOffset + columnIndex,
-            summary.value,
+            resolveSummaryValue({
+              definition: column.summary?.[summary.summaryIndex]!,
+              value: summary.value,
+              formulaContext: {
+                startRow: rowOffset + 1,
+                endRow: rowOffset + table.planner.rows.length,
+                column: columnOffset + columnIndex,
+              },
+            }),
             sharedStrings,
             styles.addStyle(withDefaultSummaryStyle(summary.style)),
           ),

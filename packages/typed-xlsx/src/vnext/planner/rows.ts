@@ -18,9 +18,10 @@ import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./
 import type { CellStyle } from "../styles/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
 
-export interface ResolvedColumn<T extends object> extends ColumnDefinition<T> {
+export interface ResolvedColumn<T extends object> extends Omit<ColumnDefinition<T>, "summary"> {
   headerLabel: string;
   groupId?: string;
+  summary?: SummaryDefinition<T, any>[];
 }
 
 export interface PlannedCell<T extends object> {
@@ -64,6 +65,8 @@ interface SummaryBinding<T extends object> {
   runtime: SummaryRuntime;
 }
 
+export type { SummaryBinding };
+
 function defaultColumnHeader(id: string) {
   return (
     id.charAt(0).toUpperCase() +
@@ -106,7 +109,7 @@ export function resolveColumns<T extends object>(
       columns.push({
         ...node,
         headerLabel: node.header ?? defaultColumnHeader(node.id),
-      });
+      } as ResolvedColumn<T>);
       continue;
     }
 

@@ -431,6 +431,38 @@ describe("vnext stream builder", () => {
     );
   });
 
+  it("writes formula-based summary cells in streamed worksheets", async () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL")],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [summary.formula("sum")],
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+    });
+
+    await table.commit({
+      rows: [
+        { amount: 3, label: "A" },
+        { amount: 7, label: "B" },
+      ],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>SUM(B2:B3)</f>");
+  });
+
   it("disables worksheet autoFilter for streamed tables with merged body rows", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const schema = VNext.SchemaBuilder.create<{ id: string; tags: string[] }>()

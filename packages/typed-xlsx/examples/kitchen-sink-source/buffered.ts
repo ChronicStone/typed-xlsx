@@ -1,6 +1,6 @@
 import { createWorkbook } from "../../src";
 import { createKitchenSinkOrders } from "./data";
-import { kitchenSinkSchema } from "./schema";
+import { kitchenSinkFormulaSummarySchema, kitchenSinkSchema } from "./schema";
 
 export function buildKitchenSinkBufferedExample() {
   const workbook = createWorkbook();
@@ -80,6 +80,21 @@ export function buildKitchenSinkBufferedExample() {
           "createdAt",
         ],
       },
+    });
+
+  workbook
+    .sheet("Formula Summaries", {
+      freezePane: { rows: 1 },
+    })
+    .table({
+      id: "formula-summary-orders",
+      title: "Formula Summary Snapshot",
+      rows: orders.slice(0, 5).map((order) => ({
+        amount: order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        createdAt: order.createdAt,
+        customerName: order.customer.name,
+      })),
+      schema: kitchenSinkFormulaSummarySchema,
     });
 
   return workbook.toUint8Array();

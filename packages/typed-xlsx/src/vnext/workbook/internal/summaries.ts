@@ -1,26 +1,45 @@
+import type { FormulaCell } from "../../cell-data";
 import { createSummaryBindings } from "../../planner/rows";
 import { finalizeSummaryRuntime } from "../../summary/runtime";
-import type { ResolvedColumn } from "../../planner/rows";
+import type { ResolvedColumn, SummaryBinding } from "../../planner/rows";
 import type { PlannedSummaryCell } from "../types";
 import type { CellStyle } from "../../styles/types";
-import type { SummaryCellValue, SummaryDefinition } from "../../summary/runtime";
+import type {
+  SummaryDefinition,
+  SummaryFormulaContext,
+  SummaryResolvedValue,
+} from "../../summary/runtime";
+import { toCellRef } from "../../ooxml/cells";
 
-export function resolveSummaryStyle<T>(
+export function resolveSummaryStyle<T extends object>(
   definition: SummaryDefinition<T>,
-  value: SummaryCellValue,
+  value: SummaryResolvedValue,
+  column?: ResolvedColumn<T>,
 ): CellStyle | undefined {
   const baseStyle =
     typeof definition.style === "function" ? definition.style(value) : definition.style;
   const numberFormat =
     typeof definition.format === "function" ? definition.format(value) : definition.format;
 
-  if (!baseStyle && !numberFormat) {
+  const inheritedColumnStyle =
+    definition.formula && column?.style && typeof column.style !== "function"
+      ? column.style
+      : undefined;
+  const inheritedColumnFormat =
+    definition.formula && column?.format && typeof column.format === "string"
+      ? column.format
+      : undefined;
+
+  const resolvedStyle = baseStyle ?? inheritedColumnStyle;
+  const resolvedFormat = numberFormat ?? inheritedColumnFormat;
+
+  if (!resolvedStyle && !resolvedFormat) {
     return undefined;
   }
 
   return {
-    ...(baseStyle ?? {}),
-    ...(numberFormat ? { numFmt: numberFormat } : {}),
+    ...(resolvedStyle ?? {}),
+    ...(resolvedFormat ? { numFmt: resolvedFormat } : {}),
   };
 }
 
@@ -55,13 +74,47 @@ export function computeSummaries<T extends object>(
     }
   }
 
+  return buildPlannedSummaries(summaryBindings, columns);
+}
+
+export function buildPlannedSummaries<T extends object>(
+  summaryBindings: Array<SummaryBinding<T>>,
+  columns: ResolvedColumn<T>[],
+): PlannedSummaryCell[] {
   return summaryBindings.map((binding) => {
     const value = finalizeSummaryRuntime(binding.definition, binding.runtime);
+    const column = columns.find((candidate) => candidate.id === binding.columnId);
+
     return {
       columnId: binding.columnId,
       summaryIndex: binding.summaryIndex,
       value,
-      style: resolveSummaryStyle(binding.definition, value),
+      style: resolveSummaryStyle(binding.definition, value, column),
     };
   });
+}
+
+export function resolveSummaryValue<T>(params: {
+  definition: SummaryDefinition<T>;
+  value: SummaryResolvedValue;
+  formulaContext?: SummaryFormulaContext;
+}): SummaryResolvedValue {
+  if (!params.definition.formula || !params.formulaContext) {
+    return params.value;
+  }
+
+  return createSummaryFormulaCell(params.definition.formula.fn, params.formulaContext);
+}
+
+function createSummaryFormulaCell(
+  fn: "sum" | "average" | "count" | "min" | "max",
+  context: SummaryFormulaContext,
+): FormulaCell {
+  const startRef = toCellRef(context.startRow, context.column);
+  const endRef = toCellRef(context.endRow, context.column);
+
+  return {
+    kind: "formula",
+    formula: `${fn.toUpperCase()}(${startRef}:${endRef})`,
+  };
 }
