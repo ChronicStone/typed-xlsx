@@ -186,7 +186,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
   }
 
   finalizeSummaries(): PlannedSummaryCell[] {
-    return buildPlannedSummaries(this.state.summaryBindings);
+    return buildPlannedSummaries(this.state.summaryBindings, this.state.columns);
   }
 
   getFinalization(): StreamTableFinalization {

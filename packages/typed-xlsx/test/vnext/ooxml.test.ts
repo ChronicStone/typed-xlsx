@@ -232,6 +232,39 @@ describe("vnext ooxml", () => {
     expect(worksheetPart?.xml).toContain("<f>SUM(B2:B3)</f>");
   });
 
+  it("inherits static column formatting for formula summary cells", () => {
+    const schema = VNext.SchemaBuilder.create<{ createdAt: Date; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("LATEST")],
+      })
+      .column("createdAt", {
+        accessor: "createdAt",
+        style: {
+          numFmt: "yyyy-mm-dd hh:mm",
+        },
+        summary: (summary) => [summary.formula("max")],
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+      rows: [
+        { label: "A", createdAt: new Date(Date.UTC(2025, 2, 3, 9, 30, 0)) },
+        { label: "B", createdAt: new Date(Date.UTC(2025, 2, 7, 9, 30, 0)) },
+      ],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>MAX(B2:B3)</f>");
+    expect(stylesPart?.xml).toContain("yyyy-mm-dd hh:mm");
+  });
+
   it("rejects multiple buffered tables with autoFilter on the same worksheet", () => {
     const schema = VNext.SchemaBuilder.create<{ value: string }>()
       .column("value", {

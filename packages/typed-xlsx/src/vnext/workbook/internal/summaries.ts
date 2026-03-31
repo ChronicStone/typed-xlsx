@@ -11,22 +11,35 @@ import type {
 } from "../../summary/runtime";
 import { toCellRef } from "../../ooxml/cells";
 
-export function resolveSummaryStyle<T>(
+export function resolveSummaryStyle<T extends object>(
   definition: SummaryDefinition<T>,
   value: SummaryResolvedValue,
+  column?: ResolvedColumn<T>,
 ): CellStyle | undefined {
   const baseStyle =
     typeof definition.style === "function" ? definition.style(value) : definition.style;
   const numberFormat =
     typeof definition.format === "function" ? definition.format(value) : definition.format;
 
-  if (!baseStyle && !numberFormat) {
+  const inheritedColumnStyle =
+    definition.formula && column?.style && typeof column.style !== "function"
+      ? column.style
+      : undefined;
+  const inheritedColumnFormat =
+    definition.formula && column?.format && typeof column.format === "string"
+      ? column.format
+      : undefined;
+
+  const resolvedStyle = baseStyle ?? inheritedColumnStyle;
+  const resolvedFormat = numberFormat ?? inheritedColumnFormat;
+
+  if (!resolvedStyle && !resolvedFormat) {
     return undefined;
   }
 
   return {
-    ...(baseStyle ?? {}),
-    ...(numberFormat ? { numFmt: numberFormat } : {}),
+    ...(resolvedStyle ?? {}),
+    ...(resolvedFormat ? { numFmt: resolvedFormat } : {}),
   };
 }
 
@@ -61,19 +74,22 @@ export function computeSummaries<T extends object>(
     }
   }
 
-  return buildPlannedSummaries(summaryBindings);
+  return buildPlannedSummaries(summaryBindings, columns);
 }
 
 export function buildPlannedSummaries<T extends object>(
   summaryBindings: Array<SummaryBinding<T>>,
+  columns: ResolvedColumn<T>[],
 ): PlannedSummaryCell[] {
   return summaryBindings.map((binding) => {
     const value = finalizeSummaryRuntime(binding.definition, binding.runtime);
+    const column = columns.find((candidate) => candidate.id === binding.columnId);
+
     return {
       columnId: binding.columnId,
       summaryIndex: binding.summaryIndex,
       value,
-      style: resolveSummaryStyle(binding.definition, value),
+      style: resolveSummaryStyle(binding.definition, value, column),
     };
   });
 }
