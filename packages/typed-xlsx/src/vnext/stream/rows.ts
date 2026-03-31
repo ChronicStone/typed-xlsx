@@ -73,7 +73,7 @@ function serializeFormulaGroupExpr<T extends object>(params: {
   }
 
   if (params.mode === "excel-table") {
-    const refs = groupColumns.map((column) => `[@${column.headerLabel.replaceAll("]", "]]")}]`);
+    const refs = groupColumns.map((column) => `[@[${column.headerLabel.replaceAll("]", "]]")}]]`);
     return `${params.aggregate}(${refs.join(",")})`;
   }
 
@@ -118,7 +118,7 @@ function serializeFormulaExpr<T extends object>(
         throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
       }
 
-      return `[@${headerLabel.replaceAll("]", "]]")}]`;
+      return `[@[${headerLabel.replaceAll("]", "]]")}]]`;
     }
 
     return toCellRef(rowIndex + 1, columnIndex);

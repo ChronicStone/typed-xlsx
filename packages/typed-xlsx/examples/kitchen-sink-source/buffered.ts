@@ -2,6 +2,7 @@ import { createExcelSchema, createWorkbook } from "../../src";
 import { createKitchenSinkOrders } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
+  kitchenSinkGroupedFormulaSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkSchema,
 } from "./schema";
@@ -184,6 +185,24 @@ export function buildKitchenSinkBufferedExample() {
       rows: nativeExcelTableRows,
       schema: kitchenSinkNativeExcelTableSchema,
       style: "TableStyleMedium2",
+      totalsRow: true,
+    });
+
+  workbook
+    .sheet("Grouped Formula Scope", {
+      freezePane: { rows: 1 },
+    })
+    .table("grouped-formula-orders", {
+      autoFilter: true,
+      context: { regions: ["AMER", "APAC", "EMEA"] },
+      name: "KitchenSinkRegionalScope",
+      rows: orders.slice(0, 5).map((order) => ({
+        amount: order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        customerName: order.customer.name,
+        region: order.region,
+      })),
+      schema: kitchenSinkGroupedFormulaSchema,
+      style: "TableStyleMedium9",
       totalsRow: true,
     });
 

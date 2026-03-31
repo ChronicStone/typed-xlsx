@@ -237,7 +237,7 @@ describe("vnext stream builder", () => {
     await workbook.finish();
 
     const content = Buffer.from(sink.toUint8Array()).toString("latin1");
-    expect(content).toContain("<f>([@Qty]*[@Unit price])</f>");
+    expect(content).toContain("<f>([@[Qty]]*[@[Unit price]])</f>");
   });
 
   it("uses workbook-global native Excel table numbering across streamed sheets", async () => {

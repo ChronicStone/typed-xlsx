@@ -303,8 +303,14 @@ describe("vnext ooxml", () => {
     const worksheetPart = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan()).parts.find(
       (part) => part.path === "xl/worksheets/sheet1.xml",
     );
+    const tablePart = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan()).parts.find(
+      (part) => part.path === "xl/tables/table1.xml",
+    );
 
-    expect(worksheetPart?.xml).toContain("<f>([@Qty]*[@Unit price])</f>");
+    expect(worksheetPart?.xml).toContain("<f>([@[Qty]]*[@[Unit price]])</f>");
+    expect(tablePart?.xml).toContain(
+      "<calculatedColumnFormula>(orders[@[Qty]]*orders[@[Unit price]])</calculatedColumnFormula>",
+    );
   });
 
   it("uses workbook-global table numbering across buffered sheets", () => {

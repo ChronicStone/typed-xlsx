@@ -194,8 +194,8 @@ describe("public buffered api", () => {
     });
 
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
-    expect(content).toContain("<f>([@Amount]*2)</f>");
-    expect(content).toContain("<f>([@Double amount]+[@Amount])</f>");
+    expect(content).toContain("<f>([@[Amount]]*2)</f>");
+    expect(content).toContain("<f>([@[Double amount]]+[@[Amount]])</f>");
   });
 
   it("supports aggregating dynamic groups from later buffered report formulas", () => {
@@ -260,8 +260,8 @@ describe("public buffered api", () => {
     });
 
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
-    expect(content).toContain("<f>SUM([@Double amount],[@Triple amount])</f>");
-    expect(content).toContain("<f>AVERAGE([@Double amount],[@Triple amount])</f>");
+    expect(content).toContain("<f>SUM([@[Double amount]],[@[Triple amount]])</f>");
+    expect(content).toContain("<f>AVERAGE([@[Double amount]],[@[Triple amount]])</f>");
   });
 
   it("does not require context for groups without a context parameter", () => {
@@ -472,7 +472,7 @@ describe("public buffered api", () => {
     });
 
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
-    expect(content).toContain("<f>([@Qty]*[@Unit price])</f>");
+    expect(content).toContain("<f>([@[Qty]]*[@[Unit price]])</f>");
   });
 
   it("rejects buffered native Excel tables that would produce merged body rows", () => {
