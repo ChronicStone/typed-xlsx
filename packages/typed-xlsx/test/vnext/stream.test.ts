@@ -1,10 +1,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as VNext from "../../src/vnext";
 import { appendExpandedRowXml } from "../../src/vnext/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("vnext stream builder", () => {
   it("commits batches, updates summaries, and writes a final manifest report to the sink", async () => {
@@ -422,5 +426,40 @@ describe("vnext stream builder", () => {
 
     const content = Buffer.from(sink.toUint8Array()).toString("latin1");
     expect(content).toContain('<autoFilter ref="A1:B3"/>');
+    expect(content.indexOf("<sheetData>")).toBeLessThan(
+      content.indexOf('<autoFilter ref="A1:B3"/>'),
+    );
+  });
+
+  it("disables worksheet autoFilter for streamed tables with merged body rows", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const schema = VNext.SchemaBuilder.create<{ id: string; tags: string[] }>()
+      .column("id", {
+        accessor: "id",
+      })
+      .column("tags", {
+        accessor: (row) => row.tags,
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table({
+      id: "orders",
+      autoFilter: true,
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ id: "1", tags: ["a", "b"] }],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).not.toContain("<autoFilter");
+    expect(warn).toHaveBeenCalledWith(
+      "[typed-xlsx] Disabled autoFilter for stream table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",
+    );
   });
 });

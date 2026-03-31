@@ -79,8 +79,8 @@ export function writeWorksheetXml(
       writeWorksheetViews(sheet.view),
       xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() }),
       writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
-      writeWorksheetAutoFilter(autoFilter),
       xmlElement("sheetData", undefined, rowNodes),
+      writeWorksheetAutoFilter(autoFilter),
       writeWorksheetMerges(merges),
     ],
   );

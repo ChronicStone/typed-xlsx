@@ -69,6 +69,17 @@ export function buildKitchenSinkBufferedExample() {
       autoFilter: true,
       schema: kitchenSinkSchema,
       rows: orders.slice(0, 5),
+      select: {
+        include: [
+          "orderId",
+          "customerName",
+          "accountLabel",
+          "email",
+          "notes",
+          "tagList",
+          "createdAt",
+        ],
+      },
     });
 
   return workbook.toUint8Array();

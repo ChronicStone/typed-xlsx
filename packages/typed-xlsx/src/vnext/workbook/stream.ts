@@ -36,6 +36,7 @@ import type { CellStyle } from "../styles/types";
 import { getDefaultRowHeight } from "../planner/metrics";
 import { buildWorksheetNames } from "../ooxml/sheet-names";
 import { groupSummaryRows, resolveSummaryStyle } from "./internal/summaries";
+import { resolveAutoFilter } from "./internal/auto-filter";
 
 interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
@@ -78,14 +79,6 @@ function applySelection<T extends object, TColumnId extends string>(
   return applyColumnSelection(columns, selection);
 }
 
-function isAutoFilterEnabled(autoFilter: boolean | TableAutoFilterOptions | undefined) {
-  if (typeof autoFilter === "boolean") {
-    return autoFilter;
-  }
-
-  return autoFilter?.enabled ?? false;
-}
-
 class StreamTableBuilder<T extends object, TColumnId extends string> {
   private readonly state: StreamTableState<T, TColumnId>;
 
@@ -112,8 +105,16 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       committedPhysicalRows: 0,
       merges: [],
       spool,
-      autoFilter: isAutoFilterEnabled(autoFilter),
+      autoFilter: false,
     };
+
+    this.state.autoFilter = resolveAutoFilter({
+      autoFilter,
+      merges: this.state.merges,
+      tableId,
+      mode: "stream",
+      warn: false,
+    });
   }
 
   async commit(batch: StreamTableCommit<T>) {
@@ -146,6 +147,15 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
             endCol: columnIndex,
           });
         });
+
+        if (this.state.autoFilter) {
+          this.state.autoFilter = resolveAutoFilter({
+            autoFilter: true,
+            merges: this.state.merges,
+            tableId: this.state.tableId,
+            mode: "stream",
+          });
+        }
       }
 
       const fragment = appendExpandedRowXml({
@@ -379,7 +389,6 @@ async function* streamWorksheetXml(table: StreamTableFinalization): AsyncIterabl
       `${writeWorksheetViews(table.view)}` +
       `${xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() })}` +
       `${writeStreamColumns(table)}` +
-      `${writeStreamAutoFilter(table, lastRow)}` +
       `<sheetData>`,
   );
 
@@ -424,7 +433,9 @@ async function* streamWorksheetXml(table: StreamTableFinalization): AsyncIterabl
     );
   }
 
-  yield encodeXml(`</sheetData>${writeStreamMerges(table)}</worksheet>`);
+  yield encodeXml(
+    `</sheetData>${writeStreamAutoFilter(table, lastRow)}${writeStreamMerges(table)}</worksheet>`,
+  );
 }
 
 function writeStreamAutoFilter(table: StreamTableFinalization, lastRow: number) {

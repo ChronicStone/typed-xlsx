@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as VNext from "../../src/vnext";
 import { serializeCell } from "../../src/vnext/ooxml/cells";
 import { createSharedStringsCollector } from "../../src/vnext/ooxml/shared-strings";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("vnext ooxml", () => {
   it("serializes a buffered workbook plan into workbook and worksheet xml parts", () => {
@@ -195,6 +199,9 @@ describe("vnext ooxml", () => {
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain('<autoFilter ref="A1:B3"/>');
+    expect(worksheetPart?.xml.indexOf("<sheetData>")).toBeLessThan(
+      worksheetPart?.xml.indexOf('<autoFilter ref="A1:B3"/>') ?? -1,
+    );
   });
 
   it("rejects multiple buffered tables with autoFilter on the same worksheet", () => {
@@ -213,6 +220,34 @@ describe("vnext ooxml", () => {
 
     expect(() => VNext.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
       "Buffered worksheets can only apply autoFilter to one report table per sheet. Worksheet-level autoFilter supports a single contiguous range; if you need multiple filtered tables on the same sheet, use native Excel tables instead.",
+    );
+  });
+
+  it("disables worksheet autoFilter for buffered tables with merged body rows", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const schema = VNext.SchemaBuilder.create<{ id: string; tags: string[] }>()
+      .column("id", {
+        accessor: "id",
+      })
+      .column("tags", {
+        accessor: (row) => row.tags,
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      autoFilter: true,
+      schema,
+      rows: [{ id: "1", tags: ["a", "b"] }],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).not.toContain("<autoFilter");
+    expect(warn).toHaveBeenCalledWith(
+      "[typed-xlsx] Disabled autoFilter for buffered table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",
     );
   });
 
