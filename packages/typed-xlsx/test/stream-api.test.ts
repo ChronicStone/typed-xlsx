@@ -284,4 +284,39 @@ describe("public stream api", () => {
     expect(content).toContain("Core");
     expect(content).toContain("Finance");
   });
+
+  it("accepts stream autoFilter table options through the public api", async () => {
+    const schema = createExcelSchema<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+
+    const workbook = createWorkbookStream({
+      tempStorage: "memory",
+    });
+    const table = await workbook.sheet("Logs").table({
+      id: "logs",
+      autoFilter: { enabled: true },
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ value: "line-1" }],
+    });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain('<autoFilter ref="A1:A2"/>');
+  });
 });

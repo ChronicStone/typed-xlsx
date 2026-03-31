@@ -15,6 +15,13 @@ export interface WorksheetMergeRange {
   endCol: number;
 }
 
+export interface WorksheetAutoFilterRange {
+  startRow: number;
+  endRow: number;
+  startCol: number;
+  endCol: number;
+}
+
 export function writeWorksheetViews(view?: SheetViewOptions) {
   const attributes: Record<string, number> = {
     workbookViewId: 0,
@@ -83,6 +90,14 @@ export function writeWorksheetMerges(merges: WorksheetMergeRange[]) {
       }),
     ),
   );
+}
+
+export function writeWorksheetAutoFilter(range?: WorksheetAutoFilterRange) {
+  if (!range) return "";
+
+  return xmlSelfClosing("autoFilter", {
+    ref: `${toCellRef(range.startRow, range.startCol)}:${toCellRef(range.endRow, range.endCol)}`,
+  });
 }
 
 function writeFreezePane(freezePane: FreezePane) {

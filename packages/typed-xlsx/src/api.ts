@@ -7,6 +7,7 @@ import type {
   BufferedTableInput,
   SheetLayoutOptions,
   SheetViewOptions,
+  TableAutoFilterOptions,
   TableSelection,
 } from "./vnext/workbook/types";
 import { FileSpoolFactory } from "./vnext/workbook/internal/file-spool";
@@ -118,6 +119,7 @@ export interface WorkbookStreamTableOptions<
   id: string;
   schema: TSchema;
   select?: TSelection;
+  autoFilter?: boolean | TableAutoFilterOptions;
 }
 export type WorkbookStreamResolvedTableOptions<
   TSchema extends AnySchemaDefinition,

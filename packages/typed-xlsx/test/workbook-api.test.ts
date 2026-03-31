@@ -236,4 +236,23 @@ describe("public buffered api", () => {
     expect(content).toContain("Finance");
     expect(content).toContain("Labs");
   });
+
+  it("accepts buffered autoFilter table options through the public api", () => {
+    const schema = createExcelSchema<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Logs").table({
+      id: "logs",
+      autoFilter: { enabled: true },
+      rows: [{ value: "line-1" }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain('<autoFilter ref="A1:A2"/>');
+  });
 });

@@ -13,9 +13,11 @@ import {
 } from "../styles/defaults";
 import {
   createWorksheetRowNode,
+  writeWorksheetAutoFilter,
   writeWorksheetColumns,
   writeWorksheetViews,
   writeWorksheetMerges,
+  type WorksheetAutoFilterRange,
   type WorksheetColumnDefinition,
 } from "./worksheet-parts";
 import { groupSummaryRows } from "../workbook/internal/summaries";
@@ -48,6 +50,7 @@ export function writeWorksheetXml(
   const rowHeights = new Map<number, number>();
   const positionedTables = layoutTables(sheet);
   const merges: PositionedMergeRange[] = [];
+  const autoFilter = resolveSheetAutoFilter(positionedTables);
 
   for (const positioned of positionedTables) {
     writeTableIntoRowMap(rowMap, rowHeights, positioned, sharedStrings, styles);
@@ -77,9 +80,35 @@ export function writeWorksheetXml(
       xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() }),
       writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
       xmlElement("sheetData", undefined, rowNodes),
+      writeWorksheetAutoFilter(autoFilter),
       writeWorksheetMerges(merges),
     ],
   );
+}
+
+function resolveSheetAutoFilter(
+  positionedTables: PositionedTable[],
+): WorksheetAutoFilterRange | undefined {
+  const autoFilteredTables = positionedTables.filter((positioned) => positioned.table.autoFilter);
+
+  if (autoFilteredTables.length === 0) {
+    return undefined;
+  }
+
+  if (autoFilteredTables.length > 1) {
+    throw new Error(
+      "Buffered worksheets can only apply autoFilter to one report table per sheet. Worksheet-level autoFilter supports a single contiguous range; if you need multiple filtered tables on the same sheet, use native Excel tables instead.",
+    );
+  }
+
+  const positioned = autoFilteredTables[0]!;
+
+  return {
+    startRow: positioned.rowOffset,
+    endRow: positioned.rowOffset + positioned.height - 1,
+    startCol: positioned.columnOffset,
+    endCol: positioned.columnOffset + positioned.width - 1,
+  };
 }
 
 function layoutTables(sheet: BufferedSheetPlan): PositionedTable[] {

@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { applyColumnSelection } from "./internal/selection";
 import { computeSummaries } from "./internal/summaries";
+import { resolveAutoFilter } from "./internal/auto-filter";
 
 function planTable<T extends object, TColumnId extends string>(
   table: BufferedTableInput<T, TColumnId>,
@@ -28,6 +29,12 @@ function planTable<T extends object, TColumnId extends string>(
     rowCount: table.rows.length,
     planner,
     summaries,
+    autoFilter: resolveAutoFilter({
+      autoFilter: table.autoFilter,
+      merges: planner.merges,
+      tableId: table.id ?? `table-${fallbackIndex + 1}`,
+      mode: "buffered",
+    }),
   };
 }
 

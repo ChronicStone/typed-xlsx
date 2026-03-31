@@ -12,6 +12,7 @@ import type {
   StreamTableCommit,
   StreamTableInput,
   StreamWorkbookSink,
+  TableAutoFilterOptions,
   TableSelection,
 } from "./types";
 import { applyColumnSelection } from "./internal/selection";
@@ -19,6 +20,7 @@ import { finalizeSummaryRuntime } from "../summary/runtime";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
 import type { PlannedMergeRange } from "../planner/rows";
 import {
+  writeWorksheetAutoFilter,
   writeWorksheetColumns,
   writeWorksheetMerges,
   writeWorksheetViews,
@@ -34,6 +36,7 @@ import type { CellStyle } from "../styles/types";
 import { getDefaultRowHeight } from "../planner/metrics";
 import { buildWorksheetNames } from "../ooxml/sheet-names";
 import { groupSummaryRows, resolveSummaryStyle } from "./internal/summaries";
+import { resolveAutoFilter } from "./internal/auto-filter";
 
 interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
@@ -46,6 +49,7 @@ interface StreamTableState<T extends object, TColumnId extends string> {
   committedPhysicalRows: number;
   merges: PlannedMergeRange[];
   spool: StreamSheetSpool;
+  autoFilter: boolean;
 }
 
 interface StreamTableFinalization {
@@ -59,6 +63,7 @@ interface StreamTableFinalization {
   summaryStyleIndexes: number[];
   spool: StreamSheetSpool;
   view?: SheetViewOptions;
+  autoFilter: boolean;
 }
 
 const encoder = new TextEncoder();
@@ -86,6 +91,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     private readonly stringMode: "inline" | "shared",
     context?: Record<string, unknown>,
     selection?: TableSelection<TColumnId>,
+    autoFilter?: boolean | TableAutoFilterOptions,
   ) {
     const columns = applySelection(resolveColumns(schema, context, selection), selection);
     this.state = {
@@ -99,7 +105,16 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       committedPhysicalRows: 0,
       merges: [],
       spool,
+      autoFilter: false,
     };
+
+    this.state.autoFilter = resolveAutoFilter({
+      autoFilter,
+      merges: this.state.merges,
+      tableId,
+      mode: "stream",
+      warn: false,
+    });
   }
 
   async commit(batch: StreamTableCommit<T>) {
@@ -132,6 +147,15 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
             endCol: columnIndex,
           });
         });
+
+        if (this.state.autoFilter) {
+          this.state.autoFilter = resolveAutoFilter({
+            autoFilter: true,
+            merges: this.state.merges,
+            tableId: this.state.tableId,
+            mode: "stream",
+          });
+        }
       }
 
       const fragment = appendExpandedRowXml({
@@ -181,6 +205,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         this.styles.addStyle(withDefaultSummaryStyle(summary.style)),
       ),
       spool: this.state.spool,
+      autoFilter: this.state.autoFilter,
     };
   }
 
@@ -212,6 +237,7 @@ class StreamSheetBuilder {
       this.stringMode,
       params.context,
       params.select,
+      params.autoFilter,
     );
     this.tables.push(builder);
     return builder;
@@ -407,7 +433,22 @@ async function* streamWorksheetXml(table: StreamTableFinalization): AsyncIterabl
     );
   }
 
-  yield encodeXml(`</sheetData>${writeStreamMerges(table)}</worksheet>`);
+  yield encodeXml(
+    `</sheetData>${writeStreamAutoFilter(table, lastRow)}${writeStreamMerges(table)}</worksheet>`,
+  );
+}
+
+function writeStreamAutoFilter(table: StreamTableFinalization, lastRow: number) {
+  if (!table.autoFilter) {
+    return "";
+  }
+
+  return writeWorksheetAutoFilter({
+    startRow: 0,
+    endRow: lastRow - 1,
+    startCol: 0,
+    endCol: table.columns.length - 1,
+  });
 }
 
 function serializeHeaderCell(columnIndex: number, value: string, styleIndex?: number) {
