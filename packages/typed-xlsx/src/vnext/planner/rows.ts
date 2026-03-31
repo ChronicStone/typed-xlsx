@@ -16,6 +16,7 @@ import {
 import { normalizeSummaryInput } from "../summary/builder";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./metrics";
 import type { CellStyle } from "../styles/types";
+import { getCellPrimitiveValue, type CellData } from "../cell-data";
 
 export interface ResolvedColumn<T extends object> extends ColumnDefinition<T> {
   headerLabel: string;
@@ -24,7 +25,7 @@ export interface ResolvedColumn<T extends object> extends ColumnDefinition<T> {
 
 export interface PlannedCell<T extends object> {
   columnId: string;
-  value: PrimitiveCellValue;
+  value: CellData;
   sourceRow: T;
   sourceRowIndex: number;
   subRowIndex: number;
@@ -75,8 +76,8 @@ function defaultColumnHeader(id: string) {
   );
 }
 
-function toPrimitiveValues(value: PrimitiveCellValue | PrimitiveCellValue[]): PrimitiveCellValue[] {
-  return Array.isArray(value) ? value : [value];
+function toCellDataValues(value: unknown): CellData[] {
+  return Array.isArray(value) ? (value as CellData[]) : [value as CellData];
 }
 
 function isColumnNode<T extends object>(
@@ -187,16 +188,19 @@ export function planRows<T extends object>(
     const expandedCells: Array<{
       columnId: string;
       column: ResolvedColumn<T>;
-      values: PrimitiveCellValue[];
+      values: CellData[];
     }> = columns.map((column) => {
       const rawValue = resolveAccessor(row, column.accessor);
       const transformed = column.transform
         ? column.transform(rawValue, row, logicalRowIndex)
         : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
-      const values = toPrimitiveValues(transformed);
+      const values = toCellDataValues(transformed);
       rowHeight = Math.max(rowHeight, values.length);
 
-      const measuredWidth = Math.max(...values.map(measurePrimitiveValue), 0);
+      const measuredWidth = Math.max(
+        ...values.map((value) => measurePrimitiveValue(getCellPrimitiveValue(value))),
+        0,
+      );
       const currentWidth = stats.columnWidths.get(column.id) ?? 0;
       stats.columnWidths.set(
         column.id,
@@ -226,7 +230,9 @@ export function planRows<T extends object>(
         }
         return cell.column.style;
       });
-      const rowValues = expandedCells.map((cell) => cell.values[subRowIndex] ?? null);
+      const rowValues = expandedCells.map((cell) =>
+        getCellPrimitiveValue(cell.values[subRowIndex] ?? null),
+      );
       const physicalHeight = estimateRowHeight(rowValues, rowStyles);
 
       plannedRows.push({
