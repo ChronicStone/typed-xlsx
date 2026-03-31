@@ -159,6 +159,8 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
 
 export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
   amount: number;
+  fulfilledRatio: number;
+  itemCount: number;
   createdAt: Date;
   customerName: string;
 }>()
@@ -167,7 +169,7 @@ export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
     accessor: "customerName",
     minWidth: 18,
     headerStyle,
-    summary: (summary) => [summary.label("TOTAL")],
+    summary: (summary) => [summary.label("TOTAL"), summary.label("AVERAGE / LATEST")],
   })
   .column("amount", {
     header: "Amount",
@@ -176,8 +178,45 @@ export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
     style: currencyStyle,
     headerStyle,
     summary: (summary) => [
-      summary.formula("sum", {
+      summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2), {
         style: currencyStyle,
+      }),
+      summary.formula(({ column, fx }) => fx.round(column.cells().average(), 2), {
+        style: currencyStyle,
+      }),
+    ],
+  })
+  .column("itemCount", {
+    header: "Items",
+    accessor: "itemCount",
+    width: 9,
+    style: {
+      alignment: { horizontal: "right" },
+    },
+    headerStyle,
+    summary: (summary) => [summary.formula("sum"), summary.formula("average")],
+  })
+  .column("fulfilledRatio", {
+    header: "Fulfilled %",
+    accessor: "fulfilledRatio",
+    width: 12,
+    style: {
+      numFmt: "0.0%",
+      alignment: { horizontal: "right" },
+    },
+    headerStyle,
+    summary: (summary) => [
+      summary.formula(({ column, fx }) => fx.round(column.cells().average(), 4), {
+        style: {
+          numFmt: "0.0%",
+          alignment: { horizontal: "right" },
+        },
+      }),
+      summary.formula(({ column, fx }) => fx.max(column.cells().max(), 0), {
+        style: {
+          numFmt: "0.0%",
+          alignment: { horizontal: "right" },
+        },
       }),
     ],
   })
@@ -189,6 +228,106 @@ export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
       numFmt: "yyyy-mm-dd hh:mm",
     },
     headerStyle,
-    summary: (summary) => [summary.formula("max")],
+    summary: (summary) => [
+      summary.empty(),
+      summary.formula(({ column, fx }) => fx.max(column.cells().max(), 0)),
+    ],
+  })
+  .build();
+
+export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
+  customerName: string;
+  qty: number;
+  unitPrice: number;
+  segment: string;
+  discountRate: number;
+  activatedSeats: number;
+}>()
+  .column("customerName", {
+    header: "Customer",
+    accessor: "customerName",
+    minWidth: 18,
+    headerStyle,
+  })
+  .column("qty", {
+    header: "Qty",
+    accessor: "qty",
+    width: 8,
+    style: {
+      alignment: { horizontal: "right" },
+    },
+    headerStyle,
+  })
+  .column("unitPrice", {
+    header: "Unit Price",
+    accessor: "unitPrice",
+    minWidth: 12,
+    style: currencyStyle,
+    headerStyle,
+  })
+  .column("discountRate", {
+    header: "Discount",
+    accessor: "discountRate",
+    width: 10,
+    style: {
+      numFmt: "0%",
+      alignment: { horizontal: "right" },
+    },
+    headerStyle,
+  })
+  .column("activatedSeats", {
+    header: "Activated",
+    accessor: "activatedSeats",
+    width: 10,
+    style: {
+      alignment: { horizontal: "right" },
+    },
+    headerStyle,
+  })
+  .column("grossTotal", {
+    header: "Gross",
+    formula: ({ row, fx }) => fx.round(row.ref("qty").mul(row.ref("unitPrice")), 2),
+    minWidth: 12,
+    style: currencyStyle,
+    headerStyle,
+    summary: (summary) => [summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2))],
+  })
+  .column("lineTotal", {
+    header: "Net",
+    formula: ({ row, fx }) =>
+      fx.round(row.ref("grossTotal").mul(row.literal(1).sub(row.ref("discountRate"))), 2),
+    minWidth: 12,
+    style: currencyStyle,
+    headerStyle,
+    summary: (summary) => [summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2))],
+  })
+  .column("seatUtilization", {
+    header: "Utilization",
+    formula: ({ row, fx }) =>
+      fx.if(row.ref("qty").gt(0), fx.round(row.ref("activatedSeats").div(row.ref("qty")), 4), 0),
+    width: 12,
+    style: {
+      numFmt: "0.0%",
+      alignment: { horizontal: "right" },
+    },
+    headerStyle,
+  })
+  .column("segment", {
+    header: "Segment",
+    formula: ({ row, fx }) =>
+      fx.if(
+        row.ref("lineTotal").gte(5000).or(row.ref("seatUtilization").gte(0.85)),
+        "HIGH",
+        fx.if(row.ref("discountRate").gte(0.15), "WATCH", "STANDARD"),
+      ),
+    minWidth: 12,
+    headerStyle,
+  })
+  .column("riskFlag", {
+    header: "Risk",
+    formula: ({ row, fx }) =>
+      fx.if(row.ref("segment").eq("WATCH").or(row.ref("seatUtilization").lt(0.5)), "REVIEW", "OK"),
+    minWidth: 10,
+    headerStyle,
   })
   .build();

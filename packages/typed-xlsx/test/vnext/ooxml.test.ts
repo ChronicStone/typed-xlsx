@@ -232,6 +232,123 @@ describe("vnext ooxml", () => {
     expect(worksheetPart?.xml).toContain("<f>SUM(B2:B3)</f>");
   });
 
+  it("writes richer summary formula callbacks for buffered worksheets", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL")],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [
+          summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2)),
+        ],
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+      rows: [
+        { label: "A", amount: 3.125 },
+        { label: "B", amount: 7.333 },
+      ],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>ROUND(SUM(B2:B3),2)</f>");
+  });
+
+  it("renders summary spacer cells without default summary styling", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL"), summary.spacer()],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [summary.formula("sum"), summary.formula("average")],
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+      rows: [
+        { label: "A", amount: 3 },
+        { label: "B", amount: 7 },
+      ],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain('<c r="A5"/>');
+  });
+
+  it("writes formula-based derived columns for buffered worksheets", () => {
+    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+      rows: [{ qty: 3, unitPrice: 7 }],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>(A2*B2)</f>");
+  });
+
+  it("writes richer formula functions for buffered worksheets", () => {
+    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("roundedTotal", {
+        formula: ({ row, fx }) => fx.round(row.ref("qty").mul(row.ref("unitPrice")), 2),
+      })
+      .column("status", {
+        formula: ({ row, fx }) =>
+          fx.if(row.ref("qty").gt(10).or(row.ref("unitPrice").gt(100)), "HIGH", "NORMAL"),
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+      rows: [{ qty: 3, unitPrice: 7 }],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>ROUND((A2*B2),2)</f>");
+    expect(worksheetPart?.xml).toContain(
+      "IF(OR((A2&gt;10),(B2&gt;100)),&quot;HIGH&quot;,&quot;NORMAL&quot;)",
+    );
+  });
+
   it("inherits static column formatting for formula summary cells", () => {
     const schema = VNext.SchemaBuilder.create<{ createdAt: Date; label: string }>()
       .column("label", {
@@ -495,5 +612,22 @@ describe("vnext ooxml", () => {
     expect(xml).toContain('r="B2"');
     expect(xml).toContain("<f>SUM(B2:B3)</f>");
     expect(xml).toContain("<v>10</v>");
+  });
+
+  it("xml-escapes advanced formula operators in formula cells", () => {
+    const sharedStrings = createSharedStringsCollector();
+
+    const xml = serializeCell(
+      1,
+      1,
+      {
+        kind: "formula",
+        formula: 'IF(OR((I2="WATCH"),(H2<0.5)),"REVIEW","OK")',
+      },
+      sharedStrings,
+    );
+
+    expect(xml).toContain("H2&lt;0.5");
+    expect(xml).not.toContain("H2<0.5");
   });
 });

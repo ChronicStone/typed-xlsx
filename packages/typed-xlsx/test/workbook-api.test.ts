@@ -281,4 +281,56 @@ describe("public buffered api", () => {
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
     expect(content).toContain("<f>SUM(B2:B3)</f>");
   });
+
+  it("supports richer summary formula callbacks through the public buffered api", () => {
+    const schema = createExcelSchema<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL")],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [
+          summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2)),
+        ],
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      rows: [
+        { amount: 3.125, label: "A" },
+        { amount: 7.333, label: "B" },
+      ],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>ROUND(SUM(B2:B3),2)</f>");
+  });
+
+  it("supports formula columns through the public buffered api", () => {
+    const schema = createExcelSchema<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table({
+      id: "orders",
+      rows: [{ qty: 3, unitPrice: 7 }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>(A2*B2)</f>");
+  });
 });

@@ -218,7 +218,7 @@ function writeTableIntoRowMap(
               },
             }),
             sharedStrings,
-            styles.addStyle(withDefaultSummaryStyle(summary.style)),
+            summary.unstyled ? undefined : styles.addStyle(withDefaultSummaryStyle(summary.style)),
           ),
         ];
       }),

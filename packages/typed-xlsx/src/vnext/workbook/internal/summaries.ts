@@ -7,9 +7,11 @@ import type { CellStyle } from "../../styles/types";
 import type {
   SummaryDefinition,
   SummaryFormulaContext,
+  SummaryFormulaResolver,
   SummaryResolvedValue,
 } from "../../summary/runtime";
 import { toCellRef } from "../../ooxml/cells";
+import { createFormulaFunctionsContext, func, toExpr, type FormulaExpr } from "../../formula/expr";
 
 export function resolveSummaryStyle<T extends object>(
   definition: SummaryDefinition<T>,
@@ -90,6 +92,7 @@ export function buildPlannedSummaries<T extends object>(
       summaryIndex: binding.summaryIndex,
       value,
       style: resolveSummaryStyle(binding.definition, value, column),
+      unstyled: binding.definition.spacer?.kind === "spacer",
     };
   });
 }
@@ -103,18 +106,88 @@ export function resolveSummaryValue<T>(params: {
     return params.value;
   }
 
-  return createSummaryFormulaCell(params.definition.formula.fn, params.formulaContext);
+  return createSummaryFormulaCell(params.definition.formula.resolve, params.formulaContext);
 }
 
 function createSummaryFormulaCell(
-  fn: "sum" | "average" | "count" | "min" | "max",
+  resolve: SummaryFormulaResolver,
   context: SummaryFormulaContext,
 ): FormulaCell {
-  const startRef = toCellRef(context.startRow, context.column);
-  const endRef = toCellRef(context.endRow, context.column);
+  const formula = toExpr(
+    resolve({
+      column: {
+        cells() {
+          return {
+            sum() {
+              return columnRangeFunction("SUM", context);
+            },
+            average() {
+              return columnRangeFunction("AVERAGE", context);
+            },
+            count() {
+              return columnRangeFunction("COUNT", context);
+            },
+            min() {
+              return columnRangeFunction("MIN", context);
+            },
+            max() {
+              return columnRangeFunction("MAX", context);
+            },
+          };
+        },
+      },
+      fx: createFormulaFunctionsContext<string>(),
+    }),
+  );
 
   return {
     kind: "formula",
-    formula: `${fn.toUpperCase()}(${startRef}:${endRef})`,
+    formula: serializeSummaryFormulaExpr(formula, context),
   };
+}
+
+function columnRangeFunction(
+  name: "SUM" | "AVERAGE" | "COUNT" | "MIN" | "MAX",
+  context: SummaryFormulaContext,
+): FormulaExpr<string> {
+  const startRef = toCellRef(context.startRow, context.column);
+  const endRef = toCellRef(context.endRow, context.column);
+
+  return func(name, [
+    {
+      kind: "literal",
+      value: `${startRef}:${endRef}`,
+    },
+  ]);
+}
+
+function serializeSummaryFormulaExpr(
+  expr: FormulaExpr<string>,
+  context: SummaryFormulaContext,
+): string {
+  if (expr.kind === "literal") {
+    if (typeof expr.value === "string" && /^[A-Z]+\d+:[A-Z]+\d+$/.test(expr.value)) {
+      return expr.value;
+    }
+
+    if (typeof expr.value === "string") {
+      return `"${expr.value.replaceAll('"', '""')}"`;
+    }
+
+    if (typeof expr.value === "boolean") {
+      return expr.value ? "TRUE" : "FALSE";
+    }
+
+    return String(expr.value);
+  }
+
+  if (expr.kind === "ref") {
+    return toCellRef(context.startRow, context.column);
+  }
+
+  if (expr.kind === "function") {
+    return `${expr.name}(${expr.args.map((arg) => serializeSummaryFormulaExpr(arg, context)).join(",")})`;
+  }
+
+  return `(${serializeSummaryFormulaExpr(expr.left, context)}${expr.op}${serializeSummaryFormulaExpr(expr.right, context)})`;
 }

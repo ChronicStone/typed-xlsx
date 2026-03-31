@@ -1,6 +1,10 @@
 import { createWorkbook } from "../../src";
 import { createKitchenSinkOrders } from "./data";
-import { kitchenSinkFormulaSummarySchema, kitchenSinkSchema } from "./schema";
+import {
+  kitchenSinkFormulaColumnSchema,
+  kitchenSinkFormulaSummarySchema,
+  kitchenSinkSchema,
+} from "./schema";
 
 export function buildKitchenSinkBufferedExample() {
   const workbook = createWorkbook();
@@ -93,8 +97,39 @@ export function buildKitchenSinkBufferedExample() {
         amount: order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
         createdAt: order.createdAt,
         customerName: order.customer.name,
+        fulfilledRatio:
+          order.items.filter((item) => item.fulfilled).length / Math.max(order.items.length, 1),
+        itemCount: order.items.length,
       })),
       schema: kitchenSinkFormulaSummarySchema,
+    });
+
+  workbook
+    .sheet("Formula Columns", {
+      freezePane: { rows: 1 },
+    })
+    .table({
+      id: "formula-column-orders",
+      title: "Formula Column Snapshot",
+      rows: orders.slice(0, 5).map((order) => ({
+        activatedSeats: order.items.reduce(
+          (sum, item) => sum + (item.fulfilled ? item.quantity : Math.max(0, item.quantity - 1)),
+          0,
+        ),
+        customerName: order.customer.name,
+        discountRate:
+          order.customer.tier === "enterprise"
+            ? 0.18
+            : order.customer.tier === "growth"
+              ? 0.1
+              : 0.03,
+        qty: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        unitPrice:
+          order.items.reduce((sum, item) => sum + item.unitPrice, 0) /
+          Math.max(order.items.length, 1),
+        segment: order.customer.tier,
+      })),
+      schema: kitchenSinkFormulaColumnSchema,
     });
 
   return workbook.toUint8Array();

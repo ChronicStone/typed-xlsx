@@ -463,6 +463,136 @@ describe("vnext stream builder", () => {
     expect(content).toContain("<f>SUM(B2:B3)</f>");
   });
 
+  it("writes richer summary formula callbacks in streamed worksheets", async () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL")],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [
+          summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2)),
+        ],
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+    });
+
+    await table.commit({
+      rows: [
+        { amount: 3.125, label: "A" },
+        { amount: 7.333, label: "B" },
+      ],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>ROUND(SUM(B2:B3),2)</f>");
+  });
+
+  it("renders summary spacer cells without default summary styling in streamed worksheets", async () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL"), summary.spacer()],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [summary.formula("sum"), summary.formula("average")],
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+    });
+
+    await table.commit({
+      rows: [
+        { amount: 3, label: "A" },
+        { amount: 7, label: "B" },
+      ],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain('<c r="A5"/>');
+  });
+
+  it("writes formula-based derived columns in streamed worksheets", async () => {
+    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ qty: 3, unitPrice: 7 }],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>(A2*B2)</f>");
+  });
+
+  it("writes richer formula functions in streamed worksheets", async () => {
+    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("roundedTotal", {
+        formula: ({ row, fx }) => fx.round(row.ref("qty").mul(row.ref("unitPrice")), 2),
+      })
+      .column("status", {
+        formula: ({ row, fx }) => fx.if(row.ref("qty").gt(10), "HIGH", "NORMAL"),
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table({
+      id: "orders",
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ qty: 3, unitPrice: 7 }],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>ROUND((A2*B2),2)</f>");
+    expect(content).toContain("IF((A2&gt;10),&quot;HIGH&quot;,&quot;NORMAL&quot;)");
+  });
+
   it("disables worksheet autoFilter for streamed tables with merged body rows", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const schema = VNext.SchemaBuilder.create<{ id: string; tags: string[] }>()

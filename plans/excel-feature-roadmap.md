@@ -89,6 +89,7 @@ Builder-level concerns:
 - native Excel table mode
 - worksheet auto-filters
 - Excel table totals row
+- conditional formatting
 - table naming and table style
 - later: charts and other worksheet/table attachments
 
@@ -301,6 +302,53 @@ Goal:
 Why last:
 
 - charts benefit from stable named ranges, native tables, or robust range modeling
+
+### Future: conditional formatting
+
+Branch idea: `feat/conditional-formatting`
+
+Goal:
+
+- support Excel-native conditional formatting rules so cell styling can adapt when workbook formulas recalculate inside Excel
+
+Why it matters:
+
+- normal cell styles are static at write time
+- users will want styling to react to formula results, thresholds, and status values after opening the workbook
+- conditional formatting is the correct Excel-native mechanism for dynamic styling
+
+Direction:
+
+```ts
+workbook.sheet("Orders").table({
+  id: "orders",
+  rows,
+  schema,
+  conditionalFormatting: [
+    {
+      range: "lineTotal",
+      rule: ({ cell }) => cell.gt(5000),
+      style: {
+        fill: { color: { rgb: "FEE2E2" } },
+        font: { color: { rgb: "B42318" }, bold: true },
+      },
+    },
+  ],
+});
+```
+
+Potential follow-up shapes:
+
+- formula-based rules against the current cell
+- column/range-scoped rules
+- data bars
+- color scales
+- icon sets
+
+Important distinction:
+
+- current `style: (row) => ...` is generation-time dynamic only
+- conditional formatting would be Excel-time dynamic and react to recalculation
 
 ## Type-safety principles
 
