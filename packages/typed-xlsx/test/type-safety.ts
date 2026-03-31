@@ -114,6 +114,92 @@ createExcelSchema<FlatRow>()
   })
   .build();
 
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .group("derived", (b) => {
+    b.column("doubleAge", {
+      formula: ({ row }) => row.ref("age").mul(2),
+    }).column("quadAge", {
+      formula: ({ row }) => row.ref("doubleAge").mul(row.ref("age")),
+    });
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .group("derived", (b) => {
+    b.column("doubleAge", {
+      formula: ({ row }) =>
+        // @ts-expect-error group formulas cannot reference future group column ids
+        row.ref("quadAge"),
+    }).column("quadAge", {
+      formula: ({ row }) => row.ref("doubleAge").mul(2),
+    });
+  })
+  .build();
+
+createExcelSchema<FlatRow>({ mode: "excel-table" })
+  .column("age", { accessor: "age" })
+  .group("derived", (b) => {
+    b.column("doubleAge", {
+      formula: ({ row }) => row.ref("age").mul(2),
+    }).column("tripleAge", {
+      formula: ({ row }) => row.ref("doubleAge").add(row.ref("age")),
+    });
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .group("ages", (b) => {
+    b.column("constant", { accessor: () => 1 });
+  })
+  .column("age", { accessor: "age" })
+  .column("totalAges", {
+    formula: ({ row }) => row.group("ages").sum(),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("totalAges", {
+    formula: ({ row }) =>
+      // @ts-expect-error formulas can only reference previously declared group ids
+      row.group("ages").sum(),
+  })
+  .group("ages", (b) => {
+    b.column("constant", { accessor: () => 1 });
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .group("derived", (b) => {
+    b.column("doubleAge", { formula: ({ row }) => row.ref("age").mul(2) });
+  })
+  .column("derivedTotal", {
+    formula: ({ row }) => row.group("derived").sum(),
+  })
+  .build();
+
+createExcelSchema<FlatRow>({ mode: "excel-table" })
+  .column("age", { accessor: "age" })
+  .group("derived", (b) => {
+    b.column("doubleAge", { formula: ({ row }) => row.ref("age").mul(2) });
+  })
+  .column("derivedAverage", {
+    formula: ({ row }) => row.group("derived").average(),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("totalAges", {
+    formula: ({ row }) =>
+      // @ts-expect-error unknown group ids are rejected
+      row.group("missing").sum(),
+  })
+  .build();
+
 // ── SchemaColumnId: union grows with each .column() call ─────────────────────
 
 const basicSchema = createExcelSchema<FlatRow>()
@@ -222,6 +308,28 @@ type GroupCtx = SchemaGroupContext<typeof groupSchema>;
 const _gc1: GroupCtx = { orgIds: [1, 2, 3] };
 // @ts-expect-error — string is not assignable to number[]
 const _gc2: GroupCtx = { orgIds: "bad" };
+
+const excelTableGroupSchema = createExcelSchema<GroupRow>({ mode: "excel-table" })
+  .column("name", { accessor: "name" })
+  .group("orgIds", (b, ids: number[]) => {
+    for (const id of ids) {
+      b.column(`org-${id}`, { accessor: (r) => r.orgs.includes(id) });
+    }
+  })
+  .build();
+
+createWorkbook()
+  .sheet("S")
+  .table("excel-group-context", {
+    rows: [],
+    schema: excelTableGroupSchema,
+    context: { orgIds: [1, 2, 3] },
+  });
+
+createWorkbook()
+  .sheet("S")
+  // @ts-expect-error — context is required when the excel-table schema group is selected
+  .table("excel-group-missing-context", { rows: [], schema: excelTableGroupSchema });
 
 type GroupItem = { id: number; name: string };
 type DetailedGroupRow = {

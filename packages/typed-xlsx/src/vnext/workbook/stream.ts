@@ -19,7 +19,6 @@ import type {
   StreamSpoolFactory,
   StreamTableCommit,
   StreamExcelTableInput,
-  StreamReportTableInput,
   StreamWorkbookSink,
   TableAutoFilterOptions,
   TableSelection,
@@ -292,12 +291,6 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
   }
 }
 
-function isStreamReportTableInput<T extends object, TColumnId extends string>(
-  params: AnyStreamTableInput<T, TColumnId>,
-): params is StreamReportTableInput<T, TColumnId> {
-  return params.schema.kind === "report";
-}
-
 function isStreamExcelTableInput<T extends object, TColumnId extends string>(
   params: AnyStreamTableInput<T, TColumnId>,
 ): params is StreamExcelTableInput<T, TColumnId> {
@@ -329,7 +322,7 @@ class StreamSheetBuilder {
       this.sharedStrings,
       this.styles,
       this.stringMode,
-      isStreamReportTableInput(params) ? params.context : undefined,
+      "context" in params ? params.context : undefined,
       params.select,
       isStreamExcelTableInput(params)
         ? {

@@ -90,6 +90,181 @@ describe("public stream api", () => {
     };
   });
 
+  it("supports flat column groups in streamed native Excel table schemas", async () => {
+    type Row = { memberships: number[]; name: string };
+
+    const schema = createExcelSchema<Row>({ mode: "excel-table" })
+      .column("name", { accessor: "name" })
+      .group("memberships", (builder, orgIds: number[]) => {
+        for (const id of orgIds) {
+          builder.column(`org-${id}`, {
+            accessor: (row) => row.memberships.includes(id),
+          });
+        }
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    await expect(
+      workbook.sheet("Sheet").table("groups", {
+        schema,
+        context: { memberships: [1, 2] },
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it("allows formulas inside groups to reference outer predecessor columns in stream report mode", async () => {
+    const schema = createExcelSchema<{ amount: number }>()
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+          });
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Orders").table("orders", { schema });
+
+    await table.commit({ rows: [{ amount: 3 }] });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<f>(A2*2)</f>");
+    expect(content).toContain("<f>(B2+A2)</f>");
+  });
+
+  it("allows formulas inside groups to reference outer predecessor columns in stream excel-table mode", async () => {
+    const schema = createExcelSchema<{ amount: number }>({ mode: "excel-table" })
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+          });
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Orders").table("orders", { schema });
+
+    await table.commit({ rows: [{ amount: 3 }] });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<f>([@Amount]*2)</f>");
+    expect(content).toContain("<f>([@Double amount]+[@Amount])</f>");
+  });
+
+  it("supports aggregating dynamic groups from later stream report formulas", async () => {
+    const schema = createExcelSchema<{ amount: number }>()
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(3),
+          });
+      })
+      .column("derivedTotal", {
+        formula: ({ row }) => row.group("derived").sum(),
+      })
+      .column("derivedMin", {
+        formula: ({ row }) => row.group("derived").min(),
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Orders").table("orders", { schema });
+
+    await table.commit({ rows: [{ amount: 3 }] });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<f>SUM(B2,C2)</f>");
+    expect(content).toContain("<f>MIN(B2,C2)</f>");
+  });
+
+  it("supports aggregating dynamic groups from later stream excel-table formulas", async () => {
+    const schema = createExcelSchema<{ amount: number }>({ mode: "excel-table" })
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(3),
+          });
+      })
+      .column("derivedTotal", {
+        formula: ({ row }) => row.group("derived").sum(),
+      })
+      .column("derivedCount", {
+        formula: ({ row }) => row.group("derived").count(),
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Orders").table("orders", { schema });
+
+    await table.commit({ rows: [{ amount: 3 }] });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<f>SUM([@Double amount],[@Triple amount])</f>");
+    expect(content).toContain("<f>COUNT([@Double amount],[@Triple amount])</f>");
+  });
+
   it("does not require context for stream groups without a context parameter", async () => {
     const schema = createExcelSchema<{ name: string; tags: string[] }>()
       .column("name", { accessor: "name" })

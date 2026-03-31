@@ -10,7 +10,7 @@ export interface SummaryBuilder<T> {
   formula(
     formula:
       | SummaryFormulaFunction
-      | ((context: SummaryFormulaBuilderContext) => FormulaValue<string>),
+      | ((context: SummaryFormulaBuilderContext) => FormulaValue<string, never>),
     options?: Pick<SummaryDefinition<T>, "format" | "style">,
   ): SummaryDefinition<T, undefined>;
   label(

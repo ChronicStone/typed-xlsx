@@ -123,6 +123,147 @@ describe("public buffered api", () => {
       .table("groups-missing-context", { rows: [], schema, select: { include: ["memberships"] } });
   });
 
+  it("supports flat column groups in buffered native Excel table schemas", () => {
+    type Row = { memberships: number[]; name: string };
+
+    const schema = createExcelSchema<Row>({ mode: "excel-table" })
+      .column("name", { accessor: "name" })
+      .group("memberships", (builder, orgIds: number[]) => {
+        for (const id of orgIds) {
+          builder.column(`org-${id}`, {
+            accessor: (row) => row.memberships.includes(id),
+          });
+        }
+      })
+      .build();
+
+    expect(() => {
+      const workbook = createWorkbook();
+      workbook.sheet("Sheet").table("groups", {
+        rows: [{ memberships: [1], name: "Ada" }],
+        schema,
+        context: { memberships: [1, 2] },
+      });
+      workbook.toUint8Array();
+    }).not.toThrow();
+  });
+
+  it("allows formulas inside groups to reference outer predecessor columns in buffered mode", () => {
+    const schema = createExcelSchema<{ amount: number }>({ mode: "report" })
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+          });
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ amount: 3 }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>(A2*2)</f>");
+    expect(content).toContain("<f>(B2+A2)</f>");
+  });
+
+  it("allows formulas inside groups to reference outer predecessor columns in buffered excel-table mode", () => {
+    const schema = createExcelSchema<{ amount: number }>({ mode: "excel-table" })
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+          });
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ amount: 3 }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>([@Amount]*2)</f>");
+    expect(content).toContain("<f>([@Double amount]+[@Amount])</f>");
+  });
+
+  it("supports aggregating dynamic groups from later buffered report formulas", () => {
+    const schema = createExcelSchema<{ amount: number }>({ mode: "report" })
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(3),
+          });
+      })
+      .column("derivedTotal", {
+        formula: ({ row }) => row.group("derived").sum(),
+      })
+      .column("derivedMax", {
+        formula: ({ row }) => row.group("derived").max(),
+      })
+      .column("derivedCount", {
+        formula: ({ row }) => row.group("derived").count(),
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ amount: 3 }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>SUM(B2,C2)</f>");
+    expect(content).toContain("<f>MAX(B2,C2)</f>");
+    expect(content).toContain("<f>COUNT(B2,C2)</f>");
+  });
+
+  it("supports aggregating dynamic groups from later buffered excel-table formulas", () => {
+    const schema = createExcelSchema<{ amount: number }>({ mode: "excel-table" })
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder
+          .column("doubleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(2),
+          })
+          .column("tripleAmount", {
+            formula: ({ row }) => row.ref("amount").mul(3),
+          });
+      })
+      .column("derivedTotal", {
+        formula: ({ row }) => row.group("derived").sum(),
+      })
+      .column("derivedAverage", {
+        formula: ({ row }) => row.group("derived").average(),
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ amount: 3 }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>SUM([@Double amount],[@Triple amount])</f>");
+    expect(content).toContain("<f>AVERAGE([@Double amount],[@Triple amount])</f>");
+  });
+
   it("does not require context for groups without a context parameter", () => {
     const schema = createExcelSchema<{ name: string; tags: string[] }>({ mode: "report" })
       .column("name", { accessor: "name" })

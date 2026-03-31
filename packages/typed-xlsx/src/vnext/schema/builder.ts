@@ -8,10 +8,10 @@ import type { FormulaFunctions, FormulaRowContext, FormulaValue } from "../formu
 export type PrimitiveCellValue = string | number | boolean | Date | null | undefined;
 export type CellValue = PrimitiveCellValue | PrimitiveCellValue[];
 
-export type FormulaFn<TPrevColumnId extends string> = (context: {
-  row: FormulaRowContext<TPrevColumnId>;
-  fx: FormulaFunctions<TPrevColumnId>;
-}) => FormulaValue<TPrevColumnId>;
+export type FormulaFn<TPrevColumnId extends string, TGroupId extends string = never> = (context: {
+  row: FormulaRowContext<TPrevColumnId, TGroupId>;
+  fx: FormulaFunctions<TPrevColumnId, TGroupId>;
+}) => FormulaValue<TPrevColumnId, TGroupId>;
 
 export type TransformFn<T, TValue = unknown> = (
   value: TValue,
@@ -43,6 +43,7 @@ export interface ColumnDefinition<
   T extends object,
   TAccessor extends Accessor<T, unknown> | Path<T> = Accessor<T, unknown> | Path<T>,
   TPrevColumnId extends string = never,
+  TGroupId extends string = never,
 > {
   id: string;
   header?: string;
@@ -57,7 +58,7 @@ export interface ColumnDefinition<
   minWidth?: number;
   maxWidth?: number;
   summary?: SummaryInput<T>;
-  formula?: FormulaFn<TPrevColumnId>;
+  formula?: FormulaFn<TPrevColumnId, TGroupId>;
   totalsRow?: ExcelTableTotalsRowDefinition;
 }
 
@@ -71,25 +72,31 @@ type AccessorColumnInput<
   T extends object,
   TAccessor extends Accessor<T, unknown> | Path<T>,
   TPrevColumnId extends string,
-> = Omit<ColumnDefinition<T, TAccessor, TPrevColumnId>, "id"> & {
+  TGroupId extends string,
+> = Omit<ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId>, "id"> & {
   accessor: TAccessor;
   formula?: never;
 };
 
-type FormulaColumnInput<T extends object, TPrevColumnId extends string> = Omit<
-  ColumnDefinition<T, never, TPrevColumnId>,
-  "id" | "accessor" | "transform"
-> & {
+type FormulaColumnInput<
+  T extends object,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+> = Omit<ColumnDefinition<T, never, TPrevColumnId, TGroupId>, "id" | "accessor" | "transform"> & {
   accessor?: never;
   transform?: never;
-  formula: FormulaFn<TPrevColumnId>;
+  formula: FormulaFn<TPrevColumnId, TGroupId>;
 };
 
 type ExcelTableAccessorColumnInput<
   T extends object,
   TAccessor extends Accessor<T, unknown> | Path<T>,
   TPrevColumnId extends string,
-> = Omit<ColumnDefinition<T, TAccessor, TPrevColumnId>, "id" | "summary" | "defaultValue"> & {
+  TGroupId extends string,
+> = Omit<
+  ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId>,
+  "id" | "summary" | "defaultValue"
+> & {
   accessor: TAccessor;
   defaultValue?: PrimitiveCellValue;
   summary?: never;
@@ -97,29 +104,29 @@ type ExcelTableAccessorColumnInput<
   formula?: never;
 };
 
-type ExcelTableFormulaColumnInput<T extends object, TPrevColumnId extends string> = Omit<
-  ColumnDefinition<T, never, TPrevColumnId>,
+type ExcelTableFormulaColumnInput<
+  T extends object,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+> = Omit<
+  ColumnDefinition<T, never, TPrevColumnId, TGroupId>,
   "id" | "accessor" | "transform" | "summary" | "defaultValue"
 > & {
   accessor?: never;
   transform?: never;
   defaultValue?: never;
   summary?: never;
-  formula: FormulaFn<TPrevColumnId>;
+  formula: FormulaFn<TPrevColumnId, TGroupId>;
 };
 
-export interface ColumnGroupDefinition<
-  T extends object,
-  TId extends string = string,
-  TContext = unknown,
-> {
+export interface ColumnGroupDefinition<TId extends string = string, TContext = unknown> {
   id: TId;
   kind: "group";
   requiresContext: boolean;
-  build: (builder: SchemaBuilder<T, any>, context: TContext) => void;
+  build: (builder: unknown, context: TContext) => void;
 }
 
-export type SchemaNode<T extends object> = ColumnDefinition<T> | ColumnGroupDefinition<T>;
+export type SchemaNode<T extends object> = ColumnDefinition<T> | ColumnGroupDefinition;
 export type SchemaContext = Record<string, unknown>;
 
 export interface SchemaDefinition<
@@ -147,7 +154,9 @@ export type ReportSchemaDefinition<
 export type ExcelTableSchemaDefinition<
   T extends object,
   TColumnId extends string = string,
-> = SchemaDefinition<T, TColumnId, never, {}, "excel-table">;
+  TGroupId extends string = never,
+  TGroupContext extends SchemaContext = {},
+> = SchemaDefinition<T, TColumnId, TGroupId, TGroupContext, "excel-table">;
 
 export type SchemaColumnId<TSchema> =
   TSchema extends SchemaDefinition<any, infer TColumnId, any, any> ? TColumnId : never;
@@ -173,19 +182,21 @@ export class SchemaBuilder<
 
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
-    definition: AccessorColumnInput<T, TPath, TColumnId>,
+    definition: AccessorColumnInput<T, TPath, TColumnId, TGroupId>,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends (row: T) => unknown>(
     id: TId,
-    definition: AccessorColumnInput<T, TAccessor, TColumnId>,
+    definition: AccessorColumnInput<T, TAccessor, TColumnId, TGroupId>,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string>(
     id: TId,
-    definition: FormulaColumnInput<T, TColumnId>,
+    definition: FormulaColumnInput<T, TColumnId, TGroupId>,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends Accessor<T, unknown> | Path<T>>(
     id: TId,
-    definition: AccessorColumnInput<T, TAccessor, TColumnId> | FormulaColumnInput<T, TColumnId>,
+    definition:
+      | AccessorColumnInput<T, TAccessor, TColumnId, TGroupId>
+      | FormulaColumnInput<T, TColumnId, TGroupId>,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext> {
     if (this.ids.has(id)) {
       throw new Error(`Column with id '${id}' already exists.`);
@@ -203,7 +214,7 @@ export class SchemaBuilder<
   group<const TId extends string, TContext = undefined>(
     id: TId,
     build: (
-      builder: SchemaBuilder<T>,
+      builder: SchemaBuilder<T, TColumnId>,
       ...context: [TContext] extends [undefined] ? [] : [context: TContext]
     ) => void,
   ): SchemaBuilder<
@@ -221,7 +232,7 @@ export class SchemaBuilder<
       id,
       kind: "group",
       requiresContext: build.length > 1,
-      build: build as unknown as ColumnGroupDefinition<T>["build"],
+      build: build as unknown as ColumnGroupDefinition<TId>["build"],
     });
     return this as unknown as SchemaBuilder<
       T,
@@ -239,7 +250,12 @@ export class SchemaBuilder<
   }
 }
 
-export class ExcelTableSchemaBuilder<T extends object, TColumnId extends string = never> {
+export class ExcelTableSchemaBuilder<
+  T extends object,
+  TColumnId extends string = never,
+  TGroupId extends string = never,
+  TGroupContext extends SchemaContext = {},
+> {
   private readonly columns: SchemaNode<T>[] = [];
   private readonly ids = new Set<string>();
 
@@ -250,23 +266,23 @@ export class ExcelTableSchemaBuilder<T extends object, TColumnId extends string 
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: AccessorValue<T, TPath> extends PrimitiveCellValue
-      ? ExcelTableAccessorColumnInput<T, TPath, TColumnId>
+      ? ExcelTableAccessorColumnInput<T, TPath, TColumnId, TGroupId>
       : never,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId>;
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends (row: T) => PrimitiveCellValue>(
     id: TId,
-    definition: ExcelTableAccessorColumnInput<T, TAccessor, TColumnId>,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId>;
+    definition: ExcelTableAccessorColumnInput<T, TAccessor, TColumnId, TGroupId>,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string>(
     id: TId,
-    definition: ExcelTableFormulaColumnInput<T, TColumnId>,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId>;
+    definition: ExcelTableFormulaColumnInput<T, TColumnId, TGroupId>,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends Accessor<T, unknown> | Path<T>>(
     id: TId,
     definition:
-      | ExcelTableAccessorColumnInput<T, TAccessor, TColumnId>
-      | ExcelTableFormulaColumnInput<T, TColumnId>,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId> {
+      | ExcelTableAccessorColumnInput<T, TAccessor, TColumnId, TGroupId>
+      | ExcelTableFormulaColumnInput<T, TColumnId, TGroupId>,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext> {
     if (this.ids.has(id)) {
       throw new Error(`Column with id '${id}' already exists.`);
     }
@@ -276,10 +292,41 @@ export class ExcelTableSchemaBuilder<T extends object, TColumnId extends string 
       id,
       ...definition,
     } as ColumnDefinition<T>);
-    return this as unknown as ExcelTableSchemaBuilder<T, TColumnId | TId>;
+    return this as unknown as ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   }
 
-  build(): ExcelTableSchemaDefinition<T, TColumnId> {
+  group<const TId extends string, TContext = undefined>(
+    id: TId,
+    build: (
+      builder: ExcelTableSchemaBuilder<T, TColumnId>,
+      ...context: [TContext] extends [undefined] ? [] : [context: TContext]
+    ) => void,
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId | TId,
+    [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
+  > {
+    if (this.ids.has(id)) {
+      throw new Error(`Column with id '${id}' already exists.`);
+    }
+
+    this.ids.add(id);
+    this.columns.push({
+      id,
+      kind: "group",
+      requiresContext: build.length > 1,
+      build: build as unknown as ColumnGroupDefinition<TId>["build"],
+    });
+    return this as unknown as ExcelTableSchemaBuilder<
+      T,
+      TColumnId,
+      TGroupId | TId,
+      [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
+    >;
+  }
+
+  build(): ExcelTableSchemaDefinition<T, TColumnId, TGroupId, TGroupContext> {
     return {
       kind: "excel-table",
       columns: [...this.columns],
