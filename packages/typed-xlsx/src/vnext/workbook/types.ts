@@ -47,6 +47,7 @@ export interface PlannedSummaryCell {
   summaryIndex: number;
   value: SummaryResolvedValue;
   style?: CellStyle;
+  unstyled?: boolean;
 }
 
 export interface BufferedTablePlan<T extends object> {

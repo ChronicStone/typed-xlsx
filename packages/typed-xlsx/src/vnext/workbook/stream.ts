@@ -72,7 +72,7 @@ interface StreamTableFinalization {
   merges: PlannedMergeRange[];
   summaries: PlannedSummaryCell[];
   headerStyleIndexes: number[];
-  summaryStyleIndexes: number[];
+  summaryStyleIndexes: Array<number | undefined>;
   spool: StreamSheetSpool;
   view?: SheetViewOptions;
   autoFilter: boolean;
@@ -207,7 +207,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         this.styles.addStyle(withDefaultHeaderStyle(column.headerStyle)),
       ),
       summaryStyleIndexes: summaries.map((summary) =>
-        this.styles.addStyle(withDefaultSummaryStyle(summary.style)),
+        summary.unstyled ? undefined : this.styles.addStyle(withDefaultSummaryStyle(summary.style)),
       ),
       spool: this.state.spool,
       autoFilter: this.state.autoFilter,

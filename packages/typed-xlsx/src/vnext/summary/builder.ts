@@ -1,15 +1,23 @@
-import type { SummaryDefinition, SummaryFormulaFunction } from "./runtime";
+import type {
+  SummaryDefinition,
+  SummaryFormulaBuilderContext,
+  SummaryFormulaFunction,
+} from "./runtime";
+import type { FormulaValue } from "../formula/expr";
 
 export interface SummaryBuilder<T> {
   cell<TAcc>(definition: SummaryDefinition<T, TAcc>): SummaryDefinition<T, TAcc>;
   formula(
-    fn: SummaryFormulaFunction,
+    formula:
+      | SummaryFormulaFunction
+      | ((context: SummaryFormulaBuilderContext) => FormulaValue<string>),
     options?: Pick<SummaryDefinition<T>, "format" | "style">,
   ): SummaryDefinition<T, undefined>;
   label(
     label: string,
     options?: Pick<SummaryDefinition<T>, "format" | "style">,
   ): SummaryDefinition<T, undefined>;
+  spacer(): SummaryDefinition<T, undefined>;
   empty(options?: Pick<SummaryDefinition<T>, "format" | "style">): SummaryDefinition<T, undefined>;
 }
 
@@ -23,14 +31,15 @@ export function createSummaryBuilder<T>(): SummaryBuilder<T> {
     cell<TAcc>(definition: SummaryDefinition<T, TAcc>) {
       return definition;
     },
-    formula(fn, options) {
+    formula(formula, options) {
       return {
         init: () => undefined,
         step: (accumulator) => accumulator,
         finalize: () => null,
         formula: {
           kind: "formula",
-          fn,
+          resolve:
+            typeof formula === "function" ? formula : ({ column }) => column.cells()[formula](),
         },
         ...options,
       };
@@ -41,6 +50,16 @@ export function createSummaryBuilder<T>(): SummaryBuilder<T> {
         step: (accumulator) => accumulator,
         finalize: () => label,
         ...options,
+      };
+    },
+    spacer() {
+      return {
+        init: () => undefined,
+        step: (accumulator) => accumulator,
+        finalize: () => null,
+        spacer: {
+          kind: "spacer",
+        },
       };
     },
     empty(options) {

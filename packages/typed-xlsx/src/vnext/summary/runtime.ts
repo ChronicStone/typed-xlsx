@@ -1,12 +1,38 @@
 import type { FormulaCell } from "../cell-data";
+import type { FormulaExpr, FormulaFunctions, FormulaValue } from "../formula/expr";
 import type { CellStyle } from "../styles/types";
 
 export type SummaryCellValue = string | number | boolean | Date | null | undefined;
 export type SummaryFormulaFunction = "sum" | "average" | "count" | "min" | "max";
 
+export interface SummaryColumnRangeContext {
+  cells(): SummaryColumnCellsContext;
+}
+
+export interface SummaryColumnCellsContext {
+  sum(): FormulaExpr;
+  average(): FormulaExpr;
+  count(): FormulaExpr;
+  min(): FormulaExpr;
+  max(): FormulaExpr;
+}
+
+export interface SummaryFormulaBuilderContext {
+  column: SummaryColumnRangeContext;
+  fx: FormulaFunctions<string>;
+}
+
+export type SummaryFormulaResolver = (
+  context: SummaryFormulaBuilderContext,
+) => FormulaValue<string>;
+
 export interface SummaryFormulaDefinition {
   kind: "formula";
-  fn: SummaryFormulaFunction;
+  resolve: SummaryFormulaResolver;
+}
+
+export interface SummarySpacerDefinition {
+  kind: "spacer";
 }
 
 export interface SummaryFormulaContext {
@@ -23,6 +49,7 @@ export interface SummaryDefinition<T, TAcc = unknown> {
   step: (accumulator: TAcc, row: T, rowIndex: number) => TAcc;
   finalize: (accumulator: TAcc) => SummaryCellValue;
   formula?: SummaryFormulaDefinition;
+  spacer?: SummarySpacerDefinition;
   format?: string | ((value: SummaryResolvedValue) => string | undefined);
   style?: CellStyle | ((value: SummaryResolvedValue) => CellStyle | undefined);
 }
