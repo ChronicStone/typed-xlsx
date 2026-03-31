@@ -6,17 +6,18 @@ import { xmlElement } from "../ooxml/xml";
 import { resolveAccessor } from "../core/accessor";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "../planner/metrics";
 import type { CellStyle } from "../styles/types";
+import { getCellPrimitiveValue, type CellData } from "../cell-data";
 
 interface ExpandedRow<T extends object> {
   row: T;
   sourceRowIndex: number;
-  valuesByColumn: PrimitiveCellValue[][];
+  valuesByColumn: CellData[][];
   height: number;
   physicalRowHeights: number[];
 }
 
-function toValues(value: PrimitiveCellValue | PrimitiveCellValue[]): PrimitiveCellValue[] {
-  return Array.isArray(value) ? value : [value];
+function toValues(value: unknown): CellData[] {
+  return Array.isArray(value) ? (value as CellData[]) : [value as CellData];
 }
 
 export function expandCommittedRow<T extends object>(
@@ -35,7 +36,9 @@ export function expandCommittedRow<T extends object>(
     return values;
   });
   const physicalRowHeights = Array.from({ length: height }, (_, subRowIndex) => {
-    const rowValues = valuesByColumn.map((values) => values[subRowIndex] ?? null);
+    const rowValues = valuesByColumn.map((values) =>
+      getCellPrimitiveValue(values[subRowIndex] ?? null),
+    );
     const rowStyles = columns.map((column) =>
       resolveColumnStyle(column, row, sourceRowIndex, subRowIndex),
     );
@@ -95,7 +98,7 @@ export function appendExpandedRowXml<T extends object>(params: {
 function serializeExpandedCell(
   row: number,
   column: number,
-  value: PrimitiveCellValue,
+  value: CellData,
   sharedStrings: SharedStringsCollector,
   stringMode: "inline" | "shared",
   styleIndex?: number,
@@ -114,7 +117,9 @@ export function updateColumnWidthStats<T extends object>(params: {
 }) {
   params.columns.forEach((column, columnIndex) => {
     const measured = Math.max(
-      ...(params.expandedRow.valuesByColumn[columnIndex] ?? []).map(measurePrimitiveValue),
+      ...(params.expandedRow.valuesByColumn[columnIndex] ?? []).map((value) =>
+        measurePrimitiveValue(getCellPrimitiveValue(value)),
+      ),
       0,
     );
     const current = params.widths.get(column.id) ?? 0;

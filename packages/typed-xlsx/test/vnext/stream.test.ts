@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import * as VNext from "../../src/vnext";
+import { appendExpandedRowXml } from "../../src/vnext/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
 
 describe("vnext stream builder", () => {
@@ -359,5 +360,36 @@ describe("vnext stream builder", () => {
     const bytes = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
     expect(bytes[0]).toBe(0x50);
     expect(bytes[1]).toBe(0x4b);
+  });
+
+  it("serializes formula cells in streamed row fragments", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+      .column("amount", {
+        accessor: "amount",
+      })
+      .build();
+
+    const columns = VNext.resolveColumns(schema);
+    const xml = appendExpandedRowXml({
+      columns,
+      expandedRow: {
+        row: { amount: 2 },
+        sourceRowIndex: 0,
+        valuesByColumn: [[{ kind: "formula", formula: "A2*2", value: 4 }]],
+        height: 1,
+        physicalRowHeights: [VNext.getDefaultRowHeight()],
+      },
+      startingRowIndex: 1,
+      sharedStrings: {
+        add: () => 0,
+        count: () => 0,
+        values: () => [],
+      },
+    });
+
+    expect(xml).toContain('<row r="2"');
+    expect(xml).toContain('<c r="A2"');
+    expect(xml).toContain("<f>A2*2</f>");
+    expect(xml).toContain("<v>4</v>");
   });
 });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as VNext from "../../src/vnext";
+import { serializeCell } from "../../src/vnext/ooxml/cells";
+import { createSharedStringsCollector } from "../../src/vnext/ooxml/shared-strings";
 
 describe("vnext ooxml", () => {
   it("serializes a buffered workbook plan into workbook and worksheet xml parts", () => {
@@ -332,5 +334,24 @@ describe("vnext ooxml", () => {
 
     expect(workbookPart?.xml).toContain('name="Financial Report Full"');
     expect(workbookPart?.xml).not.toContain("|");
+  });
+
+  it("serializes formula cells with cached values", () => {
+    const sharedStrings = createSharedStringsCollector();
+
+    const xml = serializeCell(
+      1,
+      1,
+      {
+        kind: "formula",
+        formula: "SUM(B2:B3)",
+        value: 10,
+      },
+      sharedStrings,
+    );
+
+    expect(xml).toContain('r="B2"');
+    expect(xml).toContain("<f>SUM(B2:B3)</f>");
+    expect(xml).toContain("<v>10</v>");
   });
 });

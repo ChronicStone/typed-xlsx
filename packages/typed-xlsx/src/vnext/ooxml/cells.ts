@@ -1,6 +1,7 @@
 import { xmlElement, xmlSelfClosing } from "./xml";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "./shared-strings";
+import { isFormulaCell, type CellData } from "../cell-data";
 
 function toExcelSerialDate(value: Date) {
   return (value.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
@@ -21,7 +22,7 @@ export function toCellRef(row: number, column: number) {
 export function serializeCell(
   row: number,
   column: number,
-  value: PrimitiveCellValue,
+  value: CellData,
   sharedStrings: SharedStringsCollector,
   styleIndex?: number,
 ) {
@@ -33,6 +34,10 @@ export function serializeCell(
 
   if (value === null || value === undefined) {
     return xmlSelfClosing("c", attributes);
+  }
+
+  if (isFormulaCell(value)) {
+    return serializeFormulaCell(attributes, value.formula, value.value);
   }
 
   if (typeof value === "string") {
@@ -61,6 +66,39 @@ export function serializeCell(
   }
 
   return xmlSelfClosing("c", attributes);
+}
+
+function serializeFormulaCell(
+  attributes: { r: string; s: number | undefined },
+  formula: string,
+  value?: PrimitiveCellValue,
+) {
+  const children = [xmlElement("f", undefined, formula)];
+  const formulaAttributes: Record<string, number | string | undefined> = { ...attributes };
+
+  if (value === undefined || value === null) {
+    return xmlElement("c", formulaAttributes, children);
+  }
+
+  if (typeof value === "string") {
+    formulaAttributes.t = "str";
+    children.push(xmlElement("v", undefined, value));
+    return xmlElement("c", formulaAttributes, children);
+  }
+
+  if (typeof value === "boolean") {
+    formulaAttributes.t = "b";
+    children.push(xmlElement("v", undefined, value ? "1" : "0"));
+    return xmlElement("c", formulaAttributes, children);
+  }
+
+  if (value instanceof Date) {
+    children.push(xmlElement("v", undefined, String(toExcelSerialDate(value))));
+    return xmlElement("c", formulaAttributes, children);
+  }
+
+  children.push(xmlElement("v", undefined, String(value)));
+  return xmlElement("c", formulaAttributes, children);
 }
 
 export function serializeInlineStringCell(
