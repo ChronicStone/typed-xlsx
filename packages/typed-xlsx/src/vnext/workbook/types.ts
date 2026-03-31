@@ -135,10 +135,15 @@ export interface BufferedReportTableInput<
   autoFilter?: boolean | TableAutoFilterOptions;
 }
 
-export interface BufferedExcelTableInput<T extends object, TSelectableId extends string = string> {
-  schema: ExcelTableSchemaDefinition<T, string>;
+export interface BufferedExcelTableInput<
+  T extends object,
+  TSelectableId extends string = string,
+  TSchemaContext extends SchemaContext = SchemaContext,
+> {
+  schema: ExcelTableSchemaDefinition<T, string, string, TSchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
+  context?: TSchemaContext;
   name?: string;
   style?: ExcelTableStyle;
   autoFilter?: boolean;
@@ -151,7 +156,7 @@ export type BufferedTableInput<
   TSchemaContext extends SchemaContext = SchemaContext,
 > =
   | BufferedReportTableInput<T, TSelectableId, TSchemaContext>
-  | BufferedExcelTableInput<T, TSelectableId>;
+  | BufferedExcelTableInput<T, TSelectableId, TSchemaContext>;
 
 export interface FreezePane {
   rows?: number;
@@ -243,8 +248,10 @@ export interface StreamReportTableInput<
 export interface StreamExcelTableInput<
   T extends object,
   TSelectableId extends string = string,
+  TSchemaContext extends SchemaContext = SchemaContext,
 > extends StreamTableInput<T, TSelectableId> {
-  schema: ExcelTableSchemaDefinition<T, string>;
+  schema: ExcelTableSchemaDefinition<T, string, string, TSchemaContext>;
+  context?: TSchemaContext;
   name?: string;
   style?: ExcelTableStyle;
   autoFilter?: boolean;
@@ -257,4 +264,4 @@ export type AnyStreamTableInput<
   TSchemaContext extends SchemaContext = SchemaContext,
 > =
   | StreamReportTableInput<T, TSelectableId, TSchemaContext>
-  | StreamExcelTableInput<T, TSelectableId>;
+  | StreamExcelTableInput<T, TSelectableId, TSchemaContext>;

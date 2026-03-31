@@ -113,7 +113,7 @@ function createSummaryFormulaCell(
   resolve: SummaryFormulaResolver,
   context: SummaryFormulaContext,
 ): FormulaCell {
-  const formula = toExpr(
+  const formula = toExpr<string, never>(
     resolve({
       column: {
         cells() {
@@ -136,7 +136,7 @@ function createSummaryFormulaCell(
           };
         },
       },
-      fx: createFormulaFunctionsContext<string>(),
+      fx: createFormulaFunctionsContext<string, never>(),
     }),
   );
 
@@ -149,7 +149,7 @@ function createSummaryFormulaCell(
 function columnRangeFunction(
   name: "SUM" | "AVERAGE" | "COUNT" | "MIN" | "MAX",
   context: SummaryFormulaContext,
-): FormulaExpr<string> {
+): FormulaExpr<string, never> {
   const startRef = toCellRef(context.startRow, context.column);
   const endRef = toCellRef(context.endRow, context.column);
 
@@ -162,7 +162,7 @@ function columnRangeFunction(
 }
 
 function serializeSummaryFormulaExpr(
-  expr: FormulaExpr<string>,
+  expr: FormulaExpr<string, never>,
   context: SummaryFormulaContext,
 ): string {
   if (expr.kind === "literal") {
@@ -187,6 +187,10 @@ function serializeSummaryFormulaExpr(
 
   if (expr.kind === "function") {
     return `${expr.name}(${expr.args.map((arg) => serializeSummaryFormulaExpr(arg, context)).join(",")})`;
+  }
+
+  if (expr.kind === "group") {
+    throw new Error("Group formula aggregates are not supported in summary formulas.");
   }
 
   return `(${serializeSummaryFormulaExpr(expr.left, context)}${expr.op}${serializeSummaryFormulaExpr(expr.right, context)})`;

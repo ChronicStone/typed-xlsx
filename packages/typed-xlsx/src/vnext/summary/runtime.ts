@@ -10,21 +10,21 @@ export interface SummaryColumnRangeContext {
 }
 
 export interface SummaryColumnCellsContext {
-  sum(): FormulaExpr;
-  average(): FormulaExpr;
-  count(): FormulaExpr;
-  min(): FormulaExpr;
-  max(): FormulaExpr;
+  sum(): FormulaExpr<string, never>;
+  average(): FormulaExpr<string, never>;
+  count(): FormulaExpr<string, never>;
+  min(): FormulaExpr<string, never>;
+  max(): FormulaExpr<string, never>;
 }
 
 export interface SummaryFormulaBuilderContext {
   column: SummaryColumnRangeContext;
-  fx: FormulaFunctions<string>;
+  fx: FormulaFunctions<string, never>;
 }
 
 export type SummaryFormulaResolver = (
   context: SummaryFormulaBuilderContext,
-) => FormulaValue<string>;
+) => FormulaValue<string, never>;
 
 export interface SummaryFormulaDefinition {
   kind: "formula";

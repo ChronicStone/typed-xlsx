@@ -31,6 +31,41 @@ export interface ResolvedColumn<T extends object> extends Omit<ColumnDefinition<
   summary?: SummaryDefinition<T, any>[];
 }
 
+function resolveFormulaGroupColumns<T extends object>(
+  columns: ResolvedColumn<T>[],
+  groupId: string,
+) {
+  return columns.filter((column) => column.groupId === groupId);
+}
+
+function serializeFormulaGroupExpr<T extends object>(params: {
+  aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
+  columns: ResolvedColumn<T>[];
+  groupId: string;
+  mode: "report" | "excel-table";
+  rowIndex: number;
+}) {
+  const groupColumns = resolveFormulaGroupColumns(params.columns, params.groupId);
+  if (groupColumns.length === 0) {
+    throw new Error(`Unknown or empty formula group reference '${params.groupId}'.`);
+  }
+
+  if (params.mode === "excel-table") {
+    const refs = groupColumns.map((column) => `[@${column.headerLabel.replaceAll("]", "]]")}]`);
+    return `${params.aggregate}(${refs.join(",")})`;
+  }
+
+  const cellRefs = groupColumns.map((column) => {
+    const columnIndex = params.columns.findIndex((candidate) => candidate.id === column.id);
+    if (columnIndex < 0) {
+      throw new Error(`Unknown formula column reference '${column.id}'.`);
+    }
+    return toCellRef(params.rowIndex + 1, columnIndex);
+  });
+
+  return `${params.aggregate}(${cellRefs.join(",")})`;
+}
+
 export interface PlannedCell<T extends object> {
   columnId: string;
   value: CellData;
@@ -102,8 +137,8 @@ function resolveFormulaCell<T extends object>(params: {
   }
 
   const expr = params.column.formula({
-    row: createFormulaRowContext<any>(),
-    fx: createFormulaFunctionsContext<any>(),
+    row: createFormulaRowContext<any, any>(),
+    fx: createFormulaFunctionsContext<any, any>(),
   } as Parameters<NonNullable<typeof params.column.formula>>[0]);
 
   return {
@@ -118,7 +153,7 @@ function resolveFormulaCell<T extends object>(params: {
 }
 
 function serializeFormulaExpr<T extends object>(
-  expr: FormulaExpr<string>,
+  expr: FormulaExpr<string, string>,
   columns: ResolvedColumn<T>[],
   rowIndex: number,
   mode: "report" | "excel-table",
@@ -153,6 +188,16 @@ function serializeFormulaExpr<T extends object>(
     return toCellRef(rowIndex + 1, columnIndex);
   }
 
+  if (expr.kind === "group") {
+    return serializeFormulaGroupExpr({
+      aggregate: expr.aggregate,
+      columns,
+      groupId: expr.groupId,
+      mode,
+      rowIndex,
+    });
+  }
+
   if (expr.kind === "function") {
     return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, rowIndex, mode)).join(",")})`;
   }
@@ -161,7 +206,7 @@ function serializeFormulaExpr<T extends object>(
 }
 
 function isColumnNode<T extends object>(
-  node: ColumnDefinition<T> | ColumnGroupDefinition<T>,
+  node: ColumnDefinition<T> | ColumnGroupDefinition,
 ): node is ColumnDefinition<T> {
   return !("kind" in node && node.kind === "group");
 }

@@ -31,7 +31,7 @@ import { FileWorkbookSink } from "./vnext/workbook/internal/file-sink";
 export interface WorkbookOptions {}
 type AnySchemaDefinition = SchemaDefinition<any, any, any, any, any>;
 type AnyReportSchemaDefinition = ReportSchemaDefinition<any, any, any, any>;
-type AnyExcelTableSchemaDefinition = ExcelTableSchemaDefinition<any, any>;
+type AnyExcelTableSchemaDefinition = ExcelTableSchemaDefinition<any, any, any, any>;
 type SchemaRow<TSchema extends AnySchemaDefinition> =
   TSchema extends SchemaDefinition<infer TRow, any, any, any, any> ? TRow : never;
 type SchemaColumnIds<TSchema extends AnySchemaDefinition> =
@@ -94,8 +94,12 @@ export interface WorkbookExcelTableInput<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
 > extends Omit<
-  BufferedExcelTableInput<SchemaRow<TSchema>, SchemaColumnIds<TSchema>>,
-  "schema" | "select"
+  BufferedExcelTableInput<
+    SchemaRow<TSchema>,
+    SchemaColumnIds<TSchema>,
+    SchemaResolvedContext<TSchema>
+  >,
+  "schema" | "select" | "context"
 > {
   schema: TSchema;
   select?: TSelection;
@@ -107,7 +111,7 @@ export type WorkbookReportTableOptions<
 export type WorkbookExcelTableOptions<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookExcelTableInput<TSchema, TSelection>;
+> = WorkbookExcelTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema, TSelection>;
 export type WorkbookTableInput<
   TSchema extends AnySchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
@@ -175,8 +179,12 @@ export interface WorkbookStreamExcelTableOptions<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
 > extends Omit<
-  StreamExcelTableInput<SchemaRow<TSchema>, SchemaColumnIds<TSchema>>,
-  "schema" | "select"
+  StreamExcelTableInput<
+    SchemaRow<TSchema>,
+    SchemaColumnIds<TSchema>,
+    SchemaResolvedContext<TSchema>
+  >,
+  "schema" | "select" | "context"
 > {
   schema: TSchema;
   select?: TSelection;
@@ -189,7 +197,8 @@ export type WorkbookStreamResolvedReportTableOptions<
 export type WorkbookStreamResolvedExcelTableOptions<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookStreamExcelTableOptions<TSchema, TSelection>;
+> = WorkbookStreamExcelTableOptions<TSchema, TSelection> &
+  WorkbookTableContextField<TSchema, TSelection>;
 export type WorkbookStreamResolvedTableOptions<
   TSchema extends AnySchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
