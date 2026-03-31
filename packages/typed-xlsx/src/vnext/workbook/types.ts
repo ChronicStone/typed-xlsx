@@ -88,6 +88,7 @@ export interface ResolvedExcelTableOptions {
   totalsRowColumns: Array<{
     id: string;
     headerLabel: string;
+    formula?: string;
     totalsRow?: ExcelTableTotalsRowDefinition;
   }>;
 }

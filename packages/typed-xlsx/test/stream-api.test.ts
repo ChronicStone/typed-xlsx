@@ -179,8 +179,8 @@ describe("public stream api", () => {
     });
 
     const content = Buffer.concat(chunks).toString("latin1");
-    expect(content).toContain("<f>([@Amount]*2)</f>");
-    expect(content).toContain("<f>([@Double amount]+[@Amount])</f>");
+    expect(content).toContain("<f>([@[Amount]]*2)</f>");
+    expect(content).toContain("<f>([@[Double amount]]+[@[Amount]])</f>");
   });
 
   it("supports aggregating dynamic groups from later stream report formulas", async () => {
@@ -261,8 +261,8 @@ describe("public stream api", () => {
     });
 
     const content = Buffer.concat(chunks).toString("latin1");
-    expect(content).toContain("<f>SUM([@Double amount],[@Triple amount])</f>");
-    expect(content).toContain("<f>COUNT([@Double amount],[@Triple amount])</f>");
+    expect(content).toContain("<f>SUM([@[Double amount]],[@[Triple amount]])</f>");
+    expect(content).toContain("<f>COUNT([@[Double amount]],[@[Triple amount]])</f>");
   });
 
   it("does not require context for stream groups without a context parameter", async () => {

@@ -331,3 +331,52 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
     headerStyle,
   })
   .build();
+
+export const kitchenSinkGroupedFormulaSchema = createExcelSchema<{
+  amount: number;
+  customerName: string;
+  region: "AMER" | "APAC" | "EMEA";
+}>({ mode: "excel-table" })
+  .column("customerName", {
+    header: "Customer",
+    accessor: "customerName",
+    minWidth: 18,
+    totalsRow: { label: "AVERAGE" },
+  })
+  .column("amount", {
+    header: "Amount",
+    accessor: "amount",
+    minWidth: 12,
+    style: currencyStyle,
+    totalsRow: { function: "average" },
+  })
+  .column("region", {
+    header: "Region",
+    accessor: "region",
+    minWidth: 10,
+  })
+  .group("regions", (builder, regions: Array<"AMER" | "APAC" | "EMEA">) => {
+    for (const region of regions) {
+      builder.column(`region:${region}`, {
+        header: `${region} Amount`,
+        formula: ({ row, fx }) => fx.if(row.ref("region").eq(region), row.ref("amount"), 0),
+        minWidth: 14,
+        style: currencyStyle,
+      });
+    }
+  })
+  .column("regionalTotal", {
+    header: "Regional Total",
+    formula: ({ row }) => row.group("regions").sum(),
+    minWidth: 14,
+    style: currencyStyle,
+    totalsRow: { function: "sum" },
+  })
+  .column("regionalAverage", {
+    header: "Regional Avg",
+    formula: ({ row, fx }) => fx.round(row.group("regions").average(), 2),
+    minWidth: 14,
+    style: currencyStyle,
+    totalsRow: { function: "average" },
+  })
+  .build();

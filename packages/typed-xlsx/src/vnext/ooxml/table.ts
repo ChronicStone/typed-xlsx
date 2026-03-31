@@ -54,9 +54,9 @@ export function writeExcelTableXml(params: {
         "tableColumns",
         { count: params.columns.length },
         params.columns.map((column, index) => {
-          const totalsRow = params.options.totalsRowColumns[index]?.totalsRow;
-
-          return xmlSelfClosing("tableColumn", {
+          const tableColumn = params.options.totalsRowColumns[index];
+          const totalsRow = tableColumn?.totalsRow;
+          const attributes = {
             id: index + 1,
             name: column.headerLabel,
             ...(params.options.totalsRow && totalsRow && "label" in totalsRow
@@ -65,7 +65,15 @@ export function writeExcelTableXml(params: {
             ...(params.options.totalsRow && totalsRow && "function" in totalsRow
               ? { totalsRowFunction: toExcelTotalsRowFunction(totalsRow.function!) }
               : {}),
-          });
+          };
+
+          return tableColumn?.formula
+            ? xmlElement(
+                "tableColumn",
+                attributes,
+                xmlElement("calculatedColumnFormula", undefined, tableColumn.formula),
+              )
+            : xmlSelfClosing("tableColumn", attributes);
         }),
       ),
       xmlSelfClosing("tableStyleInfo", {
