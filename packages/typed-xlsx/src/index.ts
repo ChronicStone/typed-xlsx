@@ -26,13 +26,17 @@ export type {
   PathValue,
   CellStyle,
   CellValue,
+  ExcelTableSchemaDefinition,
   PrimitiveCellValue,
   ColumnDefinition,
+  ReportSchemaDefinition,
   SchemaColumnId,
   SchemaContext,
   SchemaDefinition,
   SchemaGroupContext,
   SchemaGroupId,
+  SchemaKind,
+  SchemaKindOf,
   TypedPath,
 } from "./vnext";
 export type { SummaryBuilder, SummaryCellValue, SummaryDefinition, SummaryInput } from "./vnext";

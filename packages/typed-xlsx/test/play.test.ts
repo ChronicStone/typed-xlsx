@@ -33,7 +33,7 @@ describe("should generate the play excel file", () => {
     }));
 
     const workbook = createWorkbook();
-    workbook.sheet("Sheet1", { tablesPerRow: 2 }).table({
+    workbook.sheet("Sheet1", { tablesPerRow: 2 }).table("table-1", {
       rows: users,
       schema,
       title: "Table 1",

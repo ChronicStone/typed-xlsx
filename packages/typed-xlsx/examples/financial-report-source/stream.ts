@@ -7,8 +7,7 @@ export async function buildFinancialReportStreamExample() {
     tempStorage: "memory",
   });
 
-  const table = await workbook.sheet("Financial Report | Full").table({
-    id: "financial-report",
+  const table = await workbook.sheet("Financial Report | Full").table("financial-report", {
     schema: financialReportSchema,
   });
 
@@ -40,8 +39,7 @@ export async function writeFinancialReportStreamExample(params: {
     tempDirectory: params.tempDirectory,
   });
 
-  const table = await workbook.sheet("Financial Report | Full").table({
-    id: "financial-report",
+  const table = await workbook.sheet("Financial Report | Full").table("financial-report", {
     schema: financialReportSchema,
   });
 

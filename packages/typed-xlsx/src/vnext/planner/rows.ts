@@ -94,6 +94,7 @@ function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
   columnIndex: number;
+  formulaMode: "report" | "excel-table";
   rowIndex: number;
 }) {
   if (!params.column.formula) {
@@ -107,7 +108,12 @@ function resolveFormulaCell<T extends object>(params: {
 
   return {
     kind: "formula" as const,
-    formula: serializeFormulaExpr(toExpr(expr), params.columns, params.rowIndex),
+    formula: serializeFormulaExpr(
+      toExpr(expr),
+      params.columns,
+      params.rowIndex,
+      params.formulaMode,
+    ),
   };
 }
 
@@ -115,6 +121,7 @@ function serializeFormulaExpr<T extends object>(
   expr: FormulaExpr<string>,
   columns: ResolvedColumn<T>[],
   rowIndex: number,
+  mode: "report" | "excel-table",
 ): string {
   if (expr.kind === "literal") {
     if (typeof expr.value === "string") {
@@ -134,14 +141,23 @@ function serializeFormulaExpr<T extends object>(
       throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
     }
 
+    if (mode === "excel-table") {
+      const headerLabel = columns[columnIndex]?.headerLabel;
+      if (!headerLabel) {
+        throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
+      }
+
+      return `[@${headerLabel.replaceAll("]", "]]")}]`;
+    }
+
     return toCellRef(rowIndex + 1, columnIndex);
   }
 
   if (expr.kind === "function") {
-    return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, rowIndex)).join(",")})`;
+    return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, rowIndex, mode)).join(",")})`;
   }
 
-  return `(${serializeFormulaExpr(expr.left, columns, rowIndex)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex)})`;
+  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode)})`;
 }
 
 function isColumnNode<T extends object>(
@@ -151,7 +167,7 @@ function isColumnNode<T extends object>(
 }
 
 export function resolveColumns<T extends object>(
-  schema: SchemaDefinition<T, any, any, any>,
+  schema: SchemaDefinition<T, any, any, any, any>,
   context?: SchemaContext,
   selection?: { include?: readonly string[]; exclude?: readonly string[] },
 ): ResolvedColumn<T>[] {
@@ -236,7 +252,7 @@ export function createSummaryBindings<T extends object>(
 }
 
 export function planRows<T extends object>(
-  schema: SchemaDefinition<T, any, any, any>,
+  schema: SchemaDefinition<T, any, any, any, any>,
   rows: T[],
 ): PlannerResult<T> {
   const columns = resolveColumns(schema);
@@ -258,6 +274,7 @@ export function planRows<T extends object>(
         column,
         columns,
         columnIndex,
+        formulaMode: schema.kind,
         rowIndex: logicalRowIndex,
       });
       const rawValue = column.formula

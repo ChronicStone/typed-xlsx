@@ -48,7 +48,7 @@ describe("vnext planner", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Totals").table({
+    workbook.sheet("Totals").table("totals", {
       schema,
       rows: [{ amount: 3 }, { amount: 4 }],
     });

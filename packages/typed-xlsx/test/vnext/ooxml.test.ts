@@ -26,8 +26,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       title: "Orders",
       schema,
       rows: [
@@ -58,8 +57,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Sheet").table({
-      id: "sheet",
+    workbook.sheet("Sheet").table("sheet", {
       schema,
       rows: [{ name: "A" }],
     });
@@ -87,8 +85,7 @@ describe("vnext ooxml", () => {
         rightToLeft: true,
         freezePane: { rows: 1, columns: 1 },
       })
-      .table({
-        id: "sheet",
+      .table("sheet", {
         schema,
         rows: [{ name: "A" }],
       });
@@ -115,13 +112,11 @@ describe("vnext ooxml", () => {
       .options({
         tablesPerRow: 2,
       })
-      .table({
-        id: "left",
+      .table("left", {
         schema,
         rows: [{ name: "A" }],
       })
-      .table({
-        id: "right",
+      .table("right", {
         schema,
         rows: [{ name: "B" }],
       });
@@ -155,8 +150,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Merged").table({
-      id: "merged",
+    workbook.sheet("Merged").table("merged", {
       schema,
       rows: [{ name: "Alpha", tags: ["x", "yy"] }],
     });
@@ -185,8 +179,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       autoFilter: true,
       schema,
       rows: [
@@ -204,6 +197,176 @@ describe("vnext ooxml", () => {
     );
   });
 
+  it("writes native Excel table parts, relationships, and content types for buffered worksheets", () => {
+    const schema = VNext.ExcelTableSchemaBuilder.create<{ amount: number; name: string }>()
+      .column("name", {
+        accessor: "name",
+      })
+      .column("amount", {
+        accessor: "amount",
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table("orders", {
+      autoFilter: false,
+      name: "OrdersTable",
+      schema,
+      rows: [
+        { name: "A", amount: 3 },
+        { name: "B", amount: 7 },
+      ],
+      style: "TableStyleDark2",
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const worksheetRelsPart = xml.parts.find(
+      (part) => part.path === "xl/worksheets/_rels/sheet1.xml.rels",
+    );
+    const tablePart = xml.parts.find((part) => part.path === "xl/tables/table1.xml");
+    const workbookBytes = workbook.buildXlsx();
+    const workbookContent = Buffer.from(workbookBytes).toString("latin1");
+
+    expect(worksheetPart?.xml).toContain('<tableParts count="1">');
+    expect(worksheetPart?.xml).toContain('<tablePart r:id="rIdTable1"/>');
+    expect(worksheetPart?.xml).not.toContain("<autoFilter");
+
+    expect(worksheetRelsPart?.xml).toContain('Id="rIdTable1"');
+    expect(worksheetRelsPart?.xml).toContain('Target="../tables/table1.xml"');
+
+    expect(tablePart?.xml).toContain('name="OrdersTable"');
+    expect(tablePart?.xml).toContain('displayName="OrdersTable"');
+    expect(tablePart?.xml).toContain('ref="A1:B3"');
+    expect(tablePart?.xml).not.toContain("<autoFilter");
+    expect(tablePart?.xml).toContain('tableStyleInfo name="TableStyleDark2"');
+
+    expect(workbookContent).toContain("/xl/tables/table1.xml");
+  });
+
+  it("writes native Excel table totals-row metadata for buffered worksheets", () => {
+    const schema = VNext.ExcelTableSchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        totalsRow: { label: "TOTAL" },
+      })
+      .column("amount", {
+        accessor: "amount",
+        totalsRow: { function: "sum" },
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table("orders", {
+      rows: [
+        { amount: 3, label: "A" },
+        { amount: 7, label: "B" },
+      ],
+      schema,
+      totalsRow: true,
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const tablePart = xml.parts.find((part) => part.path === "xl/tables/table1.xml");
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
+
+    expect(tablePart?.xml).toContain('ref="A1:B4"');
+    expect(tablePart?.xml).toContain('totalsRowCount="1"');
+    expect(tablePart?.xml).not.toContain('totalsRowShown="1"');
+    expect(tablePart?.xml).toContain('totalsRowLabel="TOTAL"');
+    expect(tablePart?.xml).toContain('totalsRowFunction="sum"');
+    expect(worksheetPart?.xml).toContain('r="A4"');
+    expect(sharedStringsPart?.xml).toContain("TOTAL");
+    expect(worksheetPart?.xml).toContain("SUBTOTAL(109,[Amount])");
+  });
+
+  it("serializes excel-table formula columns with structured references in buffered worksheets", () => {
+    const schema = VNext.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
+      .column("qty", {
+        accessor: "qty",
+      })
+      .column("unitPrice", {
+        accessor: "unitPrice",
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ qty: 3, unitPrice: 7 }],
+      schema,
+    });
+
+    const worksheetPart = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan()).parts.find(
+      (part) => part.path === "xl/worksheets/sheet1.xml",
+    );
+
+    expect(worksheetPart?.xml).toContain("<f>([@Qty]*[@Unit price])</f>");
+  });
+
+  it("uses workbook-global table numbering across buffered sheets", () => {
+    const schema = VNext.ExcelTableSchemaBuilder.create<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Left").table("left", {
+      rows: [{ value: "A" }],
+      schema,
+    });
+    workbook.sheet("Right").table("right", {
+      rows: [{ value: "B" }],
+      schema,
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const sheet1Rels = xml.parts.find(
+      (part) => part.path === "xl/worksheets/_rels/sheet1.xml.rels",
+    );
+    const sheet2Rels = xml.parts.find(
+      (part) => part.path === "xl/worksheets/_rels/sheet2.xml.rels",
+    );
+    const table1 = xml.parts.find((part) => part.path === "xl/tables/table1.xml");
+    const table2 = xml.parts.find((part) => part.path === "xl/tables/table2.xml");
+
+    expect(sheet1Rels?.xml).toContain('Target="../tables/table1.xml"');
+    expect(sheet2Rels?.xml).toContain('Target="../tables/table2.xml"');
+    expect(table1?.xml).toContain('ref="A1:A2"');
+    expect(table2?.xml).toContain('ref="A1:A2"');
+  });
+
+  it("rejects buffered native Excel tables for merged physical rows", () => {
+    const schema = {
+      kind: "excel-table",
+      columns: [
+        { accessor: "id", id: "id" },
+        {
+          accessor: (row: { id: string; tags: string[] }) => row.tags.join(", "),
+          id: "tagList",
+          transform: (_value: string, row: { id: string; tags: string[] }) => row.tags,
+        },
+      ],
+    } as unknown as import("../../src/vnext").ExcelTableSchemaDefinition<
+      { id: string; tags: string[] },
+      "id" | "tagList"
+    >;
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ id: "1", tags: ["a", "b"] }],
+      schema,
+    });
+
+    expect(() => VNext.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
+      "Native Excel tables require flat physical rows. Remove array-expanded columns and merged body cells, or use the default report table mode.",
+    );
+  });
+
   it("writes formula-based summary cells for buffered worksheets", () => {
     const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
@@ -217,8 +380,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
         { label: "A", amount: 3 },
@@ -247,8 +409,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
         { label: "A", amount: 3.125 },
@@ -275,8 +436,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
         { label: "A", amount: 3 },
@@ -304,8 +464,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       schema,
       rows: [{ qty: 3, unitPrice: 7 }],
     });
@@ -334,8 +493,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       schema,
       rows: [{ qty: 3, unitPrice: 7 }],
     });
@@ -365,8 +523,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
         { label: "A", createdAt: new Date(Date.UTC(2025, 2, 3, 9, 30, 0)) },
@@ -393,8 +550,8 @@ describe("vnext ooxml", () => {
     workbook
       .sheet("Orders")
       .options({ tablesPerRow: 2 })
-      .table({ id: "left", autoFilter: true, schema, rows: [{ value: "A" }] })
-      .table({ id: "right", autoFilter: true, schema, rows: [{ value: "B" }] });
+      .table("left", { autoFilter: true, schema, rows: [{ value: "A" }] })
+      .table("right", { autoFilter: true, schema, rows: [{ value: "B" }] });
 
     expect(() => VNext.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
       "Buffered worksheets can only apply autoFilter to one report table per sheet. Worksheet-level autoFilter supports a single contiguous range; if you need multiple filtered tables on the same sheet, use native Excel tables instead.",
@@ -413,8 +570,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Orders").table({
-      id: "orders",
+    workbook.sheet("Orders").table("orders", {
       autoFilter: true,
       schema,
       rows: [{ id: "1", tags: ["a", "b"] }],
@@ -440,8 +596,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Heights").table({
-      id: "heights",
+    workbook.sheet("Heights").table("heights", {
       schema,
       rows: [{ notes: "line 1\nline 2" }],
     });
@@ -477,8 +632,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Summary").table({
-      id: "summary",
+    workbook.sheet("Summary").table("summary", {
       schema,
       rows: [{ name: "A", amount: 5, createdAt: new Date(Date.UTC(2025, 2, 3, 0, 0, 0)) }],
     });
@@ -514,8 +668,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Formats").table({
-      id: "formats",
+    workbook.sheet("Formats").table("formats", {
       schema,
       rows: [{ amount: 1234.5, margin: 15.92 }],
     });
@@ -552,8 +705,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Summary").table({
-      id: "summary",
+    workbook.sheet("Summary").table("summary", {
       schema,
       rows: [{ label: "A", amount: 5 }],
     });
@@ -582,8 +734,7 @@ describe("vnext ooxml", () => {
       .build();
 
     const workbook = VNext.BufferedWorkbookBuilder.create();
-    workbook.sheet("Financial Report | Full").table({
-      id: "sheet",
+    workbook.sheet("Financial Report | Full").table("sheet", {
       schema,
       rows: [{ name: "A" }],
     });

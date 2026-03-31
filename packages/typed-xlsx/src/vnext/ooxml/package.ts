@@ -14,7 +14,11 @@ export interface WorkbookPackagePartSource {
   source: ZipEntrySource;
 }
 
-export function writeContentTypesXml(sheetCount: number, hasSharedStrings: boolean) {
+export function writeContentTypesXml(
+  sheetCount: number,
+  hasSharedStrings: boolean,
+  tableCount: number,
+) {
   const overrides = [
     xmlSelfClosing("Override", {
       PartName: "/xl/workbook.xml",
@@ -39,6 +43,12 @@ export function writeContentTypesXml(sheetCount: number, hasSharedStrings: boole
           }),
         ]
       : []),
+    ...Array.from({ length: tableCount }, (_, index) =>
+      xmlSelfClosing("Override", {
+        PartName: `/xl/tables/table${index + 1}.xml`,
+        ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml",
+      }),
+    ),
   ];
 
   return xmlDocument(
@@ -144,15 +154,17 @@ export function buildBufferedWorkbookXlsx(plan: BufferedWorkbookPlan) {
   const xml = serializeBufferedWorkbookPlan(plan);
   const worksheetCount = plan.sheets.length;
   const hasSharedStrings = xml.parts.some((part) => part.path === "xl/sharedStrings.xml");
+  const tableCount = xml.parts.filter((part) => part.path.startsWith("xl/tables/")).length;
   return buildXlsxPackage(xml.parts, {
     worksheetCount,
     hasSharedStrings,
+    tableCount,
   });
 }
 
 export function buildXlsxPackage(
   parts: WorkbookXmlPart[],
-  options: { worksheetCount: number; hasSharedStrings: boolean },
+  options: { worksheetCount: number; hasSharedStrings: boolean; tableCount: number },
 ) {
   const zip = new ZipBuilder();
   const encoder = new TextEncoder();
@@ -160,7 +172,9 @@ export function buildXlsxPackage(
 
   zip.add(
     "[Content_Types].xml",
-    encoder.encode(writeContentTypesXml(options.worksheetCount, options.hasSharedStrings)),
+    encoder.encode(
+      writeContentTypesXml(options.worksheetCount, options.hasSharedStrings, options.tableCount),
+    ),
   );
   zip.add("_rels/.rels", encoder.encode(writeRootRelationshipsXml()));
   zip.add(
@@ -180,7 +194,7 @@ export function buildXlsxPackage(
 
 export async function writeXlsxPackageToSink(
   parts: WorkbookPackagePartSource[],
-  options: { worksheetCount: number; hasSharedStrings: boolean },
+  options: { worksheetCount: number; hasSharedStrings: boolean; tableCount: number },
   sink: ZipChunkSink,
 ) {
   const zip = new ZipStreamWriter(sink);
@@ -188,7 +202,7 @@ export async function writeXlsxPackageToSink(
 
   await zip.add(
     "[Content_Types].xml",
-    writeContentTypesXml(options.worksheetCount, options.hasSharedStrings),
+    writeContentTypesXml(options.worksheetCount, options.hasSharedStrings, options.tableCount),
   );
   await zip.add("_rels/.rels", writeRootRelationshipsXml());
   await zip.add(

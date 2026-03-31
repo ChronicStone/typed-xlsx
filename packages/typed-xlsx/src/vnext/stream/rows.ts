@@ -30,6 +30,7 @@ function toValues(value: unknown): CellData[] {
 function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
+  formulaMode: "report" | "excel-table";
   rowIndex: number;
 }) {
   if (!params.column.formula) {
@@ -43,7 +44,12 @@ function resolveFormulaCell<T extends object>(params: {
 
   return {
     kind: "formula" as const,
-    formula: serializeFormulaExpr(toExpr(expr), params.columns, params.rowIndex),
+    formula: serializeFormulaExpr(
+      toExpr(expr),
+      params.columns,
+      params.rowIndex,
+      params.formulaMode,
+    ),
   };
 }
 
@@ -51,6 +57,7 @@ function serializeFormulaExpr<T extends object>(
   expr: FormulaExpr<string>,
   columns: ResolvedColumn<T>[],
   rowIndex: number,
+  mode: "report" | "excel-table",
 ): string {
   if (expr.kind === "literal") {
     if (typeof expr.value === "string") {
@@ -70,26 +77,37 @@ function serializeFormulaExpr<T extends object>(
       throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
     }
 
+    if (mode === "excel-table") {
+      const headerLabel = columns[columnIndex]?.headerLabel;
+      if (!headerLabel) {
+        throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
+      }
+
+      return `[@${headerLabel.replaceAll("]", "]]")}]`;
+    }
+
     return toCellRef(rowIndex + 1, columnIndex);
   }
 
   if (expr.kind === "function") {
-    return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, rowIndex)).join(",")})`;
+    return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, rowIndex, mode)).join(",")})`;
   }
 
-  return `(${serializeFormulaExpr(expr.left, columns, rowIndex)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex)})`;
+  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode)})`;
 }
 
 export function expandCommittedRow<T extends object>(
   columns: ResolvedColumn<T>[],
   row: T,
   sourceRowIndex: number,
+  formulaMode: "report" | "excel-table" = "report",
 ) {
   let height = 1;
   const valuesByColumn = columns.map((column) => {
     const formulaCell = resolveFormulaCell({
       column,
       columns,
+      formulaMode,
       rowIndex: sourceRowIndex,
     });
     const rawValue = column.formula

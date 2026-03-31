@@ -6,15 +6,19 @@ export type { CellStyle } from "./styles/types";
 export type {
   CellValue,
   ColumnDefinition,
+  ExcelTableSchemaDefinition,
   PrimitiveCellValue,
+  ReportSchemaDefinition,
   SchemaColumnId,
   SchemaContext,
   SchemaDefinition,
   SchemaGroupContext,
   SchemaGroupId,
+  SchemaKind,
+  SchemaKindOf,
   TypedPath,
 } from "./schema/builder";
-export { SchemaBuilder } from "./schema/builder";
+export { ExcelTableSchemaBuilder, SchemaBuilder } from "./schema/builder";
 export type {
   PlannerResult,
   PlannedCell,

@@ -1,9 +1,10 @@
 import type { BufferedWorkbookPlan } from "../workbook/types";
 import { createSharedStringsCollector, writeSharedStringsXml } from "./shared-strings";
-import { writeWorksheetXml } from "./worksheet";
+import { serializeWorksheet } from "./worksheet";
 import { StylesCollector } from "../styles/collector";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import { buildWorksheetNames } from "./sheet-names";
+import { writeWorksheetRelationshipsXml } from "./table";
 
 export interface WorkbookXmlPart {
   path: string;
@@ -38,12 +39,23 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
   const sharedStrings = createSharedStringsCollector();
   const styles = new StylesCollector();
   const worksheetParts: WorkbookXmlPart[] = [];
+  const tableParts: WorkbookXmlPart[] = [];
+  let tableIndex = 0;
 
   plan.sheets.forEach((sheet, sheetIndex) => {
+    const serialized = serializeWorksheet(sheet, sharedStrings, styles, tableIndex);
     worksheetParts.push({
       path: `xl/worksheets/sheet${sheetIndex + 1}.xml`,
-      xml: writeWorksheetXml(sheet, sharedStrings, styles),
+      xml: serialized.xml,
     });
+    if (serialized.tableParts.length > 0) {
+      worksheetParts.push({
+        path: `xl/worksheets/_rels/sheet${sheetIndex + 1}.xml.rels`,
+        xml: writeWorksheetRelationshipsXml(serialized.tableParts),
+      });
+      tableParts.push(...serialized.tableParts.map((part) => ({ path: part.path, xml: part.xml })));
+    }
+    tableIndex += serialized.tableParts.length;
   });
 
   return {
@@ -61,6 +73,7 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
         xml: writeSharedStringsXml(sharedStrings),
       },
       ...worksheetParts,
+      ...tableParts,
     ],
   };
 }
