@@ -66,7 +66,7 @@ const schema = createExcelSchema<User>()
 
 const workbook = createWorkbook();
 
-workbook.sheet("Users").table({
+workbook.sheet("Users").table("users", {
   rows: [{ firstName: "Ada", lastName: "Lovelace", countries: ["UK"] }],
   schema,
 });

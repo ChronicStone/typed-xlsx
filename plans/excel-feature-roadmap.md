@@ -68,11 +68,12 @@ Keep a strict distinction between schema-level semantics and builder-level rende
 
 ### Schema-level responsibilities
 
-Schemas should remain reusable and render-target agnostic by default.
+Schemas should define the rendering mode and the capabilities available to that mode.
 
 Schema-level concerns:
 
 - column identity
+- report vs native Excel table mode
 - row extraction
 - transforms
 - styling and formatting
@@ -82,11 +83,10 @@ Schema-level concerns:
 
 ### Builder-level responsibilities
 
-Builder/table options should control rendering modes and Excel-native table features.
+Builder/table options should consume the schema mode and apply mode-specific rendering options.
 
 Builder-level concerns:
 
-- native Excel table mode
 - worksheet auto-filters
 - Excel table totals row
 - conditional formatting
@@ -107,7 +107,7 @@ There are two different footer concepts and they should stay separate.
    - Excel-owned native table footer row
    - only exists for native Excel tables
    - typically one row
-   - should be configured on the table builder level
+   - should be configured at schema/column level, with table options only enabling visibility
 
 Example direction:
 
@@ -115,13 +115,19 @@ Example direction:
 table({
   rows,
   schema,
-  excelTable: {
-    totalsRow: {
-      label: { value: "TOTAL" },
-      amount: { function: "sum" },
-    },
-  },
+  totalsRow: true,
 });
+
+createExcelSchema<Order>({ mode: "excel-table" })
+  .column("label", {
+    accessor: "label",
+    totalsRow: { label: "TOTAL" },
+  })
+  .column("amount", {
+    accessor: "amount",
+    totalsRow: { function: "sum" },
+  })
+  .build();
 ```
 
 ## Recommended milestone order
@@ -169,8 +175,7 @@ Why second:
 Likely API:
 
 ```ts
-workbook.sheet("Orders").table({
-  id: "orders",
+workbook.sheet("Orders").table("orders", {
   rows,
   schema,
   autoFilter: true,
@@ -248,15 +253,12 @@ Why fifth:
 Direction:
 
 ```ts
-workbook.sheet("Orders").table({
-  id: "orders",
+workbook.sheet("Orders").table("orders", {
   rows,
   schema,
-  excelTable: {
-    name: "OrdersTable",
-    style: "TableStyleMedium2",
-    autoFilter: true,
-  },
+  name: "OrdersTable",
+  style: "TableStyleMedium2",
+  autoFilter: true,
 });
 ```
 
@@ -267,6 +269,7 @@ Branch idea: `feat/excel-table-totals`
 Goal:
 
 - add builder-level `excelTable.totalsRow`
+- add schema-level column metadata for totals-row behavior
 - type it against schema column ids
 
 Why sixth:
@@ -276,19 +279,27 @@ Why sixth:
 Direction:
 
 ```ts
-workbook.sheet("Orders").table({
-  id: "orders",
+workbook.sheet("Orders").table("orders", {
   rows,
   schema,
-  excelTable: {
-    name: "OrdersTable",
-    totalsRow: {
-      customer: { value: "TOTAL" },
-      qty: { function: "sum" },
-      lineTotal: { function: "sum" },
-    },
-  },
+  name: "OrdersTable",
+  totalsRow: true,
 });
+
+const schema = createExcelSchema<Order>({ mode: "excel-table" })
+  .column("customer", {
+    accessor: "customer",
+    // totalsRow: { value: "TOTAL" },
+  })
+  .column("qty", {
+    accessor: "qty",
+    // totalsRow: { function: "sum" },
+  })
+  .column("lineTotal", {
+    accessor: "lineTotal",
+    // totalsRow: { function: "sum" },
+  })
+  .build();
 ```
 
 ### 7. Charts foundation
@@ -320,8 +331,7 @@ Why it matters:
 Direction:
 
 ```ts
-workbook.sheet("Orders").table({
-  id: "orders",
+workbook.sheet("Orders").table("orders", {
   rows,
   schema,
   conditionalFormatting: [
@@ -419,21 +429,39 @@ const schema = createExcelSchema<Order>()
 ### Native Excel table with totals row
 
 ```ts
-workbook.sheet("Orders").table({
-  id: "orders",
+workbook.sheet("Orders").table("orders", {
   rows,
   schema,
-  excelTable: {
-    name: "OrdersTable",
-    style: "TableStyleMedium2",
-    autoFilter: true,
-    totalsRow: {
-      customer: { value: "TOTAL" },
-      lineTotal: { function: "sum" },
-    },
-  },
+  name: "OrdersTable",
+  style: "TableStyleMedium2",
+  autoFilter: true,
+  totalsRow: true,
 });
 ```
+
+### Possible later extension: richer structured references
+
+Current excel-table formula columns reuse the shared formula DSL and compile same-row `row.ref(...)` calls to structured references like `[@Qty]`.
+
+A possible later extension is to add typed table-scoped references for native Excel tables only, while preserving the current DSL for report schemas.
+
+Possible direction:
+
+```ts
+formula: ({ row, table, fx }) => row.ref("amount").div(fx.sum(table.column("amount").data()));
+```
+
+Potential phases:
+
+- `table.column("amount").data()` for whole-column refs
+- `table.column("amount").totals()` for totals-row refs
+- named table refs only if they can remain strongly typed across known workbook table ids
+
+Constraint:
+
+- preserve compile-time type safety for table ids and column ids
+- keep report formulas on the existing row-based API
+- only expose table-scoped structured refs in excel-table mode
 
 ### Dynamic group-aware aggregation later
 

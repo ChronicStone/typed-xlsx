@@ -11,6 +11,8 @@ Type-safe Excel reporting for TypeScript, with one clean schema API and two work
 - `createWorkbook()` for polished buffered exports
 - `createWorkbookStream()` for large commit-based exports
 
+Schemas default to report mode. Native Excel tables are opt-in at schema creation time with `createExcelSchema({ mode: "excel-table" })`.
+
 ## What you get
 
 - Typed path accessors and accessor callbacks
@@ -84,8 +86,7 @@ workbook
   .sheet("Orders", {
     freezePane: { rows: 1 },
   })
-  .table({
-    id: "orders",
+  .table("orders", {
     rows,
     schema,
   });
@@ -126,8 +127,7 @@ const table = await workbook
   .sheet("Transactions", {
     freezePane: { rows: 1 },
   })
-  .table({
-    id: "transactions",
+  .table("transactions", {
     schema,
   });
 
@@ -136,6 +136,28 @@ for await (const batch of getTransactionBatches()) {
 }
 
 await workbook.writeToFile("./transactions.xlsx");
+```
+
+## Native Excel table example
+
+```ts
+import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+
+const schema = createExcelSchema<{ amount: number; id: string }>({ mode: "excel-table" })
+  .column("id", { accessor: "id" })
+  .column("amount", { accessor: "amount", totalsRow: { function: "sum" } })
+  .build();
+
+createWorkbook()
+  .sheet("Orders")
+  .table("orders", {
+    schema,
+    rows: [{ id: "A-1", amount: 42 }],
+    name: "OrdersTable",
+    style: "TableStyleMedium2",
+    autoFilter: true,
+    totalsRow: true,
+  });
 ```
 
 ## Notes on migration
