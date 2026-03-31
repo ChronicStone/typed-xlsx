@@ -156,3 +156,39 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     headerStyle,
   })
   .build();
+
+export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
+  amount: number;
+  createdAt: Date;
+  customerName: string;
+}>()
+  .column("customerName", {
+    header: "Customer",
+    accessor: "customerName",
+    minWidth: 18,
+    headerStyle,
+    summary: (summary) => [summary.label("TOTAL")],
+  })
+  .column("amount", {
+    header: "Amount",
+    accessor: "amount",
+    minWidth: 12,
+    style: currencyStyle,
+    headerStyle,
+    summary: (summary) => [
+      summary.formula("sum", {
+        style: currencyStyle,
+      }),
+    ],
+  })
+  .column("createdAt", {
+    header: "Created",
+    accessor: "createdAt",
+    width: 22,
+    style: {
+      numFmt: "yyyy-mm-dd hh:mm",
+    },
+    headerStyle,
+    summary: (summary) => [summary.formula("max")],
+  })
+  .build();
