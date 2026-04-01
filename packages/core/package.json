@@ -37,6 +37,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "report:kitchen-sink": "bun run ./scripts/generate-kitchen-sink-report.ts",
     "build": "vp pack",
     "prepack": "vp pack",
     "pack:check": "npm pack --dry-run",

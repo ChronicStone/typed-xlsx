@@ -5,9 +5,14 @@
     "ignoreDeprecations": "6.0",
     "paths": {
       "@chronicstone/typed-xlsx": ["./src/index.ts"],
-      "@chronicstone/typed-xlsx/*": ["./src/*"],
-      "@chronicstone/typed-xlsx-examples/*": ["../examples/*"]
+      "@chronicstone/typed-xlsx/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vite.config.ts", "scripts/**/*.mjs"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "vite.config.ts",
+    "scripts/**/*.mjs",
+    "scripts/**/*.ts"
+  ]
 }

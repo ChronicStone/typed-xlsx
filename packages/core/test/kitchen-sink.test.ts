@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildKitchenSinkBufferedExample } from "@chronicstone/typed-xlsx-examples/src/kitchen-sink/buffered";
-import { buildKitchenSinkStreamExample } from "@chronicstone/typed-xlsx-examples/src/kitchen-sink/stream";
+import { buildKitchenSinkBufferedExample } from "./fixtures/kitchen-sink/buffered";
+import { buildKitchenSinkStreamExample } from "./fixtures/kitchen-sink/stream";
 import {
   expectWorkbookXmlToBeWellFormed,
   readWorkbookEntry,
@@ -22,7 +22,7 @@ describe("kitchen sink examples", () => {
     const styles = readWorkbookEntry(entries, "xl/styles.xml");
     const workbook = readWorkbookEntry(entries, "xl/workbook.xml");
 
-    expect(workbook).not.toContain("Grouped Formula Scope");
+    expect(workbook).toContain("Grouped Formula Scope");
     expect(sheet5).toContain("<conditionalFormatting");
     expect(sheet5).toContain('sqref="G2:G5"');
     expect(sheet5).toContain("($G2&lt;1000)");
