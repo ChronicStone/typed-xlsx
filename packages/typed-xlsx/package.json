@@ -46,14 +46,12 @@
     "pack:check": "npm pack --dry-run",
     "check": "tsc --noEmit && vitest run && vp pack && npm pack --dry-run"
   },
-  "dependencies": {
-    "deepmerge-ts": "^5.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@faker-js/faker": "^8.3.1",
-    "@types/node": "^20.12.7",
-    "@xmldom/xmldom": "^0.9.9",
-    "fflate": "^0.8.2",
-    "vitest": "^3.2.4"
+    "@faker-js/faker": "10.4.0",
+    "@types/node": "25.5.0",
+    "@xmldom/xmldom": "0.9.9",
+    "fflate": "0.8.2",
+    "vitest": "4.1.2"
   }
 }
