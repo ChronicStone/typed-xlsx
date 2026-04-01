@@ -179,10 +179,31 @@ export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
     headerStyle,
     summary: (summary) => [
       summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2), {
-        style: currencyStyle,
+        style: {
+          ...currencyStyle,
+          font: { bold: true },
+        },
+        conditionalStyle: (conditional) =>
+          conditional.when(({ cell }) => cell.current().gte(40000), {
+            fill: { color: { rgb: "DCFCE7" } },
+            font: { color: { rgb: "166534" }, bold: true },
+          }),
       }),
       summary.formula(({ column, fx }) => fx.round(column.cells().average(), 2), {
-        style: currencyStyle,
+        style: {
+          ...currencyStyle,
+          font: { bold: true },
+        },
+        conditionalStyle: (conditional) =>
+          conditional
+            .when(({ cell }) => cell.current().lt(5000), {
+              fill: { color: { rgb: "FEE2E2" } },
+              font: { color: { rgb: "991B1B" }, bold: true },
+            })
+            .when(({ cell }) => cell.current().gte(8000), {
+              fill: { color: { rgb: "DCFCE7" } },
+              font: { color: { rgb: "166534" }, bold: true },
+            }),
       }),
     ],
   })
@@ -210,13 +231,30 @@ export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
         style: {
           numFmt: "0.0%",
           alignment: { horizontal: "right" },
+          font: { bold: true },
         },
+        conditionalStyle: (conditional) =>
+          conditional
+            .when(({ cell }) => cell.current().lt(0.6), {
+              fill: { color: { rgb: "FEE2E2" } },
+              font: { color: { rgb: "991B1B" }, bold: true },
+            })
+            .when(({ cell }) => cell.current().gte(0.85), {
+              fill: { color: { rgb: "DCFCE7" } },
+              font: { color: { rgb: "166534" }, bold: true },
+            }),
       }),
       summary.formula(({ column, fx }) => fx.max(column.cells().max(), 0), {
         style: {
           numFmt: "0.0%",
           alignment: { horizontal: "right" },
+          font: { bold: true },
         },
+        conditionalStyle: (conditional) =>
+          conditional.when(({ cell }) => cell.current().gte(0.95), {
+            fill: { color: { rgb: "DBEAFE" } },
+            font: { color: { rgb: "1D4ED8" }, bold: true },
+          }),
       }),
     ],
   })
@@ -298,6 +336,20 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
       fx.round(row.ref("grossTotal").mul(row.literal(1).sub(row.ref("discountRate"))), 2),
     minWidth: 12,
     style: currencyStyle,
+    conditionalStyle: (c) =>
+      c
+        .when(({ row }) => row.ref("lineTotal").lt(1000), {
+          fill: { color: { rgb: "FEE2E2" } },
+          font: { color: { rgb: "991B1B" }, bold: true },
+        })
+        .when(
+          ({ row, fx }) =>
+            fx.and(row.ref("lineTotal").gte(5000), row.ref("seatUtilization").gte(0.85)),
+          {
+            fill: { color: { rgb: "DCFCE7" } },
+            font: { color: { rgb: "166534" }, bold: true },
+          },
+        ),
     headerStyle,
     summary: (summary) => [summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2))],
   })
@@ -328,6 +380,17 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
     formula: ({ row, fx }) =>
       fx.if(row.ref("segment").eq("WATCH").or(row.ref("seatUtilization").lt(0.5)), "REVIEW", "OK"),
     minWidth: 10,
+    conditionalStyle: (c) =>
+      c
+        .when(({ row }) => row.ref("riskFlag").eq("REVIEW"), {
+          fill: { color: { rgb: "FFEDD5" } },
+          font: { color: { rgb: "9A3412" }, bold: true },
+          border: { left: { style: "thick", color: { rgb: "EA580C" } } },
+        })
+        .when(({ row }) => row.ref("riskFlag").eq("OK"), {
+          fill: { color: { rgb: "DCFCE7" } },
+          font: { color: { rgb: "166534" }, bold: true },
+        }),
     headerStyle,
   })
   .build();

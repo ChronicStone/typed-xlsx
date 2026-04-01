@@ -11,14 +11,16 @@ export interface SummaryBuilder<T> {
     formula:
       | SummaryFormulaFunction
       | ((context: SummaryFormulaBuilderContext) => FormulaValue<string, never>),
-    options?: Pick<SummaryDefinition<T>, "format" | "style">,
+    options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
   ): SummaryDefinition<T, undefined>;
   label(
     label: string,
-    options?: Pick<SummaryDefinition<T>, "format" | "style">,
+    options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
   ): SummaryDefinition<T, undefined>;
   spacer(): SummaryDefinition<T, undefined>;
-  empty(options?: Pick<SummaryDefinition<T>, "format" | "style">): SummaryDefinition<T, undefined>;
+  empty(
+    options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
+  ): SummaryDefinition<T, undefined>;
 }
 
 export type SummaryInput<T> =

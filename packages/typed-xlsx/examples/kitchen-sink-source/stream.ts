@@ -2,7 +2,6 @@ import { createExcelSchema, createWorkbookStream } from "../../src";
 import { createKitchenSinkOrders } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
-  kitchenSinkGroupedFormulaSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkSchema,
 } from "./schema";
@@ -214,28 +213,6 @@ export async function buildKitchenSinkStreamExample() {
     });
   for (const rows of allOrderBatches) {
     await nativeTable.commit({ rows: toNativeExcelTableRows(rows) });
-  }
-
-  const groupedFormulaTable = await workbook
-    .sheet("Grouped Formula Scope", {
-      freezePane: { rows: 1 },
-    })
-    .table("grouped-formula-orders", {
-      autoFilter: true,
-      context: { regions: ["AMER", "APAC", "EMEA"] },
-      name: "KitchenSinkRegionalScope",
-      schema: kitchenSinkGroupedFormulaSchema,
-      style: "TableStyleMedium9",
-      totalsRow: true,
-    });
-  for (const rows of allOrderBatches) {
-    await groupedFormulaTable.commit({
-      rows: rows.map((order) => ({
-        amount: order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
-        customerName: order.customer.name,
-        region: order.region,
-      })),
-    });
   }
 
   const readable = workbook.toNodeReadable();

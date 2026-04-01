@@ -1,7 +1,9 @@
 import { getDefaultRowHeight } from "../planner/metrics";
+import type { WorksheetConditionalFormattingBlock } from "../conditional-style/runtime";
+import type { StylesCollector } from "../styles/collector";
 import type { FreezePane, SheetViewOptions } from "../workbook/types";
 import { toCellRef } from "./cells";
-import { xmlElement, xmlSelfClosing } from "./xml";
+import { xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
 
 export interface WorksheetColumnDefinition {
   index: number;
@@ -98,6 +100,37 @@ export function writeWorksheetAutoFilter(range?: WorksheetAutoFilterRange) {
   return xmlSelfClosing("autoFilter", {
     ref: `${toCellRef(range.startRow, range.startCol)}:${toCellRef(range.endRow, range.endCol)}`,
   });
+}
+
+export function writeWorksheetConditionalFormatting(
+  blocks: WorksheetConditionalFormattingBlock[],
+  styles: StylesCollector,
+) {
+  if (blocks.length === 0) return "";
+
+  let priority = 1;
+
+  return blocks
+    .map((block) =>
+      xmlElement(
+        "conditionalFormatting",
+        { sqref: block.ref },
+        block.rules.map((rule) => {
+          const dxfId = styles.addDifferentialStyle(rule.style);
+
+          return xmlElement(
+            "cfRule",
+            {
+              type: "expression",
+              dxfId,
+              priority: priority++,
+            },
+            xmlElement("formula", undefined, xmlEscape(rule.formula)),
+          );
+        }),
+      ),
+    )
+    .join("");
 }
 
 function writeFreezePane(freezePane: FreezePane) {

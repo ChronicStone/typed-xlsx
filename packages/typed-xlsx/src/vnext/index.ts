@@ -4,6 +4,12 @@ export type { Path, PathValue } from "./core/path";
 export { getValueAtPath } from "./core/path";
 export type { CellStyle } from "./styles/types";
 export type {
+  ConditionalStyleBuilder,
+  ConditionalStyleInput,
+  ConditionalStyleRule,
+} from "./conditional-style/types";
+export { conditionalStyle } from "./conditional-style/types";
+export type {
   CellValue,
   ColumnDefinition,
   ExcelTableSchemaDefinition,

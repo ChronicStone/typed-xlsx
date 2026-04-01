@@ -7,6 +7,7 @@ import type {
 } from "../schema/builder";
 import type { PlannerResult } from "../planner/rows";
 import type { SummaryResolvedValue } from "../summary/runtime";
+import type { WorksheetConditionalFormattingBlock } from "../conditional-style/runtime";
 import type { CellStyle } from "../styles/types";
 
 export interface TableSelection<TColumnId extends string = string> {
@@ -180,6 +181,7 @@ export interface PlannedSummaryCell {
   summaryIndex: number;
   value: SummaryResolvedValue;
   style?: CellStyle;
+  conditionalFormatting?: WorksheetConditionalFormattingBlock[];
   unstyled?: boolean;
 }
 
@@ -189,6 +191,7 @@ export interface BufferedTablePlan<T extends object> {
   rowCount: number;
   planner: PlannerResult<T>;
   summaries: PlannedSummaryCell[];
+  conditionalFormatting?: WorksheetConditionalFormattingBlock[];
   autoFilter: boolean;
   excelTable?: ResolvedExcelTableOptions;
 }

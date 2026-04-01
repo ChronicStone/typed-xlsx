@@ -12,6 +12,7 @@ import type {
 } from "../../summary/runtime";
 import { toCellRef } from "../../ooxml/cells";
 import { createFormulaFunctionsContext, func, toExpr, type FormulaExpr } from "../../formula/expr";
+import { normalizeSummaryConditionalStyle } from "../../summary/runtime";
 
 export function resolveSummaryStyle<T extends object>(
   definition: SummaryDefinition<T>,
@@ -92,9 +93,36 @@ export function buildPlannedSummaries<T extends object>(
       summaryIndex: binding.summaryIndex,
       value,
       style: resolveSummaryStyle(binding.definition, value, column),
+      conditionalFormatting: buildSummaryConditionalFormatting(
+        binding.definition,
+        binding.columnId,
+        binding.summaryIndex,
+      ),
       unstyled: binding.definition.spacer?.kind === "spacer",
     };
   });
+}
+
+function buildSummaryConditionalFormatting<T extends object>(
+  definition: SummaryDefinition<T>,
+  columnId: string,
+  summaryIndex: number,
+) {
+  const rules = normalizeSummaryConditionalStyle(definition.conditionalStyle);
+  if (!rules || rules.length === 0) {
+    return undefined;
+  }
+
+  return [
+    {
+      ref: `${columnId}#summary-${summaryIndex}`,
+      rules: rules.map((rule, index) => ({
+        formula: serializeSummaryConditionalExpr(rule.condition),
+        priority: index + 1,
+        style: rule.style,
+      })),
+    },
+  ];
 }
 
 export function resolveSummaryValue<T>(params: {
@@ -194,4 +222,36 @@ function serializeSummaryFormulaExpr(
   }
 
   return `(${serializeSummaryFormulaExpr(expr.left, context)}${expr.op}${serializeSummaryFormulaExpr(expr.right, context)})`;
+}
+
+function serializeSummaryConditionalExpr(expr: FormulaExpr<string, never>): string {
+  if (expr.kind === "literal") {
+    if (typeof expr.value === "string") {
+      return `"${expr.value.replaceAll('"', '""')}"`;
+    }
+
+    if (typeof expr.value === "boolean") {
+      return expr.value ? "TRUE" : "FALSE";
+    }
+
+    return String(expr.value);
+  }
+
+  if (expr.kind === "ref") {
+    if (expr.columnId !== "__summary_current__") {
+      throw new Error(`Unknown summary conditional reference '${expr.columnId}'.`);
+    }
+
+    return "A1";
+  }
+
+  if (expr.kind === "function") {
+    return `${expr.name}(${expr.args.map(serializeSummaryConditionalExpr).join(",")})`;
+  }
+
+  if (expr.kind === "group") {
+    throw new Error("Group references are not supported in summary conditional styles.");
+  }
+
+  return `(${serializeSummaryConditionalExpr(expr.left)}${expr.op}${serializeSummaryConditionalExpr(expr.right)})`;
 }

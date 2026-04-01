@@ -1,5 +1,10 @@
 import type { Accessor, AccessorValue } from "../core/accessor";
 import type { Path } from "../core/path";
+import {
+  normalizeConditionalStyleInput,
+  type ConditionalStyleInput,
+  type ConditionalStyleRule,
+} from "../conditional-style/types";
 import type { CellStyle } from "../styles/types";
 import { normalizeSummaryInput } from "../summary/builder";
 import type { SummaryInput } from "../summary/builder";
@@ -52,6 +57,7 @@ export interface ColumnDefinition<
   transform?: TransformFn<T, AccessorValue<T, TAccessor>>;
   format?: string | FormatFn<T>;
   style?: CellStyle | StyleFn<T>;
+  conditionalStyle?: ConditionalStyleInput<TPrevColumnId | string, TGroupId>;
   headerStyle?: CellStyle;
   width?: number;
   autoWidth?: boolean;
@@ -207,6 +213,13 @@ export class SchemaBuilder<
       id,
       ...definition,
       ...(definition.summary ? { summary: normalizeSummaryInput(definition.summary) } : {}),
+      ...(definition.conditionalStyle
+        ? {
+            conditionalStyle: normalizeConditionalStyleInput(
+              definition.conditionalStyle,
+            ) as ConditionalStyleRule<string, string>[],
+          }
+        : {}),
     } as ColumnDefinition<T>);
     return this as unknown as SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   }

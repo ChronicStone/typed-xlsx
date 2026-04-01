@@ -25,6 +25,11 @@ interface XfEntry {
   style: CellStyle;
 }
 
+interface DxfEntry {
+  key: string;
+  style: CellStyle;
+}
+
 function colorRgb(value?: { rgb: string }) {
   if (!value?.rgb) return undefined;
   return value.rgb.length === 6 ? `FF${value.rgb}` : value.rgb;
@@ -70,6 +75,20 @@ function serializeFill(fill?: FillStyle) {
     xmlElement("patternFill", { patternType: "solid" }, [
       xmlSelfClosing("fgColor", { rgb: colorRgb(fill.color) }),
       xmlSelfClosing("bgColor", { indexed: 64 }),
+    ]),
+  );
+}
+
+function serializeDifferentialFill(fill?: FillStyle) {
+  if (!fill?.color) {
+    return undefined;
+  }
+
+  return xmlElement(
+    "fill",
+    undefined,
+    xmlElement("patternFill", { patternType: "solid" }, [
+      xmlSelfClosing("fgColor", { rgb: colorRgb(fill.color) }),
     ]),
   );
 }
@@ -121,6 +140,7 @@ export class StylesCollector {
   private readonly xfs: XfEntry[] = [
     { key: "", numFmt: "", fontId: 0, fillId: 0, borderId: 0, style: {} },
   ];
+  private readonly dxfs: DxfEntry[] = [];
   private readonly fontMap = new Map<string, number>([["", 0]]);
   private readonly fillMap = new Map<string, number>([
     ["__none__", 0],
@@ -128,6 +148,7 @@ export class StylesCollector {
   ]);
   private readonly borderMap = new Map<string, number>([["", 0]]);
   private readonly xfMap = new Map<string, number>([["", 0]]);
+  private readonly dxfMap = new Map<string, number>();
   private readonly numFmtIds = new Map<string, number>();
   private nextNumFmtId = 164;
 
@@ -152,6 +173,21 @@ export class StylesCollector {
       style,
     });
     this.xfMap.set(key, index);
+    return index;
+  }
+
+  addDifferentialStyle(style?: CellStyle) {
+    if (!style) {
+      return undefined;
+    }
+
+    const key = JSON.stringify(style);
+    const existing = this.dxfMap.get(key);
+    if (existing !== undefined) return existing;
+
+    const index = this.dxfs.length;
+    this.dxfs.push({ key, style });
+    this.dxfMap.set(key, index);
     return index;
   }
 
@@ -259,7 +295,41 @@ export class StylesCollector {
           { count: 1 },
           xmlSelfClosing("cellStyle", { name: "Normal", xfId: 0, builtinId: 0 }),
         ),
+        xmlElement(
+          "dxfs",
+          { count: this.dxfs.length },
+          this.dxfs.map((dxf) => serializeDxf(dxf.style)),
+        ),
       ],
     );
   }
+}
+
+function serializeDxf(style: CellStyle) {
+  const children = [] as string[];
+
+  if (style.font) {
+    children.push(serializeFont(style.font));
+  }
+
+  if (style.fill) {
+    const fill = serializeDifferentialFill(style.fill);
+    if (fill) {
+      children.push(fill);
+    }
+  }
+
+  if (style.border) {
+    children.push(serializeBorder(style.border));
+  }
+
+  if (style.numFmt) {
+    children.push(xmlSelfClosing("numFmt", { numFmtId: 0, formatCode: style.numFmt }));
+  }
+
+  if (style.alignment) {
+    children.push(serializeAlignment(style));
+  }
+
+  return xmlElement("dxf", undefined, children);
 }
