@@ -1,7 +1,7 @@
 import type {
-  ExcelTableTotalsRowDefinition,
   ExcelTableSchemaDefinition,
   ReportSchemaDefinition,
+  ResolvedExcelTableTotalsRowDefinition,
   SchemaContext,
   SchemaDefinition,
 } from "../schema/builder";
@@ -9,6 +9,7 @@ import type { PlannerResult } from "../planner/rows";
 import type { SummaryResolvedValue } from "../summary/runtime";
 import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { CellStyle } from "../styles/types";
+import type { WorksheetDataValidation } from "../validation/runtime";
 
 export interface TableSelection<TColumnId extends string = string> {
   include?: readonly TColumnId[];
@@ -90,7 +91,7 @@ export interface ResolvedExcelTableOptions {
     id: string;
     headerLabel: string;
     formula?: string;
-    totalsRow?: ExcelTableTotalsRowDefinition;
+    totalsRow?: ResolvedExcelTableTotalsRowDefinition;
   }>;
 }
 
@@ -192,6 +193,7 @@ export interface BufferedTablePlan<T extends object> {
   planner: PlannerResult<T>;
   summaries: PlannedSummaryCell[];
   conditionalFormatting?: WorksheetConditionalFormattingBlock[];
+  dataValidations?: WorksheetDataValidation[];
   autoFilter: boolean;
   excelTable?: ResolvedExcelTableOptions;
 }

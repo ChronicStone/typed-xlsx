@@ -213,6 +213,64 @@ describe("stream builder", () => {
     expect(content).toContain("SUBTOTAL(109,[Amount])");
   });
 
+  it("writes worksheet data validations in streamed workbooks", async () => {
+    type ValidationRow = {
+      amount: number;
+      score: number;
+      status: "draft" | "active" | "archived";
+    };
+
+    const schema = Internal.SchemaBuilder.create<ValidationRow>()
+      .column("status", {
+        accessor: "status",
+        validation: (v) =>
+          v
+            .list(["draft", "active", "archived"])
+            .prompt({
+              title: () => "Allowed values",
+              message: () => "Choose a known status",
+            })
+            .error({
+              title: () => "Invalid status",
+              message: () => "Only draft, active, or archived are allowed",
+            }),
+      })
+      .column("amount", {
+        accessor: "amount",
+        validation: (v) => v.integer().between(1, 10).allowBlank(),
+      })
+      .column("score", {
+        accessor: "score",
+        validation: (v) => v.custom(({ row }) => row.ref("score").gte(row.ref("amount"))),
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Validation").table("validation", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ amount: 3, score: 5, status: "draft" } satisfies ValidationRow],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain('<dataValidations count="3">');
+    expect(content).toContain('sqref="A2:A2"');
+    expect(content).toContain('type="list"');
+    expect(content).toContain("<formula1>&quot;draft,active,archived&quot;</formula1>");
+    expect(content).toContain('sqref="B2:B2"');
+    expect(content).toContain('type="whole"');
+    expect(content).toContain("<formula1>1</formula1>");
+    expect(content).toContain("<formula2>10</formula2>");
+    expect(content).toContain('sqref="C2:C2"');
+    expect(content).toContain('type="custom"');
+    expect(content).toContain("<formula1>($C2&gt;=B2)</formula1>");
+  });
+
   it("serializes excel-table formula columns with structured references in streamed worksheets", async () => {
     const schema = Internal.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {

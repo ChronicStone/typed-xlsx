@@ -526,4 +526,49 @@ describe("public stream api", () => {
     expect(content).toContain('Target="../tables/table1.xml"');
     expect(content).toContain('displayName="OrdersTable"');
   });
+
+  it("supports the public stream validation builder api with integer and lazy messages", async () => {
+    type Row = {
+      amount: number;
+      status: "draft" | "active" | "archived";
+    };
+
+    const schema = createExcelSchema<Row>()
+      .column("status", {
+        header: () => "Status",
+        accessor: "status",
+        validation: (v) =>
+          v
+            .list(["draft", "active", "archived"])
+            .prompt({ title: () => "Allowed values", message: () => "Choose a status" })
+            .error({ title: () => "Invalid status", message: () => "Use a known status" }),
+      })
+      .column("amount", {
+        header: () => "Amount",
+        accessor: "amount",
+        validation: (v) => v.integer().between(1, 10),
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Orders").table("orders", { schema });
+    await table.commit({ rows: [{ amount: 3, status: "draft" }] });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<dataValidations");
+    expect(content).toContain('type="whole"');
+    expect(content).toContain('promptTitle="Allowed values"');
+    expect(content).toContain('errorTitle="Invalid status"');
+  });
 });

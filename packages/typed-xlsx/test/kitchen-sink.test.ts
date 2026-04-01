@@ -42,4 +42,22 @@ describe("kitchen sink examples", () => {
     expect(styles).toContain("FFFEE2E2");
     expect(styles).toContain("FFDCFCE7");
   });
+
+  it("emits validation xml in the kitchen sink examples", async () => {
+    const bufferedEntries = unzipWorkbookEntries(buildKitchenSinkBufferedExample());
+    const bufferedValidationSheet = readWorkbookEntry(bufferedEntries, "xl/worksheets/sheet6.xml");
+
+    expect(bufferedValidationSheet).toContain("<dataValidations");
+    expect(bufferedValidationSheet).toContain('type="list"');
+    expect(bufferedValidationSheet).toContain('type="whole"');
+    expect(bufferedValidationSheet).toContain('type="date"');
+
+    const streamedEntries = unzipWorkbookEntries(await buildKitchenSinkStreamExample());
+    const streamedValidationSheet = readWorkbookEntry(streamedEntries, "xl/worksheets/sheet6.xml");
+
+    expect(streamedValidationSheet).toContain("<dataValidations");
+    expect(streamedValidationSheet).toContain('type="list"');
+    expect(streamedValidationSheet).toContain('type="whole"');
+    expect(streamedValidationSheet).toContain('type="date"');
+  });
 });

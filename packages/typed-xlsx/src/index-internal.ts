@@ -46,6 +46,16 @@ export {
 export type { SummaryDefinition, SummaryCellValue } from "./summary/runtime";
 export type { SummaryBuilder, SummaryInput } from "./summary/builder";
 export { createSummaryBuilder, normalizeSummaryInput } from "./summary/builder";
+export type {
+  ResolvedValidationRule,
+  ValidationBuilder,
+  ValidationInput,
+  ValidationOperator,
+  ValidationRule,
+  ValidationType,
+} from "./validation/types";
+export { normalizeValidationInput, validation } from "./validation/types";
+export type { LazyText, ValidationMessage } from "./text";
 export {
   createSummaryRuntime,
   finalizeSummaryRuntime,

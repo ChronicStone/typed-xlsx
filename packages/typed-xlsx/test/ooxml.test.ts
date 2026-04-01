@@ -437,6 +437,65 @@ describe("ooxml", () => {
     expect(worksheetPart?.xml).toContain("SUBTOTAL(109,[Amount])");
   });
 
+  it("writes worksheet data validations for buffered worksheets", () => {
+    type ValidationRow = {
+      amount: number;
+      score: number;
+      status: "draft" | "active" | "archived";
+    };
+
+    const schema = Internal.SchemaBuilder.create<ValidationRow>()
+      .column("status", {
+        header: () => "Status",
+        accessor: "status",
+        validation: (v) =>
+          v
+            .list(["draft", "active", "archived"])
+            .prompt({
+              title: () => "Allowed values",
+              message: () => "Choose a known status",
+            })
+            .error({
+              title: () => "Invalid status",
+              message: () => "Only draft, active, or archived are allowed",
+            }),
+      })
+      .column("amount", {
+        accessor: "amount",
+        validation: (v) => v.integer().between(1, 10).allowBlank(),
+      })
+      .column("score", {
+        accessor: "score",
+        validation: (v) => v.custom(({ row }) => row.ref("score").gte(row.ref("amount"))),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Validation").table("validation", {
+      schema,
+      rows: [{ amount: 3, score: 5, status: "draft" } satisfies ValidationRow],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain('<dataValidations count="3">');
+    expect(worksheetPart?.xml).toContain('sqref="A2:A2"');
+    expect(worksheetPart?.xml).toContain('type="list"');
+    expect(worksheetPart?.xml).toContain("<formula1>&quot;draft,active,archived&quot;</formula1>");
+    expect(worksheetPart?.xml).toContain('promptTitle="Allowed values"');
+    expect(worksheetPart?.xml).toContain('errorTitle="Invalid status"');
+    expect(worksheetPart?.xml).toContain('sqref="B2:B2"');
+    expect(worksheetPart?.xml).toContain('type="whole"');
+    expect(worksheetPart?.xml).toContain('operator="between"');
+    expect(worksheetPart?.xml).toContain("<formula1>1</formula1>");
+    expect(worksheetPart?.xml).toContain("<formula2>10</formula2>");
+    expect(worksheetPart?.xml).toContain('allowBlank="1"');
+    expect(worksheetPart?.xml).toContain('sqref="C2:C2"');
+    expect(worksheetPart?.xml).toContain('type="custom"');
+    expect(worksheetPart?.xml).toContain("<formula1>($C2&gt;=B2)</formula1>");
+  });
+
   it("serializes excel-table formula columns with structured references in buffered worksheets", () => {
     const schema = Internal.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {

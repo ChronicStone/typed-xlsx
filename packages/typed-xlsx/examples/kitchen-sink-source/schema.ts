@@ -273,6 +273,54 @@ export const kitchenSinkFormulaSummarySchema = createExcelSchema<{
   })
   .build();
 
+export const kitchenSinkValidationSchema = createExcelSchema<{
+  amount: number;
+  owner: string;
+  startDate: Date;
+  status: "draft" | "active" | "archived";
+}>()
+  .column("owner", {
+    header: () => "Owner",
+    accessor: "owner",
+    minWidth: 18,
+    headerStyle,
+  })
+  .column("status", {
+    header: () => "Status",
+    accessor: "status",
+    width: 12,
+    headerStyle,
+    validation: (v) =>
+      v
+        .list(["draft", "active", "archived"])
+        .prompt({
+          title: () => "Allowed values",
+          message: () => "Choose draft, active, or archived",
+        })
+        .error({
+          title: () => "Invalid status",
+          message: () => "Use one of the allowed workflow states",
+        }),
+  })
+  .column("amount", {
+    header: () => "Amount",
+    accessor: "amount",
+    minWidth: 12,
+    style: currencyStyle,
+    headerStyle,
+    validation: (v) => v.integer().between(100, 100000).allowBlank(),
+    summary: (summary) => [summary.label(() => "TOTAL"), summary.formula("sum")],
+  })
+  .column("startDate", {
+    header: () => "Start Date",
+    accessor: "startDate",
+    width: 14,
+    style: { numFmt: "yyyy-mm-dd" },
+    headerStyle,
+    validation: (v) => v.date().gte(new Date(Date.UTC(2025, 0, 1))),
+  })
+  .build();
+
 export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   customerName: string;
   qty: number;

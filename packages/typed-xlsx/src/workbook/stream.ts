@@ -1,5 +1,6 @@
 import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
 import { buildWorksheetConditionalFormatting } from "../styles/conditional-runtime";
+import { buildWorksheetDataValidations } from "../validation/runtime";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
 import { writeXlsxPackageToSink } from "../ooxml/package";
 import {
@@ -33,6 +34,7 @@ import {
   writeWorksheetAutoFilter,
   writeWorksheetColumns,
   writeWorksheetConditionalFormatting,
+  writeWorksheetDataValidations,
   writeWorksheetMerges,
   writeWorksheetViews,
 } from "../ooxml/worksheet-parts";
@@ -94,6 +96,7 @@ interface StreamTableFinalization {
   autoFilter: boolean;
   excelTable?: import("./types").ResolvedExcelTableOptions;
   conditionalFormatting: import("../styles/conditional-runtime").WorksheetConditionalFormattingBlock[];
+  dataValidations: import("../validation/runtime").WorksheetDataValidation[];
   planner: {
     columns: Array<{ id: string }>;
     merges: PlannedMergeRange[];
@@ -279,6 +282,13 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       autoFilter: this.state.autoFilter,
       excelTable: this.state.excelTable,
       conditionalFormatting: buildWorksheetConditionalFormatting({
+        columns: this.state.columns,
+        rowStart: 1,
+        rowEnd: this.state.committedPhysicalRows,
+        columnOffset: 0,
+        mode: this.state.schema.kind,
+      }),
+      dataValidations: buildWorksheetDataValidations({
         columns: this.state.columns,
         rowStart: 1,
         rowEnd: this.state.committedPhysicalRows,
@@ -583,6 +593,12 @@ async function* streamWorksheetXml(
       ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
     })),
   );
+  const dataValidations = positionedTables.flatMap((positioned) =>
+    positioned.table.dataValidations.map((block) => ({
+      ...block,
+      ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
+    })),
+  );
 
   yield encodeXml(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -718,7 +734,7 @@ async function* streamWorksheetXml(
   }
 
   yield encodeXml(
-    `</sheetData>${autoFilter}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
+    `</sheetData>${autoFilter}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
   );
 }
 

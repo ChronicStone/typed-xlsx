@@ -1,6 +1,7 @@
 import { getDefaultRowHeight } from "../planner/metrics";
 import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { StylesCollector } from "../styles/collector";
+import type { WorksheetDataValidation } from "../validation/runtime";
 import type { FreezePane, SheetViewOptions } from "../workbook/types";
 import { toCellRef } from "./cells";
 import { xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
@@ -131,6 +132,43 @@ export function writeWorksheetConditionalFormatting(
       ),
     )
     .join("");
+}
+
+export function writeWorksheetDataValidations(validations: WorksheetDataValidation[]) {
+  if (validations.length === 0) return "";
+
+  return xmlElement(
+    "dataValidations",
+    { count: validations.length },
+    validations.map((validation) =>
+      xmlElement(
+        "dataValidation",
+        {
+          sqref: validation.ref,
+          type: validation.type,
+          operator: validation.operator,
+          allowBlank: validation.allowBlank ? 1 : undefined,
+          showDropDown:
+            validation.showDropDown === undefined ? undefined : validation.showDropDown ? 0 : 1,
+          showInputMessage: validation.prompt ? 1 : undefined,
+          promptTitle: validation.prompt?.title,
+          prompt: validation.prompt?.message,
+          showErrorMessage: 1,
+          errorTitle: validation.error?.title,
+          error: validation.error?.message,
+          errorStyle: "stop",
+        },
+        [
+          validation.formula1
+            ? xmlElement("formula1", undefined, xmlEscape(validation.formula1))
+            : "",
+          validation.formula2
+            ? xmlElement("formula2", undefined, xmlEscape(validation.formula2))
+            : "",
+        ],
+      ),
+    ),
+  );
 }
 
 function writeFreezePane(freezePane: FreezePane) {
