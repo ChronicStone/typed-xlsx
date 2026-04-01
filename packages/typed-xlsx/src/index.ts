@@ -25,6 +25,9 @@ export type {
   Path,
   PathValue,
   CellStyle,
+  ConditionalStyleBuilder,
+  ConditionalStyleInput,
+  ConditionalStyleRule,
   CellValue,
   ExcelTableSchemaDefinition,
   PrimitiveCellValue,
@@ -39,6 +42,7 @@ export type {
   SchemaKindOf,
   TypedPath,
 } from "./vnext";
+export { conditionalStyle } from "./vnext";
 export type { SummaryBuilder, SummaryCellValue, SummaryDefinition, SummaryInput } from "./vnext";
 export type {
   FreezePane,

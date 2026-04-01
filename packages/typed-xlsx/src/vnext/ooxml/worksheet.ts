@@ -6,7 +6,7 @@ import {
 import type { PlannedCell, ResolvedColumn } from "../planner/rows";
 import type { CellStyle } from "../styles/types";
 import { StylesCollector } from "../styles/collector";
-import { serializeCell } from "./cells";
+import { serializeCell, toCellRef } from "./cells";
 import type { SharedStringsCollector } from "./shared-strings";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import { getDefaultRowHeight } from "../planner/metrics";
@@ -19,6 +19,7 @@ import {
   createWorksheetRowNode,
   writeWorksheetAutoFilter,
   writeWorksheetColumns,
+  writeWorksheetConditionalFormatting,
   writeWorksheetViews,
   writeWorksheetMerges,
   type WorksheetAutoFilterRange,
@@ -46,9 +47,23 @@ export function serializeWorksheet(
   const merges: PositionedMergeRange[] = [];
   const autoFilter = resolveSheetAutoFilter(positionedTables);
   const tableParts = buildWorksheetTableParts(positionedTables, startingTableIndex);
+  const conditionalFormatting = positionedTables.flatMap((positioned) =>
+    buildPositionedConditionalFormatting(
+      positioned.table.conditionalFormatting,
+      positioned.columnOffset,
+      positioned.rowOffset,
+    ),
+  );
 
   for (const positioned of positionedTables) {
-    writeTableIntoRowMap(rowMap, rowHeights, positioned, sharedStrings, styles);
+    writeTableIntoRowMap(
+      rowMap,
+      rowHeights,
+      positioned,
+      sharedStrings,
+      styles,
+      conditionalFormatting,
+    );
     merges.push(...positionTableMerges(positioned));
   }
 
@@ -77,6 +92,7 @@ export function serializeWorksheet(
         writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
         xmlElement("sheetData", undefined, rowNodes),
         writeWorksheetAutoFilter(autoFilter),
+        writeWorksheetConditionalFormatting(conditionalFormatting, styles),
         writeWorksheetMerges(merges),
         writeWorksheetTableParts(tableParts),
       ],
@@ -164,6 +180,7 @@ function writeTableIntoRowMap(
   positioned: PositionedTable<BufferedTablePlan<any>>,
   sharedStrings: SharedStringsCollector,
   styles: StylesCollector,
+  conditionalFormatting: BufferedTablePlan<any>["conditionalFormatting"],
 ) {
   const { table, rowOffset, columnOffset } = positioned;
   rowHeights.set(rowOffset, getDefaultRowHeight());
@@ -235,6 +252,23 @@ function writeTableIntoRowMap(
         ];
       }),
     );
+
+    summaryRow.forEach((summary) => {
+      const columnIndex = table.planner.columns.findIndex(
+        (column) => column.id === summary.columnId,
+      );
+      if (columnIndex < 0 || !summary.conditionalFormatting) {
+        return;
+      }
+
+      conditionalFormatting?.push(
+        ...materializeSummaryConditionalFormatting(
+          summary.conditionalFormatting,
+          worksheetRowIndex,
+          columnOffset + columnIndex,
+        ),
+      );
+    });
   });
 
   if (table.excelTable?.totalsRow) {
@@ -303,6 +337,75 @@ function buildWorksheetColumns(
       };
     }),
   );
+}
+
+function buildPositionedConditionalFormatting(
+  blocks: BufferedTablePlan<any>["conditionalFormatting"] | undefined,
+  columnOffset: number,
+  rowOffset: number,
+) {
+  if (!blocks || blocks.length === 0) {
+    return [];
+  }
+
+  return blocks.map((block) => ({
+    ...block,
+    ref: shiftWorksheetRange(block.ref, rowOffset, columnOffset),
+  }));
+}
+
+function materializeSummaryConditionalFormatting(
+  blocks: BufferedTablePlan<any>["conditionalFormatting"] | undefined,
+  worksheetRowIndex: number,
+  worksheetColumnIndex: number,
+) {
+  if (!blocks || blocks.length === 0) {
+    return [];
+  }
+
+  const ref = toCellRef(worksheetRowIndex, worksheetColumnIndex);
+
+  return blocks.map((block) => ({
+    ...block,
+    ref,
+    rules: block.rules.map((rule) => ({
+      ...rule,
+      formula: rule.formula.replaceAll("A1", ref),
+    })),
+  }));
+}
+
+function shiftWorksheetRange(ref: string, rowOffset: number, columnOffset: number) {
+  const [start, end] = ref.split(":");
+  if (!start || !end) {
+    return ref;
+  }
+
+  return `${shiftCellRef(start, rowOffset, columnOffset)}:${shiftCellRef(end, rowOffset, columnOffset)}`;
+}
+
+function shiftCellRef(ref: string, rowOffset: number, columnOffset: number) {
+  const match = ref.match(/^([A-Z]+)(\d+)$/);
+  if (!match) {
+    return ref;
+  }
+
+  const [, col, row] = match;
+  if (!col || !row) {
+    return ref;
+  }
+
+  return `${toWorksheetCol(fromWorksheetCol(col) + columnOffset)}${Number(row) + rowOffset}`;
+}
+
+function fromWorksheetCol(column: string) {
+  let value = 0;
+
+  for (const char of column) {
+    value = value * 26 + (char.charCodeAt(0) - 64);
+  }
+
+  return value - 1;
 }
 
 function writeCells(rowMap: Map<number, string[]>, rowIndex: number, cells: string[]) {

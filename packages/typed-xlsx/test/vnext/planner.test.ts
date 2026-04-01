@@ -60,9 +60,40 @@ describe("vnext planner", () => {
         summaryIndex: 0,
         value: 7,
         style: undefined,
+        conditionalFormatting: undefined,
         unstyled: false,
       },
     ]);
+  });
+
+  it("resolves dynamic reducer summary styles from the finalized value", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+      .column("amount", {
+        accessor: "amount",
+        summary: {
+          init: () => 0,
+          step: (acc: number, row) => acc + row.amount,
+          finalize: (acc: number) => acc,
+          style: (value) => ({
+            font: {
+              bold: true,
+              color: { rgb: (value as number) >= 10 ? "166534" : "991B1B" },
+            },
+          }),
+        },
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Totals").table("totals", {
+      schema,
+      rows: [{ amount: 3 }, { amount: 9 }],
+    });
+
+    const plan = workbook.buildPlan();
+    expect(plan.sheets[0]?.tables[0]?.summaries[0]?.style).toEqual({
+      font: { bold: true, color: { rgb: "166534" } },
+    });
   });
 
   it("tracks row heights for multiline styled values", () => {

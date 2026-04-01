@@ -1,4 +1,5 @@
 import { planRows, resolveColumns } from "../planner/rows";
+import { buildWorksheetConditionalFormatting } from "../conditional-style/runtime";
 import { buildBufferedWorkbookXlsx } from "../ooxml/package";
 import type {
   BufferedExcelTablePart,
@@ -47,6 +48,13 @@ function planTable<T extends object, TColumnId extends string>(
       rowCount: table.rows.length,
       planner,
       summaries: [],
+      conditionalFormatting: buildWorksheetConditionalFormatting({
+        columns: resolvedColumns,
+        rowStart: 1,
+        rowEnd: planner.rows.length,
+        columnOffset: 0,
+        mode: table.schema.kind,
+      }),
       autoFilter: false,
       excelTable,
     };
@@ -61,6 +69,13 @@ function planTable<T extends object, TColumnId extends string>(
     rowCount: table.rows.length,
     planner,
     summaries,
+    conditionalFormatting: buildWorksheetConditionalFormatting({
+      columns: resolvedColumns,
+      rowStart: 1,
+      rowEnd: planner.rows.length,
+      columnOffset: 0,
+      mode: table.schema.kind,
+    }),
     autoFilter: resolveAutoFilter({
       autoFilter: reportTable.autoFilter,
       merges: planner.merges,

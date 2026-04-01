@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as VNext from "../../src/vnext";
 import { serializeCell } from "../../src/vnext/ooxml/cells";
 import { createSharedStringsCollector } from "../../src/vnext/ooxml/shared-strings";
+import { expectWorkbookXmlToBeWellFormed, unzipWorkbookEntries } from "../support/xlsx";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -195,6 +196,161 @@ describe("vnext ooxml", () => {
     expect(worksheetPart?.xml.indexOf("<sheetData>")).toBeLessThan(
       worksheetPart?.xml.indexOf('<autoFilter ref="A1:B3"/>') ?? -1,
     );
+  });
+
+  it("writes conditional formatting rules for formula-based conditionalStyle columns", () => {
+    type Deal = {
+      amount: number;
+      quota: number;
+      status: "open" | "won" | "at-risk";
+    };
+
+    const schema = VNext.SchemaBuilder.create<Deal>()
+      .column("amount", {
+        accessor: "amount",
+      })
+      .column("quota", {
+        accessor: "quota",
+      })
+      .column("status", {
+        accessor: "status",
+      })
+      .column("attainment", {
+        formula: ({ row, fx }) =>
+          fx.if(row.ref("quota").gt(0), row.ref("amount").div(row.ref("quota")), 0),
+        conditionalStyle: (c) =>
+          c
+            .when(({ row }) => row.ref("attainment").lt(0.5), {
+              fill: { color: { rgb: "FEF2F2" } },
+              font: { color: { rgb: "B42318" }, bold: true },
+            })
+            .when(
+              ({ row, fx }) => fx.and(row.ref("attainment").gte(1), row.ref("status").eq("won")),
+              {
+                fill: { color: { rgb: "ECFDF3" } },
+                font: { color: { rgb: "166534" }, bold: true },
+              },
+            ),
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Deals").table("deals", {
+      schema,
+      rows: [{ amount: 100, quota: 80, status: "won" } satisfies Deal],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(worksheetPart?.xml).toContain("<conditionalFormatting");
+    expect(worksheetPart?.xml).toContain('sqref="D2:D2"');
+    expect(worksheetPart?.xml).toContain("<cfRule");
+    expect(worksheetPart?.xml).toContain("<formula>($D2&lt;0.5)</formula>");
+    expect(worksheetPart?.xml).toContain("AND(($D2&gt;=1),(C2=&quot;won&quot;))");
+    expect(stylesPart?.xml).toContain('<dxfs count="2"');
+    expect(stylesPart?.xml).not.toContain(
+      '<dxf><font><b/><color rgb="FFB42318"/></font><fill><patternFill patternType="solid"><fgColor rgb="FFFEF2F2"/><bgColor indexed="64"/></patternFill></fill></dxf>',
+    );
+  });
+
+  it("builds a workbook zip whose XML parts are well formed when conditional formatting is used", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number; quota: number }>()
+      .column("amount", { accessor: "amount" })
+      .column("quota", { accessor: "quota" })
+      .column("attainment", {
+        formula: ({ row }) => row.ref("amount").div(row.ref("quota")),
+        conditionalStyle: (c) =>
+          c.when(({ row }) => row.ref("attainment").lt(1), {
+            fill: { color: { rgb: "FEF2F2" } },
+          }),
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Deals").table("deals", {
+      schema,
+      rows: [{ amount: 100, quota: 80 }],
+    });
+
+    const entries = unzipWorkbookEntries(workbook.buildXlsx());
+    expectWorkbookXmlToBeWellFormed(entries);
+  });
+
+  it("writes conditional formatting rules for reducer summary cells", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [
+          summary.cell({
+            init: () => 0,
+            step: (acc: number, row) => acc + row.amount,
+            finalize: (acc: number) => acc,
+            style: (value) => ({
+              numFmt: "$#,##0.00",
+              font: { bold: true, color: { rgb: (value as number) >= 10 ? "166534" : "991B1B" } },
+            }),
+            conditionalStyle: (conditional) =>
+              conditional.when(({ cell }) => cell.current().lt(0), {
+                fill: { color: { rgb: "FEE2E2" } },
+                font: { color: { rgb: "991B1B" }, bold: true },
+              }),
+          }),
+        ],
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Summary").table("summary", {
+      schema,
+      rows: [{ amount: -2 }, { amount: 1 }],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(worksheetPart?.xml).toContain('sqref="A4"');
+    expect(worksheetPart?.xml).toContain("<formula>(A4&lt;0)</formula>");
+    expect(stylesPart?.xml).toContain("FFFEE2E2");
+    expect(stylesPart?.xml).toContain("FF991B1B");
+  });
+
+  it("writes conditional formatting rules for formula summary cells", () => {
+    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [
+          summary.formula("sum", {
+            style: {
+              numFmt: "$#,##0.00",
+              font: { bold: true },
+            },
+            conditionalStyle: (conditional) =>
+              conditional.when(({ cell }) => cell.current().gte(1000), {
+                fill: { color: { rgb: "DCFCE7" } },
+                font: { color: { rgb: "166534" }, bold: true },
+              }),
+          }),
+        ],
+      })
+      .build();
+
+    const workbook = VNext.BufferedWorkbookBuilder.create();
+    workbook.sheet("Summary").table("summary", {
+      schema,
+      rows: [{ amount: 600 }, { amount: 500 }],
+    });
+
+    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(worksheetPart?.xml).toContain('sqref="A4"');
+    expect(worksheetPart?.xml).toContain("<formula>(A4&gt;=1000)</formula>");
+    expect(stylesPart?.xml).toContain("FFDCFCE7");
+    expect(stylesPart?.xml).toContain("FF166534");
   });
 
   it("writes native Excel table parts, relationships, and content types for buffered worksheets", () => {

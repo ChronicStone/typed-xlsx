@@ -1,4 +1,5 @@
 import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
+import { buildWorksheetConditionalFormatting } from "../conditional-style/runtime";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
 import { writeXlsxPackageToSink } from "../ooxml/package";
 import {
@@ -31,6 +32,7 @@ import type { PlannedMergeRange } from "../planner/rows";
 import {
   writeWorksheetAutoFilter,
   writeWorksheetColumns,
+  writeWorksheetConditionalFormatting,
   writeWorksheetMerges,
   writeWorksheetViews,
 } from "../ooxml/worksheet-parts";
@@ -40,7 +42,7 @@ import {
   withDefaultHeaderStyle,
   withDefaultSummaryStyle,
 } from "../styles/defaults";
-import { serializeCell, serializeInlineStringCell } from "../ooxml/cells";
+import { serializeCell, serializeInlineStringCell, toCellRef } from "../ooxml/cells";
 import type { CellStyle } from "../styles/types";
 import { getDefaultRowHeight } from "../planner/metrics";
 import { buildWorksheetNames } from "../ooxml/sheet-names";
@@ -91,6 +93,7 @@ interface StreamTableFinalization {
   view?: SheetViewOptions;
   autoFilter: boolean;
   excelTable?: import("./types").ResolvedExcelTableOptions;
+  conditionalFormatting: import("../conditional-style/runtime").WorksheetConditionalFormattingBlock[];
   planner: {
     columns: Array<{ id: string }>;
     merges: PlannedMergeRange[];
@@ -275,6 +278,13 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       spool: this.state.spool,
       autoFilter: this.state.autoFilter,
       excelTable: this.state.excelTable,
+      conditionalFormatting: buildWorksheetConditionalFormatting({
+        columns: this.state.columns,
+        rowStart: 1,
+        rowEnd: this.state.committedPhysicalRows,
+        columnOffset: 0,
+        mode: this.state.schema.kind,
+      }),
       planner: {
         columns: this.state.columns.map((column) => ({ id: column.id })),
         merges: [...this.state.merges],
@@ -442,7 +452,7 @@ export class StreamWorkbookBuilder {
       });
       worksheetParts.push({
         path: `xl/worksheets/sheet${worksheetIndex}.xml`,
-        source: streamWorksheetXml(sheet, positionedTables, worksheetTableParts),
+        source: streamWorksheetXml(sheet, positionedTables, worksheetTableParts, this.styles),
       });
 
       if (worksheetTableParts.length > 0) {
@@ -544,6 +554,7 @@ async function* streamWorksheetXml(
   sheet: StreamSheetFinalization,
   positionedTables: PositionedTable<StreamTableFinalization>[],
   tableParts: WorksheetTablePart[],
+  styles: StylesCollector,
 ): AsyncIterable<Uint8Array> {
   const merges = positionedTables.flatMap((positioned) => positionTableMerges(positioned));
   const autoFilteredTables = positionedTables.filter((positioned) => positioned.table.autoFilter);
@@ -566,6 +577,12 @@ async function* streamWorksheetXml(
   );
   const lastCol = toWorksheetCol(lastColIndex);
   const rowMap = new Map<number, string[]>();
+  const conditionalFormatting = positionedTables.flatMap((positioned) =>
+    positioned.table.conditionalFormatting.map((block) => ({
+      ...block,
+      ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
+    })),
+  );
 
   yield encodeXml(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -634,6 +651,23 @@ async function* streamWorksheetXml(
           ];
         }),
       );
+
+      summaryRow.forEach((summary) => {
+        const columnIndex = positioned.table.columns.findIndex(
+          (column) => column.id === summary.columnId,
+        );
+        if (columnIndex < 0 || !summary.conditionalFormatting) {
+          return;
+        }
+
+        conditionalFormatting.push(
+          ...materializeSummaryConditionalFormatting(
+            summary.conditionalFormatting,
+            summaryRowNumber,
+            positioned.columnOffset + columnIndex,
+          ),
+        );
+      });
     }
 
     if (positioned.table.excelTable?.totalsRow) {
@@ -684,8 +718,52 @@ async function* streamWorksheetXml(
   }
 
   yield encodeXml(
-    `</sheetData>${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
+    `</sheetData>${autoFilter}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
   );
+}
+
+function shiftWorksheetRange(ref: string, rowOffset: number, columnOffset: number) {
+  const [start, end] = ref.split(":");
+  if (!start || !end) {
+    return ref;
+  }
+
+  return `${shiftCellRef(start, rowOffset, columnOffset)}:${shiftCellRef(end, rowOffset, columnOffset)}`;
+}
+
+function materializeSummaryConditionalFormatting(
+  blocks: StreamTableFinalization["summaries"][number]["conditionalFormatting"] | undefined,
+  worksheetRowIndex: number,
+  worksheetColumnIndex: number,
+) {
+  if (!blocks || blocks.length === 0) {
+    return [];
+  }
+
+  const ref = toCellRef(worksheetRowIndex - 1, worksheetColumnIndex);
+
+  return blocks.map((block) => ({
+    ...block,
+    ref,
+    rules: block.rules.map((rule) => ({
+      ...rule,
+      formula: rule.formula.replaceAll("A1", ref),
+    })),
+  }));
+}
+
+function shiftCellRef(ref: string, rowOffset: number, columnOffset: number) {
+  const match = ref.match(/^([A-Z]+)(\d+)$/);
+  if (!match) {
+    return ref;
+  }
+
+  const [, col, row] = match;
+  if (!col || !row) {
+    return ref;
+  }
+
+  return `${toWorksheetCol(fromWorksheetCol(col) + columnOffset)}${Number(row) + rowOffset}`;
 }
 
 function serializeHeaderCellAt(
