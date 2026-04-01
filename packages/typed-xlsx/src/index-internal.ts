@@ -7,8 +7,8 @@ export type {
   ConditionalStyleBuilder,
   ConditionalStyleInput,
   ConditionalStyleRule,
-} from "./conditional-style/types";
-export { conditionalStyle } from "./conditional-style/types";
+} from "./styles/conditional-types";
+export { conditionalStyle } from "./styles/conditional-types";
 export type {
   CellValue,
   ColumnDefinition,

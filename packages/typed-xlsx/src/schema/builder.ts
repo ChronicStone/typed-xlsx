@@ -4,7 +4,7 @@ import {
   normalizeConditionalStyleInput,
   type ConditionalStyleInput,
   type ConditionalStyleRule,
-} from "../conditional-style/types";
+} from "../styles/conditional-types";
 import type { CellStyle } from "../styles/types";
 import { normalizeSummaryInput } from "../summary/builder";
 import type { SummaryInput } from "../summary/builder";

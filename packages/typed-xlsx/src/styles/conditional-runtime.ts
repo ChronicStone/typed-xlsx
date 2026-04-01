@@ -1,4 +1,4 @@
-import { normalizeConditionalStyleInput } from "./types";
+import { normalizeConditionalStyleInput } from "./conditional-types";
 import { toCellRef } from "../ooxml/cells";
 import type { CellStyle } from "../styles/types";
 import type { FormulaExpr } from "../formula/expr";
