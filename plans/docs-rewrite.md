@@ -20,24 +20,24 @@
 
 ### Confirmed gaps
 
-| #   | Gap                                                                                                                                                                                                                       | Severity |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 1   | **Formula columns** — zero dedicated page. Mentioned in one paragraph in api-reference.                                                                                                                                   | Critical |
-| 2   | **Formula summaries** (`summary.formula()`, shorthand strings `"sum"/"average"/"count"/"min"/"max"`) — not documented anywhere.                                                                                           | Critical |
-| 3   | **`summary.spacer()`** — not documented at all.                                                                                                                                                                           | Critical |
-| 4   | **Excel-table mode** — no dedicated page. Scattered in create-schema.md (2 paragraphs) and api-reference. No coverage of: style, autoFilter default behavior, totals row, structured formula refs, name validation rules. | Critical |
-| 5   | **Totals row** — feature exists (`totalsRow`, per-column `{ label }` / `{ function }`, 7 aggregate functions), not documented.                                                                                            | Critical |
-| 6   | **Structured references** in formula columns for excel-table mode (`[@Qty]`) vs A1 refs in report mode (`C2`) — not explained anywhere.                                                                                   | High     |
-| 7   | **`autoFilter` incompatibility with sub-row expansion** — library silently disables it and emits `console.warn`. Not documented.                                                                                          | High     |
-| 8   | **Excel-table name validation** — names must start with letter/underscore, alphanumeric + underscore only. Error thrown at build time. Not documented.                                                                    | High     |
-| 9   | **`autoFilter` default asymmetry** — excel-table defaults to `true`, report tables default to `false`. Not documented.                                                                                                    | Medium   |
-| 10  | **`derived-values.md`** is almost entirely redundant with `columns.md` — accessor + transform sections duplicated.                                                                                                        | Medium   |
-| 11  | **`build-schema.md`** is ~20 meaningful lines — entirely covered by `create-schema.md`.                                                                                                                                   | Medium   |
-| 12  | **`workbook-builder/overview.md`** is 30 lines, explains almost nothing about the mental model.                                                                                                                           | Medium   |
-| 13  | **`workbook-builder/tables.md`** — covers report table options but not `BufferedExcelTableInput` / `StreamExcelTableInput` options.                                                                                       | Medium   |
-| 14  | **`types.md` → `TableInput`** — describes `id` as a field but it is the first positional argument to `.table(id, input)`, not a field on the input object.                                                                | Medium   |
-| 15  | **Migration guide** — references `/stream-workbook/overview` (dead link).                                                                                                                                                 | Low      |
-| 16  | **Landing page feature grid** — no card linking to excel-table mode, formula columns, or totals row.                                                                                                                      | Low      |
+| #   | Gap                                                                                                                                                                                                                                                                                                                              | Severity |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | **Formula columns** — zero dedicated page. Mentioned in one paragraph in api-reference.                                                                                                                                                                                                                                          | Critical |
+| 2   | **Formula summaries** (`summary.formula()`, shorthand strings `"sum"/"average"/"count"/"min"/"max"`) — not documented anywhere.                                                                                                                                                                                                  | Critical |
+| 3   | **`summary.spacer()`** — not documented at all.                                                                                                                                                                                                                                                                                  | Critical |
+| 4   | **Excel-table mode** — no dedicated page. Scattered in create-schema.md (2 paragraphs) and api-reference. No coverage of: style, autoFilter default behavior, totals row, structured formula refs, name validation rules.                                                                                                        | Critical |
+| 5   | **Totals row** — feature exists (`totalsRow`, per-column `{ label }` / `{ function }`, 7 aggregate functions), not documented.                                                                                                                                                                                                   | Critical |
+| 6   | **Structured references** in formula columns for excel-table mode (`[@Qty]`) vs A1 refs in report mode (`C2`) — not explained anywhere.                                                                                                                                                                                          | High     |
+| 7   | **`autoFilter` incompatibility with sub-row expansion** — library silently disables it and emits `console.warn`. Not documented.                                                                                                                                                                                                 | High     |
+| 8   | **Excel-table name validation** — names must start with letter/underscore, alphanumeric + underscore only. Error thrown at build time. Not documented.                                                                                                                                                                           | High     |
+| 9   | **`autoFilter` default asymmetry** — excel-table defaults to `true`, report tables default to `false`. Not documented.                                                                                                                                                                                                           | Medium   |
+| 10  | **`derived-values.md`** is almost entirely redundant with `columns.md` — accessor + transform sections duplicated.                                                                                                                                                                                                               | Medium   |
+| 11  | **`build-schema.md`** is ~20 meaningful lines — entirely covered by `create-schema.md`.                                                                                                                                                                                                                                          | Medium   |
+| 12  | **`workbook-builder/overview.md`** is 30 lines, explains almost nothing about the mental model.                                                                                                                                                                                                                                  | Medium   |
+| 13  | **`workbook-builder/tables.md`** — covers report table options but not `BufferedExcelTableInput` / `StreamExcelTableInput` options.                                                                                                                                                                                              | Medium   |
+| 14  | **`types.md` → `TableInput`** — describes `id` as a field but it is the first positional argument to `.table(id, input)`, not a field on the input object.                                                                                                                                                                       | Medium   |
+| 15  | **Migration guide** — references `/stream-workbook/overview` (dead link).                                                                                                                                                                                                                                                        | Low      |
+| 16  | **Landing page** — the core value of the library has shifted with formula columns, excel-table mode, grouped formulas, and streaming. The landing page (hero copy, code examples, feature grid, presented demo) must be fully reworked to reflect the current feature surface. Treat as a separate project tracked in section 9. | Medium   |
 
 ---
 
@@ -136,7 +136,7 @@ A schema is a frozen, reusable description of columns. It has no data. It is bui
 |                     | `report`                    | `excel-table`                                   |
 | ------------------- | --------------------------- | ----------------------------------------------- |
 | Summary rows        | Yes                         | No                                              |
-| Column groups       | Yes                         | No                                              |
+| Column groups       | Yes                         | Yes (flat only)                                 |
 | Sub-row expansion   | Yes                         | No (throws)                                     |
 | Native table object | No                          | Yes                                             |
 | Native AutoFilter   | Manual (`autoFilter: true`) | Automatic (default: on)                         |
@@ -147,6 +147,8 @@ A schema is a frozen, reusable description of columns. It has no data. It is bui
 ### Mental model 3: Formulas are declared, not computed
 
 Formula columns declare _how_ a formula string is assembled at output time. They are not computed during schema building or row planning — the library emits the formula string into the XLSX cell XML. Excel evaluates it on open. The formula DSL is a type-safe builder for that string.
+
+Formula scope is lexical and predecessor-based in both modes: a formula column can only reference columns declared before it in the same schema (or, inside a group, previous columns within that group and outer columns preceding the group). The output formula string differs by mode — A1-style in report mode, structured references in excel-table mode — but the scoping rules are identical.
 
 ### Mental model 4: Summaries are stream-safe reducers
 
@@ -183,7 +185,7 @@ The workbook builder is not just a zip wrapper. It places tables on sheets, comp
 
 - Why two modes exist
 - The feature matrix table (section 4 above)
-- Decision guide: "use excel-table when you want native Excel filtering/sorting, a built-in totals row, or the Excel table visual style; use report when you need summaries, column groups, or sub-row expansion"
+- Decision guide: "use excel-table when you want native Excel filtering/sorting, a built-in totals row, or the Excel table visual style; use report when you need summary rows or sub-row expansion"
 - What the mode controls at compile time (formula ref style, constraint validation)
 - Code showing both: `createExcelSchema<T>()` and `createExcelSchema<T>({ mode: "excel-table" })`
 
@@ -204,9 +206,20 @@ The workbook builder is not just a zip wrapper. It places tables on sheets, comp
 - Comparison: `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`
 - Boolean: `.and()`, `.or()`, `.not()`
 - `literal(value)` — embedding a constant
+- **Formula scope rules:**
+  - scope is lexical and predecessor-based: a formula column can only reference columns declared before it
+  - inside a `group(...)`, formulas can reference previous outer columns and previous local group columns
+  - self-reference, forward references, and referencing child columns generated from a group from outside the group are not supported
+- **`row.group(...)` API** (available in both report and excel-table modes):
+  - `row.group("groupId").sum()` — sum over all columns in the group
+  - `row.group("groupId").average()`
+  - `row.group("groupId").min()`
+  - `row.group("groupId").max()`
+  - `row.group("groupId").count()`
 - Output by mode: A1 (`C2`) vs structured reference (`[@Qty]`) — side-by-side example showing the exact XLSX formula string produced
-- Constraint: unknown column ref throws at output time
+- Constraint: most invalid refs are rejected by TypeScript at declaration time; unresolved or invalid references can still throw during output if typing is bypassed or runtime selection/context invalidates the reference target
 - Full worked example: unit price × quantity = total (both modes)
+- Grouped formula example: `group(...)` columns with a later `row.group("...")` aggregation formula (both modes)
 
 ### 6d. `schema-builder/summaries.md` (expand existing)
 
@@ -225,9 +238,13 @@ Additions to the current page:
 
 - What native excel tables are
 - `createExcelSchema<T>({ mode: "excel-table" })`
-- Constraints vs report mode (no groups, no summaries, no sub-row expansion — throws at output time)
-- Schema building is otherwise the same (same `.column()`, same formula support)
+- Constraints vs report mode:
+  - no report summaries (totals rows are the native excel-table alternative)
+  - no sub-row expansion / merged physical rows — throws at output time
+  - flat column groups are supported; merged/sub-row expansion is not
+- Schema building is otherwise the same (same `.column()`, same formula support, grouped formulas supported)
 - Both buffered and stream builders support excel-table schemas
+- `context` is required only when selected groups require it, regardless of report vs excel-table mode
 
 ### 6f. `excel-table-mode/table-styles.md`
 
@@ -247,6 +264,7 @@ Additions to the current page:
 
 - Report tables: `autoFilter: false` by default; opt in with `autoFilter: true` or `{ enabled: true }`
 - Excel tables: `autoFilter: true` by default; opt out with `autoFilter: false`
+- Option shape differs: report tables accept `boolean | TableAutoFilterOptions`; excel tables currently accept `boolean` only
 - Incompatibility with sub-row expansion: the `console.warn` behavior and why (merged cells break flat filter)
 - Excel tables inherently cannot have sub-rows (throws at output time) so this only applies to report tables
 
@@ -316,15 +334,32 @@ Fix `TableInput.id` discrepancy (it's a positional arg, not a field). Add `Excel
 
 ## 8. Risks, Ambiguities, and Things to Validate Before Writing Prose
 
-| #   | Item                                                                                                                                                                       | Action                                                                    |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 1   | `summary.spacer()` — need to confirm exact behavior vs `empty()` (does it render with summary row styling but no value?)                                                   | Read `summary/builder.ts` in full                                         |
-| 2   | `summary.formula()` with `column.cells()` — confirm exact shape returned and available methods                                                                             | Read `summary/runtime.ts` in full                                         |
-| 3   | Excel-table + formula column in streaming mode — structured refs are based on `headerLabel` at table creation time. Confirm this is stable when `select` reorders columns. | Cross-check `stream.ts:150-162` against `planner/rows.ts:144-154`         |
-| 4   | `autoWidth` vs `width` precedence — docs say both exist but don't clarify resolution order                                                                                 | Read `createPlannerStats` / `updateColumnWidthStats` in `planner/rows.ts` |
-| 5   | `ExcelTableStyle` — confirm the full set of valid strings (Light1–21, Medium1–28, Dark1–11)                                                                                | Read full `workbook/types.ts`                                             |
-| 6   | Multi-table sheet with `tablesPerRow` + excel-table mode — does layout work?                                                                                               | Read `internal/layout.ts`                                                 |
-| 7   | Dead link in `v0-to-v1.md` — correct replacement path is `/streaming/overview`                                                                                             | Trivial fix                                                               |
-| 8   | `context` asymmetry — `StreamReportTableInput` has it, `StreamExcelTableInput` does not. Should be documented.                                                             | Confirmed in `stream.ts:330-344`; just needs prose                        |
-| 9   | `title` field on buffered report tables — renders a row above the header, not shown in any example                                                                         | Confirmed in `buffered.ts:55-56`; add an example                          |
-| 10  | Landing page feature grid — needs a new card for "Excel table mode"                                                                                                        | Separate UI task; flag for later                                          |
+| #   | Item                                                                                                                                                                                                 | Action                                                                    |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1   | `summary.spacer()` — need to confirm exact behavior vs `empty()` (does it render with summary row styling but no value?)                                                                             | Read `summary/builder.ts` in full                                         |
+| 2   | `summary.formula()` with `column.cells()` — confirm exact shape returned and available methods                                                                                                       | Read `summary/runtime.ts` in full                                         |
+| 3   | Excel-table + formula column in streaming mode — structured refs are based on `headerLabel` at table creation time. Confirm this is stable when `select` reorders columns.                           | Cross-check `stream.ts:150-162` against `planner/rows.ts:144-154`         |
+| 4   | `autoWidth` vs `width` precedence — docs say both exist but don't clarify resolution order                                                                                                           | Read `createPlannerStats` / `updateColumnWidthStats` in `planner/rows.ts` |
+| 5   | `ExcelTableStyle` — confirm the full set of valid strings (Light1–21, Medium1–28, Dark1–11)                                                                                                          | Read full `workbook/types.ts`                                             |
+| 6   | Multi-table sheet with `tablesPerRow` + excel-table mode — does layout work?                                                                                                                         | Read `internal/layout.ts`                                                 |
+| 7   | Dead link in `v0-to-v1.md` — correct replacement path is `/streaming/overview`                                                                                                                       | Trivial fix                                                               |
+| 8   | `context` in streaming — both `StreamReportTableInput` and `StreamExcelTableInput` carry group context. Document how `context` is required only when selected groups require it, regardless of mode. | Prose in streaming section and workbook-builder tables page               |
+| 9   | `title` field on buffered report tables — renders a row above the header, not shown in any example                                                                                                   | Confirmed in `buffered.ts:55-56`; add an example                          |
+
+---
+
+## 9. Landing Page Rework
+
+The landing page is out of scope for the docs rewrite but must be tracked as a separate project.
+
+**Why:** The core value of the library has shifted. Formula columns, excel-table mode with native styling and totals rows, grouped formulas, and streaming support are all first-class features. None of them are represented on the current landing page. The hero copy, the presented code example, the feature grid, and any demo output all need to be rebuilt from scratch around the current feature surface.
+
+**Scope of the rework:**
+
+- Hero copy — reframe the pitch around the full feature set, not just typed schemas
+- Hero / lead code example — replace with something that showcases formula columns, excel-table mode, or a combination of both; the current example is too minimal to convey the library's power
+- Feature grid — rewrite every card; add cards for excel-table mode, formula columns, totals rows, grouped formulas, and streaming
+- Demo output / screenshot — regenerate from a kitchen-sink example that reflects the current feature surface
+- CTA flow — ensure the quick-start links land on updated getting-started pages
+
+**Dependencies:** should be done after the docs rewrite is complete so links and page paths are stable.

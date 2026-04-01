@@ -6,24 +6,30 @@ const { locale, isEnabled } = useDocusI18n();
 
 // Dynamic collection name based on i18n status
 const collectionName = computed(() => (isEnabled.value ? `landing_${locale.value}` : "landing"));
+const pageKey = computed(() => `${collectionName.value}:${route.path}`);
 
-const { data: page } = await useAsyncData(collectionName.value, () =>
-  queryCollection(collectionName.value as keyof Collections)
-    .path(route.path)
-    .first(),
+const { data: page } = await useAsyncData(
+  () => `landing:${pageKey.value}`,
+  () =>
+    queryCollection(collectionName.value as keyof Collections)
+      .path(route.path)
+      .first(),
+  {
+    watch: [collectionName, () => route.path],
+  },
 );
 if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: "Page not found", fatal: true });
 }
 
-const title = page.value.seo?.title || page.value.title;
-const description = page.value.seo?.description || page.value.description;
+const title = computed(() => page.value?.seo?.title || page.value?.title);
+const description = computed(() => page.value?.seo?.description || page.value?.description);
 
 useSeo({
   title,
   description,
   type: "website",
-  ogImage: page.value?.seo?.ogImage as string | undefined,
+  ogImage: computed(() => page.value?.seo?.ogImage as string | undefined),
 });
 
 if (!page.value?.seo?.ogImage) {

@@ -13,28 +13,42 @@ const appConfig = useAppConfig();
 const navigation = inject<Ref<ContentNavigationItem[]>>("navigation");
 
 const collectionName = computed(() => (isEnabled.value ? `docs_${locale.value}` : "docs"));
+const pageKey = computed(() => `${collectionName.value}:${route.path}`);
 
 const [{ data: page }, { data: surround }] = await Promise.all([
   useAsyncData(
-    kebabCase(route.path),
+    () => `page:${pageKey.value}`,
     () =>
       queryCollection(collectionName.value as keyof Collections)
         .path(route.path)
         .first() as Promise<DocsCollectionItem>,
+    {
+      watch: [collectionName, () => route.path],
+    },
   ),
-  useAsyncData(`${kebabCase(route.path)}-surround`, () => {
-    return queryCollectionItemSurroundings(collectionName.value as keyof Collections, route.path, {
-      fields: ["description"],
-    });
-  }),
+  useAsyncData(
+    () => `surround:${pageKey.value}`,
+    () => {
+      return queryCollectionItemSurroundings(
+        collectionName.value as keyof Collections,
+        route.path,
+        {
+          fields: ["description"],
+        },
+      );
+    },
+    {
+      watch: [collectionName, () => route.path],
+    },
+  ),
 ]);
 
 if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: "Page not found", fatal: true });
 }
 
-const title = page.value.seo?.title || page.value.title;
-const description = page.value.seo?.description || page.value.description;
+const title = computed(() => page.value?.seo?.title || page.value?.title);
+const description = computed(() => page.value?.seo?.description || page.value?.description);
 
 const headline = ref(findPageHeadline(navigation?.value, page.value?.path));
 const breadcrumbs = computed(() => findPageBreadcrumbs(navigation?.value, page.value?.path || ""));
@@ -54,7 +68,7 @@ watch(
 );
 
 defineOgImageComponent("Docs", {
-  headline: headline.value,
+  headline,
 });
 
 const github = computed(() => (appConfig.github ? appConfig.github : null));
