@@ -1,13 +1,13 @@
 import { normalizeConditionalStyleInput } from "./conditional-types";
 import { toCellRef } from "../ooxml/cells";
-import type { CellStyle } from "../styles/types";
+import type { ConditionalCellStyle } from "./conditional-types";
 import type { FormulaExpr } from "../formula/expr";
 import type { ResolvedColumn } from "../planner/rows";
 
 export interface SerializedConditionalStyleRule {
   formula: string;
   priority: number;
-  style: CellStyle;
+  style: ConditionalCellStyle;
 }
 
 export interface WorksheetConditionalFormattingBlock {

@@ -10,12 +10,14 @@ import {
 } from "../formula/expr";
 import type { CellStyle } from "../styles/types";
 
+export type ConditionalCellStyle = Omit<CellStyle, "protection">;
+
 export interface ConditionalStyleRule<
   TColumnId extends string = string,
   TGroupId extends string = string,
 > {
   condition: FormulaExpr<TColumnId, TGroupId>;
-  style: CellStyle;
+  style: ConditionalCellStyle;
 }
 
 export interface ConditionalStyleBuilder<
@@ -27,7 +29,7 @@ export interface ConditionalStyleBuilder<
       row: FormulaRowContext<TColumnId, TGroupId>;
       fx: FormulaFunctions<TColumnId, TGroupId>;
     }) => FormulaConditionValue<TColumnId, TGroupId>,
-    style: CellStyle,
+    style: ConditionalCellStyle,
   ): ConditionalStyleBuilder<TColumnId, TGroupId>;
   done(): ConditionalStyleRule<TColumnId, TGroupId>[];
 }
@@ -52,7 +54,7 @@ class ConditionalStyleBuilderImpl<
       row: FormulaRowContext<TColumnId, TGroupId>;
       fx: FormulaFunctions<TColumnId, TGroupId>;
     }) => FormulaConditionValue<TColumnId, TGroupId>,
-    style: CellStyle,
+    style: ConditionalCellStyle,
   ) {
     const expr = condition({
       row: createFormulaRowContext<TColumnId, TGroupId>(),
