@@ -585,6 +585,7 @@ describe("stream builder", () => {
         row: { amount: 2 },
         sourceRowIndex: 0,
         valuesByColumn: [[{ kind: "formula", formula: "A2*2", value: 4 }]],
+        hyperlinksByColumn: [[undefined]],
         height: 1,
         physicalRowHeights: [Internal.getDefaultRowHeight()],
       },

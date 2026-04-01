@@ -34,6 +34,22 @@ export type FormatFn<T> = (row: T, rowIndex: number, subRowIndex: number) => str
 
 export type StyleFn<T> = (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined;
 
+export interface HyperlinkDefinition {
+  target: string;
+  tooltip?: string;
+  style?: CellStyle;
+}
+
+export type HyperlinkInput<T> =
+  | string
+  | HyperlinkDefinition
+  | null
+  | ((
+      row: T,
+      rowIndex: number,
+      subRowIndex: number,
+    ) => string | HyperlinkDefinition | null | undefined);
+
 export type SchemaKind = "report" | "excel-table";
 
 export type ExcelTableTotalsRowFunction =
@@ -67,6 +83,7 @@ export interface ColumnDefinition<
   transform?: TransformFn<T, AccessorValue<T, TAccessor>>;
   format?: string | FormatFn<T>;
   style?: CellStyle | StyleFn<T>;
+  hyperlink?: HyperlinkInput<T>;
   conditionalStyle?: ConditionalStyleInput<TPrevColumnId | string, TGroupId>;
   validation?: ValidationInput<TPrevColumnId | string, TGroupId>;
   headerStyle?: CellStyle;

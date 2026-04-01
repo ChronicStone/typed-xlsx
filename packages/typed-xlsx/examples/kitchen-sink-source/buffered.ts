@@ -3,9 +3,24 @@ import { createKitchenSinkOrders } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
+  kitchenSinkHyperlinkSchema,
+  kitchenSinkProtectedInputSchema,
   kitchenSinkSchema,
   kitchenSinkValidationSchema,
 } from "./schema";
+
+type KitchenSinkHyperlinkRow = {
+  customerId: string;
+  customerName: string;
+  email: string;
+  hasPortal: boolean;
+};
+
+type KitchenSinkProtectedInputRow = {
+  approvedBudget: number;
+  owner: string;
+  requestedBudget: number;
+};
 
 type KitchenSinkValidationRow = {
   amount: number;
@@ -55,7 +70,12 @@ const kitchenSinkNativeExcelTableSchema = createExcelSchema<{
   .build();
 
 export function buildKitchenSinkBufferedExample() {
-  const workbook = createWorkbook();
+  const workbook = createWorkbook({
+    protection: {
+      password: "kitchen-sink-workbook",
+      structure: true,
+    },
+  });
   const orders = createKitchenSinkOrders();
   const nativeExcelTableRows = orders.slice(0, 5).map((order) => ({
     orderId: order.orderId,
@@ -205,6 +225,50 @@ export function buildKitchenSinkBufferedExample() {
           }) satisfies KitchenSinkValidationRow,
       ),
       schema: kitchenSinkValidationSchema,
+    });
+
+  workbook
+    .sheet("Protected Input", {
+      freezePane: { rows: 1 },
+      protection: {
+        password: "kitchen-sink-sheet",
+        selectLockedCells: false,
+        selectUnlockedCells: true,
+      },
+    })
+    .table("protected-input-orders", {
+      title: "Editable Budget Overrides",
+      rows: orders.slice(0, 5).map(
+        (order) =>
+          ({
+            approvedBudget: Math.round(
+              order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) * 0.9,
+            ),
+            owner: order.customer.name,
+            requestedBudget: Math.round(
+              order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+            ),
+          }) satisfies KitchenSinkProtectedInputRow,
+      ),
+      schema: kitchenSinkProtectedInputSchema,
+    });
+
+  workbook
+    .sheet("Hyperlinks", {
+      freezePane: { rows: 1 },
+    })
+    .table("hyperlink-orders", {
+      title: "Linked Customer Records",
+      rows: orders.slice(0, 5).map(
+        (order, index) =>
+          ({
+            customerId: order.customer.email.split("@")[0] ?? `customer-${index + 1}`,
+            customerName: order.customer.name,
+            email: order.customer.email,
+            hasPortal: index % 2 === 0,
+          }) satisfies KitchenSinkHyperlinkRow,
+      ),
+      schema: kitchenSinkHyperlinkSchema,
     });
 
   workbook

@@ -3,9 +3,24 @@ import { createKitchenSinkOrders } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
+  kitchenSinkHyperlinkSchema,
+  kitchenSinkProtectedInputSchema,
   kitchenSinkSchema,
   kitchenSinkValidationSchema,
 } from "./schema";
+
+type KitchenSinkHyperlinkRow = {
+  customerId: string;
+  customerName: string;
+  email: string;
+  hasPortal: boolean;
+};
+
+type KitchenSinkProtectedInputRow = {
+  approvedBudget: number;
+  owner: string;
+  requestedBudget: number;
+};
 
 type KitchenSinkValidationRow = {
   amount: number;
@@ -80,6 +95,10 @@ function toNativeExcelTableRows(orders: Array<ReturnType<typeof createKitchenSin
 
 export async function buildKitchenSinkStreamExample() {
   const workbook = createWorkbookStream({
+    protection: {
+      password: "kitchen-sink-workbook",
+      structure: true,
+    },
     tempStorage: "memory",
   });
   const allOrderBatches = repeatOrders(8);
@@ -232,6 +251,56 @@ export async function buildKitchenSinkStreamExample() {
                   ? "draft"
                   : "archived",
           }) satisfies KitchenSinkValidationRow,
+      ),
+    });
+  }
+
+  const protectedInputTable = await workbook
+    .sheet("Protected Input", {
+      freezePane: { rows: 1 },
+      protection: {
+        password: "kitchen-sink-sheet",
+        selectLockedCells: false,
+        selectUnlockedCells: true,
+      },
+    })
+    .table("protected-input-orders", {
+      schema: kitchenSinkProtectedInputSchema,
+    });
+  for (const rows of allOrderBatches) {
+    await protectedInputTable.commit({
+      rows: rows.map(
+        (order) =>
+          ({
+            approvedBudget: Math.round(
+              order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) * 0.9,
+            ),
+            owner: order.customer.name,
+            requestedBudget: Math.round(
+              order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+            ),
+          }) satisfies KitchenSinkProtectedInputRow,
+      ),
+    });
+  }
+
+  const hyperlinkTable = await workbook
+    .sheet("Hyperlinks", {
+      freezePane: { rows: 1 },
+    })
+    .table("hyperlink-orders", {
+      schema: kitchenSinkHyperlinkSchema,
+    });
+  for (const rows of allOrderBatches) {
+    await hyperlinkTable.commit({
+      rows: rows.map(
+        (order, index) =>
+          ({
+            customerId: order.customer.email.split("@")[0] ?? `customer-${index + 1}`,
+            customerName: order.customer.name,
+            email: order.customer.email,
+            hasPortal: index % 2 === 0,
+          }) satisfies KitchenSinkHyperlinkRow,
       ),
     });
   }

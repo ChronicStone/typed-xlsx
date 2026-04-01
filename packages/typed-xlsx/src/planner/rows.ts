@@ -27,6 +27,12 @@ import {
 } from "../formula/expr";
 import { toCellRef } from "../ooxml/cells";
 
+export interface PlannedHyperlink {
+  target: string;
+  tooltip?: string;
+  style?: CellStyle;
+}
+
 export interface ResolvedColumn<T extends object> extends Omit<
   ColumnDefinition<T>,
   "header" | "summary" | "totalsRow" | "validation"
@@ -76,6 +82,7 @@ function serializeFormulaGroupExpr<T extends object>(params: {
 export interface PlannedCell<T extends object> {
   columnId: string;
   value: CellData;
+  hyperlink?: PlannedHyperlink;
   sourceRow: T;
   sourceRowIndex: number;
   subRowIndex: number;
@@ -130,6 +137,31 @@ function defaultColumnHeader(id: string) {
 
 function toCellDataValues(value: unknown): CellData[] {
   return Array.isArray(value) ? (value as CellData[]) : [value as CellData];
+}
+
+function resolveCellHyperlink<T extends object>(
+  column: ResolvedColumn<T>,
+  row: T,
+  rowIndex: number,
+  subRowIndex: number,
+): PlannedHyperlink | undefined {
+  const hyperlink = column.hyperlink;
+  if (!hyperlink) {
+    return undefined;
+  }
+
+  const resolved =
+    typeof hyperlink === "function" ? hyperlink(row, rowIndex, subRowIndex) : hyperlink;
+
+  if (!resolved) {
+    return undefined;
+  }
+
+  if (typeof resolved === "string") {
+    return { target: resolved };
+  }
+
+  return resolved;
 }
 
 function resolveFormulaCell<T extends object>(params: {
@@ -399,6 +431,7 @@ export function planRows<T extends object>(
         cells: expandedCells.map((cell) => ({
           columnId: cell.columnId,
           value: cell.values[subRowIndex] ?? null,
+          hyperlink: resolveCellHyperlink(cell.column, row, logicalRowIndex, subRowIndex),
           sourceRow: row,
           sourceRowIndex: logicalRowIndex,
           subRowIndex,

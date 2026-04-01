@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Internal from "../src/index-internal";
 import { serializeCell } from "../src/ooxml/cells";
+import { hashExcelProtectionPassword } from "../src/ooxml/protection";
 import { createSharedStringsCollector } from "../src/ooxml/shared-strings";
 import { expectWorkbookXmlToBeWellFormed, unzipWorkbookEntries } from "./support/xlsx";
 
@@ -98,6 +99,185 @@ describe("ooxml", () => {
     expect(worksheetPart?.xml).toContain('state="frozen"');
     expect(worksheetPart?.xml).toContain('xSplit="1"');
     expect(worksheetPart?.xml).toContain('ySplit="1"');
+  });
+
+  it("writes worksheet protection and cell protection style flags", () => {
+    const schema = Internal.SchemaBuilder.create<{ input: number; formulaValue: number }>()
+      .column("input", {
+        accessor: "input",
+        style: {
+          protection: { locked: false },
+        },
+      })
+      .column("formulaValue", {
+        formula: ({ row }) => row.ref("input").mul(2),
+        style: {
+          protection: { hidden: true },
+        },
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook
+      .sheet("Protected")
+      .options({
+        protection: {
+          selectUnlockedCells: true,
+          selectLockedCells: false,
+          autoFilter: true,
+        },
+      })
+      .table("protected", {
+        schema,
+        rows: [{ input: 5, formulaValue: 10 }],
+      });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(worksheetPart?.xml).toContain("<sheetProtection");
+    expect(worksheetPart?.xml).toContain('sheet="1"');
+    expect(worksheetPart?.xml).toContain('selectLockedCells="1"');
+    expect(worksheetPart?.xml).not.toContain('autoFilter="1"');
+    expect(stylesPart?.xml).toContain('applyProtection="1"');
+    expect(stylesPart?.xml).toContain('<protection locked="0"/>');
+    expect(stylesPart?.xml).toContain('<protection hidden="1"/>');
+  });
+
+  it("writes sheet protection passwords and workbook structure protection", () => {
+    const schema = Internal.SchemaBuilder.create<{ input: number }>()
+      .column("input", {
+        accessor: "input",
+        style: {
+          protection: { locked: false },
+        },
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create({
+      protection: {
+        password: "open-sesame",
+        structure: true,
+      },
+    });
+    workbook
+      .sheet("Protected")
+      .options({
+        protection: {
+          password: "sheet-secret",
+          selectUnlockedCells: true,
+        },
+      })
+      .table("protected", {
+        schema,
+        rows: [{ input: 5 }],
+      });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const workbookPart = xml.parts.find((part) => part.path === "xl/workbook.xml");
+
+    expect(worksheetPart?.xml).toContain(
+      `<sheetProtection sheet="1" password="${hashExcelProtectionPassword("sheet-secret")}"/>`,
+    );
+    expect(workbookPart?.xml).toContain(
+      `<workbookProtection lockStructure="1" workbookPassword="${hashExcelProtectionPassword("open-sesame")}"/>`,
+    );
+  });
+
+  it("writes worksheet hyperlinks independently from rendered cell values", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      customer: string;
+      email: string;
+      id: string;
+      linked: boolean;
+    }>()
+      .column("customer", {
+        accessor: "customer",
+        hyperlink: (row) =>
+          row.linked
+            ? { target: `https://example.com/customers/${row.id}`, tooltip: "Open record" }
+            : null,
+      })
+      .column("email", {
+        accessor: "email",
+        hyperlink: () => ({ target: "#'Orders'!A1", tooltip: "Jump to top" }),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table("orders", {
+      schema,
+      rows: [
+        { customer: "Acme", email: "ops@example.com", id: "c_1", linked: true },
+        { customer: "No Link", email: "none@example.com", id: "c_2", linked: false },
+      ],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const worksheetRelsPart = xml.parts.find(
+      (part) => part.path === "xl/worksheets/_rels/sheet1.xml.rels",
+    );
+    const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
+
+    expect(sharedStringsPart?.xml).toContain("<t>Acme</t>");
+    expect(worksheetPart?.xml).toContain("<hyperlinks>");
+    expect(worksheetPart?.xml).toContain(
+      '<hyperlink ref="A2" tooltip="Open record" r:id="rIdHyperlink1"/>',
+    );
+    expect(worksheetPart?.xml).toContain(
+      '<hyperlink ref="B2" location="&apos;Orders&apos;!A1" tooltip="Jump to top"/>',
+    );
+    expect(worksheetPart?.xml).toContain(
+      '<hyperlink ref="B3" location="&apos;Orders&apos;!A1" tooltip="Jump to top"/>',
+    );
+    expect(worksheetPart?.xml).not.toContain('ref="A3"');
+    expect(worksheetRelsPart?.xml).toContain(
+      'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"',
+    );
+    expect(worksheetRelsPart?.xml).toContain('Target="https://example.com/customers/c_1"');
+  });
+
+  it("applies default hyperlink styling only to linked body cells", () => {
+    const schema = Internal.SchemaBuilder.create<{ customer: string; linked: boolean }>()
+      .column("customer", {
+        accessor: "customer",
+        hyperlink: (row) =>
+          row.linked
+            ? {
+                target: "https://example.com/customer",
+                style: {
+                  font: {
+                    color: { rgb: "7C3AED" },
+                    underline: false,
+                    bold: true,
+                  },
+                },
+              }
+            : null,
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Orders").table("orders", {
+      schema,
+      rows: [
+        { customer: "Linked", linked: true },
+        { customer: "Plain", linked: false },
+      ],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(stylesPart?.xml).toContain('rgb="FF7C3AED"');
+    expect(stylesPart?.xml).not.toContain('rgb="FF0563C1"');
+    expect(stylesPart?.xml).toContain("<b/>");
+    expect(worksheetPart?.xml).toMatch(/<c r="A2" s="\d+" t="s">/);
+    expect(worksheetPart?.xml).toMatch(/<c r="A3" s="\d+" t="s">/);
   });
 
   it("lays out multiple tables on the same worksheet when tablesPerRow is set", () => {

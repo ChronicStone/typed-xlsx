@@ -14,11 +14,13 @@ import {
   type FormulaExpr,
 } from "../formula/expr";
 import { toCellRef } from "../ooxml/cells";
+import type { PlannedHyperlink } from "../planner/rows";
 
 interface ExpandedRow<T extends object> {
   row: T;
   sourceRowIndex: number;
   valuesByColumn: CellData[][];
+  hyperlinksByColumn: Array<Array<PlannedHyperlink | undefined>>;
   height: number;
   physicalRowHeights: number[];
 }
@@ -169,6 +171,11 @@ export function expandCommittedRow<T extends object>(
     height = Math.max(height, values.length);
     return values;
   });
+  const hyperlinksByColumn = columns.map((column) =>
+    Array.from({ length: height }, (_, subRowIndex) =>
+      resolveCellHyperlink(column, row, sourceRowIndex, subRowIndex),
+    ),
+  );
   const physicalRowHeights = Array.from({ length: height }, (_, subRowIndex) => {
     const rowValues = valuesByColumn.map((values) =>
       getCellPrimitiveValue(values[subRowIndex] ?? null),
@@ -183,6 +190,7 @@ export function expandCommittedRow<T extends object>(
     row,
     sourceRowIndex,
     valuesByColumn,
+    hyperlinksByColumn,
     height,
     physicalRowHeights,
   } satisfies ExpandedRow<T>;
@@ -206,6 +214,7 @@ export function appendExpandedRowXml<T extends object>(params: {
         physicalRowIndex,
         (params.columnOffset ?? 0) + columnIndex,
         params.expandedRow.valuesByColumn[columnIndex]?.[subRowIndex] ?? null,
+        params.expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex],
         params.sharedStrings,
         params.stringMode ?? "shared",
         params.styleIndexesByRow?.[subRowIndex]?.[columnIndex],
@@ -233,15 +242,41 @@ function serializeExpandedCell(
   row: number,
   column: number,
   value: CellData,
+  hyperlink: PlannedHyperlink | undefined,
   sharedStrings: SharedStringsCollector,
   stringMode: "inline" | "shared",
   styleIndex?: number,
 ) {
   if (typeof value === "string" && stringMode === "inline") {
-    return serializeInlineStringCell(row, column, value, styleIndex);
+    return serializeInlineStringCell(row, column, value, styleIndex, hyperlink);
   }
 
-  return serializeCell(row, column, value, sharedStrings, styleIndex);
+  return serializeCell(row, column, value, sharedStrings, styleIndex, hyperlink);
+}
+
+function resolveCellHyperlink<T extends object>(
+  column: ResolvedColumn<T>,
+  row: T,
+  rowIndex: number,
+  subRowIndex: number,
+): PlannedHyperlink | undefined {
+  const hyperlink = column.hyperlink;
+  if (!hyperlink) {
+    return undefined;
+  }
+
+  const resolved =
+    typeof hyperlink === "function" ? hyperlink(row, rowIndex, subRowIndex) : hyperlink;
+
+  if (!resolved) {
+    return undefined;
+  }
+
+  if (typeof resolved === "string") {
+    return { target: resolved };
+  }
+
+  return resolved;
 }
 
 export function updateColumnWidthStats<T extends object>(params: {

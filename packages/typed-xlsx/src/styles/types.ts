@@ -47,10 +47,16 @@ export interface AlignmentStyle {
   readingOrder?: "ltr" | "rtl" | "context";
 }
 
+export interface CellProtectionStyle {
+  locked?: boolean;
+  hidden?: boolean;
+}
+
 export interface CellStyle {
   font?: FontStyle;
   fill?: FillStyle;
   border?: BorderStyle;
   alignment?: AlignmentStyle;
   numFmt?: string;
+  protection?: CellProtectionStyle;
 }

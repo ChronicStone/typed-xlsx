@@ -2,7 +2,13 @@ import { getDefaultRowHeight } from "../planner/metrics";
 import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { StylesCollector } from "../styles/collector";
 import type { WorksheetDataValidation } from "../validation/runtime";
-import type { FreezePane, SheetViewOptions } from "../workbook/types";
+import type {
+  FreezePane,
+  ResolvedSheetProtectionOptions,
+  SheetViewOptions,
+} from "../workbook/types";
+import type { WorksheetHyperlink } from "../workbook/types";
+import { hashExcelProtectionPassword } from "./protection";
 import { toCellRef } from "./cells";
 import { xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
 
@@ -169,6 +175,71 @@ export function writeWorksheetDataValidations(validations: WorksheetDataValidati
       ),
     ),
   );
+}
+
+export function writeWorksheetProtection(protection?: ResolvedSheetProtectionOptions) {
+  if (!protection) return "";
+
+  return xmlSelfClosing("sheetProtection", {
+    sheet: protection.sheet ? 1 : undefined,
+    password: protection.password ? hashExcelProtectionPassword(protection.password) : undefined,
+    objects: protection.objects ? 1 : undefined,
+    scenarios: protection.scenarios ? 1 : undefined,
+    formatCells: protection.formatCells ? 1 : undefined,
+    formatColumns: protection.formatColumns ? 1 : undefined,
+    formatRows: protection.formatRows ? 1 : undefined,
+    insertColumns: protection.insertColumns ? 1 : undefined,
+    insertRows: protection.insertRows ? 1 : undefined,
+    insertHyperlinks: protection.insertHyperlinks ? 1 : undefined,
+    deleteColumns: protection.deleteColumns ? 1 : undefined,
+    deleteRows: protection.deleteRows ? 1 : undefined,
+    selectLockedCells: protection.selectLockedCells ? 1 : undefined,
+    sort: protection.sort ? 1 : undefined,
+    autoFilter: protection.autoFilter ? 1 : undefined,
+    pivotTables: protection.pivotTables ? 1 : undefined,
+    selectUnlockedCells: protection.selectUnlockedCells ? 1 : undefined,
+  });
+}
+
+export function writeWorksheetHyperlinks(
+  hyperlinks: Array<WorksheetHyperlink & { relId?: string }>,
+) {
+  if (hyperlinks.length === 0) return "";
+
+  return xmlElement(
+    "hyperlinks",
+    undefined,
+    hyperlinks.map((hyperlink) =>
+      xmlSelfClosing("hyperlink", {
+        ref: hyperlink.ref,
+        location: hyperlink.target.startsWith("#") ? hyperlink.target.slice(1) : undefined,
+        tooltip: hyperlink.tooltip,
+        display: undefined,
+        "r:id": hyperlink.relId,
+      }),
+    ),
+  );
+}
+
+export function partitionWorksheetHyperlinks(hyperlinks: WorksheetHyperlink[]) {
+  const externals: Array<WorksheetHyperlink & { relId: string }> = [];
+  const internals: Array<WorksheetHyperlink & { relId?: string }> = [];
+  let relIndex = 0;
+
+  for (const hyperlink of hyperlinks) {
+    if (hyperlink.target.startsWith("#")) {
+      internals.push(hyperlink);
+      continue;
+    }
+
+    relIndex += 1;
+    externals.push({ ...hyperlink, relId: `rIdHyperlink${relIndex}` });
+  }
+
+  return {
+    worksheetHyperlinks: [...internals, ...externals],
+    externalRelationships: externals,
+  };
 }
 
 function writeFreezePane(freezePane: FreezePane) {

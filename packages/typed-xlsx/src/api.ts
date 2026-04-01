@@ -14,10 +14,12 @@ import type {
   BufferedExcelTableInput,
   BufferedReportTableInput,
   SheetLayoutOptions,
+  SheetProtectionInput,
   SheetViewOptions,
   StreamExcelTableInput,
   StreamReportTableInput,
   TableSelection,
+  WorkbookProtectionInput,
 } from "./workbook/types";
 import { FileSpoolFactory } from "./workbook/internal/file-spool";
 import { MemorySpoolFactory } from "./workbook/internal/memory";
@@ -28,7 +30,9 @@ import {
 } from "./workbook/internal/stream-sinks";
 import { FileWorkbookSink } from "./workbook/internal/file-sink";
 
-export interface WorkbookOptions {}
+export interface WorkbookOptions {
+  protection?: WorkbookProtectionInput;
+}
 type AnySchemaDefinition = SchemaDefinition<any, any, any, any, any>;
 type AnyReportSchemaDefinition = ReportSchemaDefinition<any, any, any, any>;
 type AnyExcelTableSchemaDefinition = ExcelTableSchemaDefinition<any, any, any, any>;
@@ -78,7 +82,9 @@ type WorkbookTableContextField<
   ? { context?: SelectedSchemaContext<TSchema, TSelection> }
   : { context: SelectedSchemaContext<TSchema, TSelection> };
 
-export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {}
+export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {
+  protection?: SheetProtectionInput;
+}
 
 export interface WorkbookReportTableInput<
   TSchema extends AnyReportSchemaDefinition,
@@ -154,6 +160,7 @@ export interface WorkbookSheet {
 }
 
 export interface WorkbookStreamOptions {
+  protection?: WorkbookProtectionInput;
   tempStorage?: "file" | "memory";
   tempDirectory?: string;
   strings?: WorkbookStreamStringMode;
@@ -163,7 +170,9 @@ export interface WorkbookStreamOptions {
 export type WorkbookStreamStringMode = "auto" | "inline" | "shared";
 export type WorkbookStreamMemoryProfile = "balanced" | "low-memory" | "compact-file";
 
-export interface WorkbookStreamSheetOptions extends SheetLayoutOptions, SheetViewOptions {}
+export interface WorkbookStreamSheetOptions extends SheetLayoutOptions, SheetViewOptions {
+  protection?: SheetProtectionInput;
+}
 
 export interface WorkbookStreamTableOptions<
   TSchema extends AnyReportSchemaDefinition,
@@ -255,7 +264,11 @@ class PublicWorkbookSheet implements WorkbookSheet {
 }
 
 class PublicWorkbook implements Workbook {
-  private readonly workbook = BufferedWorkbookBuilder.create();
+  private readonly workbook: BufferedWorkbookBuilder;
+
+  constructor(options: WorkbookOptions = {}) {
+    this.workbook = BufferedWorkbookBuilder.create({ protection: options.protection });
+  }
 
   sheet(name: string, options?: WorkbookSheetOptions) {
     const sheetBuilder = this.workbook.sheet(name);
@@ -312,7 +325,11 @@ class PublicWorkbookStream implements WorkbookStream {
         : new FileSpoolFactory(options.tempDirectory);
     const stringMode = resolveStringMode(options);
 
-    this.workbook = StreamWorkbookBuilder.create({ spoolFactory, stringMode });
+    this.workbook = StreamWorkbookBuilder.create({
+      spoolFactory,
+      stringMode,
+      protection: options.protection,
+    });
   }
 
   sheet(name: string, options?: WorkbookStreamSheetOptions) {
@@ -380,7 +397,7 @@ export function createExcelSchema<T extends object>(options?: { mode: SchemaKind
 }
 
 export function createWorkbook(_options?: WorkbookOptions) {
-  return new PublicWorkbook();
+  return new PublicWorkbook(_options);
 }
 
 export function createWorkbookStream(options?: WorkbookStreamOptions) {
