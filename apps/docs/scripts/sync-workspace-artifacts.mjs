@@ -5,8 +5,8 @@ const rootDir = resolve(import.meta.dirname, "../../..");
 const docsPublicDir = resolve(rootDir, "apps/docs/public/generated");
 const sources = [
   {
-    from: resolve(rootDir, "packages/examples/artifacts/reports"),
-    to: resolve(docsPublicDir, "examples/reports"),
+    from: resolve(rootDir, "packages/examples/showcase"),
+    to: resolve(docsPublicDir, "examples/showcase"),
   },
   {
     from: resolve(rootDir, "packages/examples/generated/examples-manifest.json"),

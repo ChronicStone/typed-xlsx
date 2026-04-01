@@ -1,0 +1,14 @@
+{
+  "id": "territory-performance-matrix",
+  "title": "Territory Performance Matrix",
+  "tags": ["dynamic-columns", "matrix", "territory"],
+  "features": [
+    "typed context",
+    "dynamic column groups",
+    "group aggregates",
+    "formula DSL",
+    "excel-table mode"
+  ],
+  "sheetNames": ["Territory Matrix"],
+  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml"]
+}

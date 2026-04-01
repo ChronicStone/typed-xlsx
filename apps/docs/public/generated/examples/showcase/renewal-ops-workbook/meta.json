@@ -1,0 +1,19 @@
+{
+  "id": "renewal-ops-workbook",
+  "title": "Renewal Ops Workbook",
+  "description": "An editable renewal planning workbook with typed formulas, locked logic, validations, and workflow-safe inputs.",
+  "developerHook": "Generate Excel files that users can safely edit without breaking the logic layer.",
+  "tags": ["renewals", "editable", "workflow"],
+  "features": [
+    "validation DSL",
+    "sheet protection",
+    "unlocked inputs",
+    "hidden formulas",
+    "hyperlinks",
+    "conditional styles"
+  ],
+  "datasetProfile": "medium",
+  "artifactFile": "artifact/renewal-ops-workbook.xlsx",
+  "primarySourceFile": "workbook.ts",
+  "supportsStreaming": false
+}
