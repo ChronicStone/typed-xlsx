@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@chronicstone/typed-xlsx": ["./src/index.ts"],
+      "@chronicstone/typed-xlsx/*": ["./src/*"],
+      "@chronicstone/typed-xlsx-examples/*": ["../examples/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vite.config.ts", "scripts/**/*.mjs"]
+}

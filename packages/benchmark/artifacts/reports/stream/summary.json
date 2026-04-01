@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-04-01T16:15:59.509Z",
+  "cases": [
+    {
+      "logicalRows": 100000,
+      "batchSize": 10000,
+      "totalMs": 10523.57,
+      "rowsPerSecond": 9502,
+      "outputSizeMb": 61.19,
+      "peakRssMb": 616.16,
+      "peakHeapUsedMb": 140.19,
+      "spoolSizeMb": 53.24,
+      "reportPath": "reports/stream/files/stream-100000-rows.xlsx"
+    },
+    {
+      "logicalRows": 500000,
+      "batchSize": 10000,
+      "totalMs": 56518.95,
+      "rowsPerSecond": 8847,
+      "outputSizeMb": 310.36,
+      "peakRssMb": 2086.83,
+      "peakHeapUsedMb": 686.77,
+      "spoolSizeMb": 271.62,
+      "reportPath": "reports/stream/files/stream-500000-rows.xlsx"
+    }
+  ]
+}
