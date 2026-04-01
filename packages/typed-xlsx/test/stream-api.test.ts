@@ -571,4 +571,136 @@ describe("public stream api", () => {
     expect(content).toContain('promptTitle="Allowed values"');
     expect(content).toContain('errorTitle="Invalid status"');
   });
+
+  it("supports sheet protection and unlocked cell styles through the public stream api", async () => {
+    const schema = createExcelSchema<{ input: number; formulaValue: number }>()
+      .column("input", {
+        accessor: "input",
+        style: {
+          protection: { locked: false },
+        },
+      })
+      .column("formulaValue", {
+        formula: ({ row }) => row.ref("input").mul(2),
+        style: {
+          protection: { hidden: true },
+        },
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook
+      .sheet("Protected", {
+        protection: {
+          selectUnlockedCells: true,
+          selectLockedCells: false,
+        },
+      })
+      .table("protected", { schema });
+    await table.commit({ rows: [{ input: 5, formulaValue: 10 }] });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<sheetProtection");
+    expect(content).toContain('applyProtection="1"');
+    expect(content).toContain('<protection locked="0"/>');
+    expect(content).toContain('<protection hidden="1"/>');
+  });
+
+  it("supports sheet passwords and workbook structure protection through the public stream api", async () => {
+    const schema = createExcelSchema<{ input: number }>()
+      .column("input", {
+        accessor: "input",
+        style: {
+          protection: { locked: false },
+        },
+      })
+      .build();
+
+    const workbook = createWorkbookStream({
+      protection: {
+        password: "open-sesame",
+        structure: true,
+      },
+      tempStorage: "memory",
+    });
+    const table = await workbook
+      .sheet("Protected", {
+        protection: {
+          password: "sheet-secret",
+          selectUnlockedCells: true,
+        },
+      })
+      .table("protected", { schema });
+    await table.commit({ rows: [{ input: 5 }] });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<workbookProtection");
+    expect(content).toContain('lockStructure="1"');
+    expect(content).toContain('workbookPassword="');
+    expect(content).toContain("<sheetProtection");
+    expect(content).toContain('password="');
+  });
+
+  it("supports independent hyperlinks through the public stream api", async () => {
+    const schema = createExcelSchema<{
+      customer: string;
+      id: string;
+      linked: boolean;
+    }>()
+      .column("customer", {
+        accessor: "customer",
+        hyperlink: (row) =>
+          row.linked
+            ? { target: `https://example.com/customers/${row.id}`, tooltip: "Open customer" }
+            : null,
+      })
+      .build();
+
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Orders").table("orders", { schema });
+    await table.commit({
+      rows: [
+        { customer: "Acme", id: "c_1", linked: true },
+        { customer: "No Link", id: "c_2", linked: false },
+      ],
+    });
+
+    const stream = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+      stream.on("end", () => resolve());
+      stream.on("error", reject);
+    });
+
+    const content = Buffer.concat(chunks).toString("latin1");
+    expect(content).toContain("<hyperlinks>");
+    expect(content).toContain('Target="https://example.com/customers/c_1"');
+    expect(content).not.toContain('Target="https://example.com/customers/c_2"');
+  });
 });

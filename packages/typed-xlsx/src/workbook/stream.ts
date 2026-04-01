@@ -10,12 +10,15 @@ import {
   type WorksheetTablePart,
 } from "../ooxml/table";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
+import { hashExcelProtectionPassword } from "../ooxml/protection";
 import { appendExpandedRowXml, expandCommittedRow, updateColumnWidthStats } from "../stream/rows";
 import type { SchemaDefinition } from "../schema/builder";
 import type {
   AnyStreamTableInput,
   PlannedSummaryCell,
+  ResolvedSheetProtectionOptions,
   SheetLayoutOptions,
+  SheetProtectionInput,
   SheetViewOptions,
   StreamSheetSpool,
   StreamSpoolFactory,
@@ -24,24 +27,33 @@ import type {
   StreamWorkbookSink,
   TableAutoFilterOptions,
   TableSelection,
+  WorkbookProtectionInput,
 } from "./types";
-import { serializeExcelTotalsRowFormula } from "./types";
+import {
+  resolveSheetProtection,
+  resolveWorkbookProtection,
+  serializeExcelTotalsRowFormula,
+} from "./types";
 import { applyColumnSelection } from "./internal/selection";
 import type { SummaryResolvedValue } from "../summary/runtime";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
 import type { PlannedMergeRange } from "../planner/rows";
 import {
+  partitionWorksheetHyperlinks,
   writeWorksheetAutoFilter,
   writeWorksheetColumns,
   writeWorksheetConditionalFormatting,
   writeWorksheetDataValidations,
+  writeWorksheetHyperlinks,
   writeWorksheetMerges,
+  writeWorksheetProtection,
   writeWorksheetViews,
 } from "../ooxml/worksheet-parts";
 import { StylesCollector } from "../styles/collector";
 import {
   withDefaultBodyStyle,
   withDefaultHeaderStyle,
+  withDefaultHyperlinkBodyStyle,
   withDefaultSummaryStyle,
 } from "../styles/defaults";
 import { serializeCell, serializeInlineStringCell, toCellRef } from "../ooxml/cells";
@@ -70,6 +82,7 @@ interface StreamTableState<T extends object, TColumnId extends string> {
   committedLogicalRows: number;
   committedPhysicalRows: number;
   merges: PlannedMergeRange[];
+  hyperlinks: import("./types").WorksheetHyperlink[];
   spool: StreamSheetSpool;
   autoFilter: boolean;
   excelTable?: import("./types").ResolvedExcelTableOptions;
@@ -89,6 +102,7 @@ interface StreamTableFinalization {
   committedPhysicalRows: number;
   merges: PlannedMergeRange[];
   summaries: PlannedSummaryCell[];
+  hyperlinks: import("./types").WorksheetHyperlink[];
   headerStyleIndexes: number[];
   summaryStyleIndexes: Array<number | undefined>;
   spool: StreamSheetSpool;
@@ -112,10 +126,17 @@ interface StreamWorksheetPart {
   source: AsyncIterable<Uint8Array> | string;
 }
 
+interface StreamWorkbookProtection {
+  lockStructure?: boolean;
+  lockWindows?: boolean;
+  workbookPassword?: string;
+}
+
 interface StreamSheetFinalization {
   layout?: SheetLayoutOptions;
   name: string;
   tables: StreamTableFinalization[];
+  protection?: ResolvedSheetProtectionOptions;
   view?: SheetViewOptions;
 }
 
@@ -175,6 +196,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       committedLogicalRows: 0,
       committedPhysicalRows: 0,
       merges: [],
+      hyperlinks: [],
       spool,
       autoFilter: false,
       excelTable: resolvedExcelTable,
@@ -245,6 +267,16 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       });
 
       await this.state.spool.append(encodeRowChunk(fragment));
+      expanded.hyperlinksByColumn.forEach((links, columnIndex) => {
+        links.forEach((hyperlink, subRowIndex) => {
+          if (!hyperlink) return;
+          this.state.hyperlinks.push({
+            ref: toCellRef(1 + this.state.committedPhysicalRows + subRowIndex, columnIndex),
+            target: hyperlink.target,
+            tooltip: hyperlink.tooltip,
+          });
+        });
+      });
       this.state.committedLogicalRows += 1;
       this.state.committedPhysicalRows += expanded.height;
     }
@@ -272,6 +304,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       committedPhysicalRows: this.state.committedPhysicalRows,
       merges: [...this.state.merges],
       summaries,
+      hyperlinks: [...this.state.hyperlinks],
       headerStyleIndexes: this.state.columns.map((column) =>
         this.styles.addStyle(withDefaultHeaderStyle(column.headerStyle)),
       ),
@@ -328,6 +361,7 @@ class StreamSheetBuilder {
     private readonly stringMode: "inline" | "shared",
     private readonly layout?: SheetLayoutOptions,
     private readonly view?: SheetViewOptions,
+    private readonly protection?: ResolvedSheetProtectionOptions,
   ) {}
 
   async table<T extends object, TColumnId extends string>(
@@ -372,6 +406,7 @@ class StreamSheetBuilder {
     return {
       layout: this.layout,
       name: this.name,
+      protection: this.protection,
       view: this.view,
       tables,
     };
@@ -385,32 +420,40 @@ export class StreamWorkbookBuilder {
   private sink: StreamWorkbookSink | undefined;
   private finished = false;
   private readonly stringMode: "inline" | "shared";
+  private readonly protection: StreamWorkbookProtection | undefined;
 
   constructor(
     private readonly spoolFactory: StreamSpoolFactory,
     stringMode: "inline" | "shared",
     sink?: StreamWorkbookSink,
+    protection?: StreamWorkbookProtection,
   ) {
     this.stringMode = stringMode;
     this.sharedStrings =
       stringMode === "shared" ? createSharedStringsCollector() : createDisabledSharedStrings();
     this.sink = sink;
+    this.protection = protection;
   }
 
   static create(params: {
     spoolFactory: StreamSpoolFactory;
     sink?: StreamWorkbookSink;
+    protection?: WorkbookProtectionInput;
     stringMode?: "inline" | "shared";
   }) {
     return new StreamWorkbookBuilder(
       params.spoolFactory,
       params.stringMode ?? "shared",
       params.sink,
+      resolveWorkbookProtection(params.protection),
     );
   }
 
-  sheet(name: string, options?: SheetLayoutOptions & SheetViewOptions) {
-    const { tablesPerRow, tableColumnGap, tableRowGap, ...view } = options ?? {};
+  sheet(
+    name: string,
+    options?: SheetLayoutOptions & SheetViewOptions & { protection?: SheetProtectionInput },
+  ) {
+    const { tablesPerRow, tableColumnGap, tableRowGap, protection, ...view } = options ?? {};
     const builder = new StreamSheetBuilder(
       name,
       this.spoolFactory,
@@ -423,6 +466,7 @@ export class StreamWorkbookBuilder {
         tableRowGap,
       },
       view,
+      resolveSheetProtection(protection),
     );
     this.sheets.push(builder);
     return builder;
@@ -455,6 +499,14 @@ export class StreamWorkbookBuilder {
       worksheetIndex += 1;
       const positionedTables = layoutTables({ layout: sheet.layout, tables: sheet.tables });
       const worksheetTableParts = buildStreamWorksheetTableParts(positionedTables, tableIndex);
+      const worksheetHyperlinks = partitionWorksheetHyperlinks(
+        positionedTables.flatMap((positioned) =>
+          positioned.table.hyperlinks.map((hyperlink) => ({
+            ...hyperlink,
+            ref: shiftCellRef(hyperlink.ref, positioned.rowOffset, positioned.columnOffset),
+          })),
+        ),
+      );
 
       workbookSheetDefs.push({
         name: worksheetNames[worksheetIndex - 1] ?? `Sheet ${worksheetIndex}`,
@@ -468,7 +520,10 @@ export class StreamWorkbookBuilder {
       if (worksheetTableParts.length > 0) {
         worksheetRelationshipParts.push({
           path: `xl/worksheets/_rels/sheet${worksheetIndex}.xml.rels`,
-          source: writeWorksheetRelationshipsXml(worksheetTableParts),
+          source: writeStreamWorksheetRelationshipsXml(
+            worksheetTableParts,
+            worksheetHyperlinks.externalRelationships,
+          ),
         });
         tableParts.push(
           ...worksheetTableParts.map((part) => ({
@@ -476,6 +531,14 @@ export class StreamWorkbookBuilder {
             source: part.xml,
           })),
         );
+      } else if (worksheetHyperlinks.externalRelationships.length > 0) {
+        worksheetRelationshipParts.push({
+          path: `xl/worksheets/_rels/sheet${worksheetIndex}.xml.rels`,
+          source: writeStreamWorksheetRelationshipsXml(
+            [],
+            worksheetHyperlinks.externalRelationships,
+          ),
+        });
       }
 
       tableIndex += worksheetTableParts.length;
@@ -484,7 +547,7 @@ export class StreamWorkbookBuilder {
     const parts = [
       {
         path: "xl/workbook.xml",
-        source: writeStreamWorkbookXml(workbookSheetDefs),
+        source: writeStreamWorkbookXml(workbookSheetDefs, this.protection),
       },
       {
         path: "xl/styles.xml",
@@ -598,6 +661,14 @@ async function* streamWorksheetXml(
       ...block,
       ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
     })),
+  );
+  const hyperlinks = partitionWorksheetHyperlinks(
+    positionedTables.flatMap((positioned) =>
+      positioned.table.hyperlinks.map((hyperlink) => ({
+        ...hyperlink,
+        ref: shiftCellRef(hyperlink.ref, positioned.rowOffset, positioned.columnOffset),
+      })),
+    ),
   );
 
   yield encodeXml(
@@ -734,7 +805,40 @@ async function* streamWorksheetXml(
   }
 
   yield encodeXml(
-    `</sheetData>${autoFilter}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
+    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
+  );
+}
+
+function writeStreamWorksheetRelationshipsXml(
+  tableParts: WorksheetTablePart[],
+  hyperlinks: Array<{ relId: string; target: string }>,
+) {
+  if (hyperlinks.length === 0) {
+    return writeWorksheetRelationshipsXml(tableParts);
+  }
+
+  return xmlDocument(
+    "Relationships",
+    {
+      xmlns: "http://schemas.openxmlformats.org/package/2006/relationships",
+    },
+    [
+      ...tableParts.map((part) =>
+        xmlSelfClosing("Relationship", {
+          Id: part.relId,
+          Type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
+          Target: `../tables/${part.path.split("/").pop()}`,
+        }),
+      ),
+      ...hyperlinks.map((hyperlink) =>
+        xmlSelfClosing("Relationship", {
+          Id: hyperlink.relId,
+          Type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+          Target: hyperlink.target,
+          TargetMode: "External",
+        }),
+      ),
+    ],
   );
 }
 
@@ -823,24 +927,38 @@ function getSummaryStyleIndex(table: StreamTableFinalization, target: PlannedSum
   return index >= 0 ? table.summaryStyleIndexes[index] : undefined;
 }
 
-function writeStreamWorkbookXml(sheets: Array<{ name: string; id: number }>) {
+function writeStreamWorkbookXml(
+  sheets: Array<{ name: string; id: number }>,
+  protection?: StreamWorkbookProtection,
+) {
   return xmlDocument(
     "workbook",
     {
       xmlns: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     },
-    xmlElement(
-      "sheets",
-      undefined,
-      sheets.map((sheet) =>
-        xmlSelfClosing("sheet", {
-          name: sheet.name,
-          sheetId: sheet.id,
-          "r:id": `rId${sheet.id}`,
-        }),
+    [
+      protection
+        ? xmlSelfClosing("workbookProtection", {
+            lockStructure: protection.lockStructure ? 1 : undefined,
+            lockWindows: protection.lockWindows ? 1 : undefined,
+            workbookPassword: protection.workbookPassword
+              ? hashExcelProtectionPassword(protection.workbookPassword)
+              : undefined,
+          })
+        : "",
+      xmlElement(
+        "sheets",
+        undefined,
+        sheets.map((sheet) =>
+          xmlSelfClosing("sheet", {
+            name: sheet.name,
+            sheetId: sheet.id,
+            "r:id": `rId${sheet.id}`,
+          }),
+        ),
       ),
-    ),
+    ],
   );
 }
 
@@ -920,11 +1038,16 @@ function buildStyleIndexesByRow<T extends object>(
   styles: StylesCollector,
 ) {
   return Array.from({ length: expandedRow.height }, (_, subRowIndex) =>
-    columns.map((column) =>
+    columns.map((column, columnIndex) =>
       styles.addStyle(
-        withDefaultBodyStyle(
-          resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
-        ),
+        expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]
+          ? withDefaultHyperlinkBodyStyle(
+              resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
+              expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]?.style,
+            )
+          : withDefaultBodyStyle(
+              resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
+            ),
       ),
     ),
   );

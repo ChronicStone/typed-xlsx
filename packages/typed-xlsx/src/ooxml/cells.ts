@@ -25,6 +25,7 @@ export function serializeCell(
   value: CellData,
   sharedStrings: SharedStringsCollector,
   styleIndex?: number,
+  _hyperlink?: import("../planner/rows").PlannedHyperlink,
 ) {
   const ref = toCellRef(row, column);
   const attributes = {
@@ -106,6 +107,7 @@ export function serializeInlineStringCell(
   column: number,
   value: string,
   styleIndex?: number,
+  _hyperlink?: import("../planner/rows").PlannedHyperlink,
 ) {
   const ref = toCellRef(row, column);
 

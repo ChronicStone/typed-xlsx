@@ -11,6 +11,12 @@ import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-
 import type { CellStyle } from "../styles/types";
 import type { WorksheetDataValidation } from "../validation/runtime";
 
+export interface WorksheetHyperlink {
+  ref: string;
+  target: string;
+  tooltip?: string;
+}
+
 export interface TableSelection<TColumnId extends string = string> {
   include?: readonly TColumnId[];
   exclude?: readonly TColumnId[];
@@ -177,6 +183,122 @@ export interface SheetViewOptions {
   freezePane?: FreezePane;
 }
 
+export interface SheetProtectionOptions {
+  enabled?: boolean;
+  password?: string;
+  selectLockedCells?: boolean;
+  selectUnlockedCells?: boolean;
+  formatCells?: boolean;
+  formatColumns?: boolean;
+  formatRows?: boolean;
+  insertColumns?: boolean;
+  insertRows?: boolean;
+  insertHyperlinks?: boolean;
+  deleteColumns?: boolean;
+  deleteRows?: boolean;
+  sort?: boolean;
+  autoFilter?: boolean;
+  pivotTables?: boolean;
+  objects?: boolean;
+  scenarios?: boolean;
+}
+
+export type SheetProtectionInput = boolean | SheetProtectionOptions;
+
+export interface ResolvedSheetProtectionOptions {
+  sheet: boolean;
+  password?: string;
+  objects?: boolean;
+  scenarios?: boolean;
+  formatCells?: boolean;
+  formatColumns?: boolean;
+  formatRows?: boolean;
+  insertColumns?: boolean;
+  insertRows?: boolean;
+  insertHyperlinks?: boolean;
+  deleteColumns?: boolean;
+  deleteRows?: boolean;
+  selectLockedCells?: boolean;
+  sort?: boolean;
+  autoFilter?: boolean;
+  pivotTables?: boolean;
+  selectUnlockedCells?: boolean;
+}
+
+export function resolveSheetProtection(
+  protection?: SheetProtectionInput,
+): ResolvedSheetProtectionOptions | undefined {
+  if (!protection) {
+    return undefined;
+  }
+
+  const options = protection === true ? {} : protection;
+  if (protection !== true && options.enabled === false) {
+    return undefined;
+  }
+
+  return {
+    sheet: true,
+    password: options.password,
+    objects: options.objects === false ? true : undefined,
+    scenarios: options.scenarios === false ? true : undefined,
+    formatCells: options.formatCells === true ? false : undefined,
+    formatColumns: options.formatColumns === true ? false : undefined,
+    formatRows: options.formatRows === true ? false : undefined,
+    insertColumns: options.insertColumns === true ? false : undefined,
+    insertRows: options.insertRows === true ? false : undefined,
+    insertHyperlinks: options.insertHyperlinks === true ? false : undefined,
+    deleteColumns: options.deleteColumns === true ? false : undefined,
+    deleteRows: options.deleteRows === true ? false : undefined,
+    selectLockedCells: options.selectLockedCells === false ? true : undefined,
+    sort: options.sort === true ? false : undefined,
+    autoFilter: options.autoFilter === true ? false : undefined,
+    pivotTables: options.pivotTables === true ? false : undefined,
+    selectUnlockedCells: options.selectUnlockedCells === false ? true : undefined,
+  };
+}
+
+export interface WorkbookProtectionOptions {
+  enabled?: boolean;
+  password?: string;
+  structure?: boolean;
+  windows?: boolean;
+}
+
+export type WorkbookProtectionInput = boolean | WorkbookProtectionOptions;
+
+export interface ResolvedWorkbookProtectionOptions {
+  lockStructure?: boolean;
+  lockWindows?: boolean;
+  workbookPassword?: string;
+}
+
+export function resolveWorkbookProtection(
+  protection?: WorkbookProtectionInput,
+): ResolvedWorkbookProtectionOptions | undefined {
+  if (!protection) {
+    return undefined;
+  }
+
+  const options = protection === true ? {} : protection;
+  if (protection !== true && options.enabled === false) {
+    return undefined;
+  }
+
+  const lockStructure = options.structure ?? true;
+  const lockWindows = options.windows ?? false;
+
+  if (!lockStructure && !lockWindows && !options.password) {
+    return undefined;
+  }
+
+  return {
+    lockStructure: lockStructure ? true : undefined,
+    lockWindows: lockWindows ? true : undefined,
+    workbookPassword: options.password,
+  };
+}
+
 export interface PlannedSummaryCell {
   columnId: string;
   summaryIndex: number;
@@ -194,6 +316,7 @@ export interface BufferedTablePlan<T extends object> {
   summaries: PlannedSummaryCell[];
   conditionalFormatting?: WorksheetConditionalFormattingBlock[];
   dataValidations?: WorksheetDataValidation[];
+  hyperlinks?: WorksheetHyperlink[];
   autoFilter: boolean;
   excelTable?: ResolvedExcelTableOptions;
 }
@@ -209,12 +332,14 @@ export interface BufferedSheetPlan {
   name: string;
   layout?: SheetLayoutOptions;
   view?: SheetViewOptions;
+  protection?: ResolvedSheetProtectionOptions;
   tables: BufferedTablePlan<any>[];
 }
 
 export interface BufferedWorkbookPlan {
   sheets: BufferedSheetPlan[];
   excelTables: BufferedExcelTablePart[];
+  protection?: ResolvedWorkbookProtectionOptions;
 }
 
 export interface StreamWorkbookSink {

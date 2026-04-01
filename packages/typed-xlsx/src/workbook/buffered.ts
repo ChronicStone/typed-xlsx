@@ -9,12 +9,16 @@ import type {
   BufferedTablePlan,
   BufferedWorkbookPlan,
   SheetLayoutOptions,
+  SheetProtectionInput,
   SheetViewOptions,
+  WorkbookProtectionInput,
 } from "./types";
+import { resolveSheetProtection as resolveProtection, resolveWorkbookProtection } from "./types";
 import { applyColumnSelection } from "./internal/selection";
 import { computeSummaries } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
 import { resolveExcelTableOptions } from "./internal/excel-table";
+import { toCellRef } from "../ooxml/cells";
 
 function isBufferedExcelTableInput<T extends object, TColumnId extends string>(
   table: BufferedTableInput<T, TColumnId>,
@@ -49,6 +53,19 @@ function planTable<T extends object, TColumnId extends string>(
       rowCount: table.rows.length,
       planner,
       summaries: [],
+      hyperlinks: planner.rows.flatMap((row) =>
+        row.cells.flatMap((cell, columnIndex) =>
+          cell.hyperlink
+            ? [
+                {
+                  ref: toCellRef(row.physicalRowIndex + 1, columnIndex),
+                  target: cell.hyperlink.target,
+                  tooltip: cell.hyperlink.tooltip,
+                },
+              ]
+            : [],
+        ),
+      ),
       conditionalFormatting: buildWorksheetConditionalFormatting({
         columns: resolvedColumns,
         rowStart: 1,
@@ -77,6 +94,19 @@ function planTable<T extends object, TColumnId extends string>(
     rowCount: table.rows.length,
     planner,
     summaries,
+    hyperlinks: planner.rows.flatMap((row) =>
+      row.cells.flatMap((cell, columnIndex) =>
+        cell.hyperlink
+          ? [
+              {
+                ref: toCellRef(row.physicalRowIndex + 1, columnIndex),
+                target: cell.hyperlink.target,
+                tooltip: cell.hyperlink.tooltip,
+              },
+            ]
+          : [],
+      ),
+    ),
     conditionalFormatting: buildWorksheetConditionalFormatting({
       columns: resolvedColumns,
       rowStart: 1,
@@ -104,17 +134,19 @@ class BufferedSheetBuilder {
   private readonly tables: Array<{ id: string; input: BufferedTableInput<any, string> }> = [];
   private layout: SheetLayoutOptions | undefined;
   private view: SheetViewOptions | undefined;
+  private protection: ReturnType<typeof resolveProtection> | undefined;
 
   constructor(private readonly name: string) {}
 
-  options(options: SheetLayoutOptions & SheetViewOptions) {
-    const { tablesPerRow, tableColumnGap, tableRowGap, ...view } = options;
+  options(options: SheetLayoutOptions & SheetViewOptions & { protection?: SheetProtectionInput }) {
+    const { tablesPerRow, tableColumnGap, tableRowGap, protection, ...view } = options;
     this.layout = {
       tablesPerRow,
       tableColumnGap,
       tableRowGap,
     };
     this.view = view;
+    this.protection = resolveProtection(protection);
     return this;
   }
 
@@ -131,6 +163,7 @@ class BufferedSheetBuilder {
       name: this.name,
       layout: this.layout,
       view: this.view,
+      protection: this.protection,
       tables: this.tables.map((table) => planTable(table.id, table.input)),
     };
   }
@@ -138,9 +171,14 @@ class BufferedSheetBuilder {
 
 export class BufferedWorkbookBuilder {
   private readonly sheets: BufferedSheetBuilder[] = [];
+  private protection: ReturnType<typeof resolveWorkbookProtection> | undefined;
 
-  static create() {
-    return new BufferedWorkbookBuilder();
+  static create(options?: { protection?: WorkbookProtectionInput }) {
+    return new BufferedWorkbookBuilder(options);
+  }
+
+  constructor(options?: { protection?: WorkbookProtectionInput }) {
+    this.protection = resolveWorkbookProtection(options?.protection);
   }
 
   sheet(name: string) {
@@ -168,6 +206,7 @@ export class BufferedWorkbookBuilder {
     return {
       sheets,
       excelTables,
+      protection: this.protection,
     };
   }
 

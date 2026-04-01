@@ -13,14 +13,18 @@ import { getDefaultRowHeight } from "../planner/metrics";
 import {
   withDefaultBodyStyle,
   withDefaultHeaderStyle,
+  withDefaultHyperlinkBodyStyle,
   withDefaultSummaryStyle,
 } from "../styles/defaults";
 import {
   createWorksheetRowNode,
+  partitionWorksheetHyperlinks,
   writeWorksheetAutoFilter,
   writeWorksheetColumns,
   writeWorksheetConditionalFormatting,
   writeWorksheetDataValidations,
+  writeWorksheetHyperlinks,
+  writeWorksheetProtection,
   writeWorksheetViews,
   writeWorksheetMerges,
   type WorksheetAutoFilterRange,
@@ -62,6 +66,14 @@ export function serializeWorksheet(
       positioned.rowOffset,
     ),
   );
+  const hyperlinks = positionedTables.flatMap((positioned) =>
+    buildPositionedHyperlinks(
+      positioned.table.hyperlinks ?? [],
+      positioned.columnOffset,
+      positioned.rowOffset,
+    ),
+  );
+  const partitionedHyperlinks = partitionWorksheetHyperlinks(hyperlinks);
 
   for (const positioned of positionedTables) {
     writeTableIntoRowMap(
@@ -99,7 +111,9 @@ export function serializeWorksheet(
         xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() }),
         writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
         xmlElement("sheetData", undefined, rowNodes),
+        writeWorksheetProtection(sheet.protection),
         writeWorksheetAutoFilter(autoFilter),
+        writeWorksheetHyperlinks(partitionedHyperlinks.worksheetHyperlinks),
         writeWorksheetConditionalFormatting(conditionalFormatting, styles),
         writeWorksheetDataValidations(dataValidations),
         writeWorksheetMerges(merges),
@@ -107,6 +121,7 @@ export function serializeWorksheet(
       ],
     ),
     tableParts,
+    hyperlinks: partitionedHyperlinks.worksheetHyperlinks,
   };
 }
 
@@ -183,6 +198,25 @@ function resolveSheetAutoFilter(
   };
 }
 
+function buildPositionedHyperlinks(
+  hyperlinks: import("../workbook/types").WorksheetHyperlink[],
+  columnOffset: number,
+  rowOffset: number,
+) {
+  return hyperlinks.map((hyperlink) => ({
+    ...hyperlink,
+    ref: shiftRef(hyperlink.ref, columnOffset, rowOffset),
+  }));
+}
+
+function shiftRef(ref: string, columnOffset: number, rowOffset: number) {
+  const match = ref.match(/^([A-Z]+)(\d+)$/);
+  if (!match) return ref;
+  const [, col, row] = match;
+  if (!col || !row) return ref;
+  return `${toWorksheetCol(fromWorksheetCol(col) + columnOffset)}${Number(row) + rowOffset}`;
+}
+
 function writeTableIntoRowMap(
   rowMap: Map<number, string[]>,
   rowHeights: Map<number, number>,
@@ -221,8 +255,16 @@ function writeTableIntoRowMap(
           cell.value,
           sharedStrings,
           styles.addStyle(
-            withDefaultBodyStyle(resolveDataCellStyle(table.planner.columns[columnIndex], cell)),
+            cell.hyperlink
+              ? withDefaultHyperlinkBodyStyle(
+                  resolveDataCellStyle(table.planner.columns[columnIndex], cell),
+                  cell.hyperlink.style,
+                )
+              : withDefaultBodyStyle(
+                  resolveDataCellStyle(table.planner.columns[columnIndex], cell),
+                ),
           ),
+          cell.hyperlink,
         ),
       ),
     );

@@ -49,8 +49,19 @@ const DEFAULT_SUMMARY_STYLE: CellStyle = {
   },
 };
 
+const DEFAULT_HYPERLINK_STYLE: CellStyle = {
+  font: {
+    color: { rgb: "0563C1" },
+    underline: true,
+  },
+};
+
 export function withDefaultBodyStyle(style?: CellStyle) {
   return deepmerge(DEFAULT_BODY_STYLE, style ?? {});
+}
+
+export function withDefaultHyperlinkBodyStyle(style?: CellStyle, hyperlinkStyle?: CellStyle) {
+  return deepmerge(DEFAULT_BODY_STYLE, DEFAULT_HYPERLINK_STYLE, style ?? {}, hyperlinkStyle ?? {});
 }
 
 export function withDefaultHeaderStyle(style?: CellStyle) {

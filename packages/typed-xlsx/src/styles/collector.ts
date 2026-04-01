@@ -130,6 +130,15 @@ function serializeAlignment(style: CellStyle) {
   });
 }
 
+function serializeProtection(style: CellStyle) {
+  if (!style.protection) return "";
+
+  return xmlSelfClosing("protection", {
+    locked: style.protection.locked === false ? 0 : undefined,
+    hidden: style.protection.hidden ? 1 : undefined,
+  });
+}
+
 export class StylesCollector {
   private readonly fonts: FontEntry[] = [{ key: "", value: { name: "Calibri", size: 11 } }];
   private readonly fills: FillEntry[] = [
@@ -159,7 +168,14 @@ export class StylesCollector {
     const fillId = this.addFill(style.fill);
     const borderId = this.addBorder(style.border);
     const numFmt = style.numFmt ?? "";
-    const key = JSON.stringify({ fontId, fillId, borderId, numFmt, alignment: style.alignment });
+    const key = JSON.stringify({
+      fontId,
+      fillId,
+      borderId,
+      numFmt,
+      alignment: style.alignment,
+      protection: style.protection,
+    });
     const existing = this.xfMap.get(key);
     if (existing !== undefined) return existing;
 
@@ -285,8 +301,12 @@ export class StylesCollector {
                 applyFill: xf.fillId ? 1 : undefined,
                 applyBorder: xf.borderId ? 1 : undefined,
                 applyAlignment: xf.style.alignment ? 1 : undefined,
+                applyProtection: xf.style.protection ? 1 : undefined,
               },
-              xf.style.alignment ? serializeAlignment(xf.style) : "",
+              [
+                xf.style.alignment ? serializeAlignment(xf.style) : "",
+                xf.style.protection ? serializeProtection(xf.style) : "",
+              ],
             ),
           ),
         ),

@@ -321,6 +321,88 @@ export const kitchenSinkValidationSchema = createExcelSchema<{
   })
   .build();
 
+export const kitchenSinkProtectedInputSchema = createExcelSchema<{
+  approvedBudget: number;
+  owner: string;
+  requestedBudget: number;
+}>()
+  .column("owner", {
+    header: () => "Owner",
+    accessor: "owner",
+    minWidth: 18,
+    headerStyle,
+    style: {
+      protection: { locked: true },
+    },
+  })
+  .column("requestedBudget", {
+    header: () => "Requested Budget",
+    accessor: "requestedBudget",
+    minWidth: 16,
+    style: {
+      ...currencyStyle,
+      protection: { locked: false },
+    },
+    headerStyle,
+    validation: (v) =>
+      v
+        .integer()
+        .between(1000, 50000)
+        .error({
+          title: () => "Invalid budget",
+          message: () => "Use a whole number between 1,000 and 50,000",
+        }),
+  })
+  .column("approvedBudget", {
+    header: () => "Approved Budget",
+    formula: ({ row, fx }) => fx.round(row.ref("requestedBudget").mul(0.9), 0),
+    minWidth: 16,
+    style: {
+      ...currencyStyle,
+      protection: { hidden: true },
+    },
+    headerStyle,
+  })
+  .build();
+
+export const kitchenSinkHyperlinkSchema = createExcelSchema<{
+  customerId: string;
+  customerName: string;
+  email: string;
+  hasPortal: boolean;
+}>()
+  .column("customerName", {
+    header: () => "Customer",
+    accessor: "customerName",
+    minWidth: 20,
+    headerStyle,
+    hyperlink: (row) =>
+      row.hasPortal
+        ? {
+            target: `https://example.com/customers/${row.customerId}`,
+            tooltip: "Open customer record",
+            style: {
+              font: {
+                color: { rgb: "7C3AED" },
+                underline: false,
+                bold: true,
+              },
+            },
+          }
+        : null,
+  })
+  .column("email", {
+    header: () => "Email",
+    accessor: "email",
+    minWidth: 24,
+    headerStyle,
+    hyperlink: (row) => ({
+      target: `mailto:${row.email}`,
+      tooltip: "Send email",
+    }),
+  })
+  .build();
+
 export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   customerName: string;
   qty: number;
