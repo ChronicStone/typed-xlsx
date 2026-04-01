@@ -62,6 +62,12 @@ That means the current internals do not yet model:
 
 Because of that, the implementation order matters a lot. The safest path is to first introduce a richer internal cell model, then build formula support and metadata features on top of it.
 
+### Immediate follow-up validation gap
+
+- add an early build-time validation pass that checks formula dependencies after column selection has been applied
+- fail fast when selection removes predecessor columns or groups still referenced by formulas or conditional formatting
+- document which guarantees are compile-time only versus runtime/planner validated for dynamic groups, selection, and sub-row expansion
+
 ## Ownership model
 
 Keep a strict distinction between schema-level semantics and builder-level rendering semantics.
@@ -346,6 +352,106 @@ workbook.sheet("Orders").table("orders", {
   ],
 });
 ```
+
+### Future: typed theme utility
+
+Branch idea: `feat/theme-api`
+
+Goal:
+
+- add a typed `createTheme()` utility for reusable workbook/table styling primitives
+- support theme variants, table-level default styling, and fine-grained slot reuse with overrides
+
+Why it matters:
+
+- current styling is expressive but repetitive when multiple tables should share the same visual language
+- table-level defaults solve common header / summary / locked-cell cases, but users will want broader reusable style systems
+- raw string preset names everywhere would make low-level styling APIs too stringly and harder to evolve safely
+
+Direction:
+
+```ts
+const reportTheme = createTheme({
+  slots: {
+    header: {
+      base: { fill: { color: { rgb: "DBEAFE" } }, font: { bold: true, color: { rgb: "1E3A8A" } } },
+      inverse: {
+        fill: { color: { rgb: "0F172A" } },
+        font: { bold: true, color: { rgb: "F8FAFC" } },
+      },
+    },
+    summary: {
+      subtle: {
+        fill: { color: { rgb: "E2E8F0" } },
+        font: { bold: true, color: { rgb: "334155" } },
+      },
+    },
+    cells: {
+      locked: { fill: { color: { rgb: "F8FAFC" } } },
+      unlocked: { fill: { color: { rgb: "FEF3C7" } } },
+      hidden: { fill: { color: { rgb: "F1F5F9" } } },
+    },
+    columns: {
+      currency: { numFmt: '"$"#,##0.00', alignment: { horizontal: "right" } },
+      percent: { numFmt: "0.0%", alignment: { horizontal: "right" } },
+    },
+    custom: {
+      approvalBadge: {
+        fill: { color: { rgb: "FFEDD5" } },
+        font: { color: { rgb: "9A3412" }, bold: true },
+      },
+    },
+  },
+  defaults: {
+    table: {
+      header: "header.base",
+      summary: "summary.subtle",
+      cells: {
+        locked: "cells.locked",
+        unlocked: "cells.unlocked",
+        hidden: "cells.hidden",
+      },
+    },
+  },
+  variants: {
+    executive: {
+      slots: {
+        header: {
+          base: {
+            fill: { color: { rgb: "0B1220" } },
+            font: { bold: true, color: { rgb: "F8FAFC" } },
+          },
+        },
+      },
+    },
+  },
+});
+
+const executive = reportTheme.variant("executive");
+
+workbook.sheet("Board").table("portfolio", {
+  rows,
+  schema,
+  theme: executive,
+});
+
+createExcelSchema<Row>()
+  .column("arr", {
+    accessor: "arr",
+    style: executive.slot("columns.currency"),
+  })
+  .column("nrr", {
+    formula: ({ row }) => row.ref("current").div(row.ref("prior")),
+    style: executive.slot("columns.percent", { font: { bold: true } }),
+  });
+```
+
+Open questions / constraints:
+
+- prefer typed theme refs or helper-returned style objects over plain string values in every style-bearing field
+- support both whole-table theme application and fine-grained `slot(path, overrides?)` usage
+- keep merge order predictable between library defaults, theme defaults, explicit table defaults, and per-column overrides
+- allow user-defined custom slots without weakening autocomplete on built-in theme slots
 
 Potential follow-up shapes:
 
