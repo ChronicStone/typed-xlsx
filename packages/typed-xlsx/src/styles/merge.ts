@@ -1,49 +1,45 @@
-import type { CellStyle } from "./types";
+type Primitive = bigint | boolean | null | number | string | symbol | undefined;
 
-export function mergeCellStyles(...styles: Array<CellStyle | undefined>): CellStyle {
-  const result: CellStyle = {};
+type DeepMergeValue<T> = T extends Primitive
+  ? T
+  : T extends readonly unknown[]
+    ? T
+    : T extends object
+      ? { [K in keyof T]?: DeepMergeValue<T[K]> }
+      : T;
 
-  for (const style of styles) {
-    if (!style) continue;
+export function deepMerge<T extends object>(...values: Array<DeepMergeValue<T> | undefined>): T {
+  const result: Record<string, unknown> = {};
 
-    if (style.font) {
-      result.font = { ...(result.font ?? {}), ...style.font };
-    }
-
-    if (style.fill) {
-      result.fill = { ...(result.fill ?? {}), ...style.fill };
-    }
-
-    if (style.border) {
-      result.border = {
-        ...(result.border ?? {}),
-        ...(style.border.top
-          ? { top: { ...(result.border?.top ?? {}), ...style.border.top } }
-          : {}),
-        ...(style.border.right
-          ? { right: { ...(result.border?.right ?? {}), ...style.border.right } }
-          : {}),
-        ...(style.border.bottom
-          ? { bottom: { ...(result.border?.bottom ?? {}), ...style.border.bottom } }
-          : {}),
-        ...(style.border.left
-          ? { left: { ...(result.border?.left ?? {}), ...style.border.left } }
-          : {}),
-      };
-    }
-
-    if (style.alignment) {
-      result.alignment = { ...(result.alignment ?? {}), ...style.alignment };
-    }
-
-    if (style.protection) {
-      result.protection = { ...(result.protection ?? {}), ...style.protection };
-    }
-
-    if (style.numFmt !== undefined) {
-      result.numFmt = style.numFmt;
-    }
+  for (const value of values) {
+    mergeInto(result, value);
   }
 
-  return result;
+  return result as T;
+}
+
+function mergeInto(target: Record<string, unknown>, value: unknown) {
+  if (!isPlainObject(value)) {
+    return;
+  }
+
+  for (const [key, nextValue] of Object.entries(value)) {
+    if (nextValue === undefined) {
+      continue;
+    }
+
+    if (isPlainObject(nextValue)) {
+      const existing = target[key];
+      const nextTarget = isPlainObject(existing) ? existing : {};
+      mergeInto(nextTarget, nextValue);
+      target[key] = nextTarget;
+      continue;
+    }
+
+    target[key] = nextValue;
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

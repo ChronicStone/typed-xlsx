@@ -1,5 +1,5 @@
 import type { BorderStyle, CellStyle } from "./types";
-import { mergeCellStyles } from "./merge";
+import { deepMerge } from "./merge";
 
 export const THIN_BORDER_STYLE: BorderStyle = {
   top: { style: "thin", color: { rgb: "000000" } },
@@ -57,17 +57,17 @@ const DEFAULT_HYPERLINK_STYLE: CellStyle = {
 };
 
 export function withDefaultBodyStyle(style?: CellStyle) {
-  return mergeCellStyles(DEFAULT_BODY_STYLE, style);
+  return deepMerge<CellStyle>(DEFAULT_BODY_STYLE, style);
 }
 
 export function withDefaultHyperlinkBodyStyle(style?: CellStyle, hyperlinkStyle?: CellStyle) {
-  return mergeCellStyles(DEFAULT_BODY_STYLE, DEFAULT_HYPERLINK_STYLE, style, hyperlinkStyle);
+  return deepMerge<CellStyle>(DEFAULT_BODY_STYLE, DEFAULT_HYPERLINK_STYLE, style, hyperlinkStyle);
 }
 
 export function withDefaultHeaderStyle(style?: CellStyle) {
-  return mergeCellStyles(DEFAULT_HEADER_STYLE, style);
+  return deepMerge<CellStyle>(DEFAULT_HEADER_STYLE, style);
 }
 
 export function withDefaultSummaryStyle(style?: CellStyle) {
-  return mergeCellStyles(DEFAULT_SUMMARY_STYLE, style);
+  return deepMerge<CellStyle>(DEFAULT_SUMMARY_STYLE, style);
 }
