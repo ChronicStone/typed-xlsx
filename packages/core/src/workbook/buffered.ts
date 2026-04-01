@@ -52,6 +52,7 @@ function planTable<T extends object, TColumnId extends string>(
       id,
       rowCount: table.rows.length,
       planner,
+      defaults: table.defaults,
       summaries: [],
       hyperlinks: planner.rows.flatMap((row) =>
         row.cells.flatMap((cell, columnIndex) =>
@@ -93,6 +94,7 @@ function planTable<T extends object, TColumnId extends string>(
     title: reportTable.title,
     rowCount: table.rows.length,
     planner,
+    defaults: table.defaults,
     summaries,
     hyperlinks: planner.rows.flatMap((row) =>
       row.cells.flatMap((cell, columnIndex) =>

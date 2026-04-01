@@ -72,6 +72,9 @@ export type {
   StreamTableCommit,
   StreamTableInput,
   StreamWorkbookSink,
+  TableStyleDefault,
+  TableStyleDefaults,
+  TableStylePreset,
   TableSelection,
 } from "./workbook/types";
 export { BufferedWorkbookBuilder } from "./workbook/buffered";

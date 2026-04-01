@@ -7,6 +7,7 @@ export {
   type WorkbookSheet,
   type WorkbookSheetOptions,
   type WorkbookTableInput,
+  type WorkbookTableDefaults,
   type WorkbookTableOptions,
   type WorkbookStream,
   type WorkbookStreamStringMode,
@@ -64,5 +65,8 @@ export type {
   FreezePane,
   SheetLayoutOptions,
   SheetViewOptions,
+  TableStyleDefault,
+  TableStyleDefaults,
+  TableStylePreset,
   TableSelection,
 } from "./workbook/types";

@@ -157,6 +157,128 @@ describe("planner", () => {
     });
   });
 
+  it("anchors formula cells to physical sub-rows when rows expand", () => {
+    const schema = Internal.SchemaBuilder.create<{ items: number[]; qtys: number[] }>()
+      .column("items", {
+        accessor: (row) => row.items,
+      })
+      .column("qtys", {
+        accessor: (row) => row.qtys,
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("items").mul(row.ref("qtys")),
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [{ items: [2, 3], qtys: [4, 5] }]);
+
+    expect(result.rows[0]?.cells[2]?.value).toEqual({
+      kind: "formula",
+      formula: "(A2*B2)",
+    });
+    expect(result.rows[1]?.cells[2]?.value).toEqual({
+      kind: "formula",
+      formula: "(A3*B3)",
+    });
+  });
+
+  it("broadcasts scalar refs while keeping expanded refs aligned in nested formulas", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      discountRate: number;
+      qtys: number[];
+      prices: number[];
+    }>()
+      .column("discountRate", {
+        accessor: "discountRate",
+      })
+      .column("qtys", {
+        accessor: (row) => row.qtys,
+      })
+      .column("prices", {
+        accessor: (row) => row.prices,
+      })
+      .column("netRevenue", {
+        formula: ({ row, fx }) =>
+          row
+            .ref("qtys")
+            .mul(row.ref("prices"))
+            .mul(fx.literal(1).sub(row.ref("discountRate"))),
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [
+      { discountRate: 0.1, qtys: [2, 3], prices: [10, 20] },
+    ]);
+
+    expect(result.rows[0]?.cells[3]?.value).toEqual({
+      kind: "formula",
+      formula: "((B2*C2)*(1-A2))",
+    });
+    expect(result.rows[1]?.cells[3]?.value).toEqual({
+      kind: "formula",
+      formula: "((B3*C3)*(1-A2))",
+    });
+  });
+
+  it("supports row-local series aggregates in expanded formulas", () => {
+    const schema = Internal.SchemaBuilder.create<{ amounts: number[] }>()
+      .column("amount", {
+        accessor: (row) => row.amounts,
+      })
+      .column("rowAverage", {
+        formula: ({ row }) => row.series("amount").average(),
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [{ amounts: [10, 20, 30] }]);
+
+    expect(result.rows[0]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
+  });
+
+  it("keeps row-level aggregate formulas scalar when expansion is single", () => {
+    const schema = Internal.SchemaBuilder.create<{ amounts: number[] }>()
+      .column("amount", {
+        accessor: (row) => row.amounts,
+      })
+      .column("rowAverage", {
+        formula: ({ row }) => row.series("amount").average(),
+        expansion: "single",
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [{ amounts: [10, 20, 30] }]);
+
+    expect(result.rows).toHaveLength(3);
+    expect(result.rows[0]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
+    expect(result.rows[1]?.cells[1]?.value).toBeNull();
+    expect(result.rows[2]?.cells[1]?.value).toBeNull();
+    expect(result.merges).toContainEqual({ startRow: 0, endRow: 2, startCol: 1, endCol: 1 });
+  });
+
+  it("repeats row-level aggregate formulas when expansion is expand", () => {
+    const schema = Internal.SchemaBuilder.create<{ amounts: number[] }>()
+      .column("amount", {
+        accessor: (row) => row.amounts,
+      })
+      .column("rowAverage", {
+        formula: ({ row }) => row.series("amount").average(),
+        expansion: "expand",
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [{ amounts: [10, 20, 30] }]);
+
+    expect(result.rows[0]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
+    expect(result.rows[1]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
+    expect(result.rows[2]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
+  });
+
   it("resolves grouped columns from context during planning", () => {
     type User = {
       firstName: string;

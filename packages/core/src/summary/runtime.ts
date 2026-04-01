@@ -14,6 +14,7 @@ export type SummaryFormulaFunction = "sum" | "average" | "count" | "min" | "max"
 
 export interface SummaryColumnRangeContext {
   cells(): SummaryColumnCellsContext;
+  rows(): SummaryColumnRowsContext;
 }
 
 export interface SummaryColumnCellsContext {
@@ -24,6 +25,32 @@ export interface SummaryColumnCellsContext {
   max(): FormulaExpr<string, never>;
 }
 
+export interface SummaryRowCellsContext {
+  sum(): FormulaExpr<string, never>;
+  average(): FormulaExpr<string, never>;
+  count(): FormulaExpr<string, never>;
+  min(): FormulaExpr<string, never>;
+  max(): FormulaExpr<string, never>;
+}
+
+export interface SummaryColumnRowsContext {
+  sum(
+    resolver: (row: { cells(): SummaryRowCellsContext }) => FormulaValue<string, never>,
+  ): SummaryRowAggregateExpr;
+  average(
+    resolver: (row: { cells(): SummaryRowCellsContext }) => FormulaValue<string, never>,
+  ): SummaryRowAggregateExpr;
+  count(
+    resolver: (row: { cells(): SummaryRowCellsContext }) => FormulaConditionValue<string, never>,
+  ): SummaryRowAggregateExpr;
+  min(
+    resolver: (row: { cells(): SummaryRowCellsContext }) => FormulaValue<string, never>,
+  ): SummaryRowAggregateExpr;
+  max(
+    resolver: (row: { cells(): SummaryRowCellsContext }) => FormulaValue<string, never>,
+  ): SummaryRowAggregateExpr;
+}
+
 export interface SummaryFormulaBuilderContext {
   column: SummaryColumnRangeContext;
   fx: FormulaFunctions<string, never>;
@@ -31,7 +58,7 @@ export interface SummaryFormulaBuilderContext {
 
 export type SummaryFormulaResolver = (
   context: SummaryFormulaBuilderContext,
-) => FormulaValue<string, never>;
+) => FormulaValue<string, never> | SummaryRowAggregateExpr;
 
 export interface SummaryFormulaDefinition {
   kind: "formula";
@@ -46,6 +73,13 @@ export interface SummaryFormulaContext {
   startRow: number;
   endRow: number;
   column: number;
+  logicalRows?: Array<{ startRow: number; endRow: number }>;
+}
+
+export interface SummaryRowAggregateExpr {
+  kind: "summary-row-aggregate";
+  aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
+  resolver: FormulaExpr<string, never>;
 }
 
 export interface SummaryConditionalStyleCellContext {

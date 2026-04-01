@@ -44,6 +44,8 @@ export interface ResolvedColumn<T extends object> extends Omit<
   validation?: ResolvedValidationRule<string, string>;
 }
 
+type RowSeriesMode = "scalar" | "expanded";
+
 function resolveFormulaGroupColumns<T extends object>(
   columns: ResolvedColumn<T>[],
   groupId: string,
@@ -57,6 +59,8 @@ function serializeFormulaGroupExpr<T extends object>(params: {
   groupId: string;
   mode: "report" | "excel-table";
   rowIndex: number;
+  referenceRowsByColumnId?: Map<string, number>;
+  rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
 }) {
   const groupColumns = resolveFormulaGroupColumns(params.columns, params.groupId);
   if (groupColumns.length === 0) {
@@ -73,7 +77,8 @@ function serializeFormulaGroupExpr<T extends object>(params: {
     if (columnIndex < 0) {
       throw new Error(`Unknown formula column reference '${column.id}'.`);
     }
-    return toCellRef(params.rowIndex + 1, columnIndex);
+    const resolvedRowIndex = params.referenceRowsByColumnId?.get(column.id) ?? params.rowIndex;
+    return toCellRef(resolvedRowIndex + 1, columnIndex);
   });
 
   return `${params.aggregate}(${cellRefs.join(",")})`;
@@ -91,6 +96,8 @@ export interface PlannedCell<T extends object> {
 export interface PlannedPhysicalRow<T extends object> {
   logicalRowIndex: number;
   physicalRowIndex: number;
+  logicalRowStartIndex: number;
+  logicalRowHeight: number;
   cells: PlannedCell<T>[];
   height: number;
 }
@@ -167,9 +174,10 @@ function resolveCellHyperlink<T extends object>(
 function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
-  columnIndex: number;
   formulaMode: "report" | "excel-table";
   rowIndex: number;
+  referenceRowsByColumnId?: Map<string, number>;
+  rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
 }) {
   if (!params.column.formula) {
     return undefined;
@@ -187,6 +195,8 @@ function resolveFormulaCell<T extends object>(params: {
       params.columns,
       params.rowIndex,
       params.formulaMode,
+      params.referenceRowsByColumnId,
+      params.rowSeriesBoundsByColumnId,
     ),
   };
 }
@@ -196,6 +206,8 @@ function serializeFormulaExpr<T extends object>(
   columns: ResolvedColumn<T>[],
   rowIndex: number,
   mode: "report" | "excel-table",
+  referenceRowsByColumnId?: Map<string, number>,
+  rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>,
 ): string {
   if (expr.kind === "literal") {
     if (typeof expr.value === "string") {
@@ -224,7 +236,36 @@ function serializeFormulaExpr<T extends object>(
       return `[@[${headerLabel.replaceAll("]", "]]")}]]`;
     }
 
-    return toCellRef(rowIndex + 1, columnIndex);
+    const resolvedRowIndex = referenceRowsByColumnId?.get(expr.columnId) ?? rowIndex;
+
+    return toCellRef(resolvedRowIndex + 1, columnIndex);
+  }
+
+  if (expr.kind === "series") {
+    throw new Error(`Series reference '${expr.columnId}' must be aggregated before serialization.`);
+  }
+
+  if (expr.kind === "collection-aggregate") {
+    const columnIndex = columns.findIndex((column) => column.id === expr.target.columnId);
+    if (columnIndex < 0) {
+      throw new Error(`Unknown formula column reference '${expr.target.columnId}'.`);
+    }
+
+    if (mode === "excel-table") {
+      throw new Error("Series aggregates are not supported in native Excel table formulas.");
+    }
+
+    const bounds = rowSeriesBoundsByColumnId?.get(expr.target.columnId);
+    if (!bounds) {
+      throw new Error(
+        `Missing series bounds for formula column reference '${expr.target.columnId}'.`,
+      );
+    }
+
+    const startRef = toCellRef(bounds.startRow + 1, columnIndex);
+    const endRef = toCellRef(bounds.endRow + 1, columnIndex);
+
+    return `${expr.aggregate}(${startRef}:${endRef})`;
   }
 
   if (expr.kind === "group") {
@@ -234,14 +275,109 @@ function serializeFormulaExpr<T extends object>(
       groupId: expr.groupId,
       mode,
       rowIndex,
+      referenceRowsByColumnId,
+      rowSeriesBoundsByColumnId,
     });
   }
 
   if (expr.kind === "function") {
-    return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, rowIndex, mode)).join(",")})`;
+    return `${expr.name}(${expr.args
+      .map((arg) =>
+        serializeFormulaExpr(
+          arg,
+          columns,
+          rowIndex,
+          mode,
+          referenceRowsByColumnId,
+          rowSeriesBoundsByColumnId,
+        ),
+      )
+      .join(",")})`;
   }
 
-  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode)})`;
+  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode, referenceRowsByColumnId, rowSeriesBoundsByColumnId)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode, referenceRowsByColumnId, rowSeriesBoundsByColumnId)})`;
+}
+
+function createRowSeriesBoundsByColumnId(
+  seriesModeByColumnId: Map<string, RowSeriesMode>,
+  rowStartIndex: number,
+  rowHeight: number,
+) {
+  return new Map(
+    [...seriesModeByColumnId.entries()].map(([columnId, mode]) => [
+      columnId,
+      {
+        startRow: rowStartIndex,
+        endRow: rowStartIndex + (mode === "expanded" ? rowHeight - 1 : 0),
+      },
+    ]),
+  );
+}
+
+function createReferenceRowsByColumnId(
+  seriesModeByColumnId: Map<string, RowSeriesMode>,
+  rowStartIndex: number,
+  subRowIndex: number,
+) {
+  return new Map(
+    [...seriesModeByColumnId.entries()].map(([columnId, mode]) => [
+      columnId,
+      mode === "expanded" ? rowStartIndex + subRowIndex : rowStartIndex,
+    ]),
+  );
+}
+
+function formulaUsesExpandedRefs<T extends object>(
+  expr: FormulaExpr<string, string>,
+  seriesModeByColumnId: Map<string, RowSeriesMode>,
+  columns: ResolvedColumn<T>[],
+): boolean {
+  if (expr.kind === "literal") {
+    return false;
+  }
+
+  if (expr.kind === "ref") {
+    return seriesModeByColumnId.get(expr.columnId) === "expanded";
+  }
+
+  if (expr.kind === "series") {
+    return true;
+  }
+
+  if (expr.kind === "collection-aggregate") {
+    return seriesModeByColumnId.get(expr.target.columnId) === "expanded";
+  }
+
+  if (expr.kind === "group") {
+    return resolveFormulaGroupColumns(columns, expr.groupId).some(
+      (column) => seriesModeByColumnId.get(column.id) === "expanded",
+    );
+  }
+
+  if (expr.kind === "function") {
+    return expr.args.some((arg) => formulaUsesExpandedRefs(arg, seriesModeByColumnId, columns));
+  }
+
+  return (
+    formulaUsesExpandedRefs(expr.left, seriesModeByColumnId, columns) ||
+    formulaUsesExpandedRefs(expr.right, seriesModeByColumnId, columns)
+  );
+}
+
+function formulaUsesSeriesAggregate(expr: FormulaExpr<string, string>): boolean {
+  if (expr.kind === "literal" || expr.kind === "ref" || expr.kind === "group") {
+    return false;
+  }
+
+  if (expr.kind === "series" || expr.kind === "collection-aggregate") {
+    return true;
+  }
+
+  if (expr.kind === "function") {
+    return expr.args.some((arg) => formulaUsesSeriesAggregate(arg));
+  }
+
+  return formulaUsesSeriesAggregate(expr.left) || formulaUsesSeriesAggregate(expr.right);
 }
 
 function isColumnNode<T extends object>(
@@ -359,31 +495,16 @@ export function planRows<T extends object>(
 
   rows.forEach((row, logicalRowIndex) => {
     let rowHeight = 1;
-    const expandedCells: Array<{
-      columnId: string;
-      column: ResolvedColumn<T>;
-      values: CellData[];
-    }> = columns.map((column, columnIndex) => {
-      const formulaCell = resolveFormulaCell({
-        column,
-        columns,
-        columnIndex,
-        formulaMode: schema.kind,
-        rowIndex: logicalRowIndex,
-      });
+    const rawCells = columns.map((column) => {
       const rawValue = column.formula
         ? undefined
         : column.accessor
           ? resolveAccessor(row, column.accessor)
           : undefined;
-      const transformed = formulaCell
-        ? formulaCell
-        : column.transform
-          ? column.transform(rawValue, row, logicalRowIndex)
-          : ((rawValue ?? column.defaultValue ?? null) as
-              | PrimitiveCellValue
-              | PrimitiveCellValue[]);
-      const values = toCellDataValues(transformed);
+      const transformed = column.transform
+        ? column.transform(rawValue, row, logicalRowIndex)
+        : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
+      const values = column.formula ? [] : toCellDataValues(transformed);
       rowHeight = Math.max(rowHeight, values.length);
 
       const measuredWidth = Math.max(
@@ -401,9 +522,87 @@ export function planRows<T extends object>(
       );
 
       return {
+        column,
+        values,
+      };
+    });
+
+    const rowStartIndex = physicalRowIndex;
+    const seriesModeByColumnId = new Map<string, RowSeriesMode>();
+    const expandedCells = columns.map((column, columnIndex) => {
+      if (!column.formula) {
+        const values = rawCells[columnIndex]!.values;
+        const seriesMode = values.length > 1 ? "expanded" : "scalar";
+        seriesModeByColumnId.set(column.id, seriesMode);
+
+        return {
+          columnId: column.id,
+          column,
+          values,
+          seriesMode,
+        };
+      }
+
+      const expr = toExpr(
+        column.formula({
+          row: createFormulaRowContext<any, any>(),
+          fx: createFormulaFunctionsContext<any, any>(),
+        } as Parameters<NonNullable<typeof column.formula>>[0]),
+      );
+      const inferredSeriesMode: RowSeriesMode = formulaUsesSeriesAggregate(expr)
+        ? "scalar"
+        : rowHeight > 1 && formulaUsesExpandedRefs(expr, seriesModeByColumnId, columns)
+          ? "expanded"
+          : "scalar";
+      const seriesMode: RowSeriesMode =
+        column.expansion === "expand"
+          ? "expanded"
+          : column.expansion === "single"
+            ? "scalar"
+            : inferredSeriesMode;
+      seriesModeByColumnId.set(column.id, seriesMode);
+      const rowSeriesBoundsByColumnId = createRowSeriesBoundsByColumnId(
+        seriesModeByColumnId,
+        rowStartIndex,
+        rowHeight,
+      );
+
+      const values =
+        seriesMode === "expanded"
+          ? Array.from({ length: rowHeight }, (_, subRowIndex) =>
+              resolveFormulaCell({
+                column,
+                columns,
+                formulaMode: schema.kind,
+                rowIndex: rowStartIndex + subRowIndex,
+                referenceRowsByColumnId: createReferenceRowsByColumnId(
+                  seriesModeByColumnId,
+                  rowStartIndex,
+                  subRowIndex,
+                ),
+                rowSeriesBoundsByColumnId,
+              }),
+            )
+          : [
+              resolveFormulaCell({
+                column,
+                columns,
+                formulaMode: schema.kind,
+                rowIndex: rowStartIndex,
+                referenceRowsByColumnId: createReferenceRowsByColumnId(
+                  seriesModeByColumnId,
+                  rowStartIndex,
+                  0,
+                ),
+                rowSeriesBoundsByColumnId,
+              }),
+            ];
+
+      return {
         columnId: column.id,
         column,
         values,
+        seriesMode,
       };
     });
 
@@ -427,6 +626,8 @@ export function planRows<T extends object>(
       plannedRows.push({
         logicalRowIndex,
         physicalRowIndex,
+        logicalRowStartIndex: rowStartIndex,
+        logicalRowHeight: rowHeight,
         height: physicalHeight,
         cells: expandedCells.map((cell) => ({
           columnId: cell.columnId,
@@ -444,7 +645,7 @@ export function planRows<T extends object>(
 
     if (rowHeight > 1) {
       expandedCells.forEach((cell, columnIndex) => {
-        if (cell.values.length === 1) {
+        if (cell.seriesMode === "scalar") {
           merges.push({
             startRow: physicalRowIndex - rowHeight,
             endRow: physicalRowIndex - 1,

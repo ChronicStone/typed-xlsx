@@ -131,8 +131,16 @@ function serializeValidationExpr<T extends object>(
     throw new Error("Group references are not supported in data validation rules.");
   }
 
+  if (expr.kind === "series" || expr.kind === "collection-aggregate") {
+    throw new Error(`Unsupported validation expression kind '${expr.kind}'.`);
+  }
+
   if (expr.kind === "function") {
     return `${expr.name}(${expr.args.map((arg) => serializeValidationExpr(arg, columns, targetColumnIndex, mode)).join(",")})`;
+  }
+
+  if (expr.kind !== "binary") {
+    throw new Error("Unsupported validation expression kind.");
   }
 
   return `(${serializeValidationExpr(expr.left, columns, targetColumnIndex, mode)}${expr.op}${serializeValidationExpr(expr.right, columns, targetColumnIndex, mode)})`;

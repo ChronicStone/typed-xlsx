@@ -111,10 +111,18 @@ function serializeConditionalFormulaExpr<T extends object>(
     return `${expr.aggregate}(${refs.join(",")})`;
   }
 
+  if (expr.kind === "series" || expr.kind === "collection-aggregate") {
+    throw new Error(`Unsupported conditional formula expression kind '${expr.kind}'.`);
+  }
+
   if (expr.kind === "function") {
     return `${expr.name}(${expr.args
       .map((arg) => serializeConditionalFormulaExpr(arg, columns, targetColumnIndex, mode))
       .join(",")})`;
+  }
+
+  if (expr.kind !== "binary") {
+    throw new Error("Unsupported conditional formula expression kind.");
   }
 
   return `(${serializeConditionalFormulaExpr(expr.left, columns, targetColumnIndex, mode)}${expr.op}${serializeConditionalFormulaExpr(expr.right, columns, targetColumnIndex, mode)})`;

@@ -2,6 +2,7 @@ import type {
   SummaryDefinition,
   SummaryFormulaBuilderContext,
   SummaryFormulaFunction,
+  SummaryRowAggregateExpr,
 } from "./runtime";
 import type { FormulaValue } from "../formula/expr";
 import { resolveLazyText, type LazyText } from "../text";
@@ -11,7 +12,9 @@ export interface SummaryBuilder<T> {
   formula(
     formula:
       | SummaryFormulaFunction
-      | ((context: SummaryFormulaBuilderContext) => FormulaValue<string, never>),
+      | ((
+          context: SummaryFormulaBuilderContext,
+        ) => FormulaValue<string, never> | SummaryRowAggregateExpr),
     options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
   ): SummaryDefinition<T, undefined>;
   label(

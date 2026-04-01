@@ -89,6 +89,30 @@ createExcelSchema<FlatRow>()
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
+  .column("remaining", {
+    formula: ({ row, fx }) => fx.literal(100).sub(row.ref("age")),
+  })
+  .build();
+
+createExcelSchema<{ lines: number[] }>()
+  .column("line", { accessor: (row) => row.lines })
+  .column("lineAverage", {
+    formula: ({ row }) => row.series("line").average(),
+    expansion: "single",
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("remaining", {
+    formula: ({ row }) =>
+      // @ts-expect-error literals are provided by fx, not row
+      row.literal(100).sub(row.ref("age")),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
   .column("bucket", {
     formula: ({ row, fx }) =>
       fx.if(row.ref("age").gt(65).or(row.ref("age").lt(18)), "edge", "core"),
@@ -246,12 +270,35 @@ createWorkbook()
     },
   });
 
+createExcelSchema<{ amounts: number[] }>()
+  .column("amount", {
+    accessor: (row) => row.amounts,
+    summary: (summary) => [
+      summary.formula(({ column }) => column.rows().sum((row) => row.cells().average())),
+    ],
+  })
+  .build();
+
 // ── rows: array must match the schema's row type ──────────────────────────────
 
 // valid rows compile
 createWorkbook()
   .sheet("S")
   .table("basic-rows", { rows: [{ name: "Ada", age: 42 }], schema: basicSchema });
+
+createWorkbook()
+  .sheet("S")
+  .table("basic-defaults", {
+    rows: [{ name: "Ada", age: 42 }],
+    schema: basicSchema,
+    defaults: {
+      header: { preset: "header.accent" },
+      cells: {
+        locked: { preset: "cell.locked" },
+        unlocked: { style: { protection: { locked: false } } },
+      },
+    },
+  });
 
 // extra property in row is rejected (excess property check)
 createWorkbook()

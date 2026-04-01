@@ -145,6 +145,51 @@ describe("ooxml", () => {
     expect(stylesPart?.xml).toContain('<protection hidden="1"/>');
   });
 
+  it("applies table defaults to header and protected cell states", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      input: number;
+      derived: number;
+      status: string;
+    }>()
+      .column("input", {
+        accessor: "input",
+        style: { protection: { locked: false } },
+      })
+      .column("derived", {
+        formula: ({ row }) => row.ref("input").mul(2),
+        style: { protection: { hidden: true } },
+      })
+      .column("status", {
+        accessor: "status",
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Defaults").table("defaults", {
+      schema,
+      rows: [{ input: 5, derived: 10, status: "Open" }],
+      defaults: {
+        header: { preset: "header.inverse" },
+        summary: { preset: "summary.subtle" },
+        cells: {
+          unlocked: { preset: "cell.input" },
+          locked: { preset: "cell.locked" },
+          hidden: { preset: "cell.hidden" },
+        },
+      },
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(stylesPart?.xml).toContain("FF0F172A");
+    expect(stylesPart?.xml).toContain("FFF8FAFC");
+    expect(stylesPart?.xml).toContain("FFFEF3C7");
+    expect(stylesPart?.xml).toContain("FFF8FAFC");
+    expect(stylesPart?.xml).toContain("FFF1F5F9");
+    expect(stylesPart?.xml).toContain("FF475569");
+  });
+
   it("writes sheet protection passwords and workbook structure protection", () => {
     const schema = Internal.SchemaBuilder.create<{ input: number }>()
       .column("input", {
@@ -376,6 +421,97 @@ describe("ooxml", () => {
     expect(worksheetPart?.xml.indexOf("<sheetData>")).toBeLessThan(
       worksheetPart?.xml.indexOf('<autoFilter ref="A1:B3"/>') ?? -1,
     );
+  });
+
+  it("writes merge cells before conditional formatting when both are present", () => {
+    const schema = Internal.SchemaBuilder.create<{ label: string; values: number[] }>()
+      .column("label", {
+        accessor: "label",
+      })
+      .column("values", {
+        accessor: (row) => row.values,
+        conditionalStyle: (conditional) =>
+          conditional.when(({ row }) => row.ref("values").gt(10), {
+            fill: { color: { rgb: "FEE2E2" } },
+          }),
+        hyperlink: () => ({
+          target: "https://example.com/report",
+          tooltip: "Open report",
+        }),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Merged Conditional").table("orders", {
+      schema,
+      rows: [{ label: "Acme", values: [12, 8] }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<conditionalFormatting");
+    expect(worksheetPart?.xml).toContain("<mergeCells");
+    expect(worksheetPart?.xml.indexOf("<mergeCells") ?? -1).toBeLessThan(
+      worksheetPart?.xml.indexOf("<conditionalFormatting") ?? -1,
+    );
+  });
+
+  it("serializes row-aware summary formulas over expanded logical rows", () => {
+    const schema = Internal.SchemaBuilder.create<{ amounts: number[] }>()
+      .column("amount", {
+        accessor: (row) => row.amounts,
+        summary: (summary) => [
+          summary.formula(({ column }) => column.rows().sum((row) => row.cells().average())),
+          summary.formula(({ column }) => column.rows().average((row) => row.cells().sum())),
+        ],
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Summary").table("summary", {
+      schema,
+      rows: [{ amounts: [10, 20, 30] }, { amounts: [100, 200] }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>SUM(AVERAGE(A2:A4),AVERAGE(A5:A6))</f>");
+    expect(worksheetPart?.xml).toContain("<f>AVERAGE(SUM(A2:A4),SUM(A5:A6))</f>");
+  });
+
+  it("uses positioned sheet columns for summary formulas on later tables", () => {
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
+      .column("label", {
+        accessor: "label",
+        summary: (summary) => [summary.label("TOTAL")],
+      })
+      .column("amount", {
+        accessor: "amount",
+        summary: (summary) => [summary.formula("sum")],
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook
+      .sheet("Summary")
+      .options({ tablesPerRow: 2, tableColumnGap: 2 })
+      .table("left", {
+        schema,
+        rows: [{ amount: 10, label: "A" }],
+      })
+      .table("right", {
+        schema,
+        rows: [{ amount: 20, label: "B" }],
+      });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>SUM(B2:B2)</f>");
+    expect(worksheetPart?.xml).toContain("<f>SUM(F2:F2)</f>");
+    expect(worksheetPart?.xml).not.toContain("<f>SUM(F3:F2)</f>");
   });
 
   it("writes conditional formatting rules for formula-based conditionalStyle columns", () => {

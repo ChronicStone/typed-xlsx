@@ -11,10 +11,10 @@ import type { SharedStringsCollector } from "./shared-strings";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import { getDefaultRowHeight } from "../planner/metrics";
 import {
-  withDefaultBodyStyle,
-  withDefaultHeaderStyle,
+  withTableDefaultBodyStyle,
+  withTableDefaultHeaderStyle,
   withDefaultHyperlinkBodyStyle,
-  withDefaultSummaryStyle,
+  withTableDefaultSummaryStyle,
 } from "../styles/defaults";
 import {
   createWorksheetRowNode,
@@ -113,10 +113,10 @@ export function serializeWorksheet(
         xmlElement("sheetData", undefined, rowNodes),
         writeWorksheetProtection(sheet.protection),
         writeWorksheetAutoFilter(autoFilter),
-        writeWorksheetHyperlinks(partitionedHyperlinks.worksheetHyperlinks),
+        writeWorksheetMerges(merges),
         writeWorksheetConditionalFormatting(conditionalFormatting, styles),
         writeWorksheetDataValidations(dataValidations),
-        writeWorksheetMerges(merges),
+        writeWorksheetHyperlinks(partitionedHyperlinks.worksheetHyperlinks),
         writeWorksheetTableParts(tableParts),
       ],
     ),
@@ -237,7 +237,7 @@ function writeTableIntoRowMap(
         columnOffset + columnIndex,
         column.headerLabel,
         sharedStrings,
-        styles.addStyle(withDefaultHeaderStyle(column.headerStyle)),
+        styles.addStyle(withTableDefaultHeaderStyle(table.defaults, column.headerStyle)),
       ),
     ),
   );
@@ -257,10 +257,14 @@ function writeTableIntoRowMap(
           styles.addStyle(
             cell.hyperlink
               ? withDefaultHyperlinkBodyStyle(
-                  resolveDataCellStyle(table.planner.columns[columnIndex], cell),
+                  withTableDefaultBodyStyle(
+                    table.defaults,
+                    resolveDataCellStyle(table.planner.columns[columnIndex], cell),
+                  ),
                   cell.hyperlink.style,
                 )
-              : withDefaultBodyStyle(
+              : withTableDefaultBodyStyle(
+                  table.defaults,
                   resolveDataCellStyle(table.planner.columns[columnIndex], cell),
                 ),
           ),
@@ -295,10 +299,21 @@ function writeTableIntoRowMap(
                 startRow: rowOffset + 1,
                 endRow: rowOffset + table.planner.rows.length,
                 column: columnOffset + columnIndex,
+                logicalRows: table.planner.rows
+                  .filter(
+                    (row, index, rows) =>
+                      index === 0 || rows[index - 1]?.logicalRowIndex !== row.logicalRowIndex,
+                  )
+                  .map((row) => ({
+                    startRow: rowOffset + row.logicalRowStartIndex + 1,
+                    endRow: rowOffset + row.logicalRowStartIndex + row.logicalRowHeight,
+                  })),
               },
             }),
             sharedStrings,
-            summary.unstyled ? undefined : styles.addStyle(withDefaultSummaryStyle(summary.style)),
+            summary.unstyled
+              ? undefined
+              : styles.addStyle(withTableDefaultSummaryStyle(table.defaults, summary.style)),
           ),
         ];
       }),
@@ -354,7 +369,8 @@ function writeTableIntoRowMap(
             value,
             sharedStrings,
             styles.addStyle(
-              withDefaultSummaryStyle(
+              withTableDefaultSummaryStyle(
+                table.defaults,
                 typeof column.style === "function" ? undefined : column.style,
               ),
             ),

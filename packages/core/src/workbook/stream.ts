@@ -51,10 +51,10 @@ import {
 } from "../ooxml/worksheet-parts";
 import { StylesCollector } from "../styles/collector";
 import {
-  withDefaultBodyStyle,
-  withDefaultHeaderStyle,
+  withTableDefaultBodyStyle,
+  withTableDefaultHeaderStyle,
   withDefaultHyperlinkBodyStyle,
-  withDefaultSummaryStyle,
+  withTableDefaultSummaryStyle,
 } from "../styles/defaults";
 import { serializeCell, serializeInlineStringCell, toCellRef } from "../ooxml/cells";
 import type { CellStyle } from "../styles/types";
@@ -79,8 +79,14 @@ interface StreamTableState<T extends object, TColumnId extends string> {
   columns: ReturnType<typeof resolveColumns<T>>;
   stats: ReturnType<typeof createPlannerStats>;
   summaryBindings: ReturnType<typeof createSummaryBindings<T>>;
+  defaults?: import("./types").TableStyleDefaults;
   committedLogicalRows: number;
   committedPhysicalRows: number;
+  logicalRowBounds: Array<{
+    logicalRowHeight: number;
+    logicalRowIndex: number;
+    logicalRowStartIndex: number;
+  }>;
   merges: PlannedMergeRange[];
   hyperlinks: import("./types").WorksheetHyperlink[];
   spool: StreamSheetSpool;
@@ -100,9 +106,15 @@ interface StreamTableFinalization {
   }>;
   committedLogicalRows: number;
   committedPhysicalRows: number;
+  logicalRowBounds: Array<{
+    logicalRowHeight: number;
+    logicalRowIndex: number;
+    logicalRowStartIndex: number;
+  }>;
   merges: PlannedMergeRange[];
   summaries: PlannedSummaryCell[];
   hyperlinks: import("./types").WorksheetHyperlink[];
+  defaults?: import("./types").TableStyleDefaults;
   headerStyleIndexes: number[];
   summaryStyleIndexes: Array<number | undefined>;
   spool: StreamSheetSpool;
@@ -140,6 +152,28 @@ interface StreamSheetFinalization {
   view?: SheetViewOptions;
 }
 
+function buildPositionedConditionalFormatting(
+  positionedTables: PositionedTable<StreamTableFinalization>[],
+) {
+  return positionedTables.flatMap((positioned) =>
+    positioned.table.conditionalFormatting.map((block) => ({
+      ...block,
+      ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
+    })),
+  );
+}
+
+function registerConditionalFormattingDifferentialStyles(
+  blocks: ReturnType<typeof buildPositionedConditionalFormatting>,
+  styles: StylesCollector,
+) {
+  blocks.forEach((block) => {
+    block.rules.forEach((rule) => {
+      styles.addDifferentialStyle(rule.style);
+    });
+  });
+}
+
 const encoder = new TextEncoder();
 
 function encodeRowChunk(value: string) {
@@ -167,6 +201,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     selection?: TableSelection<TColumnId>,
     options?: {
       autoFilter?: boolean;
+      defaults?: import("./types").TableStyleDefaults;
       reportAutoFilter?: boolean | TableAutoFilterOptions;
       name?: string;
       style?: import("./types").ExcelTableStyle;
@@ -193,8 +228,10 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       columns,
       stats: createPlannerStats(columns),
       summaryBindings: createSummaryBindings(columns),
+      defaults: options?.defaults,
       committedLogicalRows: 0,
       committedPhysicalRows: 0,
+      logicalRowBounds: [],
       merges: [],
       hyperlinks: [],
       spool,
@@ -217,10 +254,16 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         this.state.columns,
         row,
         this.state.committedLogicalRows,
+        this.state.committedPhysicalRows,
         this.state.schema.kind,
       );
       const startRow = this.state.committedPhysicalRows;
       const endRow = startRow + expanded.height - 1;
+      this.state.logicalRowBounds.push({
+        logicalRowHeight: expanded.height,
+        logicalRowIndex: this.state.committedLogicalRows,
+        logicalRowStartIndex: startRow,
+      });
 
       for (const binding of this.state.summaryBindings) {
         binding.runtime.accumulator = binding.definition.step(
@@ -263,7 +306,12 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         startingRowIndex: 1 + this.state.committedPhysicalRows,
         sharedStrings: this.sharedStrings,
         stringMode: this.stringMode,
-        styleIndexesByRow: buildStyleIndexesByRow(this.state.columns, expanded, this.styles),
+        styleIndexesByRow: buildStyleIndexesByRow(
+          this.state.columns,
+          expanded,
+          this.styles,
+          this.state.defaults,
+        ),
       });
 
       await this.state.spool.append(encodeRowChunk(fragment));
@@ -295,21 +343,28 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         headerLabel: column.headerLabel,
         style: typeof column.style === "function" ? undefined : column.style,
         totalsStyleIndex: this.styles.addStyle(
-          withDefaultSummaryStyle(typeof column.style === "function" ? undefined : column.style),
+          withTableDefaultSummaryStyle(
+            this.state.defaults,
+            typeof column.style === "function" ? undefined : column.style,
+          ),
         ),
         width: this.state.stats.columnWidths.get(column.id) ?? column.width ?? 8,
         summary: normalizeColumnSummary(column.summary),
       })),
       committedLogicalRows: this.state.committedLogicalRows,
       committedPhysicalRows: this.state.committedPhysicalRows,
+      logicalRowBounds: [...this.state.logicalRowBounds],
       merges: [...this.state.merges],
       summaries,
       hyperlinks: [...this.state.hyperlinks],
+      defaults: this.state.defaults,
       headerStyleIndexes: this.state.columns.map((column) =>
-        this.styles.addStyle(withDefaultHeaderStyle(column.headerStyle)),
+        this.styles.addStyle(withTableDefaultHeaderStyle(this.state.defaults, column.headerStyle)),
       ),
       summaryStyleIndexes: summaries.map((summary) =>
-        summary.unstyled ? undefined : this.styles.addStyle(withDefaultSummaryStyle(summary.style)),
+        summary.unstyled
+          ? undefined
+          : this.styles.addStyle(withTableDefaultSummaryStyle(this.state.defaults, summary.style)),
       ),
       spool: this.state.spool,
       autoFilter: this.state.autoFilter,
@@ -381,11 +436,13 @@ class StreamSheetBuilder {
       isStreamExcelTableInput(params)
         ? {
             autoFilter: params.autoFilter,
+            defaults: params.defaults,
             name: params.name,
             style: params.style,
             totalsRow: params.totalsRow,
           }
         : {
+            defaults: params.defaults,
             reportAutoFilter: params.autoFilter,
           },
     );
@@ -498,6 +555,8 @@ export class StreamWorkbookBuilder {
     for (const sheet of finalizedSheets) {
       worksheetIndex += 1;
       const positionedTables = layoutTables({ layout: sheet.layout, tables: sheet.tables });
+      const conditionalFormatting = buildPositionedConditionalFormatting(positionedTables);
+      registerConditionalFormattingDifferentialStyles(conditionalFormatting, this.styles);
       const worksheetTableParts = buildStreamWorksheetTableParts(positionedTables, tableIndex);
       const worksheetHyperlinks = partitionWorksheetHyperlinks(
         positionedTables.flatMap((positioned) =>
@@ -514,7 +573,13 @@ export class StreamWorkbookBuilder {
       });
       worksheetParts.push({
         path: `xl/worksheets/sheet${worksheetIndex}.xml`,
-        source: streamWorksheetXml(sheet, positionedTables, worksheetTableParts, this.styles),
+        source: streamWorksheetXml(
+          sheet,
+          positionedTables,
+          worksheetTableParts,
+          conditionalFormatting,
+          this.styles,
+        ),
       });
 
       if (worksheetTableParts.length > 0) {
@@ -627,6 +692,7 @@ async function* streamWorksheetXml(
   sheet: StreamSheetFinalization,
   positionedTables: PositionedTable<StreamTableFinalization>[],
   tableParts: WorksheetTablePart[],
+  conditionalFormatting: ReturnType<typeof buildPositionedConditionalFormatting>,
   styles: StylesCollector,
 ): AsyncIterable<Uint8Array> {
   const merges = positionedTables.flatMap((positioned) => positionTableMerges(positioned));
@@ -650,12 +716,6 @@ async function* streamWorksheetXml(
   );
   const lastCol = toWorksheetCol(lastColIndex);
   const rowMap = new Map<number, string[]>();
-  const conditionalFormatting = positionedTables.flatMap((positioned) =>
-    positioned.table.conditionalFormatting.map((block) => ({
-      ...block,
-      ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
-    })),
-  );
   const dataValidations = positionedTables.flatMap((positioned) =>
     positioned.table.dataValidations.map((block) => ({
       ...block,
@@ -731,6 +791,10 @@ async function* streamWorksheetXml(
                   startRow: positioned.rowOffset + 1,
                   endRow: positioned.rowOffset + positioned.table.committedPhysicalRows,
                   column: positioned.columnOffset + columnIndex,
+                  logicalRows: positioned.table.logicalRowBounds.map((row) => ({
+                    startRow: positioned.rowOffset + row.logicalRowStartIndex + 1,
+                    endRow: positioned.rowOffset + row.logicalRowStartIndex + row.logicalRowHeight,
+                  })),
                 },
               }),
               getSummaryStyleIndex(positioned.table, summary),
@@ -805,7 +869,7 @@ async function* streamWorksheetXml(
   }
 
   yield encodeXml(
-    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetMerges(merges)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
+    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
   );
 }
 
@@ -1036,16 +1100,26 @@ function buildStyleIndexesByRow<T extends object>(
   columns: ReturnType<typeof resolveColumns<T>>,
   expandedRow: ReturnType<typeof expandCommittedRow<T>>,
   styles: StylesCollector,
+  defaults?: import("./types").TableStyleDefaults,
 ) {
   return Array.from({ length: expandedRow.height }, (_, subRowIndex) =>
     columns.map((column, columnIndex) =>
       styles.addStyle(
         expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]
           ? withDefaultHyperlinkBodyStyle(
-              resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
+              withTableDefaultBodyStyle(
+                defaults,
+                resolveColumnStyle(
+                  column,
+                  expandedRow.row,
+                  expandedRow.sourceRowIndex,
+                  subRowIndex,
+                ),
+              ),
               expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]?.style,
             )
-          : withDefaultBodyStyle(
+          : withTableDefaultBodyStyle(
+              defaults,
               resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
             ),
       ),

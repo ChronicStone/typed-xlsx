@@ -8,6 +8,17 @@ export interface FormulaRefExpr<TColumnId extends string = string> {
   columnId: TColumnId;
 }
 
+export interface FormulaSeriesExpr<TColumnId extends string = string> {
+  kind: "series";
+  columnId: TColumnId;
+}
+
+export interface FormulaCollectionAggregateExpr<TColumnId extends string = string> {
+  kind: "collection-aggregate";
+  aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
+  target: FormulaSeriesExpr<TColumnId>;
+}
+
 export interface FormulaGroupExpr<TGroupId extends string = string> {
   kind: "group";
   aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
@@ -36,9 +47,22 @@ export interface FormulaFunctionExpr<
 export type FormulaExpr<TColumnId extends string = string, TGroupId extends string = string> =
   | FormulaLiteralExpr
   | FormulaRefExpr<TColumnId>
+  | FormulaSeriesExpr<TColumnId>
+  | FormulaCollectionAggregateExpr<TColumnId>
   | FormulaGroupExpr<TGroupId>
   | FormulaBinaryExpr<TColumnId, TGroupId>
   | FormulaFunctionExpr<TColumnId, TGroupId>;
+
+export interface FormulaSeriesContext<
+  TColumnId extends string = string,
+  TGroupId extends string = string,
+> {
+  sum(): FormulaOperand<TColumnId, TGroupId>;
+  average(): FormulaOperand<TColumnId, TGroupId>;
+  min(): FormulaOperand<TColumnId, TGroupId>;
+  max(): FormulaOperand<TColumnId, TGroupId>;
+  count(): FormulaOperand<TColumnId, TGroupId>;
+}
 
 export interface FormulaOperand<
   TColumnId extends string = string,
@@ -73,6 +97,7 @@ export interface FormulaFunctions<
   TColumnId extends string = string,
   TGroupId extends string = string,
 > {
+  literal(value: string | number | boolean): FormulaOperand<TColumnId, TGroupId>;
   abs(value: FormulaValue<TColumnId, TGroupId>): FormulaOperand<TColumnId, TGroupId>;
   round(
     value: FormulaValue<TColumnId, TGroupId>,
@@ -104,8 +129,8 @@ export interface FormulaGroupContext<TColumnId extends string, TGroupId extends 
 
 export interface FormulaRowContext<TColumnId extends string, TGroupId extends string = never> {
   ref(columnId: TColumnId): FormulaOperand<TColumnId, TGroupId>;
+  series(columnId: TColumnId): FormulaSeriesContext<TColumnId, TGroupId>;
   group(groupId: TGroupId): FormulaGroupContext<TColumnId, TGroupId>;
-  literal(value: string | number | boolean): FormulaOperand<TColumnId, TGroupId>;
   if(
     condition: FormulaConditionValue<TColumnId, TGroupId>,
     whenTrue: FormulaValue<TColumnId, TGroupId>,
@@ -212,11 +237,38 @@ function wrapGroup<TColumnId extends string, TGroupId extends string>(
   };
 }
 
+function wrapSeries<TColumnId extends string, TGroupId extends string>(
+  columnId: TColumnId,
+): FormulaSeriesContext<TColumnId, TGroupId> {
+  const target: FormulaSeriesExpr<TColumnId> = { kind: "series", columnId };
+
+  return {
+    sum() {
+      return wrapExpr({ kind: "collection-aggregate", aggregate: "SUM", target });
+    },
+    average() {
+      return wrapExpr({ kind: "collection-aggregate", aggregate: "AVERAGE", target });
+    },
+    min() {
+      return wrapExpr({ kind: "collection-aggregate", aggregate: "MIN", target });
+    },
+    max() {
+      return wrapExpr({ kind: "collection-aggregate", aggregate: "MAX", target });
+    },
+    count() {
+      return wrapExpr({ kind: "collection-aggregate", aggregate: "COUNT", target });
+    },
+  };
+}
+
 function createFormulaFunctions<
   TColumnId extends string,
   TGroupId extends string,
 >(): FormulaFunctions<TColumnId, TGroupId> {
   return {
+    literal(value) {
+      return wrapExpr(literal(value));
+    },
     abs(value) {
       return wrapExpr(func("ABS", [toExpr(value)]));
     },
@@ -256,11 +308,11 @@ export function createFormulaRowContext<
     ref(columnId) {
       return wrapExpr({ kind: "ref", columnId });
     },
+    series(columnId) {
+      return wrapSeries(columnId);
+    },
     group(groupId) {
       return wrapGroup(groupId);
-    },
-    literal(value) {
-      return wrapExpr(literal(value));
     },
     if(condition, whenTrue, whenFalse) {
       return fx.if(condition, whenTrue, whenFalse);

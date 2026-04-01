@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Internal from "../src/index-internal";
 import { appendExpandedRowXml } from "../src/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
+import { unzipWorkbookEntries } from "./support/xlsx";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -271,6 +272,39 @@ describe("stream builder", () => {
     expect(content).toContain("<formula1>($C2&gt;=B2)</formula1>");
   });
 
+  it("writes differential styles for streamed conditional formatting", async () => {
+    const schema = Internal.SchemaBuilder.create<{ backlog: number }>()
+      .column("backlog", {
+        accessor: "backlog",
+        conditionalStyle: (conditional) =>
+          conditional.when(({ row }) => row.ref("backlog").gte(25), {
+            fill: { color: { rgb: "FEF3C7" } },
+            font: { color: { rgb: "92400E" }, bold: true },
+          }),
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Conditional").table("rows", {
+      schema,
+    });
+
+    await table.commit({ rows: [{ backlog: 29 }] });
+    await workbook.finish();
+
+    const entries = unzipWorkbookEntries(Buffer.from(sink.toUint8Array()));
+    const stylesXml = entries.get("xl/styles.xml");
+    const worksheetXml = entries.get("xl/worksheets/sheet1.xml");
+
+    expect(stylesXml).toContain('<dxfs count="1"');
+    expect(stylesXml).toContain("FFFEF3C7");
+    expect(stylesXml).toContain("FF92400E");
+    expect(worksheetXml).toContain("<conditionalFormatting");
+    expect(worksheetXml).toContain('dxfId="0"');
+  });
+
   it("serializes excel-table formula columns with structured references in streamed worksheets", async () => {
     const schema = Internal.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
@@ -380,6 +414,50 @@ describe("stream builder", () => {
     expect(content).toContain("<borders");
     expect(content).toContain('applyBorder="1"');
     expect(content).toContain(' s="1"');
+    expect(content).toContain("FFDBEAFE");
+    expect(content).toContain("FF1E3A8A");
+  });
+
+  it("applies table defaults to streamed protected cell states", async () => {
+    const schema = Internal.SchemaBuilder.create<{
+      input: number;
+      formulaValue: number;
+      status: string;
+    }>()
+      .column("input", {
+        accessor: "input",
+        style: { protection: { locked: false } },
+      })
+      .column("formulaValue", {
+        formula: ({ row }) => row.ref("input").mul(2),
+        style: { protection: { hidden: true } },
+      })
+      .column("status", {
+        accessor: "status",
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Styled Defaults").table("rows", {
+      schema,
+      defaults: {
+        cells: {
+          unlocked: { preset: "cell.input" },
+          locked: { preset: "cell.locked" },
+          hidden: { preset: "cell.hidden" },
+        },
+      },
+    });
+
+    await table.commit({ rows: [{ input: 5, formulaValue: 10, status: "Open" }] });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("FFFEF3C7");
+    expect(content).toContain("FFF8FAFC");
+    expect(content).toContain("FFF1F5F9");
   });
 
   it("supports stream sheet view options and inline string mode", async () => {
@@ -634,6 +712,126 @@ describe("stream builder", () => {
     expect(content.indexOf("<sheetData>")).toBeLessThan(
       content.indexOf('<autoFilter ref="A1:B3"/>'),
     );
+  });
+
+  it("anchors streamed formula cells to physical sub-rows when rows expand", async () => {
+    const schema = Internal.SchemaBuilder.create<{ items: number[]; qtys: number[] }>()
+      .column("items", {
+        accessor: (row) => row.items,
+      })
+      .column("qtys", {
+        accessor: (row) => row.qtys,
+      })
+      .column("lineTotal", {
+        formula: ({ row }) => row.ref("items").mul(row.ref("qtys")),
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table("orders", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ items: [2, 3], qtys: [4, 5] }],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>(A2*B2)</f>");
+    expect(content).toContain("<f>(A3*B3)</f>");
+  });
+
+  it("broadcasts scalar refs in streamed nested formulas", async () => {
+    const schema = Internal.SchemaBuilder.create<{
+      discountRate: number;
+      qtys: number[];
+      prices: number[];
+    }>()
+      .column("discountRate", {
+        accessor: "discountRate",
+      })
+      .column("qtys", {
+        accessor: (row) => row.qtys,
+      })
+      .column("prices", {
+        accessor: (row) => row.prices,
+      })
+      .column("netRevenue", {
+        formula: ({ row, fx }) =>
+          row
+            .ref("qtys")
+            .mul(row.ref("prices"))
+            .mul(fx.literal(1).sub(row.ref("discountRate"))),
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Orders").table("orders", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ discountRate: 0.1, qtys: [2, 3], prices: [10, 20] }],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>((B2*C2)*(1-A2))</f>");
+    expect(content).toContain("<f>((B3*C3)*(1-A2))</f>");
+  });
+
+  it("serializes row-aware summary formulas in streamed workbooks", async () => {
+    const schema = Internal.SchemaBuilder.create<{ amounts: number[] }>()
+      .column("amount", {
+        accessor: (row) => row.amounts,
+        summary: (summary) => [
+          summary.formula(({ column }) => column.rows().sum((row) => row.cells().average())),
+        ],
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Summary").table("summary", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ amounts: [10, 20, 30] }, { amounts: [100, 200] }],
+    });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>SUM(AVERAGE(A2:A4),AVERAGE(A5:A6))</f>");
+  });
+
+  it("keeps streamed row-level aggregate formulas scalar when configured", async () => {
+    const schema = Internal.SchemaBuilder.create<{ amounts: number[] }>()
+      .column("amount", {
+        accessor: (row) => row.amounts,
+      })
+      .column("rowAverage", {
+        formula: ({ row }) => row.series("amount").average(),
+        expansion: "single",
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Summary").table("summary", { schema });
+
+    await table.commit({ rows: [{ amounts: [10, 20, 30] }] });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>AVERAGE(A2:A4)</f>");
   });
 
   it("writes formula-based summary cells in streamed worksheets", async () => {

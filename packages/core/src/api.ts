@@ -18,6 +18,7 @@ import type {
   SheetViewOptions,
   StreamExcelTableInput,
   StreamReportTableInput,
+  TableStyleDefaults,
   TableSelection,
   WorkbookProtectionInput,
 } from "./workbook/types";
@@ -85,6 +86,8 @@ type WorkbookTableContextField<
 export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {
   protection?: SheetProtectionInput;
 }
+
+export type WorkbookTableDefaults = TableStyleDefaults;
 
 export interface WorkbookReportTableInput<
   TSchema extends AnyReportSchemaDefinition,

@@ -74,6 +74,9 @@ function serializeCalculatedColumnFormula(
 
         return wrapExpr({ kind: "ref", columnId: target.id });
       },
+      series(_columnId: string) {
+        throw new Error("Series references are not supported in native Excel table formulas.");
+      },
       group(groupId: string) {
         return {
           average() {
@@ -96,12 +99,9 @@ function serializeCalculatedColumnFormula(
       if(condition: any, whenTrue: any, whenFalse: any) {
         return fx.if(condition, whenTrue, whenFalse);
       },
-      literal(value: string | number | boolean) {
-        return wrapExpr(literal(value));
-      },
     },
     fx,
-  } as Parameters<NonNullable<typeof column.formula>>[0]);
+  } as unknown as Parameters<NonNullable<typeof column.formula>>[0]);
 
   return serializeFormulaExpr(toExpr(expr), columns, tableName);
 }
@@ -159,8 +159,16 @@ function serializeFormulaExpr(
       .join(",")})`;
   }
 
+  if (expr.kind === "series" || expr.kind === "collection-aggregate") {
+    throw new Error(`Unsupported Excel table formula expression kind '${expr.kind}'.`);
+  }
+
   if (expr.kind === "function") {
     return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, tableName)).join(",")})`;
+  }
+
+  if (expr.kind !== "binary") {
+    throw new Error("Unsupported Excel table formula expression kind.");
   }
 
   return `(${serializeFormulaExpr(expr.left, columns, tableName)}${expr.op}${serializeFormulaExpr(

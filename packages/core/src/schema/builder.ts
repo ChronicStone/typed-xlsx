@@ -24,6 +24,8 @@ export type FormulaFn<TPrevColumnId extends string, TGroupId extends string = ne
   fx: FormulaFunctions<TPrevColumnId, TGroupId>;
 }) => FormulaValue<TPrevColumnId, TGroupId>;
 
+export type ColumnExpansion = "auto" | "single" | "expand";
+
 export type TransformFn<T, TValue = unknown> = (
   value: TValue,
   row: T,
@@ -93,6 +95,7 @@ export interface ColumnDefinition<
   maxWidth?: number;
   summary?: SummaryInput<T>;
   formula?: FormulaFn<TPrevColumnId, TGroupId>;
+  expansion?: ColumnExpansion;
   totalsRow?: ExcelTableTotalsRowDefinition;
 }
 

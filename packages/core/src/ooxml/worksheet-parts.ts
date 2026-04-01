@@ -43,7 +43,7 @@ export function writeWorksheetViews(view?: SheetViewOptions) {
   const children: string[] = [];
 
   if (view?.freezePane) {
-    children.push(writeFreezePane(view.freezePane));
+    children.push(...writeFreezePane(view.freezePane));
   }
 
   return xmlElement(
@@ -243,19 +243,44 @@ export function partitionWorksheetHyperlinks(hyperlinks: WorksheetHyperlink[]) {
 }
 
 function writeFreezePane(freezePane: FreezePane) {
+  const rows = freezePane.rows ?? 0;
+  const columns = freezePane.columns ?? 0;
   const topLeftCell = `${toWorksheetCol(freezePane.columns ?? 0)}${(freezePane.rows ?? 0) + 1}`;
-  return xmlSelfClosing("pane", {
-    xSplit: freezePane.columns || undefined,
-    ySplit: freezePane.rows || undefined,
-    topLeftCell,
-    state: "frozen",
-    activePane:
-      (freezePane.rows ?? 0) > 0 && (freezePane.columns ?? 0) > 0
-        ? "bottomRight"
-        : (freezePane.columns ?? 0) > 0
-          ? "topRight"
-          : "bottomLeft",
-  });
+  const activePane =
+    rows > 0 && columns > 0 ? "bottomRight" : columns > 0 ? "topRight" : "bottomLeft";
+
+  const children = [
+    xmlSelfClosing("pane", {
+      xSplit: columns || undefined,
+      ySplit: rows || undefined,
+      topLeftCell,
+      state: "frozen",
+      activePane,
+    }),
+  ];
+
+  if (rows > 0 && columns > 0) {
+    children.push(
+      xmlSelfClosing("selection", { pane: "topRight" }),
+      xmlSelfClosing("selection", { pane: "bottomLeft" }),
+      xmlSelfClosing("selection", {
+        pane: "bottomRight",
+        activeCell: topLeftCell,
+        sqref: topLeftCell,
+      }),
+    );
+    return children;
+  }
+
+  children.push(
+    xmlSelfClosing("selection", {
+      pane: activePane,
+      activeCell: topLeftCell,
+      sqref: topLeftCell,
+    }),
+  );
+
+  return children;
 }
 
 function toWorksheetCol(column: number) {

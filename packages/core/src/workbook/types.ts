@@ -26,6 +26,30 @@ export interface TableAutoFilterOptions {
   enabled?: boolean;
 }
 
+export type TableStylePreset =
+  | "header.accent"
+  | "header.inverse"
+  | "summary.subtle"
+  | "cell.input"
+  | "cell.locked"
+  | "cell.hidden";
+
+export interface TableStyleDefault {
+  preset?: TableStylePreset;
+  style?: CellStyle;
+}
+
+export interface TableStyleDefaults {
+  header?: CellStyle | TableStyleDefault;
+  summary?: CellStyle | TableStyleDefault;
+  cells?: {
+    base?: CellStyle | TableStyleDefault;
+    unlocked?: CellStyle | TableStyleDefault;
+    locked?: CellStyle | TableStyleDefault;
+    hidden?: CellStyle | TableStyleDefault;
+  };
+}
+
 export type ExcelTableStyle =
   | "TableStyleLight1"
   | "TableStyleLight2"
@@ -142,6 +166,7 @@ export interface BufferedReportTableInput<
   select?: TableSelection<TSelectableId>;
   context?: TSchemaContext;
   autoFilter?: boolean | TableAutoFilterOptions;
+  defaults?: TableStyleDefaults;
 }
 
 export interface BufferedExcelTableInput<
@@ -157,6 +182,7 @@ export interface BufferedExcelTableInput<
   style?: ExcelTableStyle;
   autoFilter?: boolean;
   totalsRow?: boolean;
+  defaults?: TableStyleDefaults;
 }
 
 export type BufferedTableInput<
@@ -313,6 +339,7 @@ export interface BufferedTablePlan<T extends object> {
   title?: string;
   rowCount: number;
   planner: PlannerResult<T>;
+  defaults?: TableStyleDefaults;
   summaries: PlannedSummaryCell[];
   conditionalFormatting?: WorksheetConditionalFormattingBlock[];
   dataValidations?: WorksheetDataValidation[];
@@ -374,6 +401,7 @@ export interface StreamReportTableInput<
   schema: ReportSchemaDefinition<T, string, string, SchemaContext>;
   context?: TSchemaContext;
   autoFilter?: boolean | TableAutoFilterOptions;
+  defaults?: TableStyleDefaults;
 }
 
 export interface StreamExcelTableInput<
@@ -387,6 +415,7 @@ export interface StreamExcelTableInput<
   style?: ExcelTableStyle;
   autoFilter?: boolean;
   totalsRow?: boolean;
+  defaults?: TableStyleDefaults;
 }
 
 export type AnyStreamTableInput<
