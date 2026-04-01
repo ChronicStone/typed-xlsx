@@ -1,76 +1,175 @@
 import fs from "node:fs";
 import path from "node:path";
-import { financialReportExcel } from "../src/financial-report/workbook";
-import { buildFinancialReportStreamExample } from "../src/financial-report/stream";
-import { buildKitchenSinkBufferedExample } from "../src/kitchen-sink/buffered";
-import { buildKitchenSinkStreamExample } from "../src/kitchen-sink/stream";
+import { pathToFileURL } from "node:url";
+import { DOMParser } from "@xmldom/xmldom";
+import { unzipSync } from "fflate";
+import type { ShowcaseMeta } from "../src/_shared/report-types";
 
-const examplesDirectory = path.resolve(import.meta.dirname, "../artifacts/reports");
-const generatedDirectory = path.resolve(import.meta.dirname, "../generated");
+const examplesRoot = path.resolve(import.meta.dirname, "..");
+const showcaseRoot = path.join(examplesRoot, "showcase");
+const generatedRoot = path.join(examplesRoot, "generated");
 
-type ExampleArtifact = {
+type ManifestArtifact = {
   id: string;
   title: string;
+  description: string;
+  developerHook: string;
+  tags: string[];
+  features: string[];
+  datasetProfile: string;
   reportPath: string;
+  inspectPath: string;
   sourceFiles: Record<string, string>;
 };
 
-function readSource(relativePath: string) {
-  return fs.readFileSync(path.resolve(import.meta.dirname, relativePath), "utf8");
+function ensureDir(dir: string) {
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+function readUtf8(filePath: string) {
+  return fs.readFileSync(filePath, "utf8");
+}
+
+function unzipWorkbookEntries(bytes: Uint8Array | Buffer) {
+  const archive = unzipSync(Buffer.from(bytes));
+
+  return new Map(
+    Object.entries(archive).map(([entry, content]) => [
+      entry,
+      Buffer.from(content).toString("utf8"),
+    ]),
+  );
+}
+
+function listSheetEntries(entries: Map<string, string>) {
+  return [...entries.keys()]
+    .filter((entry) => /^xl\/worksheets\/sheet\d+\.xml$/.test(entry))
+    .sort();
+}
+
+function listSheetNames(workbookXml: string) {
+  const doc = new DOMParser().parseFromString(workbookXml, "application/xml");
+  const nodes = doc.getElementsByTagName("sheet");
+  return Array.from(
+    { length: nodes.length },
+    (_, index) => nodes[index]?.getAttribute("name") || "",
+  );
+}
+
+function collectSourceFiles(reportDir: string) {
+  return Object.fromEntries(
+    ["data.ts", "schema.ts", "workbook.ts", "stream.ts"]
+      .filter((file) => fs.existsSync(path.join(reportDir, file)))
+      .map((file) => [file, readUtf8(path.join(reportDir, file))]),
+  );
+}
+
+function writeInspectArtifacts(
+  reportDir: string,
+  meta: ShowcaseMeta,
+  entries: Map<string, string>,
+) {
+  const inspectDir = path.join(reportDir, "artifact", "inspect");
+  ensureDir(inspectDir);
+
+  const workbookXml = entries.get("xl/workbook.xml") || "";
+  const stylesXml = entries.get("xl/styles.xml") || "";
+  const sheetEntries = listSheetEntries(entries);
+
+  if (workbookXml) {
+    fs.writeFileSync(path.join(inspectDir, "workbook.xml"), workbookXml);
+  }
+
+  if (stylesXml) {
+    fs.writeFileSync(path.join(inspectDir, "styles.xml"), stylesXml);
+  }
+
+  for (const sheetEntry of sheetEntries) {
+    fs.writeFileSync(
+      path.join(inspectDir, path.basename(sheetEntry)),
+      entries.get(sheetEntry) || "",
+    );
+  }
+
+  fs.writeFileSync(
+    path.join(inspectDir, "summary.json"),
+    JSON.stringify(
+      {
+        id: meta.id,
+        title: meta.title,
+        tags: meta.tags,
+        features: meta.features,
+        sheetNames: listSheetNames(workbookXml),
+        inspectFiles: [
+          "workbook.xml",
+          "styles.xml",
+          ...sheetEntries.map((entry) => path.basename(entry)),
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function loadBuilder(reportDir: string) {
+  const streamModule = path.join(reportDir, "stream.ts");
+  const workbookModule = path.join(reportDir, "workbook.ts");
+  const modulePath = fs.existsSync(streamModule) ? streamModule : workbookModule;
+
+  if (!fs.existsSync(modulePath)) {
+    throw new Error(`Missing artifact builder in ${reportDir}`);
+  }
+
+  const mod = await import(pathToFileURL(modulePath).href);
+  if (typeof mod.buildArtifact !== "function") {
+    throw new Error(`Expected buildArtifact export in ${modulePath}`);
+  }
+
+  return mod.buildArtifact as () => Promise<Uint8Array | Buffer> | Uint8Array | Buffer;
 }
 
 async function main() {
-  fs.mkdirSync(examplesDirectory, { recursive: true });
-  fs.mkdirSync(generatedDirectory, { recursive: true });
+  ensureDir(generatedRoot);
 
-  const financialReportPath = path.join(examplesDirectory, "financial-report.xlsx");
-  const financialReportStreamPath = path.join(examplesDirectory, "financial-report-stream.xlsx");
-  const kitchenSinkBufferedPath = path.join(examplesDirectory, "kitchen-sink-buffered.xlsx");
-  const kitchenSinkStreamPath = path.join(examplesDirectory, "kitchen-sink-stream.xlsx");
+  const artifacts: ManifestArtifact[] = [];
+  const reportDirs = fs
+    .readdirSync(showcaseRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(showcaseRoot, entry.name))
+    .filter((dir) => fs.existsSync(path.join(dir, "meta.json")))
+    .sort();
 
-  fs.writeFileSync(financialReportPath, financialReportExcel);
-  fs.writeFileSync(financialReportStreamPath, await buildFinancialReportStreamExample());
-  fs.writeFileSync(kitchenSinkBufferedPath, buildKitchenSinkBufferedExample());
-  fs.writeFileSync(kitchenSinkStreamPath, await buildKitchenSinkStreamExample());
+  for (const reportDir of reportDirs) {
+    const meta = JSON.parse(readUtf8(path.join(reportDir, "meta.json"))) as ShowcaseMeta;
+    const buildArtifact = await loadBuilder(reportDir);
+    const workbookBytes = await buildArtifact();
+    const artifactPath = path.join(reportDir, meta.artifactFile);
 
-  const manifest: { generatedAt: string; artifacts: ExampleArtifact[] } = {
-    generatedAt: new Date().toISOString(),
-    artifacts: [
-      {
-        id: "financial-report",
-        title: "Financial report",
-        reportPath: "financial-report.xlsx",
-        sourceFiles: {
-          "data.ts": readSource("../src/financial-report/data.ts"),
-          "schema.ts": readSource("../src/financial-report/schema.ts"),
-          "workbook.ts": readSource("../src/financial-report/workbook.ts"),
-          "stream.ts": readSource("../src/financial-report/stream.ts"),
-        },
-      },
-      {
-        id: "kitchen-sink",
-        title: "Kitchen sink",
-        reportPath: "kitchen-sink-buffered.xlsx",
-        sourceFiles: {
-          "data.ts": readSource("../src/kitchen-sink/data.ts"),
-          "schema.ts": readSource("../src/kitchen-sink/schema.ts"),
-          "buffered.ts": readSource("../src/kitchen-sink/buffered.ts"),
-          "stream.ts": readSource("../src/kitchen-sink/stream.ts"),
-        },
-      },
-    ],
-  };
+    ensureDir(path.dirname(artifactPath));
+    fs.writeFileSync(artifactPath, workbookBytes);
+
+    const entries = unzipWorkbookEntries(workbookBytes);
+    writeInspectArtifacts(reportDir, meta, entries);
+
+    artifacts.push({
+      id: meta.id,
+      title: meta.title,
+      description: meta.description,
+      developerHook: meta.developerHook,
+      tags: meta.tags,
+      features: meta.features,
+      datasetProfile: meta.datasetProfile,
+      reportPath: `${meta.id}/${meta.artifactFile}`,
+      inspectPath: `${meta.id}/artifact/inspect/summary.json`,
+      sourceFiles: collectSourceFiles(reportDir),
+    });
+  }
 
   fs.writeFileSync(
-    path.join(generatedDirectory, "examples-manifest.json"),
-    JSON.stringify(manifest, null, 2),
+    path.join(generatedRoot, "examples-manifest.json"),
+    JSON.stringify({ generatedAt: new Date().toISOString(), artifacts }, null, 2),
   );
-
-  console.log(`Generated ${financialReportPath}`);
-  console.log(`Generated ${financialReportStreamPath}`);
-  console.log(`Generated ${kitchenSinkBufferedPath}`);
-  console.log(`Generated ${kitchenSinkStreamPath}`);
-  console.log(`Generated ${path.join(generatedDirectory, "examples-manifest.json")}`);
 }
 
 await main();

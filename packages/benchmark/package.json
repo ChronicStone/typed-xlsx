@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "bun run ./scripts/benchmark-stream.ts && bun run ./scripts/generate-financial-report-50k.ts",
+    "build": "bun run ./scripts/benchmark-stream.ts && bun run ./scripts/generate-streaming-fulfillment-sample.ts",
     "benchmark:stream": "bun run ./scripts/benchmark-stream.ts",
-    "sample:financial-report:50k": "bun run ./scripts/generate-financial-report-50k.ts",
+    "sample:streaming-fulfillment-export": "bun run ./scripts/generate-streaming-fulfillment-sample.ts",
     "check": "tsc --noEmit && bun run build"
   },
   "dependencies": {
