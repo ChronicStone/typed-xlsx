@@ -20,6 +20,7 @@ import {
   writeWorksheetAutoFilter,
   writeWorksheetColumns,
   writeWorksheetConditionalFormatting,
+  writeWorksheetDataValidations,
   writeWorksheetViews,
   writeWorksheetMerges,
   type WorksheetAutoFilterRange,
@@ -50,6 +51,13 @@ export function serializeWorksheet(
   const conditionalFormatting = positionedTables.flatMap((positioned) =>
     buildPositionedConditionalFormatting(
       positioned.table.conditionalFormatting,
+      positioned.columnOffset,
+      positioned.rowOffset,
+    ),
+  );
+  const dataValidations = positionedTables.flatMap((positioned) =>
+    buildPositionedDataValidations(
+      positioned.table.dataValidations,
       positioned.columnOffset,
       positioned.rowOffset,
     ),
@@ -93,6 +101,7 @@ export function serializeWorksheet(
         xmlElement("sheetData", undefined, rowNodes),
         writeWorksheetAutoFilter(autoFilter),
         writeWorksheetConditionalFormatting(conditionalFormatting, styles),
+        writeWorksheetDataValidations(dataValidations),
         writeWorksheetMerges(merges),
         writeWorksheetTableParts(tableParts),
       ],
@@ -341,6 +350,21 @@ function buildWorksheetColumns(
 
 function buildPositionedConditionalFormatting(
   blocks: BufferedTablePlan<any>["conditionalFormatting"] | undefined,
+  columnOffset: number,
+  rowOffset: number,
+) {
+  if (!blocks || blocks.length === 0) {
+    return [];
+  }
+
+  return blocks.map((block) => ({
+    ...block,
+    ref: shiftWorksheetRange(block.ref, rowOffset, columnOffset),
+  }));
+}
+
+function buildPositionedDataValidations(
+  blocks: BufferedTablePlan<any>["dataValidations"] | undefined,
   columnOffset: number,
   rowOffset: number,
 ) {

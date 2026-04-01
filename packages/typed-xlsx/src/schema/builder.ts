@@ -6,6 +6,12 @@ import {
   type ConditionalStyleRule,
 } from "../styles/conditional-types";
 import type { CellStyle } from "../styles/types";
+import { resolveLazyText, type LazyText } from "../text";
+import {
+  normalizeValidationInput,
+  type ResolvedValidationRule,
+  type ValidationInput,
+} from "../validation/types";
 import { normalizeSummaryInput } from "../summary/builder";
 import type { SummaryInput } from "../summary/builder";
 import type { FormulaFunctions, FormulaRowContext, FormulaValue } from "../formula/expr";
@@ -41,6 +47,10 @@ export type ExcelTableTotalsRowFunction =
   | "var";
 
 export type ExcelTableTotalsRowDefinition =
+  | { label: LazyText; function?: never }
+  | { function: ExcelTableTotalsRowFunction; label?: never };
+
+export type ResolvedExcelTableTotalsRowDefinition =
   | { label: string; function?: never }
   | { function: ExcelTableTotalsRowFunction; label?: never };
 
@@ -51,13 +61,14 @@ export interface ColumnDefinition<
   TGroupId extends string = never,
 > {
   id: string;
-  header?: string;
+  header?: LazyText;
   accessor?: TAccessor;
   defaultValue?: CellValue;
   transform?: TransformFn<T, AccessorValue<T, TAccessor>>;
   format?: string | FormatFn<T>;
   style?: CellStyle | StyleFn<T>;
   conditionalStyle?: ConditionalStyleInput<TPrevColumnId | string, TGroupId>;
+  validation?: ValidationInput<TPrevColumnId | string, TGroupId>;
   headerStyle?: CellStyle;
   width?: number;
   autoWidth?: boolean;
@@ -212,12 +223,28 @@ export class SchemaBuilder<
     this.columns.push({
       id,
       ...definition,
+      ...(definition.header ? { header: resolveLazyText(definition.header) } : {}),
+      ...(definition.totalsRow && "label" in definition.totalsRow
+        ? {
+            totalsRow: {
+              label: resolveLazyText(definition.totalsRow.label),
+            },
+          }
+        : {}),
       ...(definition.summary ? { summary: normalizeSummaryInput(definition.summary) } : {}),
       ...(definition.conditionalStyle
         ? {
             conditionalStyle: normalizeConditionalStyleInput(
               definition.conditionalStyle,
             ) as ConditionalStyleRule<string, string>[],
+          }
+        : {}),
+      ...(definition.validation
+        ? {
+            validation: normalizeValidationInput(definition.validation) as ResolvedValidationRule<
+              string,
+              string
+            >,
           }
         : {}),
     } as ColumnDefinition<T>);
@@ -304,6 +331,22 @@ export class ExcelTableSchemaBuilder<
     this.columns.push({
       id,
       ...definition,
+      ...(definition.header ? { header: resolveLazyText(definition.header) } : {}),
+      ...(definition.totalsRow && "label" in definition.totalsRow
+        ? {
+            totalsRow: {
+              label: resolveLazyText(definition.totalsRow.label),
+            },
+          }
+        : {}),
+      ...(definition.validation
+        ? {
+            validation: normalizeValidationInput(definition.validation) as ResolvedValidationRule<
+              string,
+              string
+            >,
+          }
+        : {}),
     } as ColumnDefinition<T>);
     return this as unknown as ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   }

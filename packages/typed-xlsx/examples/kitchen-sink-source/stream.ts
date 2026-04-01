@@ -4,7 +4,15 @@ import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkSchema,
+  kitchenSinkValidationSchema,
 } from "./schema";
+
+type KitchenSinkValidationRow = {
+  amount: number;
+  owner: string;
+  startDate: Date;
+  status: "draft" | "active" | "archived";
+};
 
 const kitchenSinkNativeExcelTableSchema = createExcelSchema<{
   orderId: string;
@@ -197,6 +205,34 @@ export async function buildKitchenSinkStreamExample() {
           Math.max(order.items.length, 1),
         segment: order.customer.tier,
       })),
+    });
+  }
+
+  const validationTable = await workbook
+    .sheet("Validation", {
+      freezePane: { rows: 1 },
+    })
+    .table("validation-orders", {
+      schema: kitchenSinkValidationSchema,
+    });
+  for (const rows of allOrderBatches) {
+    await validationTable.commit({
+      rows: rows.map(
+        (order) =>
+          ({
+            amount: Math.round(
+              order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+            ),
+            owner: order.customer.name,
+            startDate: order.createdAt,
+            status:
+              order.customer.tier === "enterprise"
+                ? "active"
+                : order.customer.tier === "growth"
+                  ? "draft"
+                  : "archived",
+          }) satisfies KitchenSinkValidationRow,
+      ),
     });
   }
 

@@ -4,7 +4,15 @@ import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkSchema,
+  kitchenSinkValidationSchema,
 } from "./schema";
+
+type KitchenSinkValidationRow = {
+  amount: number;
+  owner: string;
+  startDate: Date;
+  status: "draft" | "active" | "archived";
+};
 
 const kitchenSinkNativeExcelTableSchema = createExcelSchema<{
   orderId: string;
@@ -172,6 +180,31 @@ export function buildKitchenSinkBufferedExample() {
         segment: order.customer.tier,
       })),
       schema: kitchenSinkFormulaColumnSchema,
+    });
+
+  workbook
+    .sheet("Validation", {
+      freezePane: { rows: 1 },
+    })
+    .table("validation-orders", {
+      title: "Validation Snapshot",
+      rows: orders.slice(0, 5).map(
+        (order) =>
+          ({
+            amount: Math.round(
+              order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+            ),
+            owner: order.customer.name,
+            startDate: order.createdAt,
+            status:
+              order.customer.tier === "enterprise"
+                ? "active"
+                : order.customer.tier === "growth"
+                  ? "draft"
+                  : "archived",
+          }) satisfies KitchenSinkValidationRow,
+      ),
+      schema: kitchenSinkValidationSchema,
     });
 
   workbook

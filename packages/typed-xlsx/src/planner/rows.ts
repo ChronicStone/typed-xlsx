@@ -3,11 +3,13 @@ import type {
   ColumnDefinition,
   ColumnGroupDefinition,
   PrimitiveCellValue,
+  ResolvedExcelTableTotalsRowDefinition,
   SchemaContext,
   SchemaDefinition,
 } from "../schema/builder";
 import { SchemaBuilder } from "../schema/builder";
 import type { SummaryDefinition, SummaryRuntime } from "../summary/runtime";
+import type { ResolvedValidationRule } from "../validation/types";
 import {
   createSummaryRuntime,
   finalizeSummaryRuntime,
@@ -25,10 +27,15 @@ import {
 } from "../formula/expr";
 import { toCellRef } from "../ooxml/cells";
 
-export interface ResolvedColumn<T extends object> extends Omit<ColumnDefinition<T>, "summary"> {
+export interface ResolvedColumn<T extends object> extends Omit<
+  ColumnDefinition<T>,
+  "header" | "summary" | "totalsRow" | "validation"
+> {
   headerLabel: string;
   groupId?: string;
   summary?: SummaryDefinition<T, any>[];
+  totalsRow?: ResolvedExcelTableTotalsRowDefinition;
+  validation?: ResolvedValidationRule<string, string>;
 }
 
 function resolveFormulaGroupColumns<T extends object>(
@@ -299,8 +306,18 @@ export function createSummaryBindings<T extends object>(
 export function planRows<T extends object>(
   schema: SchemaDefinition<T, any, any, any, any>,
   rows: T[],
+): PlannerResult<T>;
+export function planRows<T extends object>(
+  schema: { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
+  rows: T[],
+): PlannerResult<T>;
+export function planRows<T extends object>(
+  schema:
+    | SchemaDefinition<T, any, any, any, any>
+    | { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
+  rows: T[],
 ): PlannerResult<T> {
-  const columns = resolveColumns(schema);
+  const columns = isResolvedColumnsInput(schema) ? schema.columns : resolveColumns(schema);
   const stats = createPlannerStats(columns);
   const summaryBindings = createSummaryBindings(columns);
   const plannedRows: PlannedPhysicalRow<T>[] = [];
@@ -416,4 +433,12 @@ export function planRows<T extends object>(
     merges,
     stats,
   };
+}
+
+function isResolvedColumnsInput<T extends object>(
+  value:
+    | SchemaDefinition<T, any, any, any, any>
+    | { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
+): value is { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] } {
+  return value.columns.length > 0 && "headerLabel" in value.columns[0]!;
 }

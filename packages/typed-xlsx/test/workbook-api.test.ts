@@ -574,4 +574,40 @@ describe("public buffered api", () => {
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
     expect(content).toContain("<f>(A2*B2)</f>");
   });
+
+  it("supports the public validation builder api with integer and lazy messages", () => {
+    type Row = {
+      amount: number;
+      status: "draft" | "active" | "archived";
+    };
+
+    const schema = createExcelSchema<Row>({ mode: "report" })
+      .column("status", {
+        header: () => "Status",
+        accessor: "status",
+        validation: (v) =>
+          v
+            .list(["draft", "active", "archived"])
+            .prompt({ title: () => "Allowed values", message: () => "Choose a status" })
+            .error({ title: () => "Invalid status", message: () => "Use a known status" }),
+      })
+      .column("amount", {
+        header: () => "Amount",
+        accessor: "amount",
+        validation: (v) => v.integer().between(1, 10),
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ amount: 3, status: "draft" }],
+      schema,
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<dataValidations");
+    expect(content).toContain('type="whole"');
+    expect(content).toContain('promptTitle="Allowed values"');
+    expect(content).toContain('errorTitle="Invalid status"');
+  });
 });

@@ -4,6 +4,7 @@ import type {
   SummaryFormulaFunction,
 } from "./runtime";
 import type { FormulaValue } from "../formula/expr";
+import { resolveLazyText, type LazyText } from "../text";
 
 export interface SummaryBuilder<T> {
   cell<TAcc>(definition: SummaryDefinition<T, TAcc>): SummaryDefinition<T, TAcc>;
@@ -14,7 +15,7 @@ export interface SummaryBuilder<T> {
     options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
   ): SummaryDefinition<T, undefined>;
   label(
-    label: string,
+    label: LazyText,
     options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
   ): SummaryDefinition<T, undefined>;
   spacer(): SummaryDefinition<T, undefined>;
@@ -50,7 +51,7 @@ export function createSummaryBuilder<T>(): SummaryBuilder<T> {
       return {
         init: () => undefined,
         step: (accumulator) => accumulator,
-        finalize: () => label,
+        finalize: () => resolveLazyText(label),
         ...options,
       };
     },

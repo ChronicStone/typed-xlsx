@@ -20,6 +20,7 @@ export {
   type WorkbookSheetStream,
 } from "./api";
 export type {
+  LazyText,
   Accessor,
   AccessorValue,
   Path,
@@ -43,11 +44,21 @@ export type {
   TypedPath,
 } from "./index-internal";
 export { conditionalStyle } from "./index-internal";
+export { validation } from "./index-internal";
 export type {
   SummaryBuilder,
   SummaryCellValue,
   SummaryDefinition,
   SummaryInput,
+} from "./index-internal";
+export type {
+  ResolvedValidationRule,
+  ValidationBuilder,
+  ValidationInput,
+  ValidationMessage,
+  ValidationOperator,
+  ValidationRule,
+  ValidationType,
 } from "./index-internal";
 export type {
   FreezePane,

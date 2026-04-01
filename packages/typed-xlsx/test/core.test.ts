@@ -63,4 +63,64 @@ describe("core", () => {
       ),
     ).toBeGreaterThan(Internal.getDefaultRowHeight());
   });
+
+  it("resolves lazy headers, summary labels, totals row labels, and validation messages during schema build", () => {
+    const tableSchema = Internal.ExcelTableSchemaBuilder.create<{
+      amount: number;
+      status: string;
+    }>()
+      .column("status", {
+        header: () => "Status",
+        accessor: "status",
+        totalsRow: { label: () => "TOTAL" },
+        validation: (v) =>
+          v
+            .list(["draft", "active", "archived"])
+            .prompt({
+              title: () => "Pick a status",
+              message: () => "Use one of the allowed values",
+            })
+            .error({
+              title: () => "Invalid status",
+              message: () => "Only draft, active, or archived are allowed",
+            }),
+      })
+      .column("amount", {
+        header: () => "Amount",
+        accessor: "amount",
+      })
+      .build();
+
+    const columns = Internal.resolveColumns(tableSchema);
+
+    expect(columns[0]?.headerLabel).toBe("Status");
+    expect(columns[0]?.totalsRow).toEqual({ label: "TOTAL" });
+    expect(columns[0]?.validation).toMatchObject({
+      type: "list",
+      prompt: { title: "Pick a status", message: "Use one of the allowed values" },
+      error: {
+        title: "Invalid status",
+        message: "Only draft, active, or archived are allowed",
+      },
+    });
+    expect(columns[1]?.headerLabel).toBe("Amount");
+
+    const reportSchema = Internal.SchemaBuilder.create<{ amount: number }>()
+      .column("amount", {
+        header: () => "Amount",
+        accessor: "amount",
+        summary: (summary) => [summary.label(() => "TOTAL")],
+      })
+      .build();
+
+    const reportColumns = Internal.resolveColumns(reportSchema);
+    const summaryBinding = Internal.createSummaryBindings(reportColumns)[0];
+
+    expect(summaryBinding).toBeDefined();
+    expect(
+      summaryBinding
+        ? Internal.finalizeSummaryRuntime(summaryBinding.definition, summaryBinding.runtime)
+        : undefined,
+    ).toBe("TOTAL");
+  });
 });
