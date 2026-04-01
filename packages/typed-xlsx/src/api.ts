@@ -6,10 +6,10 @@ import type {
   SchemaGroupContext,
   SchemaGroupId,
   SchemaKind,
-} from "./vnext/schema/builder";
-import { ExcelTableSchemaBuilder, SchemaBuilder } from "./vnext/schema/builder";
-import { BufferedWorkbookBuilder } from "./vnext/workbook/buffered";
-import { StreamWorkbookBuilder } from "./vnext/workbook/stream";
+} from "./schema/builder";
+import { ExcelTableSchemaBuilder, SchemaBuilder } from "./schema/builder";
+import { BufferedWorkbookBuilder } from "./workbook/buffered";
+import { StreamWorkbookBuilder } from "./workbook/stream";
 import type {
   BufferedExcelTableInput,
   BufferedReportTableInput,
@@ -18,15 +18,15 @@ import type {
   StreamExcelTableInput,
   StreamReportTableInput,
   TableSelection,
-} from "./vnext/workbook/types";
-import { FileSpoolFactory } from "./vnext/workbook/internal/file-spool";
-import { MemorySpoolFactory } from "./vnext/workbook/internal/memory";
+} from "./workbook/types";
+import { FileSpoolFactory } from "./workbook/internal/file-spool";
+import { MemorySpoolFactory } from "./workbook/internal/memory";
 import {
   NodeWritableWorkbookSink,
   WebWritableWorkbookSink,
   WorkbookByteStream,
-} from "./vnext/workbook/internal/stream-sinks";
-import { FileWorkbookSink } from "./vnext/workbook/internal/file-sink";
+} from "./workbook/internal/stream-sinks";
+import { FileWorkbookSink } from "./workbook/internal/file-sink";
 
 export interface WorkbookOptions {}
 type AnySchemaDefinition = SchemaDefinition<any, any, any, any, any>;

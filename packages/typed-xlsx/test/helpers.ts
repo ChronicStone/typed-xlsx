@@ -2,7 +2,7 @@ import type {
   StreamSheetSpool,
   StreamSpoolFactory,
   StreamWorkbookSink,
-} from "../../src/vnext/workbook/types";
+} from "../src/workbook/types";
 
 export class MemorySheetSpool implements StreamSheetSpool {
   readonly chunks: Uint8Array[] = [];

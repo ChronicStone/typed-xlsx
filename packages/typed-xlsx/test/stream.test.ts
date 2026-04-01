@@ -2,17 +2,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as VNext from "../../src/vnext";
-import { appendExpandedRowXml } from "../../src/vnext/stream/rows";
+import * as Internal from "../src/index-internal";
+import { appendExpandedRowXml } from "../src/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("vnext stream builder", () => {
+describe("stream builder", () => {
   it("commits batches, updates summaries, and writes a final manifest report to the sink", async () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; name: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; name: string }>()
       .column("name", {
         accessor: "name",
       })
@@ -30,7 +30,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
 
     const sheet = workbook.sheet("Orders");
     const table = await sheet.table("orders", {
@@ -57,16 +57,16 @@ describe("vnext stream builder", () => {
   });
 
   it("supports file-backed spooling for bounded-memory streaming", async () => {
-    const schema = VNext.SchemaBuilder.create<{ value: string }>()
+    const schema = Internal.SchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
       .build();
 
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-vnext-"));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-stream-"));
     const sink = new MemoryWorkbookSink();
-    const spoolFactory = new VNext.FileSpoolFactory(directory);
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const spoolFactory = new Internal.FileSpoolFactory(directory);
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Logs").table("logs", {
       schema,
     });
@@ -87,7 +87,7 @@ describe("vnext stream builder", () => {
   });
 
   it("tracks stream column widths and merge ranges in finalized worksheet xml", async () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string; tags: string[] }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string; tags: string[] }>()
       .column("name", {
         accessor: "name",
       })
@@ -98,7 +98,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Merged").table("rows", {
       schema,
     });
@@ -116,7 +116,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes custom row height metadata into streamed worksheet rows", async () => {
-    const schema = VNext.SchemaBuilder.create<{ notes: string }>()
+    const schema = Internal.SchemaBuilder.create<{ notes: string }>()
       .column("notes", {
         accessor: "notes",
         style: {
@@ -127,7 +127,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Heights").table("rows", {
       schema,
     });
@@ -143,7 +143,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes native Excel table parts and worksheet relationships in streamed workbooks", async () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ amount: number; id: string }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ amount: number; id: string }>()
       .column("id", {
         accessor: "id",
       })
@@ -154,7 +154,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       autoFilter: true,
       name: "OrdersTable",
@@ -176,7 +176,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes native Excel table totals-row metadata in streamed workbooks", async () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         totalsRow: { label: "TOTAL" },
@@ -189,7 +189,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       schema,
       totalsRow: true,
@@ -214,7 +214,7 @@ describe("vnext stream builder", () => {
   });
 
   it("serializes excel-table formula columns with structured references in streamed worksheets", async () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -228,7 +228,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       schema,
     });
@@ -241,7 +241,7 @@ describe("vnext stream builder", () => {
   });
 
   it("uses workbook-global native Excel table numbering across streamed sheets", async () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ value: string }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
@@ -249,7 +249,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const left = await workbook.sheet("Left").table("left", {
       schema,
     });
@@ -269,7 +269,7 @@ describe("vnext stream builder", () => {
   });
 
   it("lays out multiple streamed tables on the same worksheet when tablesPerRow is set", async () => {
-    const schema = VNext.SchemaBuilder.create<{ value: string }>()
+    const schema = Internal.SchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
@@ -277,7 +277,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const sheet = workbook.sheet("Summary", { tablesPerRow: 2 });
     const left = await sheet.table("left", { schema });
     const right = await sheet.table("right", { schema });
@@ -296,7 +296,7 @@ describe("vnext stream builder", () => {
   });
 
   it("registers default header and body styles in streamed workbooks", async () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string; tags: string[] }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string; tags: string[] }>()
       .column("name", {
         accessor: "name",
       })
@@ -307,7 +307,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Styled").table("rows", {
       schema,
     });
@@ -325,7 +325,7 @@ describe("vnext stream builder", () => {
   });
 
   it("supports stream sheet view options and inline string mode", async () => {
-    const schema = VNext.SchemaBuilder.create<{ value: string }>()
+    const schema = Internal.SchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
@@ -333,7 +333,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({
+    const workbook = Internal.StreamWorkbookBuilder.create({
       sink,
       spoolFactory,
       stringMode: "inline",
@@ -360,7 +360,11 @@ describe("vnext stream builder", () => {
   });
 
   it("writes sparse summary rows and numeric date cells in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ createdAt: Date; amount: number; name: string }>()
+    const schema = Internal.SchemaBuilder.create<{
+      createdAt: Date;
+      amount: number;
+      name: string;
+    }>()
       .column("name", {
         accessor: "name",
       })
@@ -384,7 +388,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Summary").table("rows", {
       schema,
     });
@@ -403,7 +407,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes multiple summary rows in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL BEFORE VAT"), summary.label("TOTAL")],
@@ -427,7 +431,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Summary").table("rows", {
       schema,
     });
@@ -451,7 +455,7 @@ describe("vnext stream builder", () => {
   });
 
   it("sanitizes long streamed worksheet names for excel compatibility", async () => {
-    const schema = VNext.SchemaBuilder.create<{ value: string }>()
+    const schema = Internal.SchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
@@ -459,7 +463,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Financial Report | Full").table("financial-report", {
       schema,
     });
@@ -475,14 +479,14 @@ describe("vnext stream builder", () => {
   });
 
   it("can expose a readable byte stream sink for downstream piping", async () => {
-    const schema = VNext.SchemaBuilder.create<{ value: string }>()
+    const schema = Internal.SchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
       .build();
 
-    const sink = new VNext.WorkbookByteStream();
-    const workbook = VNext.StreamWorkbookBuilder.create({
+    const sink = new Internal.WorkbookByteStream();
+    const workbook = Internal.StreamWorkbookBuilder.create({
       sink,
       spoolFactory: new MemorySpoolFactory(),
     });
@@ -510,13 +514,13 @@ describe("vnext stream builder", () => {
   });
 
   it("serializes formula cells in streamed row fragments", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number }>()
       .column("amount", {
         accessor: "amount",
       })
       .build();
 
-    const columns = VNext.resolveColumns(schema);
+    const columns = Internal.resolveColumns(schema);
     const xml = appendExpandedRowXml({
       columns,
       expandedRow: {
@@ -524,7 +528,7 @@ describe("vnext stream builder", () => {
         sourceRowIndex: 0,
         valuesByColumn: [[{ kind: "formula", formula: "A2*2", value: 4 }]],
         height: 1,
-        physicalRowHeights: [VNext.getDefaultRowHeight()],
+        physicalRowHeights: [Internal.getDefaultRowHeight()],
       },
       startingRowIndex: 1,
       sharedStrings: {
@@ -541,7 +545,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes worksheet autoFilter metadata in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; name: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; name: string }>()
       .column("name", {
         accessor: "name",
       })
@@ -552,7 +556,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       autoFilter: true,
       schema,
@@ -574,7 +578,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes formula-based summary cells in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL")],
@@ -587,7 +591,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       schema,
     });
@@ -605,7 +609,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes richer summary formula callbacks in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL")],
@@ -620,7 +624,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       schema,
     });
@@ -638,7 +642,7 @@ describe("vnext stream builder", () => {
   });
 
   it("renders summary spacer cells without default summary styling in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL"), summary.spacer()],
@@ -651,7 +655,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       schema,
     });
@@ -669,7 +673,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes formula-based derived columns in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -683,7 +687,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       schema,
     });
@@ -698,7 +702,7 @@ describe("vnext stream builder", () => {
   });
 
   it("writes richer formula functions in streamed worksheets", async () => {
-    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -715,7 +719,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       schema,
     });
@@ -732,7 +736,7 @@ describe("vnext stream builder", () => {
 
   it("disables worksheet autoFilter for streamed tables with merged body rows", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const schema = VNext.SchemaBuilder.create<{ id: string; tags: string[] }>()
+    const schema = Internal.SchemaBuilder.create<{ id: string; tags: string[] }>()
       .column("id", {
         accessor: "id",
       })
@@ -743,7 +747,7 @@ describe("vnext stream builder", () => {
 
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new MemorySpoolFactory();
-    const workbook = VNext.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Orders").table("orders", {
       autoFilter: true,
       schema,

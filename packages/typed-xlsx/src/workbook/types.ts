@@ -7,7 +7,7 @@ import type {
 } from "../schema/builder";
 import type { PlannerResult } from "../planner/rows";
 import type { SummaryResolvedValue } from "../summary/runtime";
-import type { WorksheetConditionalFormattingBlock } from "../conditional-style/runtime";
+import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { CellStyle } from "../styles/types";
 
 export interface TableSelection<TColumnId extends string = string> {

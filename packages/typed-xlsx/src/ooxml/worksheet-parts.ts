@@ -1,5 +1,5 @@
 import { getDefaultRowHeight } from "../planner/metrics";
-import type { WorksheetConditionalFormattingBlock } from "../conditional-style/runtime";
+import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { StylesCollector } from "../styles/collector";
 import type { FreezePane, SheetViewOptions } from "../workbook/types";
 import { toCellRef } from "./cells";

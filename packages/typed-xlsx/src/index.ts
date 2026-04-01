@@ -41,12 +41,17 @@ export type {
   SchemaKind,
   SchemaKindOf,
   TypedPath,
-} from "./vnext";
-export { conditionalStyle } from "./vnext";
-export type { SummaryBuilder, SummaryCellValue, SummaryDefinition, SummaryInput } from "./vnext";
+} from "./index-internal";
+export { conditionalStyle } from "./index-internal";
+export type {
+  SummaryBuilder,
+  SummaryCellValue,
+  SummaryDefinition,
+  SummaryInput,
+} from "./index-internal";
 export type {
   FreezePane,
   SheetLayoutOptions,
   SheetViewOptions,
   TableSelection,
-} from "./vnext/workbook/types";
+} from "./workbook/types";

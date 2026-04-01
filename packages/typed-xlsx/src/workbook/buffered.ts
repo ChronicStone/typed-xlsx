@@ -1,5 +1,5 @@
 import { planRows, resolveColumns } from "../planner/rows";
-import { buildWorksheetConditionalFormatting } from "../conditional-style/runtime";
+import { buildWorksheetConditionalFormatting } from "../styles/conditional-runtime";
 import { buildBufferedWorkbookXlsx } from "../ooxml/package";
 import type {
   BufferedExcelTablePart,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import * as VNext from "../../src/vnext";
+import * as Internal from "../src/index-internal";
 
-describe("vnext core", () => {
+describe("core", () => {
   it("resolves typed paths at runtime", () => {
     const row = {
       profile: {
@@ -9,7 +9,7 @@ describe("vnext core", () => {
       },
     };
 
-    expect(VNext.getValueAtPath(row, "profile.email")).toBe("hello@example.com");
+    expect(Internal.getValueAtPath(row, "profile.email")).toBe("hello@example.com");
   });
 
   it("supports string and callback accessors", () => {
@@ -19,14 +19,14 @@ describe("vnext core", () => {
       lastName: "Lovelace",
     };
 
-    expect(VNext.resolveAccessor(row, "profile.email")).toBe("hello@example.com");
-    expect(VNext.resolveAccessor(row, (value) => `${value.firstName} ${value.lastName}`)).toBe(
+    expect(Internal.resolveAccessor(row, "profile.email")).toBe("hello@example.com");
+    expect(Internal.resolveAccessor(row, (value) => `${value.firstName} ${value.lastName}`)).toBe(
       "Ada Lovelace",
     );
   });
 
   it("prevents duplicate schema column ids", () => {
-    const builder = VNext.SchemaBuilder.create<{ id: string }>();
+    const builder = Internal.SchemaBuilder.create<{ id: string }>();
     builder.column("id", {
       accessor: "id",
     });
@@ -39,7 +39,7 @@ describe("vnext core", () => {
   });
 
   it("exposes shared planner metrics for width and height estimation", () => {
-    const width = VNext.resolveColumnWidth({
+    const width = Internal.resolveColumnWidth({
       column: {
         id: "name",
         accessor: "name",
@@ -51,9 +51,9 @@ describe("vnext core", () => {
     });
 
     expect(width).toBe(4);
-    expect(VNext.measurePrimitiveValue("hello\nworld")).toBe(5);
+    expect(Internal.measurePrimitiveValue("hello\nworld")).toBe(5);
     expect(
-      VNext.estimateRowHeight(
+      Internal.estimateRowHeight(
         ["hello\nworld"],
         [
           {
@@ -61,6 +61,6 @@ describe("vnext core", () => {
           },
         ],
       ),
-    ).toBeGreaterThan(VNext.getDefaultRowHeight());
+    ).toBeGreaterThan(Internal.getDefaultRowHeight());
   });
 });

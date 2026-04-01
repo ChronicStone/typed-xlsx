@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import * as VNext from "../../src/vnext";
+import * as Internal from "../src/index-internal";
 
-describe("vnext planner", () => {
+describe("planner", () => {
   it("expands multi-value cells into physical rows and tracks widths", () => {
-    const schema = VNext.SchemaBuilder.create<{
+    const schema = Internal.SchemaBuilder.create<{
       id: string;
       tags: string[];
     }>()
@@ -15,7 +15,7 @@ describe("vnext planner", () => {
       })
       .build();
 
-    const result = VNext.planRows(schema, [
+    const result = Internal.planRows(schema, [
       { id: "1", tags: ["a", "bbb"] },
       { id: "2", tags: ["cccc"] },
     ]);
@@ -36,7 +36,7 @@ describe("vnext planner", () => {
   });
 
   it("computes reducer-based summaries", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number }>()
       .column("amount", {
         accessor: "amount",
         summary: {
@@ -47,7 +47,7 @@ describe("vnext planner", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Totals").table("totals", {
       schema,
       rows: [{ amount: 3 }, { amount: 4 }],
@@ -67,7 +67,7 @@ describe("vnext planner", () => {
   });
 
   it("resolves dynamic reducer summary styles from the finalized value", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number }>()
       .column("amount", {
         accessor: "amount",
         summary: {
@@ -84,7 +84,7 @@ describe("vnext planner", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Totals").table("totals", {
       schema,
       rows: [{ amount: 3 }, { amount: 9 }],
@@ -97,7 +97,7 @@ describe("vnext planner", () => {
   });
 
   it("tracks row heights for multiline styled values", () => {
-    const schema = VNext.SchemaBuilder.create<{ notes: string }>()
+    const schema = Internal.SchemaBuilder.create<{ notes: string }>()
       .column("notes", {
         accessor: "notes",
         style: {
@@ -106,14 +106,14 @@ describe("vnext planner", () => {
       })
       .build();
 
-    const result = VNext.planRows(schema, [{ notes: "line 1\nline 2" }]);
+    const result = Internal.planRows(schema, [{ notes: "line 1\nline 2" }]);
 
-    expect(result.rows[0]?.height).toBeGreaterThan(VNext.getDefaultRowHeight());
+    expect(result.rows[0]?.height).toBeGreaterThan(Internal.getDefaultRowHeight());
     expect(result.stats.rowHeights.get(0)).toBe(result.rows[0]?.height);
   });
 
   it("plans formula-based columns using predecessor references", () => {
-    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -125,7 +125,7 @@ describe("vnext planner", () => {
       })
       .build();
 
-    const result = VNext.planRows(schema, [{ qty: 3, unitPrice: 7 }]);
+    const result = Internal.planRows(schema, [{ qty: 3, unitPrice: 7 }]);
     const formulaCell = result.rows[0]?.cells[2]?.value;
 
     expect(formulaCell).toEqual({
@@ -135,7 +135,7 @@ describe("vnext planner", () => {
   });
 
   it("plans richer conditional formulas", () => {
-    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -148,7 +148,7 @@ describe("vnext planner", () => {
       })
       .build();
 
-    const result = VNext.planRows(schema, [{ qty: 12, unitPrice: 120 }]);
+    const result = Internal.planRows(schema, [{ qty: 12, unitPrice: 120 }]);
     const formulaCell = result.rows[0]?.cells[2]?.value;
 
     expect(formulaCell).toEqual({
@@ -163,7 +163,7 @@ describe("vnext planner", () => {
       organizations: Array<{ id: number; name: string }>;
     };
 
-    const schema = VNext.SchemaBuilder.create<User>()
+    const schema = Internal.SchemaBuilder.create<User>()
       .column("firstName", {
         accessor: "firstName",
       })
@@ -177,7 +177,7 @@ describe("vnext planner", () => {
       })
       .build();
 
-    const columns = VNext.resolveColumns(schema, {
+    const columns = Internal.resolveColumns(schema, {
       orgs: [
         { id: 1, name: "Core" },
         { id: 2, name: "Finance" },

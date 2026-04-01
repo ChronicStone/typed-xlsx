@@ -1,5 +1,5 @@
 import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
-import { buildWorksheetConditionalFormatting } from "../conditional-style/runtime";
+import { buildWorksheetConditionalFormatting } from "../styles/conditional-runtime";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
 import { writeXlsxPackageToSink } from "../ooxml/package";
 import {
@@ -93,7 +93,7 @@ interface StreamTableFinalization {
   view?: SheetViewOptions;
   autoFilter: boolean;
   excelTable?: import("./types").ResolvedExcelTableOptions;
-  conditionalFormatting: import("../conditional-style/runtime").WorksheetConditionalFormattingBlock[];
+  conditionalFormatting: import("../styles/conditional-runtime").WorksheetConditionalFormattingBlock[];
   planner: {
     columns: Array<{ id: string }>;
     merges: PlannedMergeRange[];

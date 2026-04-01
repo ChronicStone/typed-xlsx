@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as VNext from "../../src/vnext";
-import { serializeCell } from "../../src/vnext/ooxml/cells";
-import { createSharedStringsCollector } from "../../src/vnext/ooxml/shared-strings";
-import { expectWorkbookXmlToBeWellFormed, unzipWorkbookEntries } from "../support/xlsx";
+import * as Internal from "../src/index-internal";
+import { serializeCell } from "../src/ooxml/cells";
+import { createSharedStringsCollector } from "../src/ooxml/shared-strings";
+import { expectWorkbookXmlToBeWellFormed, unzipWorkbookEntries } from "./support/xlsx";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("vnext ooxml", () => {
+describe("ooxml", () => {
   it("serializes a buffered workbook plan into workbook and worksheet xml parts", () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string; amount: number }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string; amount: number }>()
       .column("name", {
         accessor: "name",
       })
@@ -26,7 +26,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       title: "Orders",
       schema,
@@ -36,7 +36,7 @@ describe("vnext ooxml", () => {
       ],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const workbookPart = xml.parts.find((part) => part.path === "xl/workbook.xml");
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
@@ -51,13 +51,13 @@ describe("vnext ooxml", () => {
   });
 
   it("builds a minimal xlsx zip artifact from the buffered workbook", () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
       .column("name", {
         accessor: "name",
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Sheet").table("sheet", {
       schema,
       rows: [{ name: "A" }],
@@ -73,13 +73,13 @@ describe("vnext ooxml", () => {
   });
 
   it("writes sheet view settings like RTL and freeze panes into worksheet xml", () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
       .column("name", {
         accessor: "name",
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook
       .sheet("Sheet")
       .options({
@@ -91,7 +91,7 @@ describe("vnext ooxml", () => {
         rows: [{ name: "A" }],
       });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain('rightToLeft="1"');
@@ -101,13 +101,13 @@ describe("vnext ooxml", () => {
   });
 
   it("lays out multiple tables on the same worksheet when tablesPerRow is set", () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
       .column("name", {
         accessor: "name",
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook
       .sheet("Grid")
       .options({
@@ -122,7 +122,7 @@ describe("vnext ooxml", () => {
         rows: [{ name: "B" }],
       });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(xml.parts.filter((part) => part.path.startsWith("xl/worksheets/"))).toHaveLength(1);
@@ -131,7 +131,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes column widths, merge cells, and style references into worksheet artifacts", () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string; tags: string[] }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string; tags: string[] }>()
       .column("name", {
         accessor: "name",
         headerStyle: {
@@ -150,13 +150,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Merged").table("merged", {
       schema,
       rows: [{ name: "Alpha", tags: ["x", "yy"] }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
@@ -170,7 +170,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes worksheet autoFilter metadata for buffered report tables", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; name: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; name: string }>()
       .column("name", {
         accessor: "name",
       })
@@ -179,7 +179,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       autoFilter: true,
       schema,
@@ -189,7 +189,7 @@ describe("vnext ooxml", () => {
       ],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain('<autoFilter ref="A1:B3"/>');
@@ -205,7 +205,7 @@ describe("vnext ooxml", () => {
       status: "open" | "won" | "at-risk";
     };
 
-    const schema = VNext.SchemaBuilder.create<Deal>()
+    const schema = Internal.SchemaBuilder.create<Deal>()
       .column("amount", {
         accessor: "amount",
       })
@@ -234,13 +234,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Deals").table("deals", {
       schema,
       rows: [{ amount: 100, quota: 80, status: "won" } satisfies Deal],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
@@ -256,7 +256,7 @@ describe("vnext ooxml", () => {
   });
 
   it("builds a workbook zip whose XML parts are well formed when conditional formatting is used", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; quota: number }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; quota: number }>()
       .column("amount", { accessor: "amount" })
       .column("quota", { accessor: "quota" })
       .column("attainment", {
@@ -268,7 +268,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Deals").table("deals", {
       schema,
       rows: [{ amount: 100, quota: 80 }],
@@ -279,7 +279,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes conditional formatting rules for reducer summary cells", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number }>()
       .column("amount", {
         accessor: "amount",
         summary: (summary) => [
@@ -301,13 +301,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Summary").table("summary", {
       schema,
       rows: [{ amount: -2 }, { amount: 1 }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
@@ -318,7 +318,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes conditional formatting rules for formula summary cells", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number }>()
       .column("amount", {
         accessor: "amount",
         summary: (summary) => [
@@ -337,13 +337,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Summary").table("summary", {
       schema,
       rows: [{ amount: 600 }, { amount: 500 }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
@@ -354,7 +354,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes native Excel table parts, relationships, and content types for buffered worksheets", () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ amount: number; name: string }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ amount: number; name: string }>()
       .column("name", {
         accessor: "name",
       })
@@ -363,7 +363,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       autoFilter: false,
       name: "OrdersTable",
@@ -375,7 +375,7 @@ describe("vnext ooxml", () => {
       style: "TableStyleDark2",
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const worksheetRelsPart = xml.parts.find(
       (part) => part.path === "xl/worksheets/_rels/sheet1.xml.rels",
@@ -401,7 +401,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes native Excel table totals-row metadata for buffered worksheets", () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         totalsRow: { label: "TOTAL" },
@@ -412,7 +412,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       rows: [
         { amount: 3, label: "A" },
@@ -422,7 +422,7 @@ describe("vnext ooxml", () => {
       totalsRow: true,
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const tablePart = xml.parts.find((part) => part.path === "xl/tables/table1.xml");
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
@@ -438,7 +438,7 @@ describe("vnext ooxml", () => {
   });
 
   it("serializes excel-table formula columns with structured references in buffered worksheets", () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -450,16 +450,16 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       rows: [{ qty: 3, unitPrice: 7 }],
       schema,
     });
 
-    const worksheetPart = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan()).parts.find(
+    const worksheetPart = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan()).parts.find(
       (part) => part.path === "xl/worksheets/sheet1.xml",
     );
-    const tablePart = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan()).parts.find(
+    const tablePart = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan()).parts.find(
       (part) => part.path === "xl/tables/table1.xml",
     );
 
@@ -470,13 +470,13 @@ describe("vnext ooxml", () => {
   });
 
   it("uses workbook-global table numbering across buffered sheets", () => {
-    const schema = VNext.ExcelTableSchemaBuilder.create<{ value: string }>()
+    const schema = Internal.ExcelTableSchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Left").table("left", {
       rows: [{ value: "A" }],
       schema,
@@ -486,7 +486,7 @@ describe("vnext ooxml", () => {
       schema,
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const sheet1Rels = xml.parts.find(
       (part) => part.path === "xl/worksheets/_rels/sheet1.xml.rels",
     );
@@ -513,24 +513,24 @@ describe("vnext ooxml", () => {
           transform: (_value: string, row: { id: string; tags: string[] }) => row.tags,
         },
       ],
-    } as unknown as import("../../src/vnext").ExcelTableSchemaDefinition<
+    } as unknown as import("../src/index-internal").ExcelTableSchemaDefinition<
       { id: string; tags: string[] },
       "id" | "tagList"
     >;
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       rows: [{ id: "1", tags: ["a", "b"] }],
       schema,
     });
 
-    expect(() => VNext.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
+    expect(() => Internal.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
       "Native Excel tables require flat physical rows. Remove array-expanded columns and merged body cells, or use the default report table mode.",
     );
   });
 
   it("writes formula-based summary cells for buffered worksheets", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL")],
@@ -541,7 +541,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
@@ -550,14 +550,14 @@ describe("vnext ooxml", () => {
       ],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain("<f>SUM(B2:B3)</f>");
   });
 
   it("writes richer summary formula callbacks for buffered worksheets", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL")],
@@ -570,7 +570,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
@@ -579,14 +579,14 @@ describe("vnext ooxml", () => {
       ],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain("<f>ROUND(SUM(B2:B3),2)</f>");
   });
 
   it("renders summary spacer cells without default summary styling", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL"), summary.spacer()],
@@ -597,7 +597,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
@@ -606,14 +606,14 @@ describe("vnext ooxml", () => {
       ],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain('<c r="A5"/>');
   });
 
   it("writes formula-based derived columns for buffered worksheets", () => {
-    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -625,20 +625,20 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       schema,
       rows: [{ qty: 3, unitPrice: 7 }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain("<f>(A2*B2)</f>");
   });
 
   it("writes richer formula functions for buffered worksheets", () => {
-    const schema = VNext.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
+    const schema = Internal.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
         accessor: "qty",
       })
@@ -654,13 +654,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       schema,
       rows: [{ qty: 3, unitPrice: 7 }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain("<f>ROUND((A2*B2),2)</f>");
@@ -670,7 +670,7 @@ describe("vnext ooxml", () => {
   });
 
   it("inherits static column formatting for formula summary cells", () => {
-    const schema = VNext.SchemaBuilder.create<{ createdAt: Date; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ createdAt: Date; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("LATEST")],
@@ -684,7 +684,7 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       schema,
       rows: [
@@ -693,7 +693,7 @@ describe("vnext ooxml", () => {
       ],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
@@ -702,27 +702,27 @@ describe("vnext ooxml", () => {
   });
 
   it("rejects multiple buffered tables with autoFilter on the same worksheet", () => {
-    const schema = VNext.SchemaBuilder.create<{ value: string }>()
+    const schema = Internal.SchemaBuilder.create<{ value: string }>()
       .column("value", {
         accessor: "value",
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook
       .sheet("Orders")
       .options({ tablesPerRow: 2 })
       .table("left", { autoFilter: true, schema, rows: [{ value: "A" }] })
       .table("right", { autoFilter: true, schema, rows: [{ value: "B" }] });
 
-    expect(() => VNext.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
+    expect(() => Internal.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
       "Buffered worksheets can only apply autoFilter to one report table per sheet. Worksheet-level autoFilter supports a single contiguous range; if you need multiple filtered tables on the same sheet, use native Excel tables instead.",
     );
   });
 
   it("disables worksheet autoFilter for buffered tables with merged body rows", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const schema = VNext.SchemaBuilder.create<{ id: string; tags: string[] }>()
+    const schema = Internal.SchemaBuilder.create<{ id: string; tags: string[] }>()
       .column("id", {
         accessor: "id",
       })
@@ -731,14 +731,14 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Orders").table("orders", {
       autoFilter: true,
       schema,
       rows: [{ id: "1", tags: ["a", "b"] }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).not.toContain("<autoFilter");
@@ -748,7 +748,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes custom row heights when planned rows need more vertical space", () => {
-    const schema = VNext.SchemaBuilder.create<{ notes: string }>()
+    const schema = Internal.SchemaBuilder.create<{ notes: string }>()
       .column("notes", {
         accessor: "notes",
         style: {
@@ -757,13 +757,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Heights").table("heights", {
       schema,
       rows: [{ notes: "line 1\nline 2" }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
     expect(worksheetPart?.xml).toContain('ht="');
@@ -771,7 +771,11 @@ describe("vnext ooxml", () => {
   });
 
   it("writes sparse summary rows and serializes dates as numeric excel values", () => {
-    const schema = VNext.SchemaBuilder.create<{ createdAt: Date; amount: number; name: string }>()
+    const schema = Internal.SchemaBuilder.create<{
+      createdAt: Date;
+      amount: number;
+      name: string;
+    }>()
       .column("name", {
         accessor: "name",
       })
@@ -793,13 +797,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Summary").table("summary", {
       schema,
       rows: [{ name: "A", amount: 5, createdAt: new Date(Date.UTC(2025, 2, 3, 0, 0, 0)) }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
@@ -814,7 +818,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes custom number format definitions for currency and percent-point styles", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; margin: number }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; margin: number }>()
       .column("amount", {
         accessor: "amount",
         style: {
@@ -829,13 +833,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Formats").table("formats", {
       schema,
       rows: [{ amount: 1234.5, margin: 15.92 }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
     expect(stylesPart?.xml).toContain("<numFmts");
@@ -844,7 +848,7 @@ describe("vnext ooxml", () => {
   });
 
   it("writes multiple summary rows when a column defines multiple summaries", () => {
-    const schema = VNext.SchemaBuilder.create<{ amount: number; label: string }>()
+    const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {
         accessor: "label",
         summary: (summary) => [summary.label("TOTAL BEFORE VAT"), summary.label("TOTAL")],
@@ -866,13 +870,13 @@ describe("vnext ooxml", () => {
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Summary").table("summary", {
       schema,
       rows: [{ label: "A", amount: 5 }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
 
@@ -889,19 +893,19 @@ describe("vnext ooxml", () => {
   });
 
   it("sanitizes worksheet names for excel compatibility", () => {
-    const schema = VNext.SchemaBuilder.create<{ name: string }>()
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
       .column("name", {
         accessor: "name",
       })
       .build();
 
-    const workbook = VNext.BufferedWorkbookBuilder.create();
+    const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Financial Report | Full").table("sheet", {
       schema,
       rows: [{ name: "A" }],
     });
 
-    const xml = VNext.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const workbookPart = xml.parts.find((part) => part.path === "xl/workbook.xml");
 
     expect(workbookPart?.xml).toContain('name="Financial Report Full"');
