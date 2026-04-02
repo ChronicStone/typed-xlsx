@@ -2,6 +2,10 @@
   "name": "@chronicstone/typed-xlsx-examples",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./showcase/*": "./showcase/*"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "bun run ./scripts/generate-examples.ts",

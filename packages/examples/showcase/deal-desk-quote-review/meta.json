@@ -15,5 +15,11 @@
   "datasetProfile": "medium",
   "artifactFile": "artifact/deal-desk-quote-review.xlsx",
   "primarySourceFile": "workbook.ts",
-  "supportsStreaming": false
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "workflow",
+    "accentClass": "artifact-accent-emerald",
+    "landingEyebrow": "Typed pricing workflow",
+    "playgroundSummary": "A quote review workbook with nested pricing lines, approval-safe formulas, and readable workbook output generated from the domain model."
+  }
 }

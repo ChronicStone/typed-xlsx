@@ -1,13 +1,13 @@
-import manifest from "../../public/generated/examples/examples-manifest.json";
-
-type ExamplesManifest = typeof manifest;
+import {
+  findGeneratedExampleArtifact,
+  getGeneratedExamplesManifest,
+  type GeneratedExamplesManifest,
+} from "@chronicstone/typed-xlsx-examples";
 
 export function useExamplesManifest() {
-  return manifest as ExamplesManifest;
+  return getGeneratedExamplesManifest() as GeneratedExamplesManifest;
 }
 
 export function findExampleArtifact(id: string) {
-  return manifest.artifacts.find(
-    (artifact: ExamplesManifest["artifacts"][number]) => artifact.id === id,
-  );
+  return findGeneratedExampleArtifact(id);
 }

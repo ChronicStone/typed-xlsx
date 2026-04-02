@@ -12,6 +12,13 @@ export function buildStreamingFulfillmentPreviewWorkbook() {
     .table("preview", {
       rows: createFulfillmentRows(4),
       schema: fulfillmentExportSchema,
+      defaults: {
+        header: { preset: "header.inverse", style: { fill: { color: { rgb: "164E63" } } } },
+        summary: { preset: "summary.subtle", style: { fill: { color: { rgb: "CFFAFE" } } } },
+        cells: {
+          locked: { style: { fill: { color: { rgb: "ECFEFF" } } } },
+        },
+      },
     });
 
   return workbook.toUint8Array();

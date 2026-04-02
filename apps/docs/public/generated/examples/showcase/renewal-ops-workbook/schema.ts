@@ -6,6 +6,7 @@ export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()
     header: "Account",
     accessor: "account.name",
     minWidth: 20,
+    summary: (summary) => [summary.label("Current ARR total"), summary.label("Target ARR total")],
   })
   .column("csm", {
     header: "CSM",
@@ -27,7 +28,7 @@ export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()
     header: "Current ARR",
     accessor: "currentArr",
     style: { numFmt: '"$"#,##0', alignment: { horizontal: "right" } },
-    summary: (summary) => [summary.label("Portfolio total"), summary.formula("sum")],
+    summary: (summary) => [summary.formula("sum"), summary.empty()],
   })
   .column("targetArr", {
     header: "Target ARR",
@@ -38,11 +39,12 @@ export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()
       protection: { locked: false },
     },
     validation: (v) => v.integer().between(10000, 3000000),
-    summary: (summary) => [summary.label("Renewal target"), summary.formula("sum")],
+    summary: (summary) => [summary.empty(), summary.formula("sum")],
   })
   .column("uplift", {
     header: "Uplift %",
-    accessor: (row) => (row.currentArr > 0 ? row.targetArr / row.currentArr - 1 : 0),
+    formula: ({ row, fx }) =>
+      fx.if(row.ref("currentArr").gt(0), row.ref("targetArr").div(row.ref("currentArr")).sub(1), 0),
     style: {
       numFmt: "0.0%",
       alignment: { horizontal: "right" },

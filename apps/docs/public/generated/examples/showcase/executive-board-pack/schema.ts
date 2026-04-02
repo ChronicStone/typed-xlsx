@@ -1,11 +1,6 @@
 import { createExcelSchema, type CellStyle } from "@chronicstone/typed-xlsx";
 import type { ExecutiveAccount } from "./data";
 
-const headerStyle: CellStyle = {
-  font: { bold: true, color: { rgb: "F8FAFC" } },
-  fill: { color: { rgb: "0F172A" } },
-};
-
 const currencyStyle: CellStyle = {
   numFmt: '"$"#,##0',
   alignment: { horizontal: "right" },
@@ -16,57 +11,53 @@ export const executiveBoardSchema = createExcelSchema<ExecutiveAccount>()
     header: "Account",
     accessor: "accountName",
     minWidth: 22,
-    headerStyle,
-    summary: (summary) => [summary.label("Portfolio total"), summary.label("Portfolio average")],
+    summary: (summary) => [
+      summary.label("Portfolio total"),
+      summary.label("Portfolio average"),
+      summary.label("Portfolio max"),
+    ],
   })
   .column("region", {
     header: "Region",
     accessor: "region",
     width: 10,
-    headerStyle,
   })
   .column("sector", {
     header: "Sector",
     accessor: "sector",
     minWidth: 14,
-    headerStyle,
   })
   .column("csm", {
     header: "CSM",
     accessor: "csm",
     minWidth: 16,
-    headerStyle,
   })
   .column("arr", {
     header: "Current ARR",
     accessor: "arr",
     minWidth: 14,
     style: currencyStyle,
-    headerStyle,
-    summary: (summary) => [summary.formula("sum"), summary.formula("average")],
+    summary: (summary) => [summary.formula("sum"), summary.formula("average"), summary.empty()],
   })
   .column("expansionRatio", {
     header: "Expansion",
     accessor: "expansionRatio",
     width: 12,
     style: { numFmt: "0%", alignment: { horizontal: "right" } },
-    headerStyle,
   })
   .column("expansionValue", {
     header: "Expansion Value",
     formula: ({ row, fx }) => fx.round(row.ref("arr").mul(row.ref("expansionRatio")), 0),
     minWidth: 16,
     style: currencyStyle,
-    headerStyle,
-    summary: (summary) => [summary.formula("sum"), summary.formula("average")],
+    summary: (summary) => [summary.formula("sum"), summary.formula("average"), summary.empty()],
   })
   .column("projectedArr", {
     header: "Projected ARR",
     accessor: (row) => Math.round(row.arr * (1 + row.expansionRatio)),
     minWidth: 16,
     style: currencyStyle,
-    headerStyle,
-    summary: (summary) => [summary.formula("sum"), summary.formula("average")],
+    summary: (summary) => [summary.formula("sum"), summary.formula("average"), summary.empty()],
   })
   .column("nrr", {
     header: "NRR",
@@ -83,22 +74,19 @@ export const executiveBoardSchema = createExcelSchema<ExecutiveAccount>()
           fill: { color: { rgb: "DCFCE7" } },
           font: { color: { rgb: "166534" }, bold: true },
         }),
-    headerStyle,
-    summary: (summary) => [summary.formula("average"), summary.empty()],
+    summary: (summary) => [summary.empty(), summary.formula("average"), summary.empty()],
   })
   .column("seatsPurchased", {
     header: "Seats",
     accessor: "seatsPurchased",
     width: 10,
     style: { alignment: { horizontal: "right" } },
-    headerStyle,
   })
   .column("seatsActivated", {
     header: "Activated",
     accessor: "seatsActivated",
     width: 12,
     style: { alignment: { horizontal: "right" } },
-    headerStyle,
   })
   .column("utilization", {
     header: "Seat Utilization",
@@ -110,7 +98,6 @@ export const executiveBoardSchema = createExcelSchema<ExecutiveAccount>()
       ),
     width: 14,
     style: { numFmt: "0.0%", alignment: { horizontal: "right" } },
-    headerStyle,
   })
   .column("healthScore", {
     header: "Health",
@@ -127,21 +114,18 @@ export const executiveBoardSchema = createExcelSchema<ExecutiveAccount>()
           fill: { color: { rgb: "DCFCE7" } },
           font: { color: { rgb: "166534" }, bold: true },
         }),
-    headerStyle,
-    summary: (summary) => [summary.formula("average"), summary.formula("max")],
+    summary: (summary) => [summary.empty(), summary.formula("average"), summary.formula("max")],
   })
   .column("nextRenewalDate", {
     header: "Renewal",
     accessor: "nextRenewalDate",
     width: 14,
     style: { numFmt: "yyyy-mm-dd" },
-    headerStyle,
   })
   .column("executiveSummary", {
     header: "Executive Note",
     accessor: "executiveSummary",
     minWidth: 34,
     style: { alignment: { wrapText: true, vertical: "top" } },
-    headerStyle,
   })
   .build();

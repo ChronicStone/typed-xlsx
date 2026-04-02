@@ -14,5 +14,11 @@
   "datasetProfile": "large",
   "artifactFile": "artifact/streaming-fulfillment-export.xlsx",
   "primarySourceFile": "stream.ts",
-  "supportsStreaming": true
+  "supportsStreaming": true,
+  "preview": {
+    "kind": "stream",
+    "accentClass": "artifact-accent-violet",
+    "landingEyebrow": "Streaming export",
+    "playgroundSummary": "A high-volume export that keeps the same schema surface while switching to batch commits and bounded-memory workbook generation."
+  }
 }

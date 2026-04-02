@@ -2,7 +2,12 @@ import { createExcelSchema } from "@chronicstone/typed-xlsx";
 import type { FulfillmentRow } from "./data";
 
 export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()
-  .column("shipmentId", { header: "Shipment", accessor: "shipmentId", minWidth: 16 })
+  .column("shipmentId", {
+    header: "Shipment",
+    accessor: "shipmentId",
+    minWidth: 16,
+    summary: (summary) => [summary.label("Shipment totals"), summary.label("Rate average")],
+  })
   .column("warehouse", { header: "Warehouse", accessor: "warehouse", minWidth: 14 })
   .column("carrier", { header: "Carrier", accessor: "carrier", width: 12 })
   .column("region", { header: "Region", accessor: "region", width: 10 })
@@ -11,14 +16,14 @@ export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()
     accessor: "orderCount",
     width: 10,
     style: { alignment: { horizontal: "right" } },
-    summary: (summary) => [summary.label("TOTAL"), summary.formula("sum")],
+    summary: (summary) => [summary.formula("sum"), summary.empty()],
   })
   .column("shippedUnits", {
     header: "Shipped Units",
     accessor: "shippedUnits",
     width: 14,
     style: { alignment: { horizontal: "right" } },
-    summary: (summary) => [summary.label("TOTAL"), summary.formula("sum")],
+    summary: (summary) => [summary.formula("sum"), summary.empty()],
   })
   .column("backlogUnits", {
     header: "Backlog",
@@ -30,6 +35,7 @@ export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()
         fill: { color: { rgb: "FEF3C7" } },
         font: { color: { rgb: "92400E" }, bold: true },
       }),
+    summary: (summary) => [summary.formula("sum"), summary.empty()],
   })
   .column("fillRate", {
     header: "Fill Rate",
@@ -41,6 +47,7 @@ export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()
       ),
     width: 12,
     style: { numFmt: "0.0%", alignment: { horizontal: "right" } },
+    summary: (summary) => [summary.empty(), summary.formula("average")],
   })
   .column("shippedAt", {
     header: "Shipped At",

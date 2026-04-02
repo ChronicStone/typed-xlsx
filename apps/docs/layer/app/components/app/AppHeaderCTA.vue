@@ -1,18 +1,18 @@
 <script setup lang="ts">
 const route = useRoute();
 
-const isDocsPage = computed(() => route.path.startsWith("/getting-started"));
+const isPlaygroundPage = computed(() => route.path.startsWith("/playground"));
 </script>
 
 <template>
   <UButton
-    to="/getting-started/introduction"
+    to="/playground"
     trailing-icon="i-lucide-arrow-right"
     color="primary"
-    :variant="isDocsPage ? 'soft' : 'solid'"
+    :variant="isPlaygroundPage ? 'soft' : 'solid'"
     size="sm"
     class="hidden md:inline-flex"
   >
-    Get Started
+    Playground
   </UButton>
 </template>

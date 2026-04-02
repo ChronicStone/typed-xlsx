@@ -14,6 +14,13 @@ export async function buildStreamingFulfillmentExportWorkbook() {
     })
     .table("fulfillment", {
       schema: fulfillmentExportSchema,
+      defaults: {
+        header: { preset: "header.inverse", style: { fill: { color: { rgb: "155E75" } } } },
+        summary: { preset: "summary.subtle", style: { fill: { color: { rgb: "CCFBF1" } } } },
+        cells: {
+          locked: { style: { fill: { color: { rgb: "F0FDFA" } } } },
+        },
+      },
     });
 
   for (let batch = 0; batch < 60; batch += 1) {

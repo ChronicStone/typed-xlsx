@@ -24,3 +24,8 @@ apps/docs/node_modules
 .vite-hooks
 packages/*/artifacts/reports/**/files
 **/~$*.xlsx
+apps/docs/public/generated/benchmark/**/files/
+apps/docs/public/generated/benchmark/**/*.spool
+apps/docs/public/generated/benchmark/**/*.xlsx
+!apps/docs/public/generated/benchmark/**/*.json
+!apps/docs/public/generated/benchmark/**/*.md

@@ -8,5 +8,5 @@
       "@chronicstone/typed-xlsx/*": ["../core/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+  "include": ["index.ts", "src/**/*.ts", "scripts/**/*.ts", "generated/**/*.ts"]
 }

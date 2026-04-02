@@ -15,5 +15,11 @@
   "datasetProfile": "medium",
   "artifactFile": "artifact/renewal-ops-workbook.xlsx",
   "primarySourceFile": "workbook.ts",
-  "supportsStreaming": false
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "workflow",
+    "accentClass": "artifact-accent-rose",
+    "landingEyebrow": "Editable operations workbook",
+    "playgroundSummary": "A workflow-safe workbook with unlocked inputs, validations, hidden formulas, and protection rules so end users can edit safely."
+  }
 }

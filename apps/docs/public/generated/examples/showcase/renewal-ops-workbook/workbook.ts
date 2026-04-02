@@ -23,6 +23,16 @@ export function buildRenewalOpsWorkbook() {
       title: "Renewal Plan",
       rows: createRenewalOpportunities(),
       schema: renewalOpsSchema,
+      defaults: {
+        header: { preset: "header.accent", style: { fill: { color: { rgb: "E0F2FE" } } } },
+        summary: { preset: "summary.subtle", style: { fill: { color: { rgb: "E0F2FE" } } } },
+        cells: {
+          base: { style: { alignment: { vertical: "top" } } },
+          unlocked: { preset: "cell.input" },
+          locked: { preset: "cell.locked", style: { fill: { color: { rgb: "F8FAFC" } } } },
+          hidden: { preset: "cell.hidden", style: { fill: { color: { rgb: "E2E8F0" } } } },
+        },
+      },
     });
 
   return workbook.toUint8Array();

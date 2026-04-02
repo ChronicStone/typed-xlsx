@@ -47,7 +47,7 @@ export function createExecutiveAccounts(): ExecutiveAccount[] {
 
     return {
       accountName,
-      region: faker.helpers.arrayElement(regions),
+      region: regions[index % regions.length]!,
       sector: faker.helpers.arrayElement(sectors),
       csm: faker.person.fullName(),
       arr,

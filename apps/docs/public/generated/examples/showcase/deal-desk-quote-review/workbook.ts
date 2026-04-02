@@ -1,6 +1,6 @@
 import { createWorkbook } from "@chronicstone/typed-xlsx";
 import { createQuoteReviews } from "./data";
-import { dealDeskQuoteSchema } from "./schema";
+import { dealDeskApprovalSchema, dealDeskQuoteSchema } from "./schema";
 
 export function buildDealDeskQuoteReviewWorkbook() {
   const workbook = createWorkbook();
@@ -14,6 +14,14 @@ export function buildDealDeskQuoteReviewWorkbook() {
       title: "Deal Desk Review",
       rows: quotes,
       schema: dealDeskQuoteSchema,
+      defaults: {
+        header: { preset: "header.inverse", style: { fill: { color: { rgb: "1E293B" } } } },
+        summary: { preset: "summary.subtle", style: { fill: { color: { rgb: "E2E8F0" } } } },
+        cells: {
+          base: { style: { alignment: { vertical: "top" } } },
+          locked: { style: { fill: { color: { rgb: "F8FAFC" } } } },
+        },
+      },
     });
 
   workbook
@@ -23,18 +31,14 @@ export function buildDealDeskQuoteReviewWorkbook() {
     .table("approvals", {
       title: "Needs Review",
       rows: quotes.filter((quote) => quote.discountRate >= 0.14),
-      schema: dealDeskQuoteSchema,
-      select: {
-        include: [
-          "quoteId",
-          "accountName",
-          "vertical",
-          "owner",
-          "stage",
-          "discountRate",
-          "approvalFlag",
-          "notes",
-        ],
+      schema: dealDeskApprovalSchema,
+      defaults: {
+        header: { preset: "header.accent", style: { fill: { color: { rgb: "FEE2E2" } } } },
+        summary: { preset: "summary.subtle", style: { fill: { color: { rgb: "FFEDD5" } } } },
+        cells: {
+          base: { style: { alignment: { vertical: "top" } } },
+          locked: { style: { fill: { color: { rgb: "FFF7ED" } } } },
+        },
       },
     });
 

@@ -14,5 +14,11 @@
   "datasetProfile": "small",
   "artifactFile": "artifact/logical-vs-physical-summary.xlsx",
   "primarySourceFile": "workbook.ts",
-  "supportsStreaming": false
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "workflow",
+    "accentClass": "artifact-accent-emerald",
+    "landingEyebrow": "Logical vs physical rows",
+    "playgroundSummary": "A compact artifact that makes sub-row expansion and row-aware summaries legible by showing logical rows and physical rows side by side."
+  }
 }

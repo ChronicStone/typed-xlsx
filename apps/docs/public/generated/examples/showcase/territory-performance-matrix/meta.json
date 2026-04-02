@@ -14,5 +14,11 @@
   "datasetProfile": "medium",
   "artifactFile": "artifact/territory-performance-matrix.xlsx",
   "primarySourceFile": "workbook.ts",
-  "supportsStreaming": false
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "matrix",
+    "accentClass": "artifact-accent-sky",
+    "landingEyebrow": "Runtime column matrix",
+    "playgroundSummary": "A runtime-driven regional matrix where dynamic columns still participate in typed formulas, totals, and Excel table output."
+  }
 }

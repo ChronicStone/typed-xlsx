@@ -14,5 +14,11 @@
   "datasetProfile": "medium",
   "artifactFile": "artifact/native-excel-forecast-table.xlsx",
   "primarySourceFile": "workbook.ts",
-  "supportsStreaming": false
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "table",
+    "accentClass": "artifact-accent-amber",
+    "landingEyebrow": "Native Excel table",
+    "playgroundSummary": "A real Excel table with structured references, totals rows, auto filters, and table styles while keeping the same schema authoring model."
+  }
 }

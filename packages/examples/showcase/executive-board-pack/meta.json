@@ -17,5 +17,11 @@
   "datasetProfile": "small",
   "artifactFile": "artifact/executive-board-pack.xlsx",
   "primarySourceFile": "workbook.ts",
-  "supportsStreaming": false
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "board",
+    "accentClass": "artifact-accent-cyan",
+    "landingEyebrow": "Multi-sheet composition",
+    "playgroundSummary": "A board-facing workbook that turns typed portfolio data into executive summaries, watchlists, and regional rollups from one schema layer."
+  }
 }

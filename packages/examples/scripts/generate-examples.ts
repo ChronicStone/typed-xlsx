@@ -3,24 +3,15 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { DOMParser } from "@xmldom/xmldom";
 import { unzipSync } from "fflate";
-import type { ShowcaseMeta } from "../src/_shared/report-types";
+import type {
+  GeneratedExamplesArtifact,
+  GeneratedExamplesManifest,
+  ShowcaseMeta,
+} from "../src/_shared/report-types";
 
 const examplesRoot = path.resolve(import.meta.dirname, "..");
 const showcaseRoot = path.join(examplesRoot, "showcase");
 const generatedRoot = path.join(examplesRoot, "generated");
-
-type ManifestArtifact = {
-  id: string;
-  title: string;
-  description: string;
-  developerHook: string;
-  tags: string[];
-  features: string[];
-  datasetProfile: string;
-  reportPath: string;
-  inspectPath: string;
-  sourceFiles: Record<string, string>;
-};
 
 function ensureDir(dir: string) {
   fs.mkdirSync(dir, { recursive: true });
@@ -28,6 +19,17 @@ function ensureDir(dir: string) {
 
 function readUtf8(filePath: string) {
   return fs.readFileSync(filePath, "utf8");
+}
+
+function toTypeScriptModule(manifest: GeneratedExamplesManifest) {
+  return [
+    'import type { GeneratedExamplesManifest } from "../src/_shared/report-types";',
+    "",
+    `export const generatedExamplesManifest = ${JSON.stringify(manifest, null, 2)} satisfies GeneratedExamplesManifest;`,
+    "",
+    "export default generatedExamplesManifest;",
+    "",
+  ].join("\n");
 }
 
 function unzipWorkbookEntries(bytes: Uint8Array | Buffer) {
@@ -132,7 +134,7 @@ async function loadBuilder(reportDir: string) {
 async function main() {
   ensureDir(generatedRoot);
 
-  const artifacts: ManifestArtifact[] = [];
+  const artifacts: GeneratedExamplesArtifact[] = [];
   const reportDirs = fs
     .readdirSync(showcaseRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -160,16 +162,27 @@ async function main() {
       tags: meta.tags,
       features: meta.features,
       datasetProfile: meta.datasetProfile,
+      artifactFile: meta.artifactFile,
+      primarySourceFile: meta.primarySourceFile,
+      supportsStreaming: meta.supportsStreaming,
+      preview: meta.preview,
       reportPath: `${meta.id}/${meta.artifactFile}`,
       inspectPath: `${meta.id}/artifact/inspect/summary.json`,
       sourceFiles: collectSourceFiles(reportDir),
     });
   }
 
+  const manifest: GeneratedExamplesManifest = {
+    generatedAt: new Date().toISOString(),
+    artifacts,
+  };
+
   fs.writeFileSync(
     path.join(generatedRoot, "examples-manifest.json"),
-    JSON.stringify({ generatedAt: new Date().toISOString(), artifacts }, null, 2),
+    JSON.stringify(manifest, null, 2),
   );
+
+  fs.writeFileSync(path.join(generatedRoot, "examples-manifest.ts"), toTypeScriptModule(manifest));
 }
 
 await main();
