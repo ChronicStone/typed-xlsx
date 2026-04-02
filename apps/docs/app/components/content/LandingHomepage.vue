@@ -31,6 +31,7 @@ const schema = createExcelSchema<Invoice>()
     style: { numFmt: "$#,##0.00" },
     summary: (s) => [s.formula("sum")],
   })
+  // TypeScript fails if you reference a later column
   .column("status", {
     accessor: "status",
     style: (row) => ({
@@ -60,13 +61,13 @@ const valueProps = [
     icon: "i-lucide-shield-check",
     title: "Type-safe schema",
     description:
-      "Declare columns against your TS row type. Typed accessors, sub-row expansion, and per-cell styling with full inference — no casting.",
+      "Declare columns against your TS row type. Typed accessors, path validation, sub-row expansion, and per-cell styling fail at compile time when the shape drifts.",
   },
   {
     icon: "i-lucide-braces",
     title: "Formula DSL",
     description:
-      "Reference columns by ID, not cell address. Forward references don't compile. Move columns freely — formulas shift automatically.",
+      "Reference columns by ID, not cell address. Forward references do not compile, so broken formula wiring fails in TypeScript instead of inside Excel.",
   },
   {
     icon: "i-lucide-table-2",
@@ -78,7 +79,7 @@ const valueProps = [
     icon: "i-lucide-columns-2",
     title: "Dynamic column groups",
     description:
-      "Generate column groups from runtime inputs with typed group context. Group-scoped sum/avg aggregates stay declarative.",
+      "Generate column groups from runtime inputs with inferred context. Missing or wrong-typed group context is a compile-time error.",
   },
   {
     icon: "i-lucide-zap",
@@ -102,10 +103,10 @@ const apiSurface = [
   .column(id, {
     accessor, formula,
     style, summary,
-    validation, selected,
+    validation,
   })
   .group(id, (group, ctx) => { ... })
-  .subRows(key, (sub) => { ... })
+  // Array accessors expand rows automatically
   .build()`,
   },
   {
@@ -113,7 +114,7 @@ const apiSurface = [
     hint: "Compose sheets, flush to output",
     code: `createWorkbook()
   .sheet(name, {
-    freezePane, rtl,
+    freezePane, rightToLeft,
     tablesPerRow,
   })
   .table(name, {
@@ -178,7 +179,7 @@ const routeCards = [
   {
     title: "Build your first report",
     description:
-      "Invoice schema with formulas, summary row, conditional styling, and freeze pane in under 30 lines.",
+      "Invoice schema with typed accessors, formula refs, summary row, and freeze pane in under 30 lines.",
     to: "/getting-started/quick-start-buffered",
     icon: "i-lucide-rocket",
     cta: "Buffered quick start",
@@ -206,7 +207,7 @@ const bufferedCode = `const wb = createWorkbook()
   .table("orders", { schema, rows });
 
 await wb.writeToFile("./orders.xlsx");
-// or: .toBuffer() / .pipeToNode(res)`;
+// or: const bytes = wb.toBuffer()`;
 
 const streamingCode = `const wb = createWorkbookStream();
 
@@ -251,6 +252,11 @@ await wb.writeToFile("./orders.xlsx");`;
           Schema-driven XLSX generation for TypeScript. Typed accessors, a formula DSL with
           compile-time column references, native Excel tables, and a streaming builder for unbounded
           datasets.
+        </p>
+
+        <p class="max-w-lg text-pretty text-base leading-7 text-toned/90">
+          Misspell a path, reference a later column, pass the wrong group context, or select a
+          column that does not exist and TypeScript stops the export definition before it ships.
         </p>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -513,7 +519,7 @@ await wb.writeToFile("./orders.xlsx");`;
         </h2>
         <p class="max-w-xl text-pretty text-lg leading-8 text-toned">
           Switch from buffered to streaming without touching the schema. The same column
-          definitions, formulas, and table modes work in both paths.
+          definitions, formulas, summaries, validation, and table modes work in both paths.
         </p>
       </div>
 
@@ -584,7 +590,9 @@ await wb.writeToFile("./orders.xlsx");`;
           <div class="px-5 py-4 sm:px-6 sm:py-5">
             <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-toned/60">Outputs</p>
             <p class="mt-1.5 text-sm font-bold text-highlighted">File · Buffer · Node · Web</p>
-            <p class="mt-0.5 text-xs text-toned">All 4 targets available</p>
+            <p class="mt-0.5 text-xs text-toned">
+              Buffered: file/buffer. Streaming: file/Node/Web.
+            </p>
           </div>
         </div>
       </div>

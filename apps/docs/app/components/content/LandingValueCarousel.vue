@@ -11,7 +11,7 @@ type ValueStoryCard = {
   afterCode: string;
 };
 
-const AUTO_ADVANCE_MS = 12000;
+const AUTO_ADVANCE_MS = 10000;
 
 const stories: ValueStoryCard[] = [
   {
@@ -21,7 +21,7 @@ const stories: ValueStoryCard[] = [
     body: "Write formulas against column IDs and let the engine resolve the final Excel coordinates. Layout changes stop being a formula maintenance event.",
     docsPath: "/formulas/formula-columns",
     beforeCode:
-      "// Formula for a single cell — you write the address\n" +
+      "// SheetJS: every formula is a string tied to a cell address\n" +
       "const r = dataStartRow + i;\n" +
       "ws[\n" +
       "  `D${r}`\n" +
@@ -53,7 +53,7 @@ const stories: ValueStoryCard[] = [
     body: "Attach sums and averages to the schema itself instead of hand-assembling footer ranges every time a report grows or shifts.",
     docsPath: "/formulas/summary-formulas",
     beforeCode:
-      "// Append a totals row after the data\n" +
+      "// SheetJS: totals row is manual range math\n" +
       "const last = dataStartRow + rows.length - 1;\n" +
       "ws[\n" +
       "  `E${last + 2}`\n" +
@@ -83,19 +83,31 @@ const stories: ValueStoryCard[] = [
     title: "Runtime columns with typed context",
     body: "Generate report layout from runtime inputs and still keep formulas, totals, and context strongly typed and readable.",
     docsPath: "/schema-builder/column-groups",
-    beforeCode: `// Build columns manually from runtime data
+    beforeCode: `// SheetJS: runtime columns mean manual header + cell loops
+let col = 1;
 for (const region of regions) {
-  columns.push({
-    key: region,
-    value: row.revenueByRegion?.[region] ?? 0,
-  });
+  ws[XLSX.utils.encode_cell({ r: 0, c: col })] = {
+    v: region,
+    t: "s",
+  };
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    ws[XLSX.utils.encode_cell({ r: rowIndex + 1, c: col })] = {
+      v: rows[rowIndex]?.revenueByRegion?.[region] ?? 0,
+      t: "n",
+    };
+  }
+
+  col += 1;
 }
 
-// Totals depend on ad hoc index arithmetic.
-// Wrong context shape breaks later at runtime.`,
-    afterCode: `.group("regions", (group, regions: string[]) => {
+// Dynamic layout logic leaks into worksheet mutation.`,
+    afterCode: `const schema = createExcelSchema<Row>()
+  .column("account", { accessor: "account" })
+  .group("regions", (group, regions: string[]) => {
   for (const region of regions) {
     group.column(region, {
+      header: region,
       accessor: (row) => row.revenueByRegion[region] ?? 0,
     });
   }
@@ -104,7 +116,13 @@ for (const region of regions) {
   formula: ({ row }) => row.group("regions").sum(),
 });
 
-// Dynamic layout, still declarative schema code.`,
+workbook.sheet("Regional revenue").table("revenue", {
+  rows,
+  schema,
+  context: { regions },
+});
+
+// Runtime columns stay inside the schema surface.`,
   },
   {
     id: "sub-rows",
@@ -112,7 +130,7 @@ for (const region of regions) {
     title: "Nested records without manual row-offset bookkeeping",
     body: "Expand child collections into typed sub-rows while keeping parent structure readable and formula references coherent.",
     docsPath: "/schema-builder/defining-columns",
-    beforeCode: `// Expand parent + child rows manually
+    beforeCode: `// SheetJS: flatten parent/child rows yourself
 const rows = [];
 for (const order of orders) {
   rows.push([order.id, order.customer, "", ""]);
@@ -126,14 +144,15 @@ for (const order of orders) {
     afterCode: `createExcelSchema<Order>()
   .column("id", { accessor: "id" })
   .column("customer", { accessor: "customer" })
-  .subRows("lines", (sub) =>
-    sub
-      .column("product", { accessor: "product" })
-      .column("qty", { accessor: "qty" }),
-  );
+  .column("product", {
+    accessor: (row) => row.lines.map((line) => line.product),
+  })
+  .column("qty", {
+    accessor: (row) => row.lines.map((line) => line.qty),
+  });
 
-// Offsets managed by the engine.
-// Sub-row type is fully inferred.`,
+// Array accessors expand the logical row automatically.
+// Single-value columns are merged for you.`,
   },
   {
     id: "excel-table-mode",
@@ -149,6 +168,9 @@ worksheet["E22"] = { f: "SUM(E2:E21)" };
 // Totals ignore active filters.
 // Structured refs are unavailable.`,
     afterCode: `createExcelSchema<OrderRow>({ mode: "excel-table" })
+  .column("units", {
+    accessor: "units",
+  })
   .column("revenue", {
     accessor: "revenue",
     totalsRow: { function: "sum" },
@@ -167,7 +189,7 @@ worksheet["E22"] = { f: "SUM(E2:E21)" };
     title: "Cell styling with full row-type inference",
     body: "Express conditional formatting with typed row access instead of reaching back into raw arrays and anonymous cell coordinates.",
     docsPath: "/schema-builder/conditional-styles",
-    beforeCode: `// Apply style to a cell based on its value
+    beforeCode: `// SheetJS: style decisions happen against raw worksheet state
 const cellRef = XLSX.utils.encode_cell({ r, c });
 const status = rawRows[r - 1]?.status;
 ws[cellRef].s = {
@@ -180,17 +202,19 @@ ws[cellRef].s = {
 // Row type is lost at the point of styling.`,
     afterCode: `.column("status", {
   accessor: "status",
-  style: (row) => ({
-    font: {
-      bold: row.status === "overdue",
-      color: {
-        rgb: row.status === "paid" ? "166534" : "B42318",
-      },
-    },
-  }),
+  conditionalStyle: (conditional) =>
+    conditional
+      .when(({ row }) => row.ref("status").eq("paid"), {
+        fill: { color: { rgb: "DCFCE7" } },
+        font: { color: { rgb: "166534" }, bold: true },
+      })
+      .when(({ row }) => row.ref("status").eq("overdue"), {
+        fill: { color: { rgb: "FEE2E2" } },
+        font: { color: { rgb: "991B1B" }, bold: true },
+      }),
 });
 
-// row.status is typed — typos are compile errors.`,
+// Rules stay live in Excel after the file opens.`,
   },
   {
     id: "column-selection",
@@ -198,7 +222,7 @@ ws[cellRef].s = {
     title: "Runtime selection without branching the schema",
     body: "Turn columns on and off from typed context instead of filtering separate column arrays at the call site.",
     docsPath: "/schema-builder/selection",
-    beforeCode: `// Conditionally include columns at build time
+    beforeCode: `// SheetJS: maintain separate export column lists
 const cols = baseColumns.filter((col) => {
   if (col.key === "internalCode" && !isAdmin) return false;
   if (col.key === "euVat" && region !== "EU") return false;
@@ -207,17 +231,20 @@ const cols = baseColumns.filter((col) => {
 
 // Type inference breaks after filter().
 // Schema logic is split across two places.`,
-    afterCode: `createExcelSchema<Row, { isAdmin: boolean; region: string }>()
-  .column("internalCode", {
-    accessor: "internalCode",
-    selected: (ctx) => ctx.isAdmin,
-  })
-  .column("euVat", {
-    accessor: "euVat",
-    selected: (ctx) => ctx.region === "EU",
-  });
+    afterCode: `const schema = createExcelSchema<Row>()
+  .column("company", { accessor: "company" })
+  .column("revenue", { accessor: "revenue" })
+  .column("internalCode", { accessor: "internalCode" })
+  .column("euVat", { accessor: "euVat" })
+  .build();
 
-// Context is typed. Selection stays in the schema.`,
+workbook.sheet("External").table("accounts", {
+  rows,
+  schema,
+  select: { exclude: ["internalCode", "euVat"] },
+});
+
+// One schema, multiple export shapes, typed column IDs.`,
   },
   {
     id: "workflow-safe",
@@ -242,7 +269,7 @@ worksheet["F2"].v = proposedValue;
   style: { protection: { hidden: true } },
 });
 
-// Inputs stay editable. Logic stays protected.`,
+// Pair with sheet protection and editable inputs stay unlocked.`,
   },
   {
     id: "multi-sheet",
@@ -250,7 +277,7 @@ worksheet["F2"].v = proposedValue;
     title: "Multi-sheet composition from one fluent pipeline",
     body: "Build full workbooks with multiple sheets and tables without managing worksheet objects and append order by hand.",
     docsPath: "/workbook-builder/buffered-workbook",
-    beforeCode: `// Add two sheets to a workbook manually
+    beforeCode: `// SheetJS: every worksheet is a separate construction path
 const wb  = XLSX.utils.book_new();
 const ws1 = buildSheet(summaryRows);
 const ws2 = buildSheet(detailRows);
@@ -272,35 +299,52 @@ XLSX.utils.book_append_sheet(wb, ws2, "Details");
     id: "streaming-scale",
     eyebrow: "Streaming builder",
     title: "The same schema scales to production-sized exports",
-    body: "Keep the schema untouched while the workbook path switches from buffered rows to incremental batch commits.",
+    body: "Keep the schema and features the same, then switch from buffered output to batch commits when the dataset outgrows memory.",
     docsPath: "/streaming/overview",
-    beforeCode: `// Buffered path — whole dataset in memory
-const rows = await loadEntireDataset();
-
-createWorkbook()
-  .sheet("Orders")
-  .table("orders", { rows, schema });
-
-// Full dataset must fit in process memory.`,
-    afterCode: `const table = await createWorkbookStream()
-  .sheet("Orders")
-  .table("orders", { schema });
+    beforeCode: `// SheetJS: stream-like export still means manual worksheet writes
+const ws = XLSX.utils.aoa_to_sheet([headers]);
+let rowIndex = 1;
 
 for await (const batch of fetchRows()) {
-  await table.commit({ rows: batch });
+  for (const row of batch) {
+    XLSX.utils.sheet_add_aoa(ws, [[
+      row.orderId,
+      row.customer,
+      row.total,
+    ]], { origin: { r: rowIndex, c: 0 } });
+
+    rowIndex += 1;
+  }
 }
 
-// Same schema, different output path, bounded memory.`,
+// Full worksheet state stays in memory.
+// No schema reuse, formulas, summaries, or autoWidth layer.`,
+    afterCode: `const schema = createExcelSchema<Order>()
+  .column("orderId", { accessor: "orderId", autoWidth: true })
+  .column("customer", { accessor: "customer", autoWidth: true })
+  .column("total", {
+    accessor: "total",
+    style: { numFmt: "$#,##0.00" },
+    summary: (s) => [s.formula("sum")],
+  })
+  .build();
+
+// Buffered: same schema for smaller exports
+createWorkbook().sheet("Orders").table("orders", { rows, schema });
+
+// Streaming: same schema for large exports
+const table = await createWorkbookStream().sheet("Orders").table("orders", { schema });
+for await (const batch of fetchRows()) await table.commit({ rows: batch });`,
   },
 ];
 
 const activeIndex = ref(0);
+const isPaused = ref(false);
 let timer: ReturnType<typeof setInterval> | undefined;
 
 const activeStory = computed(() => stories[activeIndex.value] ?? stories[0]!);
 const progressKey = computed(() => `${activeStory.value.id}-${activeIndex.value}`);
 const codeTheme = computed(() => (colorMode.value === "dark" ? "vitesse-dark" : "vitesse-light"));
-
 function selectStory(index: number) {
   activeIndex.value = index;
   restartTimer();
@@ -317,7 +361,18 @@ function goToPrevious() {
 
 function restartTimer() {
   if (timer) clearInterval(timer);
+  if (isPaused.value) return;
   timer = setInterval(goToNext, AUTO_ADVANCE_MS);
+}
+
+function pauseTimer() {
+  isPaused.value = true;
+  if (timer) clearInterval(timer);
+}
+
+function resumeTimer() {
+  isPaused.value = false;
+  restartTimer();
 }
 
 onMounted(restartTimer);
@@ -340,7 +395,14 @@ onBeforeUnmount(() => {
       </h2>
     </div>
 
-    <div class="overflow-hidden rounded-[1.75rem] border border-default/60">
+    <div
+      :class="[
+        { 'is-paused': isPaused },
+        'overflow-hidden rounded-[1.75rem] border border-default/60',
+      ]"
+      @mouseenter="pauseTimer"
+      @mouseleave="resumeTimer"
+    >
       <div class="border-b border-default/40 bg-elevated/20 px-5 py-5 sm:px-7 sm:py-6">
         <Transition name="story" mode="out-in">
           <div
@@ -427,7 +489,7 @@ onBeforeUnmount(() => {
       <div class="border-t border-default/40 bg-elevated/5 px-5 py-4 sm:px-6 sm:py-5">
         <div class="mb-4 flex items-center justify-between gap-3">
           <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-toned/60">
-            10 core examples
+            10 SheetJS-to-schema examples
           </p>
           <div class="flex items-center gap-2">
             <UButton
@@ -481,14 +543,14 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .value-code-stack {
   display: flex;
   flex: 1;
   width: 100%;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .value-code-block:deep(pre.shiki) {
@@ -497,13 +559,15 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   height: 100%;
   width: 100%;
-  min-height: 100%;
+  min-height: 0;
   min-width: 100%;
   overflow: auto;
   border-radius: 0.75rem;
   padding: 1rem 1rem 1.2rem;
   font-size: 0.76rem;
   line-height: 1.85;
+  background: transparent !important;
+  box-shadow: none;
 }
 
 .value-code-block--before:deep(pre.shiki) {
@@ -518,7 +582,6 @@ onBeforeUnmount(() => {
 
 .value-code-block:deep(code) {
   display: block;
-  min-height: 100%;
 }
 
 .value-code-block:deep(.line) {
@@ -563,7 +626,11 @@ onBeforeUnmount(() => {
 
 .dash__fill--animated {
   background: color-mix(in oklab, var(--ui-primary) 72%, transparent);
-  animation: dash-progress 12s linear forwards;
+  animation: dash-progress 10s linear forwards;
+}
+
+.is-paused .dash__fill--animated {
+  animation-play-state: paused;
 }
 
 .dash__fill--complete {

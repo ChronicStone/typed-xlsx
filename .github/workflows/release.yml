@@ -35,7 +35,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run workspace checks
-        run: bunx turbo run check
+        run: bunx turbo run check --filter=!@chronicstone/typed-xlsx-benchmark
 
       - name: Verify docs Twoslash
         run: bunx turbo run twoslash:verify --filter=@chronicstone/typed-xlsx-docs

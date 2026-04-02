@@ -61,19 +61,29 @@ const cacheKey = computed(
 
 const htmlCache = useState<Record<string, string>>("mdc-code-block-cache", () => ({}));
 const html = ref("");
+let renderVersion = 0;
 
-watchEffect(async () => {
+async function ensureHtml(key: string) {
   try {
-    const key = cacheKey.value;
-
     if (!htmlCache.value[key]) {
       htmlCache.value[key] = await renderCodeToHtml();
     }
 
-    html.value = htmlCache.value[key] ?? "";
+    return htmlCache.value[key] ?? "";
   } catch (error) {
     console.error("Failed to render code block", error);
-    html.value = "";
+    return "";
+  }
+}
+
+html.value = await ensureHtml(cacheKey.value);
+
+watch(cacheKey, async (key) => {
+  const currentVersion = ++renderVersion;
+  const nextHtml = await ensureHtml(key);
+
+  if (currentVersion === renderVersion) {
+    html.value = nextHtml;
   }
 });
 </script>

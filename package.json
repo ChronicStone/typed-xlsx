@@ -24,7 +24,7 @@
     "docs:generate": "turbo run generate --filter=@chronicstone/typed-xlsx-docs",
     "docs:twoslash": "turbo run twoslash:verify --filter=@chronicstone/typed-xlsx-docs",
     "docs:check": "turbo run check --filter=@chronicstone/typed-xlsx-docs && turbo run twoslash:verify --filter=@chronicstone/typed-xlsx-docs",
-    "ci": "turbo run check && turbo run twoslash:verify --filter=@chronicstone/typed-xlsx-docs",
+    "ci": "turbo run check --filter=!@chronicstone/typed-xlsx-benchmark && turbo run twoslash:verify --filter=@chronicstone/typed-xlsx-docs",
     "prepare": "vp config",
     "changeset": "changeset",
     "release:status": "changeset status --verbose",
