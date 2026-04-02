@@ -7,6 +7,7 @@ import {
   getArtifactWorkbookUrl,
 } from "../../data/artifactCatalog";
 import MdcCodeBlock from "../../components/content/MdcCodeBlock.vue";
+import PlaygroundCodeBlock from "../../components/content/PlaygroundCodeBlock.vue";
 
 const route = useRoute();
 const runtimeConfig = useRuntimeConfig();
@@ -383,16 +384,34 @@ useSeo({
             </div>
 
             <div class="playground-code-viewer__body">
-              <MdcCodeBlock
-                v-if="activeTreeItem?.kind === 'source'"
-                :key="`${activeTreeItem.key}:${activeTreeItem.lang}:${activeTreeItem.kind}:${codeTheme}`"
-                :code="activeCodeSource"
-                :lang="activeTreeItem.lang"
-                :theme="codeTheme"
-                class="artifact-code"
-              />
+              <!-- Source panes: Twoslash runs client-side with floating-vue popups.
+                   The <ClientOnly> is always mounted; the v-if is inside so
+                   hydration never removes the wrapper mid-transition. -->
+              <ClientOnly>
+                <PlaygroundCodeBlock
+                  v-if="activeTreeItem?.kind === 'source'"
+                  :key="`twoslash:${activeTreeItem.key}:${codeTheme}`"
+                  :artifact-id="artifactId"
+                  :pane-key="activeTreeItem.key"
+                  :theme="codeTheme"
+                  class="artifact-code"
+                />
+                <template #fallback>
+                  <MdcCodeBlock
+                    v-if="activeTreeItem?.kind === 'source'"
+                    :key="`plain:${activeTreeItem.key}:${codeTheme}`"
+                    :code="activeCodeSource"
+                    :lang="activeTreeItem.key.endsWith('.ts') ? 'ts' : 'text'"
+                    :theme="codeTheme"
+                    class="artifact-code"
+                  />
+                </template>
+              </ClientOnly>
 
-              <div v-else-if="inspectLoading" class="flex h-full items-center justify-center py-20">
+              <div
+                v-if="activeTreeItem?.kind === 'inspect' && inspectLoading"
+                class="flex h-full items-center justify-center py-20"
+              >
                 <div class="flex flex-col items-center gap-3">
                   <div
                     class="size-5 animate-spin rounded-full border-2 border-primary/30 border-t-primary"
@@ -402,7 +421,7 @@ useSeo({
               </div>
 
               <MdcCodeBlock
-                v-else-if="activeTreeItem?.kind === 'inspect' && inspectContent"
+                v-if="activeTreeItem?.kind === 'inspect' && inspectContent"
                 :key="`${activeTreeItem.key}:${activeTreeItem.lang}:${activeTreeItem.kind}:${codeTheme}`"
                 :code="activeCodeSource"
                 :lang="activeTreeItem.lang"

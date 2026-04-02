@@ -10,6 +10,8 @@ type Invoice = {
   status: "paid" | "pending" | "overdue";
 };
 
+declare const rows: Invoice[];
+// ---cut---
 const schema = createExcelSchema<Invoice>()
   .column("id", {
     header: "Invoice #",
@@ -321,6 +323,7 @@ await wb.writeToFile("./orders.xlsx");`;
           <MdcCodeBlock
             :code="HERO_CODE"
             lang="ts"
+            twoslash
             theme="vitesse-dark"
             class="landing-code-block max-h-[480px] overflow-auto px-4 py-3"
           />

@@ -135,10 +135,22 @@ export function createShowcaseFaker(_seed: number) {
     location: { city: () => "Paris" },
   };
 }`;
-  const blocks = [...visibleKeys].map((key) => {
-    const source = normalizeSourceModule(sourceFiles[key] ?? "").trim();
-    return `// ---cut---\n// @filename: ${key}\n${source}`;
-  });
+  // Build context blocks (hidden) and the active block (visible).
+  // The active file's `// @filename:` goes BEFORE `// ---cut---` so the
+  // directive is hidden but still sets the virtual-file context for TS.
+  const contextBlocks: string[] = [];
+  let activeBlock = "";
 
-  return `${prefix}\n${blocks.join("\n")}`;
+  for (const key of visibleKeys) {
+    const source = normalizeSourceModule(sourceFiles[key] ?? "").trim();
+    if (key === activeKey) {
+      // @filename before cut → hidden; code after cut → visible
+      activeBlock = `// @filename: ${key}\n// ---cut---\n${source}`;
+    } else {
+      // Entirely hidden (before the final cut)
+      contextBlocks.push(`// @filename: ${key}\n${source}`);
+    }
+  }
+
+  return `${prefix}\n${contextBlocks.join("\n")}\n${activeBlock}`;
 }

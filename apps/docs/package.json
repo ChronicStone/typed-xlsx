@@ -3,12 +3,13 @@
   "private": true,
   "scripts": {
     "sync:workspace": "node scripts/sync-workspace-artifacts.mjs",
-    "dev": "bun run sync:workspace && nuxt prepare && nuxt dev",
-    "build": "bun run sync:workspace && nuxt prepare && nuxt build && node scripts/postbuild-static.mjs",
-    "generate": "bun run sync:workspace && nuxt prepare && nuxt generate && node scripts/postbuild-static.mjs",
+    "generate:twoslash": "node scripts/generate-twoslash-html.mjs",
+    "dev": "bun run sync:workspace && bun run generate:twoslash && nuxt prepare && nuxt dev",
+    "build": "bun run sync:workspace && bun run generate:twoslash && nuxt prepare && nuxt build && node scripts/postbuild-static.mjs",
+    "generate": "bun run sync:workspace && bun run generate:twoslash && nuxt prepare && nuxt generate && node scripts/postbuild-static.mjs",
     "preview": "nuxt preview",
     "typecheck": "bun run sync:workspace && nuxt prepare",
-    "twoslash:verify": "bun run sync:workspace && nuxt prepare && nuxt-content-twoslash verify",
+    "twoslash:verify": "bun run sync:workspace && rm -rf .data/content .nuxt/content && nuxt-content-twoslash verify",
     "check:content": "bun run twoslash:verify",
     "check": "bun run typecheck"
   },

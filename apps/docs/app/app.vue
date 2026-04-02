@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ContentNavigationItem, PageCollections } from "@nuxt/content";
 import * as nuxtUiLocales from "@nuxt/ui/locale";
+// eslint-disable-next-line import/no-unassigned-import
+import "@shikijs/twoslash/style-rich.css";
 import { useSubNavigation } from "../layer/app/composables/useSubNavigation";
 import { transformNavigation } from "../layer/app/utils/navigation";
 
@@ -529,6 +531,114 @@ const { subNavigationMode } = useSubNavigation(navigation);
 
 .twoslash .twoslash-hover {
   border-bottom-color: color-mix(in oklab, var(--ui-primary) 55%, transparent) !important;
+}
+
+/* ── rendererRich popup overrides (used by MdcCodeBlock's v-html Twoslash) ── */
+/* When inside .twoslash (default) and when teleported to body (fixed position) */
+.twoslash .twoslash-popup-container,
+body > .twoslash-popup-container {
+  border: 1px solid color-mix(in oklab, var(--ui-border) 70%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--ui-bg) 94%, black 6%);
+  box-shadow:
+    0 20px 48px -26px rgb(0 0 0 / 0.42),
+    0 6px 16px -10px rgb(0 0 0 / 0.24);
+  color: var(--ui-text-highlighted);
+  padding: 0.875rem;
+  max-height: min(70vh, 34rem);
+  max-width: min(40rem, calc(100vw - 2rem));
+  overflow: auto;
+  overscroll-behavior: contain;
+  z-index: 20;
+}
+
+.twoslash .twoslash-popup-code,
+body > .twoslash-popup-container .twoslash-popup-code {
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+}
+
+.twoslash .twoslash-popup-code pre.shiki,
+.twoslash .twoslash-popup-code pre[class*="shiki"],
+body > .twoslash-popup-container .twoslash-popup-code pre.shiki,
+body > .twoslash-popup-container .twoslash-popup-code pre[class*="shiki"] {
+  margin: 0;
+  min-width: 0;
+  width: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.twoslash .twoslash-popup-code pre.shiki > code,
+.twoslash .twoslash-popup-code pre[class*="shiki"] > code,
+body > .twoslash-popup-container .twoslash-popup-code pre.shiki > code,
+body > .twoslash-popup-container .twoslash-popup-code pre[class*="shiki"] > code {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Strip any inline background Shiki sets on spans inside popups */
+.twoslash .twoslash-popup-code pre.shiki span,
+body > .twoslash-popup-container .twoslash-popup-code pre.shiki span {
+  background: transparent !important;
+}
+
+.twoslash .twoslash-popup-docs,
+body > .twoslash-popup-container .twoslash-popup-docs {
+  color: var(--ui-text-toned);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin-top: 0.75rem;
+  padding: 0.75rem 0 0.3rem;
+  border-top: 1px solid color-mix(in oklab, var(--ui-border) 50%, transparent);
+}
+
+.twoslash .twoslash-popup-docs-tags,
+body > .twoslash-popup-container .twoslash-popup-docs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 0 0.15rem;
+}
+
+.twoslash .twoslash-popup-docs-tag-name,
+body > .twoslash-popup-container .twoslash-popup-docs-tag-name {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--ui-primary) 18%, var(--ui-border) 82%);
+  background: color-mix(in oklab, var(--ui-primary) 7%, var(--ui-bg) 93%);
+  padding: 0.18rem 0.55rem;
+  color: color-mix(in oklab, var(--ui-primary) 72%, var(--ui-text) 28%);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.1;
+  margin: 0;
 }
 
 @media (max-width: 767px) {
