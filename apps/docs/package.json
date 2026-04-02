@@ -13,6 +13,7 @@
     "check": "bun run typecheck"
   },
   "dependencies": {
+    "@barzhsieh/nuxt-content-mermaid": "2.2.3",
     "@chronicstone/typed-xlsx": "workspace:*",
     "@chronicstone/typed-xlsx-examples": "workspace:*",
     "@shikijs/vitepress-twoslash": "4.0.2",

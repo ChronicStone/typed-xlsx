@@ -53,6 +53,7 @@ export default defineNuxtConfig({
     },
     "@nuxt/ui",
     "nuxt-content-twoslash",
+    "@barzhsieh/nuxt-content-mermaid",
     "@nuxt/content",
     "@nuxt/image",
     "@nuxtjs/robots",
@@ -110,6 +111,20 @@ export default defineNuxtConfig({
             },
           },
         },
+      },
+    },
+  },
+  contentMermaid: {
+    enabled: true,
+    theme: {
+      light: "neutral",
+      dark: "dark",
+    },
+    toolbar: {
+      buttons: {
+        copy: true,
+        expand: true,
+        fullscreen: true,
       },
     },
   },
