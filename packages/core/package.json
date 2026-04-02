@@ -1,0 +1,54 @@
+{
+  "name": "@chronicstone/typed-xlsx",
+  "version": "1.0.4",
+  "description": "High-quality type-safe Excel reporting.",
+  "keywords": [
+    "excel",
+    "reporting",
+    "typescript",
+    "xlsx"
+  ],
+  "homepage": "https://typed-xlsx.vercel.app/",
+  "bugs": "https://github.com/ChronicStone/typed-xlsx/issues",
+  "license": "MIT",
+  "author": "ChronicStone <cthao.pro@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChronicStone/typed-xlsx",
+    "directory": "packages/core"
+  },
+  "files": [
+    "build",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js",
+      "default": "./build/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "report:kitchen-sink": "bun run ./scripts/generate-kitchen-sink-report.ts",
+    "build": "vp pack",
+    "prepack": "vp pack",
+    "pack:check": "npm pack --dry-run",
+    "check": "tsc --noEmit && vitest run && vp pack && npm pack --dry-run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@faker-js/faker": "10.4.0",
+    "@types/node": "25.5.0",
+    "@xmldom/xmldom": "0.9.9",
+    "fflate": "0.8.2",
+    "vitest": "4.1.2"
+  }
+}

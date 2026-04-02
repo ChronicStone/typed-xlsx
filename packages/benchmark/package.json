@@ -1,0 +1,20 @@
+{
+  "name": "@chronicstone/typed-xlsx-benchmark",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "bun run ./scripts/benchmark-stream.ts && bun run ./scripts/generate-streaming-fulfillment-sample.ts",
+    "benchmark:stream": "bun run ./scripts/benchmark-stream.ts",
+    "sample:streaming-fulfillment-export": "bun run ./scripts/generate-streaming-fulfillment-sample.ts",
+    "check": "tsc --noEmit && bun run build"
+  },
+  "dependencies": {
+    "@chronicstone/typed-xlsx": "workspace:*",
+    "@chronicstone/typed-xlsx-examples": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0"
+  },
+  "packageManager": "bun@1.3.6"
+}

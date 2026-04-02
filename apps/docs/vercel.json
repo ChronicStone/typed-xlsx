@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd ../.. && bun run docs:generate",
+  "outputDirectory": ".output/public",
+  "installCommand": "bun install",
+  "framework": null
+}

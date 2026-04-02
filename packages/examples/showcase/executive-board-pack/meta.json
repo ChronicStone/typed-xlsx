@@ -1,0 +1,27 @@
+{
+  "id": "executive-board-pack",
+  "title": "Executive Board Pack",
+  "description": "A polished leadership workbook that turns typed customer portfolio data into board-ready views and watchlists.",
+  "developerHook": "Compose polished multi-sheet stakeholder exports from one reusable typed schema layer.",
+  "tags": ["board-report", "multi-sheet", "stakeholder-export"],
+  "features": [
+    "buffered workbook",
+    "multi-sheet composition",
+    "multi-table layout",
+    "formula columns",
+    "summary rows",
+    "conditional styles",
+    "freeze panes",
+    "column selection"
+  ],
+  "datasetProfile": "small",
+  "artifactFile": "artifact/executive-board-pack.xlsx",
+  "primarySourceFile": "workbook.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "board",
+    "accentClass": "artifact-accent-cyan",
+    "landingEyebrow": "Multi-sheet composition",
+    "playgroundSummary": "A board-facing workbook that turns typed portfolio data into executive summaries, watchlists, and regional rollups from one schema layer."
+  }
+}

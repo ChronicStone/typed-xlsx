@@ -15,12 +15,14 @@ export default defineConfig({
     },
     ignorePatterns: [
       ".repo-migration/**",
-      "docs/.data/**",
-      "docs/.nuxt/**",
-      "docs/.output/**",
-      "docs/node_modules/**",
+      "apps/docs/.data/**",
+      "apps/docs/.nuxt/**",
+      "apps/docs/.output/**",
+      "apps/docs/node_modules/**",
       "node_modules/**",
       "packages/*/build/**",
+      "packages/*/artifacts/**",
+      "packages/*/generated/**",
     ],
     options: {
       denyWarnings: true,
@@ -31,12 +33,14 @@ export default defineConfig({
   fmt: {
     ignorePatterns: [
       ".repo-migration/**",
-      "docs/.data/**",
-      "docs/.nuxt/**",
-      "docs/.output/**",
-      "docs/node_modules/**",
+      "apps/docs/.data/**",
+      "apps/docs/.nuxt/**",
+      "apps/docs/.output/**",
+      "apps/docs/node_modules/**",
       "node_modules/**",
       "packages/*/build/**",
+      "packages/*/artifacts/**",
+      "packages/*/generated/**",
     ],
   },
 });

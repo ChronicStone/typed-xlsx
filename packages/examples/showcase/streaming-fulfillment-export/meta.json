@@ -1,0 +1,24 @@
+{
+  "id": "streaming-fulfillment-export",
+  "title": "Streaming Fulfillment Export",
+  "description": "A high-volume operational export that proves the same schema model scales cleanly from buffered demos to streaming production workloads.",
+  "developerHook": "Keep the same schema and authoring style when your export grows from hundreds to hundreds of thousands of rows.",
+  "tags": ["streaming", "scale", "fulfillment"],
+  "features": [
+    "createWorkbookStream",
+    "batch commit",
+    "temp storage",
+    "large dataset",
+    "same schema as buffered"
+  ],
+  "datasetProfile": "large",
+  "artifactFile": "artifact/streaming-fulfillment-export.xlsx",
+  "primarySourceFile": "stream.ts",
+  "supportsStreaming": true,
+  "preview": {
+    "kind": "stream",
+    "accentClass": "artifact-accent-violet",
+    "landingEyebrow": "Streaming export",
+    "playgroundSummary": "A high-volume export that keeps the same schema surface while switching to batch commits and bounded-memory workbook generation."
+  }
+}

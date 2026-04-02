@@ -1,0 +1,454 @@
+import type { Accessor, AccessorValue } from "../core/accessor";
+import type { Path } from "../core/path";
+import {
+  normalizeConditionalStyleInput,
+  type ConditionalStyleInput,
+  type ConditionalStyleRule,
+} from "../styles/conditional-types";
+import type { CellStyle } from "../styles/types";
+import { resolveLazyText, type LazyText } from "../text";
+import {
+  normalizeValidationInput,
+  type ResolvedValidationRule,
+  type ValidationInput,
+} from "../validation/types";
+import { normalizeSummaryInput } from "../summary/builder";
+import type { SummaryInput } from "../summary/builder";
+import type { FormulaFunctions, FormulaRowContext, FormulaValue } from "../formula/expr";
+
+export type PrimitiveCellValue = string | number | boolean | Date | null | undefined;
+export type CellValue = PrimitiveCellValue | PrimitiveCellValue[];
+
+export type FormulaFn<TPrevColumnId extends string, TGroupId extends string = never> = (context: {
+  row: FormulaRowContext<TPrevColumnId, TGroupId>;
+  fx: FormulaFunctions<TPrevColumnId, TGroupId>;
+}) => FormulaValue<TPrevColumnId, TGroupId>;
+
+export type ColumnExpansion = "auto" | "single" | "expand";
+
+export type TransformFn<T, TValue = unknown> = (
+  value: TValue,
+  row: T,
+  rowIndex: number,
+) => CellValue;
+
+export type FormatFn<T> = (row: T, rowIndex: number, subRowIndex: number) => string | undefined;
+
+export type StyleFn<T> = (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined;
+
+type FormulaLikeReference<TCurrentColumnId extends string, TColumnId extends string> =
+  | TColumnId
+  | TCurrentColumnId;
+
+export interface HyperlinkDefinition {
+  target: string;
+  tooltip?: string;
+  style?: CellStyle;
+}
+
+export type HyperlinkInput<T> =
+  | string
+  | HyperlinkDefinition
+  | null
+  | ((
+      row: T,
+      rowIndex: number,
+      subRowIndex: number,
+    ) => string | HyperlinkDefinition | null | undefined);
+
+export type SchemaKind = "report" | "excel-table";
+
+export type ExcelTableTotalsRowFunction =
+  | "sum"
+  | "average"
+  | "count"
+  | "countNums"
+  | "min"
+  | "max"
+  | "stdDev"
+  | "var";
+
+export type ExcelTableTotalsRowDefinition =
+  | { label: LazyText; function?: never }
+  | { function: ExcelTableTotalsRowFunction; label?: never };
+
+export type ResolvedExcelTableTotalsRowDefinition =
+  | { label: string; function?: never }
+  | { function: ExcelTableTotalsRowFunction; label?: never };
+
+export interface ColumnDefinition<
+  T extends object,
+  TAccessor extends Accessor<T, unknown> | Path<T> = Accessor<T, unknown> | Path<T>,
+  TPrevColumnId extends string = never,
+  TGroupId extends string = never,
+  TReference extends string = TPrevColumnId,
+> {
+  id: string;
+  header?: LazyText;
+  accessor?: TAccessor;
+  defaultValue?: CellValue;
+  transform?: TransformFn<T, AccessorValue<T, TAccessor>>;
+  format?: string | FormatFn<T>;
+  style?: CellStyle | StyleFn<T>;
+  hyperlink?: HyperlinkInput<T>;
+  conditionalStyle?: ConditionalStyleInput<TReference, TGroupId>;
+  validation?: ValidationInput<TReference, TGroupId>;
+  headerStyle?: CellStyle;
+  width?: number;
+  autoWidth?: boolean;
+  minWidth?: number;
+  maxWidth?: number;
+  summary?: SummaryInput<T>;
+  formula?: FormulaFn<TPrevColumnId, TGroupId>;
+  expansion?: ColumnExpansion;
+  totalsRow?: ExcelTableTotalsRowDefinition;
+}
+
+type ScalarTransformFn<T, TValue = unknown> = (
+  value: TValue,
+  row: T,
+  rowIndex: number,
+) => PrimitiveCellValue;
+
+type AccessorColumnInput<
+  T extends object,
+  TAccessor extends Accessor<T, unknown> | Path<T>,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+> = Omit<ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId, TReference>, "id"> & {
+  accessor: TAccessor;
+  formula?: never;
+};
+
+type FormulaColumnInput<
+  T extends object,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+> = Omit<
+  ColumnDefinition<T, never, TPrevColumnId, TGroupId, TReference>,
+  "id" | "accessor" | "transform"
+> & {
+  accessor?: never;
+  transform?: never;
+  formula: FormulaFn<TPrevColumnId, TGroupId>;
+};
+
+type ExcelTableAccessorColumnInput<
+  T extends object,
+  TAccessor extends Accessor<T, unknown> | Path<T>,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+> = Omit<
+  ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId, TReference>,
+  "id" | "summary" | "defaultValue"
+> & {
+  accessor: TAccessor;
+  defaultValue?: PrimitiveCellValue;
+  summary?: never;
+  transform?: ScalarTransformFn<T, AccessorValue<T, TAccessor>>;
+  formula?: never;
+};
+
+type ExcelTableFormulaColumnInput<
+  T extends object,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+> = Omit<
+  ColumnDefinition<T, never, TPrevColumnId, TGroupId, TReference>,
+  "id" | "accessor" | "transform" | "summary" | "defaultValue"
+> & {
+  accessor?: never;
+  transform?: never;
+  defaultValue?: never;
+  summary?: never;
+  formula: FormulaFn<TPrevColumnId, TGroupId>;
+};
+
+export interface ColumnGroupDefinition<TId extends string = string, TContext = unknown> {
+  id: TId;
+  kind: "group";
+  requiresContext: boolean;
+  build: (builder: unknown, context: TContext) => void;
+}
+
+export type SchemaNode<T extends object> = ColumnDefinition<T> | ColumnGroupDefinition;
+export type SchemaContext = Record<string, unknown>;
+
+export interface SchemaDefinition<
+  T extends object,
+  TColumnId extends string = string,
+  TGroupId extends string = never,
+  TGroupContext extends SchemaContext = SchemaContext,
+  TKind extends SchemaKind = "report",
+> {
+  kind: TKind;
+  columns: SchemaNode<T>[];
+  readonly __columnIds?: TColumnId | undefined;
+  readonly __groupIds?: TGroupId | undefined;
+  readonly __groupContext?: TGroupContext | undefined;
+  readonly __kind?: TKind | undefined;
+}
+
+export type ReportSchemaDefinition<
+  T extends object,
+  TColumnId extends string = string,
+  TGroupId extends string = never,
+  TGroupContext extends SchemaContext = SchemaContext,
+> = SchemaDefinition<T, TColumnId, TGroupId, TGroupContext, "report">;
+
+export type ExcelTableSchemaDefinition<
+  T extends object,
+  TColumnId extends string = string,
+  TGroupId extends string = never,
+  TGroupContext extends SchemaContext = {},
+> = SchemaDefinition<T, TColumnId, TGroupId, TGroupContext, "excel-table">;
+
+export type SchemaColumnId<TSchema> =
+  TSchema extends SchemaDefinition<any, infer TColumnId, any, any> ? TColumnId : never;
+export type SchemaGroupId<TSchema> =
+  TSchema extends SchemaDefinition<any, any, infer TGroupId, any> ? TGroupId : never;
+export type SchemaGroupContext<TSchema> =
+  TSchema extends SchemaDefinition<any, any, any, infer TGroupContext, any> ? TGroupContext : never;
+export type SchemaKindOf<TSchema> =
+  TSchema extends SchemaDefinition<any, any, any, any, infer TKind> ? TKind : never;
+
+export class SchemaBuilder<
+  T extends object,
+  TColumnId extends string = never,
+  TGroupId extends string = never,
+  TGroupContext extends SchemaContext = {},
+> {
+  private readonly columns: SchemaNode<T>[] = [];
+  private readonly ids = new Set<string>();
+
+  static create<T extends object>() {
+    return new SchemaBuilder<T, never>();
+  }
+
+  column<TId extends string, TPath extends Path<T>>(
+    id: TId,
+    definition: AccessorColumnInput<
+      T,
+      TPath,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  column<TId extends string, TAccessor extends (row: T) => unknown>(
+    id: TId,
+    definition: AccessorColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  column<TId extends string>(
+    id: TId,
+    definition: FormulaColumnInput<T, FormulaLikeReference<TId, TColumnId>, TColumnId, TGroupId>,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  column<TId extends string, TAccessor extends Accessor<T, unknown> | Path<T>>(
+    id: TId,
+    definition:
+      | AccessorColumnInput<T, TAccessor, string, TColumnId, TGroupId>
+      | FormulaColumnInput<T, string, TColumnId, TGroupId>,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext> {
+    if (this.ids.has(id)) {
+      throw new Error(`Column with id '${id}' already exists.`);
+    }
+
+    this.ids.add(id);
+    this.columns.push({
+      id,
+      ...definition,
+      ...(definition.header ? { header: resolveLazyText(definition.header) } : {}),
+      ...(definition.totalsRow && "label" in definition.totalsRow
+        ? {
+            totalsRow: {
+              label: resolveLazyText(definition.totalsRow.label),
+            },
+          }
+        : {}),
+      ...(definition.summary ? { summary: normalizeSummaryInput(definition.summary) } : {}),
+      ...(definition.conditionalStyle
+        ? {
+            conditionalStyle: normalizeConditionalStyleInput(
+              definition.conditionalStyle,
+            ) as ConditionalStyleRule<string, string>[],
+          }
+        : {}),
+      ...(definition.validation
+        ? {
+            validation: normalizeValidationInput(definition.validation) as ResolvedValidationRule<
+              string,
+              string
+            >,
+          }
+        : {}),
+    } as ColumnDefinition<T>);
+    return this as unknown as SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  }
+
+  group<const TId extends string, TContext = undefined>(
+    id: TId,
+    build: (
+      builder: SchemaBuilder<T, TColumnId>,
+      ...context: [TContext] extends [undefined] ? [] : [context: TContext]
+    ) => void,
+  ): SchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId | TId,
+    [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
+  > {
+    if (this.ids.has(id)) {
+      throw new Error(`Column with id '${id}' already exists.`);
+    }
+
+    this.ids.add(id);
+    this.columns.push({
+      id,
+      kind: "group",
+      requiresContext: build.length > 1,
+      build: build as unknown as ColumnGroupDefinition<TId>["build"],
+    });
+    return this as unknown as SchemaBuilder<
+      T,
+      TColumnId,
+      TGroupId | TId,
+      [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
+    >;
+  }
+
+  build(): SchemaDefinition<T, TColumnId, TGroupId, TGroupContext> {
+    return {
+      kind: "report",
+      columns: [...this.columns],
+    };
+  }
+}
+
+export class ExcelTableSchemaBuilder<
+  T extends object,
+  TColumnId extends string = never,
+  TGroupId extends string = never,
+  TGroupContext extends SchemaContext = {},
+> {
+  private readonly columns: SchemaNode<T>[] = [];
+  private readonly ids = new Set<string>();
+
+  static create<T extends object>() {
+    return new ExcelTableSchemaBuilder<T, never>();
+  }
+
+  column<TId extends string, TPath extends Path<T>>(
+    id: TId,
+    definition: AccessorValue<T, TPath> extends PrimitiveCellValue
+      ? ExcelTableAccessorColumnInput<
+          T,
+          TPath,
+          FormulaLikeReference<TId, TColumnId>,
+          TColumnId,
+          TGroupId
+        >
+      : never,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  column<TId extends string, TAccessor extends (row: T) => PrimitiveCellValue>(
+    id: TId,
+    definition: ExcelTableAccessorColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  column<TId extends string>(
+    id: TId,
+    definition: ExcelTableFormulaColumnInput<
+      T,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  column<TId extends string, TAccessor extends Accessor<T, unknown> | Path<T>>(
+    id: TId,
+    definition:
+      | ExcelTableAccessorColumnInput<T, TAccessor, string, TColumnId, TGroupId>
+      | ExcelTableFormulaColumnInput<T, string, TColumnId, TGroupId>,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext> {
+    if (this.ids.has(id)) {
+      throw new Error(`Column with id '${id}' already exists.`);
+    }
+
+    this.ids.add(id);
+    this.columns.push({
+      id,
+      ...definition,
+      ...(definition.header ? { header: resolveLazyText(definition.header) } : {}),
+      ...(definition.totalsRow && "label" in definition.totalsRow
+        ? {
+            totalsRow: {
+              label: resolveLazyText(definition.totalsRow.label),
+            },
+          }
+        : {}),
+      ...(definition.validation
+        ? {
+            validation: normalizeValidationInput(definition.validation) as ResolvedValidationRule<
+              string,
+              string
+            >,
+          }
+        : {}),
+    } as ColumnDefinition<T>);
+    return this as unknown as ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
+  }
+
+  group<const TId extends string, TContext = undefined>(
+    id: TId,
+    build: (
+      builder: ExcelTableSchemaBuilder<T, TColumnId>,
+      ...context: [TContext] extends [undefined] ? [] : [context: TContext]
+    ) => void,
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId | TId,
+    [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
+  > {
+    if (this.ids.has(id)) {
+      throw new Error(`Column with id '${id}' already exists.`);
+    }
+
+    this.ids.add(id);
+    this.columns.push({
+      id,
+      kind: "group",
+      requiresContext: build.length > 1,
+      build: build as unknown as ColumnGroupDefinition<TId>["build"],
+    });
+    return this as unknown as ExcelTableSchemaBuilder<
+      T,
+      TColumnId,
+      TGroupId | TId,
+      [TContext] extends [undefined] ? TGroupContext : TGroupContext & Record<TId, TContext>
+    >;
+  }
+
+  build(): ExcelTableSchemaDefinition<T, TColumnId, TGroupId, TGroupContext> {
+    return {
+      kind: "excel-table",
+      columns: [...this.columns],
+    };
+  }
+}
+
+export type TypedPath<T extends object> = Path<T>;

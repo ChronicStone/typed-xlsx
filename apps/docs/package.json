@@ -1,0 +1,30 @@
+{
+  "name": "@chronicstone/typed-xlsx-docs",
+  "private": true,
+  "scripts": {
+    "sync:workspace": "node scripts/sync-workspace-artifacts.mjs",
+    "generate:twoslash": "node scripts/generate-twoslash-html.mjs",
+    "dev": "bun run sync:workspace && bun run generate:twoslash && nuxt prepare && nuxt dev",
+    "build": "bun run sync:workspace && bun run generate:twoslash && nuxt prepare && nuxt build && node scripts/postbuild-static.mjs",
+    "generate": "bun run sync:workspace && bun run generate:twoslash && nuxt prepare && nuxt generate && node scripts/postbuild-static.mjs",
+    "preview": "nuxt preview",
+    "typecheck": "bun run sync:workspace && nuxt prepare",
+    "twoslash:verify": "bun run sync:workspace && rm -rf .data/content .nuxt/content && nuxt-content-twoslash verify",
+    "check:content": "bun run twoslash:verify",
+    "check": "bun run typecheck"
+  },
+  "dependencies": {
+    "@barzhsieh/nuxt-content-mermaid": "2.2.3",
+    "@chronicstone/typed-xlsx": "workspace:*",
+    "@chronicstone/typed-xlsx-examples": "workspace:*",
+    "@shikijs/vitepress-twoslash": "4.0.2",
+    "better-sqlite3": "12.8.0",
+    "docus": "5.8.1",
+    "nuxt": "4.4.2",
+    "nuxt-content-twoslash": "0.4.0",
+    "shiki": "4.0.2",
+    "zod": "4.3.6",
+    "zod-to-json-schema": "3.25.2"
+  },
+  "packageManager": "bun@1.3.6"
+}
