@@ -224,6 +224,133 @@ createExcelSchema<FlatRow>()
   })
   .build();
 
+// ── conditionalStyle: mirrors formula ref/group typing plus row paths ─────────
+
+createExcelSchema<{
+  amount: number;
+  status: "open" | "won";
+}>()
+  .column("amount", {
+    accessor: "amount",
+    conditionalStyle: (conditional) =>
+      conditional.when(({ row }) => row.ref("amount").gt(0), {
+        font: { bold: true },
+      }),
+  })
+  .column("quota", {
+    accessor: () => 42,
+    conditionalStyle: (conditional) =>
+      conditional
+        .when(({ row }) => row.ref("quota").gt(0), {
+          fill: { color: { rgb: "DCFCE7" } },
+        })
+        .when(({ row, fx }) => fx.and(row.ref("amount").gt(0), row.ref("quota").gt(0)), {
+          font: { bold: true },
+        }),
+  })
+  .group("performance", (b) => {
+    b.column("status", {
+      accessor: "status",
+    });
+  })
+  .column("statusSummary", {
+    formula: ({ row }) => row.group("performance").count(),
+    conditionalStyle: (conditional) =>
+      conditional.when(({ row }) => row.group("performance").count().gte(1), {
+        font: { italic: true },
+      }),
+  })
+  .build();
+
+createExcelSchema<{
+  amount: number;
+  status: "open" | "won";
+}>()
+  .column("amount", { accessor: "amount" })
+  .column("status", {
+    accessor: "status",
+    conditionalStyle: (conditional) =>
+      conditional.when(({ row }) => row.ref("status").eq("won"), {
+        font: { bold: true },
+      }),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("doubleAge", {
+    formula: ({ row }) => row.ref("age").mul(2),
+    conditionalStyle: (conditional) =>
+      conditional.when(({ row }) => row.ref("age").gt(18), {
+        font: { bold: true },
+      }),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("doubleAge", {
+    formula: ({ row }) => row.ref("age").mul(2),
+    conditionalStyle: (conditional) =>
+      conditional.when(
+        ({ row }) =>
+          // @ts-expect-error conditionalStyle refs can only target current, previous, or row-path references
+          row.ref("future").gt(0),
+        {
+          font: { bold: true },
+        },
+      ),
+  })
+  .build();
+
+createExcelSchema<{ amount: number; metrics: { quota: number } }>()
+  .column("amount", {
+    accessor: "amount",
+    conditionalStyle: (conditional) =>
+      conditional.when(
+        ({ row }) =>
+          // @ts-expect-error input-object paths are rejected in conditionalStyle refs
+          row.ref("metrics.missing").gt(0),
+        {
+          font: { bold: true },
+        },
+      ),
+  })
+  .build();
+
+createExcelSchema<{ amount: number; metrics: { quota: number } }>()
+  .column("amount", { accessor: "amount" })
+  .column("quota", { accessor: "metrics.quota" })
+  .column("guard", {
+    accessor: () => "ok",
+    conditionalStyle: (conditional) =>
+      conditional.when(
+        ({ row }) =>
+          // @ts-expect-error row.ref only accepts column ids, not accessor paths
+          row.ref("metrics.quota").gt(0),
+        {
+          font: { bold: true },
+        },
+      ),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("guard", {
+    accessor: () => "ok",
+    conditionalStyle: (conditional) =>
+      conditional.when(
+        ({ row }) =>
+          // @ts-expect-error unknown group ids are rejected in conditionalStyle refs
+          row.group("missing").sum().gt(0),
+        {
+          font: { bold: true },
+        },
+      ),
+  })
+  .build();
+
 // ── SchemaColumnId: union grows with each .column() call ─────────────────────
 
 const basicSchema = createExcelSchema<FlatRow>()

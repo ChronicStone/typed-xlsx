@@ -460,6 +460,17 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
     headerStyle,
     summary: (summary) => [summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2))],
   })
+  .column("seatUtilization", {
+    header: "Utilization",
+    formula: ({ row, fx }) =>
+      fx.if(row.ref("qty").gt(0), fx.round(row.ref("activatedSeats").div(row.ref("qty")), 4), 0),
+    width: 12,
+    style: {
+      numFmt: "0.0%",
+      alignment: { horizontal: "right" },
+    },
+    headerStyle,
+  })
   .column("lineTotal", {
     header: "Net",
     formula: ({ row, fx }) =>
@@ -482,17 +493,6 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
         ),
     headerStyle,
     summary: (summary) => [summary.formula(({ column, fx }) => fx.round(column.cells().sum(), 2))],
-  })
-  .column("seatUtilization", {
-    header: "Utilization",
-    formula: ({ row, fx }) =>
-      fx.if(row.ref("qty").gt(0), fx.round(row.ref("activatedSeats").div(row.ref("qty")), 4), 0),
-    width: 12,
-    style: {
-      numFmt: "0.0%",
-      alignment: { horizontal: "right" },
-    },
-    headerStyle,
   })
   .column("segment", {
     header: "Segment",

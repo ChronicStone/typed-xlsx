@@ -24,6 +24,7 @@ export type {
   LazyText,
   Accessor,
   AccessorValue,
+  HyperlinkInput,
   Path,
   PathValue,
   CellStyle,

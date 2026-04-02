@@ -13,6 +13,7 @@ export type {
   CellValue,
   ColumnDefinition,
   ExcelTableSchemaDefinition,
+  HyperlinkInput,
   PrimitiveCellValue,
   ReportSchemaDefinition,
   SchemaColumnId,

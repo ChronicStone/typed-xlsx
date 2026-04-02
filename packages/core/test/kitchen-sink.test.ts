@@ -24,9 +24,9 @@ describe("kitchen sink examples", () => {
 
     expect(workbook).toContain("Grouped Formula Scope");
     expect(sheet5).toContain("<conditionalFormatting");
-    expect(sheet5).toContain('sqref="G2:G5"');
-    expect(sheet5).toContain("($G2&lt;1000)");
-    expect(sheet5).toContain("AND(($G2&gt;=5000),(H2&gt;=0.85))");
+    expect(sheet5).toContain('sqref="H2:H5"');
+    expect(sheet5).toContain("($H2&lt;1000)");
+    expect(sheet5).toContain("AND(($H2&gt;=5000),(G2&gt;=0.85))");
     expect(styles).toContain('<dxfs count="4"');
     expect(styles).toContain("FFFEE2E2");
     expect(styles).toContain("FFDCFCE7");

@@ -143,7 +143,7 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
     style: { numFmt: "0.0%", alignment: { horizontal: "right" } },
     conditionalStyle: (conditional) =>
       conditional
-        .when(({ row }) => row.ref("discountRate").gte(0.18), {
+        .when(({ row }) => row.ref("marginPct").lt(0.18), {
           fill: { color: { rgb: "FEE2E2" } },
           font: { color: { rgb: "991B1B" }, bold: true },
         })

@@ -36,6 +36,10 @@ export type FormatFn<T> = (row: T, rowIndex: number, subRowIndex: number) => str
 
 export type StyleFn<T> = (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined;
 
+type FormulaLikeReference<TCurrentColumnId extends string, TColumnId extends string> =
+  | TColumnId
+  | TCurrentColumnId;
+
 export interface HyperlinkDefinition {
   target: string;
   tooltip?: string;
@@ -77,6 +81,7 @@ export interface ColumnDefinition<
   TAccessor extends Accessor<T, unknown> | Path<T> = Accessor<T, unknown> | Path<T>,
   TPrevColumnId extends string = never,
   TGroupId extends string = never,
+  TReference extends string = TPrevColumnId,
 > {
   id: string;
   header?: LazyText;
@@ -86,8 +91,8 @@ export interface ColumnDefinition<
   format?: string | FormatFn<T>;
   style?: CellStyle | StyleFn<T>;
   hyperlink?: HyperlinkInput<T>;
-  conditionalStyle?: ConditionalStyleInput<TPrevColumnId | string, TGroupId>;
-  validation?: ValidationInput<TPrevColumnId | string, TGroupId>;
+  conditionalStyle?: ConditionalStyleInput<TReference, TGroupId>;
+  validation?: ValidationInput<TReference, TGroupId>;
   headerStyle?: CellStyle;
   width?: number;
   autoWidth?: boolean;
@@ -108,18 +113,23 @@ type ScalarTransformFn<T, TValue = unknown> = (
 type AccessorColumnInput<
   T extends object,
   TAccessor extends Accessor<T, unknown> | Path<T>,
+  TReference extends string,
   TPrevColumnId extends string,
   TGroupId extends string,
-> = Omit<ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId>, "id"> & {
+> = Omit<ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId, TReference>, "id"> & {
   accessor: TAccessor;
   formula?: never;
 };
 
 type FormulaColumnInput<
   T extends object,
+  TReference extends string,
   TPrevColumnId extends string,
   TGroupId extends string,
-> = Omit<ColumnDefinition<T, never, TPrevColumnId, TGroupId>, "id" | "accessor" | "transform"> & {
+> = Omit<
+  ColumnDefinition<T, never, TPrevColumnId, TGroupId, TReference>,
+  "id" | "accessor" | "transform"
+> & {
   accessor?: never;
   transform?: never;
   formula: FormulaFn<TPrevColumnId, TGroupId>;
@@ -128,10 +138,11 @@ type FormulaColumnInput<
 type ExcelTableAccessorColumnInput<
   T extends object,
   TAccessor extends Accessor<T, unknown> | Path<T>,
+  TReference extends string,
   TPrevColumnId extends string,
   TGroupId extends string,
 > = Omit<
-  ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId>,
+  ColumnDefinition<T, TAccessor, TPrevColumnId, TGroupId, TReference>,
   "id" | "summary" | "defaultValue"
 > & {
   accessor: TAccessor;
@@ -143,10 +154,11 @@ type ExcelTableAccessorColumnInput<
 
 type ExcelTableFormulaColumnInput<
   T extends object,
+  TReference extends string,
   TPrevColumnId extends string,
   TGroupId extends string,
 > = Omit<
-  ColumnDefinition<T, never, TPrevColumnId, TGroupId>,
+  ColumnDefinition<T, never, TPrevColumnId, TGroupId, TReference>,
   "id" | "accessor" | "transform" | "summary" | "defaultValue"
 > & {
   accessor?: never;
@@ -219,21 +231,33 @@ export class SchemaBuilder<
 
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
-    definition: AccessorColumnInput<T, TPath, TColumnId, TGroupId>,
+    definition: AccessorColumnInput<
+      T,
+      TPath,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends (row: T) => unknown>(
     id: TId,
-    definition: AccessorColumnInput<T, TAccessor, TColumnId, TGroupId>,
+    definition: AccessorColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string>(
     id: TId,
-    definition: FormulaColumnInput<T, TColumnId, TGroupId>,
+    definition: FormulaColumnInput<T, FormulaLikeReference<TId, TColumnId>, TColumnId, TGroupId>,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends Accessor<T, unknown> | Path<T>>(
     id: TId,
     definition:
-      | AccessorColumnInput<T, TAccessor, TColumnId, TGroupId>
-      | FormulaColumnInput<T, TColumnId, TGroupId>,
+      | AccessorColumnInput<T, TAccessor, string, TColumnId, TGroupId>
+      | FormulaColumnInput<T, string, TColumnId, TGroupId>,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext> {
     if (this.ids.has(id)) {
       throw new Error(`Column with id '${id}' already exists.`);
@@ -326,22 +350,39 @@ export class ExcelTableSchemaBuilder<
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: AccessorValue<T, TPath> extends PrimitiveCellValue
-      ? ExcelTableAccessorColumnInput<T, TPath, TColumnId, TGroupId>
+      ? ExcelTableAccessorColumnInput<
+          T,
+          TPath,
+          FormulaLikeReference<TId, TColumnId>,
+          TColumnId,
+          TGroupId
+        >
       : never,
   ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends (row: T) => PrimitiveCellValue>(
     id: TId,
-    definition: ExcelTableAccessorColumnInput<T, TAccessor, TColumnId, TGroupId>,
+    definition: ExcelTableAccessorColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
   ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string>(
     id: TId,
-    definition: ExcelTableFormulaColumnInput<T, TColumnId, TGroupId>,
+    definition: ExcelTableFormulaColumnInput<
+      T,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId
+    >,
   ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext>;
   column<TId extends string, TAccessor extends Accessor<T, unknown> | Path<T>>(
     id: TId,
     definition:
-      | ExcelTableAccessorColumnInput<T, TAccessor, TColumnId, TGroupId>
-      | ExcelTableFormulaColumnInput<T, TColumnId, TGroupId>,
+      | ExcelTableAccessorColumnInput<T, TAccessor, string, TColumnId, TGroupId>
+      | ExcelTableFormulaColumnInput<T, string, TColumnId, TGroupId>,
   ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TGroupContext> {
     if (this.ids.has(id)) {
       throw new Error(`Column with id '${id}' already exists.`);
