@@ -30,7 +30,7 @@ function hashCodeBlock(input: string) {
 async function renderCodeToHtml() {
   const transformers = [];
 
-  if (props.twoslash) {
+  if (props.twoslash && import.meta.server) {
     const { transformerTwoslash } = await import("@shikijs/vitepress-twoslash");
 
     transformers.push(
@@ -63,13 +63,18 @@ const htmlCache = useState<Record<string, string>>("mdc-code-block-cache", () =>
 const html = ref("");
 
 watchEffect(async () => {
-  const key = cacheKey.value;
+  try {
+    const key = cacheKey.value;
 
-  if (!htmlCache.value[key]) {
-    htmlCache.value[key] = await renderCodeToHtml();
+    if (!htmlCache.value[key]) {
+      htmlCache.value[key] = await renderCodeToHtml();
+    }
+
+    html.value = htmlCache.value[key] ?? "";
+  } catch (error) {
+    console.error("Failed to render code block", error);
+    html.value = "";
   }
-
-  html.value = htmlCache.value[key] ?? "";
 });
 </script>
 

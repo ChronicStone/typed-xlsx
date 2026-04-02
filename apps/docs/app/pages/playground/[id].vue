@@ -102,8 +102,25 @@ const activeTreeItem = computed(
       .find((item) => item.key === activeTreeKey.value) ?? treeItems.value[0]?.items[0],
 );
 
+const activeCodeSource = computed(() => {
+  if (!activeTreeItem.value) return "";
+
+  if (activeTreeItem.value.kind === "source") {
+    return activeTreeItem.value.code || "";
+  }
+
+  return inspectContent.value || "";
+});
+
 const inspectContent = ref<string | null>(null);
 const inspectLoading = ref(false);
+const split = ref(0.48);
+const dragging = ref(false);
+const container = ref<HTMLElement | null>(null);
+const iframeFailed = ref(false);
+const treeCollapsed = ref(false);
+const displayMode = ref<"split" | "code" | "preview">("split");
+const codeTheme = computed(() => (colorMode.value === "dark" ? "vitesse-dark" : "vitesse-light"));
 
 watch(
   activeTreeItem,
@@ -127,14 +144,6 @@ watch(
   },
   { immediate: true },
 );
-
-const split = ref(0.48);
-const dragging = ref(false);
-const container = ref<HTMLElement | null>(null);
-const iframeFailed = ref(false);
-const treeCollapsed = ref(false);
-const displayMode = ref<"split" | "code" | "preview">("split");
-const codeTheme = computed(() => (colorMode.value === "dark" ? "vitesse-dark" : "vitesse-light"));
 
 const workbookUrl = computed(() => getArtifactWorkbookUrl(artifact.value!));
 const githubUrl = computed(() => getArtifactGithubUrl(artifact.value!));
@@ -377,7 +386,7 @@ useSeo({
               <MdcCodeBlock
                 v-if="activeTreeItem?.kind === 'source'"
                 :key="`${activeTreeItem.key}:${activeTreeItem.lang}:${activeTreeItem.kind}:${codeTheme}`"
-                :code="activeTreeItem.code || ''"
+                :code="activeCodeSource"
                 :lang="activeTreeItem.lang"
                 :theme="codeTheme"
                 class="artifact-code"
@@ -395,7 +404,7 @@ useSeo({
               <MdcCodeBlock
                 v-else-if="activeTreeItem?.kind === 'inspect' && inspectContent"
                 :key="`${activeTreeItem.key}:${activeTreeItem.lang}:${activeTreeItem.kind}:${codeTheme}`"
-                :code="inspectContent"
+                :code="activeCodeSource"
                 :lang="activeTreeItem.lang"
                 :theme="codeTheme"
                 class="artifact-code"

@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "bun run ./scripts/generate-examples.ts",
-    "check": "tsc --noEmit && bun run build"
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "@chronicstone/typed-xlsx": "workspace:*"

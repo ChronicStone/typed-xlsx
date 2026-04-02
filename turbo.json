@@ -15,7 +15,17 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["build/**", "generated/**", "artifacts/**", ".output/**"]
+      "outputs": [
+        "build/**",
+        "generated/**",
+        "artifacts/**",
+        "showcase/**/artifact/**",
+        ".output/**"
+      ]
+    },
+    "generate": {
+      "dependsOn": ["^build"],
+      "outputs": [".output/**"]
     },
     "twoslash:verify": {
       "dependsOn": ["^build"],

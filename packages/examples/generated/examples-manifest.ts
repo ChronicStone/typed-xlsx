@@ -1,7 +1,7 @@
 import type { GeneratedExamplesManifest } from "../src/_shared/report-types";
 
 export const generatedExamplesManifest = {
-  "generatedAt": "2026-04-02T00:01:46.455Z",
+  "generatedAt": "2026-04-02T01:42:01.467Z",
   "artifacts": [
     {
       "id": "deal-desk-quote-review",

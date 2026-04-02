@@ -10,7 +10,7 @@
     "typecheck": "bun run sync:workspace && nuxt prepare",
     "twoslash:verify": "bun run sync:workspace && nuxt prepare && nuxt-content-twoslash verify",
     "check:content": "bun run twoslash:verify",
-    "check": "bun run build && bun run twoslash:verify"
+    "check": "bun run typecheck"
   },
   "dependencies": {
     "@chronicstone/typed-xlsx": "workspace:*",

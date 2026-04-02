@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd .. && bun run build && cd docs && bun run generate",
+  "buildCommand": "cd ../.. && bun run docs:generate",
   "outputDirectory": ".output/public",
   "installCommand": "bun install",
   "framework": null
