@@ -11,14 +11,14 @@ type ValueStoryCard = {
   afterCode: string;
 };
 
-const AUTO_ADVANCE_MS = 10000;
+const DURATION = 10_000;
 
 const stories: ValueStoryCard[] = [
   {
     id: "formula-refs",
     eyebrow: "Formula DSL",
-    title: "Column refs instead of fragile cell addresses",
-    body: "Write formulas against column IDs and let the engine resolve the final Excel coordinates. Layout changes stop being a formula maintenance event.",
+    title: "Column IDs replace fragile cell addresses",
+    body: "Write formulas against column IDs and let the engine resolve final Excel coordinates. Rearranging columns is a layout decision, not a formula maintenance event.",
     docsPath: "/formulas/formula-columns",
     beforeCode:
       "// SheetJS: every formula is a string tied to a cell address\n" +
@@ -49,8 +49,8 @@ const stories: ValueStoryCard[] = [
   {
     id: "summary-rows",
     eyebrow: "Summary formulas",
-    title: "Live footer formulas without range arithmetic",
-    body: "Attach sums and averages to the schema itself instead of hand-assembling footer ranges every time a report grows or shifts.",
+    title: "Footer totals without range arithmetic",
+    body: "Attach SUM, AVERAGE, or any aggregate directly to the schema. Ranges resolve automatically — no string templates to maintain when the report grows.",
     docsPath: "/formulas/summary-formulas",
     beforeCode:
       "// SheetJS: totals row is manual range math\n" +
@@ -80,8 +80,8 @@ const stories: ValueStoryCard[] = [
   {
     id: "dynamic-columns",
     eyebrow: "Dynamic groups",
-    title: "Runtime columns with typed context",
-    body: "Generate report layout from runtime inputs and still keep formulas, totals, and context strongly typed and readable.",
+    title: "Runtime-driven columns with typed context",
+    body: "Generate column groups from runtime data while formulas, totals, and context stay strongly typed. The schema surface stays clean regardless of how many columns are generated.",
     docsPath: "/schema-builder/column-groups",
     beforeCode: `// SheetJS: runtime columns mean manual header + cell loops
 let col = 1;
@@ -127,8 +127,8 @@ workbook.sheet("Regional revenue").table("revenue", {
   {
     id: "sub-rows",
     eyebrow: "Sub-row expansion",
-    title: "Nested records without manual row-offset bookkeeping",
-    body: "Expand child collections into typed sub-rows while keeping parent structure readable and formula references coherent.",
+    title: "Nested records without manual row offsets",
+    body: "Return an array from an accessor and child rows expand automatically. Parent columns merge, formula references stay coherent — no offset bookkeeping required.",
     docsPath: "/schema-builder/defining-columns",
     beforeCode: `// SheetJS: flatten parent/child rows yourself
 const rows = [];
@@ -157,8 +157,8 @@ for (const order of orders) {
   {
     id: "excel-table-mode",
     eyebrow: "Excel table mode",
-    title: "Real Excel tables, not styled ranges",
-    body: "Switch from styled cell ranges to actual Excel table objects with structured refs and totals that respect active filters.",
+    title: "Native Excel tables, not styled ranges",
+    body: "Emit real ListObject tables with structured refs, SUBTOTAL() totals that respect active filters, and 60 built-in style presets — from the same schema API.",
     docsPath: "/excel-table-mode/overview",
     beforeCode: `// Style cells to look table-like
 worksheet["A1"] = "Revenue";
@@ -186,8 +186,8 @@ worksheet["E22"] = { f: "SUM(E2:E21)" };
   {
     id: "conditional-styles",
     eyebrow: "Typed styling",
-    title: "Cell styling with full row-type inference",
-    body: "Express conditional formatting with typed row access instead of reaching back into raw arrays and anonymous cell coordinates.",
+    title: "Conditional formatting with full row-type inference",
+    body: "Style cells using typed row access and formula-based conditions. Rules translate to native Excel conditional formatting — they stay live when the file opens.",
     docsPath: "/schema-builder/conditional-styles",
     beforeCode: `// SheetJS: style decisions happen against raw worksheet state
 const cellRef = XLSX.utils.encode_cell({ r, c });
@@ -219,8 +219,8 @@ ws[cellRef].s = {
   {
     id: "column-selection",
     eyebrow: "Column selection",
-    title: "Runtime selection without branching the schema",
-    body: "Turn columns on and off from typed context instead of filtering separate column arrays at the call site.",
+    title: "Include or exclude columns without forking the schema",
+    body: "Pass a typed select or exclude list at the table call site. One schema definition powers every export variant — column IDs are checked at compile time.",
     docsPath: "/schema-builder/selection",
     beforeCode: `// SheetJS: maintain separate export column lists
 const cols = baseColumns.filter((col) => {
@@ -249,8 +249,8 @@ workbook.sheet("External").table("accounts", {
   {
     id: "workflow-safe",
     eyebrow: "Editable workflows",
-    title: "Editable workbooks that still protect logic",
-    body: "Let users change intended inputs while validations, protection, and hidden logic remain enforced in the schema layer.",
+    title: "User-editable workbooks that still protect logic",
+    body: "Unlock specific input cells, lock formulas, add data validation, and hide computation columns — all declared in the schema alongside the rest of the report definition.",
     docsPath: "/schema-builder/data-validation",
     beforeCode: `// Ship an editable workbook
 worksheet["F2"].v = proposedValue;
@@ -274,8 +274,8 @@ worksheet["F2"].v = proposedValue;
   {
     id: "multi-sheet",
     eyebrow: "Workbook builder",
-    title: "Multi-sheet composition from one fluent pipeline",
-    body: "Build full workbooks with multiple sheets and tables without managing worksheet objects and append order by hand.",
+    title: "Multi-sheet workbooks from a single fluent chain",
+    body: "Compose sheets, tables, and output targets in one pipeline. No worksheet object management, no manual append ordering.",
     docsPath: "/workbook-builder/buffered-workbook",
     beforeCode: `// SheetJS: every worksheet is a separate construction path
 const wb  = XLSX.utils.book_new();
@@ -298,8 +298,8 @@ XLSX.utils.book_append_sheet(wb, ws2, "Details");
   {
     id: "streaming-scale",
     eyebrow: "Streaming builder",
-    title: "The same schema scales to production-sized exports",
-    body: "Keep the schema and features the same, then switch from buffered output to batch commits when the dataset outgrows memory.",
+    title: "Same schema, production-scale output",
+    body: "Keep every schema feature intact, then switch to batch commits when the dataset outgrows memory. Heap stays flat while the ZIP is assembled incrementally.",
     docsPath: "/streaming/overview",
     beforeCode: `// SheetJS: stream-like export still means manual worksheet writes
 const ws = XLSX.utils.aoa_to_sheet([headers]);
@@ -339,45 +339,73 @@ for await (const batch of fetchRows()) await table.commit({ rows: batch });`,
 ];
 
 const activeIndex = ref(0);
+const progress = ref(0); // 0–1, drives the bar width directly
 const isPaused = ref(false);
-let timer: ReturnType<typeof setInterval> | undefined;
+
+let rafId: number | undefined;
+let lastTimestamp: number | undefined;
 
 const activeStory = computed(() => stories[activeIndex.value] ?? stories[0]!);
-const progressKey = computed(() => `${activeStory.value.id}-${activeIndex.value}`);
 const codeTheme = computed(() => (colorMode.value === "dark" ? "vitesse-dark" : "vitesse-light"));
-function selectStory(index: number) {
-  activeIndex.value = index;
-  restartTimer();
+
+function advance() {
+  activeIndex.value = (activeIndex.value + 1) % stories.length;
+  progress.value = 0;
+  lastTimestamp = undefined;
 }
 
-function goToNext() {
-  activeIndex.value = (activeIndex.value + 1) % stories.length;
+function tick(now: number) {
+  if (!isPaused.value) {
+    if (lastTimestamp !== undefined) {
+      const delta = now - lastTimestamp;
+      progress.value += delta / DURATION;
+      if (progress.value >= 1) {
+        advance();
+      }
+    }
+    lastTimestamp = now;
+  }
+  rafId = requestAnimationFrame(tick);
+}
+
+function selectStory(index: number) {
+  activeIndex.value = index;
+  progress.value = 0;
+  lastTimestamp = undefined;
 }
 
 function goToPrevious() {
-  activeIndex.value = (activeIndex.value - 1 + stories.length) % stories.length;
-  restartTimer();
-}
-
-function restartTimer() {
-  if (timer) clearInterval(timer);
-  if (isPaused.value) return;
-  timer = setInterval(goToNext, AUTO_ADVANCE_MS);
+  selectStory((activeIndex.value - 1 + stories.length) % stories.length);
 }
 
 function pauseTimer() {
   isPaused.value = true;
-  if (timer) clearInterval(timer);
+  lastTimestamp = undefined; // discard stale timestamp so resume doesn't jump
 }
 
 function resumeTimer() {
   isPaused.value = false;
-  restartTimer();
+  lastTimestamp = undefined; // next tick starts a fresh delta
 }
 
-onMounted(restartTimer);
+function onVisibilityChange() {
+  if (document.hidden) {
+    // Tab hidden — freeze progress, stop accumulating deltas
+    lastTimestamp = undefined;
+  } else {
+    // Tab visible again — just let next rAF pick up cleanly
+    lastTimestamp = undefined;
+  }
+}
+
+onMounted(() => {
+  rafId = requestAnimationFrame(tick);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+});
+
 onBeforeUnmount(() => {
-  if (timer) clearInterval(timer);
+  if (rafId !== undefined) cancelAnimationFrame(rafId);
+  document.removeEventListener("visibilitychange", onVisibilityChange);
 });
 </script>
 
@@ -391,18 +419,11 @@ onBeforeUnmount(() => {
         class="text-balance text-3xl font-bold tracking-tight text-highlighted sm:text-4xl lg:text-5xl"
       >
         Depth where reports<br />actually get
-        <em class="not-italic text-primary">difficult.</em>
+        <em class="not-italic text-primary">hard.</em>
       </h2>
     </div>
 
-    <div
-      :class="[
-        { 'is-paused': isPaused },
-        'overflow-hidden rounded-[1.75rem] border border-default/60',
-      ]"
-      @mouseenter="pauseTimer"
-      @mouseleave="resumeTimer"
-    >
+    <div class="overflow-hidden rounded-[1.75rem] border border-default/60">
       <div class="border-b border-default/40 bg-elevated/20 px-5 py-5 sm:px-7 sm:py-6">
         <Transition name="story" mode="out-in">
           <div
@@ -436,7 +457,11 @@ onBeforeUnmount(() => {
         </Transition>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch">
+      <div
+        class="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch"
+        @mouseenter="pauseTimer"
+        @mouseleave="resumeTimer"
+      >
         <div
           class="relative flex min-h-[23rem] flex-col border-b border-default/60 bg-elevated/20 p-5 sm:min-h-[25rem] sm:p-6 lg:min-h-[27rem] lg:border-b-0 lg:border-r lg:p-8"
         >
@@ -526,8 +551,8 @@ onBeforeUnmount(() => {
             <span class="sr-only">{{ story.eyebrow }}: {{ story.title }}</span>
             <div
               v-if="i === activeIndex"
-              :key="progressKey"
-              class="dash__fill dash__fill--animated"
+              class="dash__fill dash__fill--active"
+              :style="{ transform: `scaleX(${progress})` }"
             />
             <div v-else-if="i < activeIndex" class="dash__fill dash__fill--complete" />
           </button>
@@ -624,27 +649,13 @@ onBeforeUnmount(() => {
   transform-origin: left center;
 }
 
-.dash__fill--animated {
+.dash__fill--active {
   background: color-mix(in oklab, var(--ui-primary) 72%, transparent);
-  animation: dash-progress 10s linear forwards;
-}
-
-.is-paused .dash__fill--animated {
-  animation-play-state: paused;
+  will-change: transform;
 }
 
 .dash__fill--complete {
   background: color-mix(in oklab, var(--ui-primary) 46%, transparent);
-}
-
-@keyframes dash-progress {
-  from {
-    transform: scaleX(0);
-  }
-
-  to {
-    transform: scaleX(1);
-  }
 }
 
 .story-enter-active,
