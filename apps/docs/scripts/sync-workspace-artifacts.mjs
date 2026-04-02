@@ -15,6 +15,7 @@ async function withSyncLock(run) {
 
   while (true) {
     try {
+      mkdirSync(docsPublicDir, { recursive: true });
       mkdirSync(syncLockDir, { recursive: false });
       writeFileSync(resolve(syncLockDir, "owner.txt"), `${process.pid}\n`, "utf8");
       break;
