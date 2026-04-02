@@ -1,7 +1,7 @@
 ---
 seo:
   title: Typed-xlsx
-  description: Feature-rich type-safe Excel reporting for TypeScript. Build schemas, sheets, tables, summaries, and formatting with a high-level API.
+  description: Type-safe, schema-driven Excel reporting for TypeScript. Typed accessors, a formula DSL, native Excel tables, and a streaming builder — all checked at compile time.
 ---
 
 ::landing-homepage

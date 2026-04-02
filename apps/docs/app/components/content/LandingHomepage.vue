@@ -50,10 +50,20 @@ createWorkbook()
   .table("invoices", { rows, schema });`;
 
 const stats = [
-  { value: "0", unit: "", label: "Runtime dependencies", sub: "Custom OOXML + ZIP engine" },
-  { value: "2", unit: "", label: "Schema modes", sub: "Report layout + native Excel tables" },
-  { value: "60", unit: "", label: "Table style presets", sub: "Light, Medium, and Dark tiers" },
-  { value: "4", unit: "", label: "Output targets", sub: "File, Buffer, Node stream, Web stream" },
+  {
+    value: "0",
+    unit: "",
+    label: "Runtime dependencies",
+    sub: "Custom OOXML + ZIP engine — nothing to audit",
+  },
+  { value: "2", unit: "", label: "Schema modes", sub: "Report layout or native Excel tables" },
+  {
+    value: "60",
+    unit: "",
+    label: "Table style presets",
+    sub: "Light, Medium & Dark tiers built in",
+  },
+  { value: "4", unit: "", label: "Output targets", sub: "File, Buffer, Node stream & Web stream" },
 ] as const;
 
 const valueProps = [
@@ -61,44 +71,44 @@ const valueProps = [
     icon: "i-lucide-shield-check",
     title: "Type-safe schema",
     description:
-      "Declare columns against your TS row type. Typed accessors, path validation, sub-row expansion, and per-cell styling fail at compile time when the shape drifts.",
+      "Declare columns against your row type. Accessors, path validation, sub-row expansion, and per-cell styling are all checked at compile time — shape drift is caught before export.",
   },
   {
     icon: "i-lucide-braces",
     title: "Formula DSL",
     description:
-      "Reference columns by ID, not cell address. Forward references do not compile, so broken formula wiring fails in TypeScript instead of inside Excel.",
+      "Reference columns by ID, never by cell address. Forward references won't compile, so broken formula wiring is a TypeScript error — not a silent Excel bug.",
   },
   {
     icon: "i-lucide-table-2",
     title: "Two schema modes",
     description:
-      "Report layout or real Excel table objects with SUBTOTAL() totals, structured refs, and 60 built-in style presets.",
+      "Emit classic report layouts or real Excel table objects complete with SUBTOTAL() totals, structured refs, and 60 built-in style presets.",
   },
   {
     icon: "i-lucide-columns-2",
     title: "Dynamic column groups",
     description:
-      "Generate column groups from runtime inputs with inferred context. Missing or wrong-typed group context is a compile-time error.",
+      "Generate columns from runtime data with fully inferred context. Missing or mistyped group context is a compile-time error, not a runtime surprise.",
   },
   {
     icon: "i-lucide-zap",
     title: "Streaming pipeline",
     description:
-      "Commit row batches to a file-backed spool. Heap stays flat regardless of dataset size. Full schema parity with buffered mode.",
+      "Commit rows in batches through a spool-backed pipeline. Heap stays flat no matter the dataset size — with full schema parity to buffered mode.",
   },
   {
     icon: "i-lucide-package-open",
     title: "Zero dependencies",
     description:
-      "Custom OOXML serializer and incremental ZIP engine. No SheetJS, no ExcelJS. No transitive risk in your dependency graph.",
+      "Ships a custom OOXML serializer and incremental ZIP engine. No SheetJS, no ExcelJS — zero transitive risk in your dependency graph.",
   },
 ] as const;
 
 const apiSurface = [
   {
     label: "Schema",
-    hint: "Define typed columns, formulas, styles",
+    hint: "Typed columns, formulas & styles",
     code: `createExcelSchema<T>(options?)
   .column(id, {
     accessor, formula,
@@ -111,7 +121,7 @@ const apiSurface = [
   },
   {
     label: "Workbook",
-    hint: "Compose sheets, flush to output",
+    hint: "Sheets, tables & output in one chain",
     code: `createWorkbook()
   .sheet(name, {
     freezePane, rightToLeft,
@@ -125,7 +135,7 @@ const apiSurface = [
   },
   {
     label: "Streaming",
-    hint: "Same schema, unbounded row output",
+    hint: "Same schema, unbounded datasets",
     code: `const wb = createWorkbookStream();
 
 const tbl = await wb
@@ -145,7 +155,7 @@ const architectureLayers = [
     index: "01",
     title: "The Schema Layer",
     description:
-      "Model worksheet structure directly from your TypeScript rows. Accessors, selection, sub-rows, defaults, and styling all stay in one schema surface.",
+      "Model your worksheet directly from TypeScript row types. Accessors, selection, sub-rows, defaults, and styling live in a single declarative surface.",
     tags: ["typed accessors", "selection", "sub-rows", "styles", "defaults"],
     bar: "w-full",
   },
@@ -153,7 +163,7 @@ const architectureLayers = [
     index: "02",
     title: "The Formula Engine",
     description:
-      "Compose Excel formulas from column IDs instead of coordinates. Predecessor rules are enforced at compile time, so broken references fail before export.",
+      "Compose Excel formulas from column IDs, not coordinates. Predecessor ordering is enforced at compile time — broken references never reach the spreadsheet.",
     tags: ["row.ref()", "fx.*", "group sums", "summary formulas", "compile-time safety"],
     bar: "w-4/5",
   },
@@ -161,7 +171,7 @@ const architectureLayers = [
     index: "03",
     title: "The Workbook Builder",
     description:
-      "Assemble complete workbooks with multi-sheet layout, report mode or native Excel tables, freeze panes, and predictable table placement.",
+      "Assemble multi-sheet workbooks with report mode or native Excel tables, freeze panes, and deterministic table placement — all from a single fluent chain.",
     tags: ["report mode", "excel tables", "multi-sheet", "layout", "freeze panes"],
     bar: "w-3/4",
   },
@@ -169,7 +179,7 @@ const architectureLayers = [
     index: "04",
     title: "The Stream Pipeline",
     description:
-      "Commit large exports in batches to a spool-backed pipeline. The ZIP is assembled incrementally, while the schema surface stays aligned with buffered mode.",
+      "Flush large exports in batches through a spool-backed pipeline. The ZIP is assembled incrementally while the schema surface stays identical to buffered mode.",
     tags: ["batch commit", "spool", "incremental ZIP", "Node streams", "Web streams"],
     bar: "w-2/3",
   },
@@ -179,23 +189,23 @@ const routeCards = [
   {
     title: "Build your first report",
     description:
-      "Invoice schema with typed accessors, formula refs, summary row, and freeze pane in under 30 lines.",
-    to: "/getting-started/quick-start-buffered",
+      "Typed accessors, formula refs, a summary row, and a freeze pane — in under 30 lines of code.",
+    to: "/getting-started/quick-start",
     icon: "i-lucide-rocket",
-    cta: "Buffered quick start",
+    cta: "Quick start",
   },
   {
-    title: "Export 100k+ rows",
+    title: "Explore the schema API",
     description:
-      "Same schema, streaming builder. Commit batches from a DB cursor and keep the heap flat.",
-    to: "/getting-started/quick-start-streaming",
-    icon: "i-lucide-waves",
-    cta: "Streaming quick start",
+      "Columns, formulas, groups, sub-rows, styling, and validation — the full schema surface explained.",
+    to: "/schema-builder/defining-columns",
+    icon: "i-lucide-layers",
+    cta: "Schema builder",
   },
   {
     title: "Compare to SheetJS / ExcelJS",
     description:
-      "Type safety, formula DSL, native tables, and schema reusability — side by side with the two most popular alternatives.",
+      "Type safety, formula DSL, native tables, and schema reuse — side by side with the two most popular alternatives.",
     to: "/getting-started/comparison",
     icon: "i-lucide-git-compare-arrows",
     cta: "Library comparison",
@@ -249,24 +259,18 @@ await wb.writeToFile("./orders.xlsx");`;
         </h1>
 
         <p class="max-w-lg text-pretty text-xl leading-8 text-toned">
-          Schema-driven XLSX generation for TypeScript. Typed accessors, a formula DSL with
-          compile-time column references, native Excel tables, and a streaming builder for unbounded
-          datasets.
-        </p>
-
-        <p class="max-w-lg text-pretty text-base leading-7 text-toned/90">
-          Misspell a path, reference a later column, pass the wrong group context, or select a
-          column that does not exist and TypeScript stops the export definition before it ships.
+          Schema-driven XLSX generation for TypeScript. If the export definition is wrong, the
+          compiler tells you — not the spreadsheet.
         </p>
 
         <div class="flex flex-wrap items-center gap-3">
           <UButton
             color="primary"
             size="xl"
-            to="/getting-started/quick-start-buffered"
+            to="/getting-started/introduction"
             trailing-icon="i-lucide-arrow-right"
           >
-            Build your first report
+            Get started
           </UButton>
           <UButton
             color="neutral"
@@ -275,7 +279,7 @@ await wb.writeToFile("./orders.xlsx");`;
             to="/getting-started/comparison"
             class="border border-default/60"
           >
-            vs SheetJS / ExcelJS
+            Why typed-xlsx?
           </UButton>
         </div>
 
@@ -435,8 +439,8 @@ await wb.writeToFile("./orders.xlsx");`;
           </h2>
         </div>
         <p class="max-w-sm text-pretty text-base leading-7 text-toned">
-          Four layers, one coherent system. Each builds on the previous — stop at any layer or use
-          the full stack.
+          Four layers, one coherent system. Each builds on the last — stop at any layer or use the
+          full stack.
         </p>
       </div>
 
@@ -518,8 +522,8 @@ await wb.writeToFile("./orders.xlsx");`;
           One schema.<br /><em class="not-italic text-primary">Two output paths.</em>
         </h2>
         <p class="max-w-xl text-pretty text-lg leading-8 text-toned">
-          Switch from buffered to streaming without touching the schema. The same column
-          definitions, formulas, summaries, validation, and table modes work in both paths.
+          Switch from buffered to streaming without touching your schema. Column definitions,
+          formulas, summaries, validation, and table modes all carry over unchanged.
         </p>
       </div>
 
@@ -575,17 +579,17 @@ await wb.writeToFile("./orders.xlsx");`;
           <div class="px-5 py-4 sm:px-6 sm:py-5">
             <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-toned/60">Schema</p>
             <p class="mt-1.5 text-sm font-bold text-highlighted">Unchanged</p>
-            <p class="mt-0.5 text-xs text-toned">Same definition in both modes</p>
+            <p class="mt-0.5 text-xs text-toned">Identical definition in both modes</p>
           </div>
           <div class="px-5 py-4 sm:px-6 sm:py-5">
             <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-toned/60">Heap</p>
             <p class="mt-1.5 text-sm font-bold text-primary">Flat</p>
-            <p class="mt-0.5 text-xs text-toned">Freed after each batch commit</p>
+            <p class="mt-0.5 text-xs text-toned">Released after every batch commit</p>
           </div>
           <div class="px-5 py-4 sm:px-6 sm:py-5">
             <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-toned/60">Dataset</p>
             <p class="mt-1.5 text-sm font-bold text-primary">Unbounded</p>
-            <p class="mt-0.5 text-xs text-toned">File-backed incremental ZIP</p>
+            <p class="mt-0.5 text-xs text-toned">Spool-backed incremental ZIP</p>
           </div>
           <div class="px-5 py-4 sm:px-6 sm:py-5">
             <p class="font-mono text-[9px] uppercase tracking-[0.18em] text-toned/60">Outputs</p>
@@ -653,14 +657,14 @@ await wb.writeToFile("./orders.xlsx");`;
           Ready to<br /><em class="not-italic text-primary">compile?</em>
         </h2>
         <p class="mx-auto mb-8 max-w-lg text-pretty text-base text-toned sm:mb-10 sm:text-lg">
-          Define a schema, pass rows, export a workbook. First report in under 30 lines. No
-          configuration, no boilerplate.
+          Define a schema, pass your rows, export a workbook. Your first report ships in under 30
+          lines — no configuration, no boilerplate.
         </p>
         <div class="flex flex-wrap justify-center gap-3">
           <UButton
             color="primary"
             size="xl"
-            to="/getting-started/quick-start-buffered"
+            to="/getting-started/quick-start"
             trailing-icon="i-lucide-arrow-right"
           >
             Build your first report
