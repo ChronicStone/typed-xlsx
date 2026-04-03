@@ -1,10 +1,17 @@
 {
   "name": "@chronicstone/typed-xlsx",
   "version": "1.0.4",
-  "description": "High-quality type-safe Excel reporting.",
+  "description": "Type-safe, schema-driven Excel reporting for TypeScript with native Excel tables and streaming exports.",
   "keywords": [
     "excel",
+    "excel-export",
+    "excel-reporting",
+    "excel-table",
+    "nodejs",
     "reporting",
+    "schema-driven",
+    "streaming",
+    "type-safe",
     "typescript",
     "xlsx"
   ],

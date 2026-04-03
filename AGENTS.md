@@ -11,6 +11,7 @@
 
 - Use Twoslash for code examples when setting up or updating docs examples.
 - Make sure Twoslash examples actually compile and do not introduce dev server errors.
+- Run docs validation commands sequentially, not in parallel. In particular, avoid running `check:content`, `generate:twoslash`, `nuxt prepare`, `nuxt build`, or other Nuxt content/Twoslash validation steps concurrently because the docs toolchain can hit SQLite/content cache locking and flaky failures.
 - When docs UI or layout changes matter, use the browser agent to verify the rendered result.
 
 ## Examples
