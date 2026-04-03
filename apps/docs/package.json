@@ -20,6 +20,8 @@
     "@shikijs/vitepress-twoslash": "4.0.2",
     "better-sqlite3": "12.8.0",
     "docus": "5.8.1",
+    "motion": "^12.38.0",
+    "motion-v": "^2.2.0",
     "nuxt": "4.4.2",
     "nuxt-content-twoslash": "0.4.0",
     "shiki": "4.0.2",

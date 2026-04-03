@@ -1,20 +1,34 @@
 <script setup lang="ts">
-import { useScrollRevealGroup } from "../../composables/useScrollReveal";
+import { motion } from "motion-v";
+import { stagger } from "motion";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
-const [
-  heroReveal,
-  statsReveal,
-  whyReveal,
-  apiReveal,
-  archReveal,
-  showcaseReveal,
-  streamReveal,
-  routeReveal,
-  ctaReveal,
-] = useScrollRevealGroup(9, {
-  threshold: 0.08,
-  rootMargin: "0px 0px -60px 0px",
-});
+// ── Shared animation presets ────────────────────────────────────
+const fadeUp = { opacity: 0, y: 24 } as const;
+const visible = { opacity: 1, y: 0 } as const;
+const ease = [0.16, 1, 0.3, 1] as const;
+
+const inViewOnce = { once: true, amount: 0.08, margin: "0px 0px -60px 0px" } as const;
+const hoverTransition = { duration: 0.22, ease } as const;
+
+// ── Variants for stagger children (value props, api panels, arch rows, route cards) ──
+const staggerParent = {
+  hidden: {},
+  show: {
+    transition: {
+      delayChildren: stagger(0.07),
+    },
+  },
+} as const;
+
+const staggerChild = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease },
+  },
+} as const;
 
 const HERO_CODE = `import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
 
@@ -84,6 +98,58 @@ const stats = [
   },
   { value: "4", unit: "", label: "Output targets", sub: "File, Buffer, Node stream & Web stream" },
 ] as const;
+
+const animatedStats = ref(stats.map(() => 0));
+const statsEntered = ref(false);
+
+const statsDisplay = computed(() =>
+  stats.map((stat, index) => ({
+    ...stat,
+    displayValue: `${animatedStats.value[index] ?? 0}`,
+  })),
+);
+
+let statsRafId: number | undefined;
+
+let statsTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
+function animateStats() {
+  if (statsEntered.value) return;
+  statsEntered.value = true;
+
+  const start = performance.now();
+  const duration = 900;
+
+  const tick = (now: number) => {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - (1 - progress) ** 3;
+
+    animatedStats.value = stats.map((stat) => {
+      const target = Number.parseInt(stat.value, 10);
+      return Number.isFinite(target) ? Math.round(target * eased) : 0;
+    });
+
+    if (progress < 1) {
+      statsRafId = requestAnimationFrame(tick);
+      return;
+    }
+
+    statsRafId = undefined;
+  };
+
+  statsRafId = requestAnimationFrame(tick);
+}
+
+onMounted(() => {
+  statsTimeoutId = setTimeout(() => {
+    animateStats();
+  }, 250);
+});
+
+onBeforeUnmount(() => {
+  if (statsTimeoutId !== undefined) clearTimeout(statsTimeoutId);
+  if (statsRafId !== undefined) cancelAnimationFrame(statsRafId);
+});
 
 const valueProps = [
   {
@@ -260,31 +326,52 @@ await wb.writeToFile("./orders.xlsx");`;
     />
 
     <section
-      ref="heroReveal.target"
-      :class="['scroll-reveal', { 'is-visible': heroReveal.isVisible }]"
       class="mx-auto grid w-full max-w-[90rem] grid-cols-1 gap-8 px-4 pb-8 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-12 lg:px-8 lg:pt-20"
     >
       <div class="flex flex-col gap-8 lg:pt-4">
-        <UBadge
-          color="primary"
-          variant="subtle"
-          class="reveal-child reveal-child--1 w-fit rounded-full px-3 py-1 font-mono text-xs tracking-widest uppercase"
+        <motion.div
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :transition="{ duration: 0.4, ease }"
         >
-          @chronicstone/typed-xlsx
-        </UBadge>
+          <UBadge
+            color="primary"
+            variant="subtle"
+            class="w-fit rounded-full px-3 py-1 font-mono text-xs tracking-widest uppercase"
+          >
+            @chronicstone/typed-xlsx
+          </UBadge>
+        </motion.div>
 
-        <h1
-          class="reveal-child reveal-child--2 text-balance text-5xl font-bold leading-[0.95] tracking-tight text-highlighted sm:text-6xl lg:text-[5.5rem]"
+        <motion.div
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :transition="{ duration: 0.42, ease, delay: 0.04 }"
         >
-          Excel&nbsp;Reporting<br /><em class="not-italic text-primary">Re-Engineered.</em>
-        </h1>
+          <h1
+            class="text-balance text-5xl font-bold leading-[0.95] tracking-tight text-highlighted sm:text-6xl lg:text-[5.5rem]"
+          >
+            Excel&nbsp;Reporting<br /><em class="not-italic text-primary">Re-Engineered.</em>
+          </h1>
+        </motion.div>
 
-        <p class="reveal-child reveal-child--3 max-w-lg text-pretty text-xl leading-8 text-toned">
-          Schema-driven XLSX generation for TypeScript. If the export definition is wrong, the
-          compiler tells you — not the spreadsheet.
-        </p>
+        <motion.div
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :transition="{ duration: 0.4, ease, delay: 0.08 }"
+        >
+          <p class="max-w-lg text-pretty text-xl leading-8 text-toned">
+            Schema-driven XLSX generation for TypeScript. If the export definition is wrong, the
+            compiler tells you — not the spreadsheet.
+          </p>
+        </motion.div>
 
-        <div class="reveal-child reveal-child--4 flex flex-wrap items-center gap-3">
+        <motion.div
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :transition="{ duration: 0.4, ease, delay: 0.12 }"
+          class="flex flex-wrap items-center gap-3"
+        >
           <UButton
             color="primary"
             size="xl"
@@ -302,9 +389,14 @@ await wb.writeToFile("./orders.xlsx");`;
           >
             Why typed-xlsx?
           </UButton>
-        </div>
+        </motion.div>
 
-        <div class="reveal-child reveal-child--5 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <motion.div
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :transition="{ duration: 0.4, ease, delay: 0.16 }"
+          class="flex flex-wrap items-center gap-x-6 gap-y-3"
+        >
           <code
             class="rounded-xl border border-default/50 bg-elevated/70 px-4 py-2.5 font-mono text-sm text-toned backdrop-blur"
           >
@@ -316,73 +408,86 @@ await wb.writeToFile("./orders.xlsx");`;
           <span class="flex items-center gap-2 text-sm text-toned">
             <span class="size-2 rounded-full bg-primary/80" />Zero dependencies
           </span>
-        </div>
+        </motion.div>
       </div>
 
       <!-- Hero code card -->
-      <UPageCard
-        spotlight
-        class="reveal-child reveal-child--3 min-w-0 rounded-[1.75rem] border border-default/60"
+      <motion.div
+        :initial="{ opacity: 0 }"
+        :animate="{ opacity: 1 }"
+        :transition="{ duration: 0.35, ease, delay: 0.1 }"
       >
-        <div class="min-w-0 overflow-hidden rounded-[1.75rem]">
-          <div class="border-b border-default/60 px-5 py-3.5">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/70">
-                  schema + formula + export
-                </p>
-                <p class="mt-0.5 text-sm font-semibold text-highlighted">
-                  Invoice report — full example
-                </p>
-              </div>
-              <div class="flex gap-1.5">
-                <span class="size-3 rounded-full bg-red-400/60" />
-                <span class="size-3 rounded-full bg-amber-400/60" />
-                <span class="size-3 rounded-full bg-green-400/60" />
+        <UPageCard spotlight class="min-w-0 rounded-[1.75rem] border border-default/60">
+          <div class="min-w-0 overflow-hidden rounded-[1.75rem]">
+            <div class="border-b border-default/60 px-5 py-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/70">
+                    schema + formula + export
+                  </p>
+                  <p class="mt-0.5 text-sm font-semibold text-highlighted">
+                    Invoice report — full example
+                  </p>
+                </div>
+                <div class="flex gap-1.5">
+                  <span class="size-3 rounded-full bg-red-400/60" />
+                  <span class="size-3 rounded-full bg-amber-400/60" />
+                  <span class="size-3 rounded-full bg-green-400/60" />
+                </div>
               </div>
             </div>
+            <MdcCodeBlock
+              :code="HERO_CODE"
+              lang="ts"
+              twoslash
+              theme="vitesse-dark"
+              class="landing-code-block min-w-0 max-h-[480px] overflow-y-auto overflow-x-hidden px-4 py-3"
+            />
           </div>
-          <MdcCodeBlock
-            :code="HERO_CODE"
-            lang="ts"
-            twoslash
-            theme="vitesse-dark"
-            class="landing-code-block min-w-0 max-h-[480px] overflow-y-auto overflow-x-hidden px-4 py-3"
-          />
-        </div>
-      </UPageCard>
+        </UPageCard>
+      </motion.div>
     </section>
 
     <!-- ── STATS STRIP ───────────────────────────────────────────────── -->
-    <div
-      ref="statsReveal.target"
-      :class="['scroll-reveal scroll-reveal--delay-1', { 'is-visible': statsReveal.isVisible }]"
+    <motion.div
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease, delay: 0.12 }"
       class="landing-stats-strip mx-auto mt-14 max-w-[90rem] px-4 sm:mt-16 sm:px-6 lg:mt-20 lg:px-8"
     >
-      <div
+      <motion.div
+        :variants="staggerParent"
+        initial="hidden"
+        whileInView="show"
+        :inViewOptions="inViewOnce"
         class="landing-section-container grid grid-cols-2 divide-x divide-y divide-default/40 overflow-hidden rounded-2xl sm:grid-cols-4 sm:divide-y-0"
       >
-        <div
-          v-for="(stat, i) in stats"
+        <motion.div
+          v-for="stat in statsDisplay"
           :key="stat.label"
-          :class="['reveal-child', `reveal-child--${i + 1}`]"
+          :variants="staggerChild"
+          :whileHover="{ y: -3, scale: 1.01 }"
+          :transition="hoverTransition"
           class="landing-stat-item flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5"
         >
           <p
             class="font-mono text-3xl font-bold tabular-nums text-highlighted leading-none sm:text-4xl"
           >
-            {{ stat.value }}<span class="text-primary">{{ stat.unit }}</span>
+            {{ stat.displayValue }}<span class="text-primary">{{ stat.unit }}</span>
           </p>
           <p class="mt-1 text-sm font-semibold text-highlighted">{{ stat.label }}</p>
           <p class="text-xs leading-5 text-toned">{{ stat.sub }}</p>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
 
     <!-- ── WHY TYPED-XLSX ─────────────────────────────────────────────── -->
-    <section
-      ref="whyReveal.target"
-      :class="['scroll-reveal', { 'is-visible': whyReveal.isVisible }]"
+    <motion.section
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease }"
       class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8"
     >
       <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
@@ -398,12 +503,19 @@ await wb.writeToFile("./orders.xlsx");`;
         </h2>
       </div>
 
-      <div
+      <motion.div
+        :variants="staggerParent"
+        initial="hidden"
+        whileInView="show"
+        :inViewOptions="inViewOnce"
         class="landing-section-container grid grid-cols-1 gap-px overflow-hidden rounded-[1.5rem] sm:grid-cols-2 lg:grid-cols-3"
       >
-        <div
+        <motion.div
           v-for="prop in valueProps"
           :key="prop.title"
+          :variants="staggerChild"
+          :whileHover="{ y: -4 }"
+          :transition="hoverTransition"
           class="group landing-value-card px-5 py-5 transition-colors sm:px-6 sm:py-6"
         >
           <div
@@ -413,14 +525,16 @@ await wb.writeToFile("./orders.xlsx");`;
           </div>
           <h3 class="text-sm font-bold text-highlighted">{{ prop.title }}</h3>
           <p class="mt-1.5 text-sm leading-6 text-toned">{{ prop.description }}</p>
-        </div>
-      </div>
-    </section>
+        </motion.div>
+      </motion.div>
+    </motion.section>
 
     <!-- ── API SURFACE ───────────────────────────────────────────────── -->
-    <section
-      ref="apiReveal.target"
-      :class="['scroll-reveal', { 'is-visible': apiReveal.isVisible }]"
+    <motion.section
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease }"
       class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8"
     >
       <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
@@ -432,13 +546,20 @@ await wb.writeToFile("./orders.xlsx");`;
         </h2>
       </div>
 
-      <div
+      <motion.div
+        :variants="staggerParent"
+        initial="hidden"
+        whileInView="show"
+        :inViewOptions="inViewOnce"
         class="landing-section-container grid grid-cols-1 items-stretch divide-y divide-default/40 overflow-hidden rounded-[1.5rem] lg:grid-cols-3 lg:divide-x lg:divide-y-0"
       >
-        <div
+        <motion.div
           v-for="entry in apiSurface"
           :key="entry.label"
-          class="flex flex-col gap-3 px-6 py-6 sm:px-7 sm:py-7"
+          :variants="staggerChild"
+          :whileHover="{ y: -4 }"
+          :transition="hoverTransition"
+          class="landing-api-card flex flex-col gap-3 px-6 py-6 sm:px-7 sm:py-7"
         >
           <div class="flex items-baseline gap-3">
             <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
@@ -452,17 +573,19 @@ await wb.writeToFile("./orders.xlsx");`;
             theme="vitesse-dark"
             class="api-code-block flex-1 overflow-hidden rounded-xl border border-default/40 bg-default/60 p-4"
           />
-        </div>
-      </div>
-    </section>
+        </motion.div>
+      </motion.div>
+    </motion.section>
 
     <!-- ── FEATURE CAROUSEL ──────────────────────────────────────────── -->
     <LandingValueCarousel />
 
     <!-- ── ARCHITECTURAL MONOLITH ────────────────────────────────────── -->
-    <section
-      ref="archReveal.target"
-      :class="['scroll-reveal', { 'is-visible': archReveal.isVisible }]"
+    <motion.section
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease }"
       class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
     >
       <div
@@ -484,10 +607,17 @@ await wb.writeToFile("./orders.xlsx");`;
         </p>
       </div>
 
-      <div class="landing-section-container overflow-hidden rounded-[1.5rem]">
-        <div
+      <motion.div
+        :variants="staggerParent"
+        initial="hidden"
+        whileInView="show"
+        :inViewOptions="inViewOnce"
+        class="landing-section-container overflow-hidden rounded-[1.5rem]"
+      >
+        <motion.div
           v-for="layer in architectureLayers"
           :key="layer.index"
+          :variants="staggerChild"
           class="group grid grid-cols-1 gap-4 border-t border-default/40 px-5 py-5 transition-colors sm:px-6 sm:py-6 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:px-6 lg:py-7 first:border-t-0 landing-arch-row"
         >
           <div class="flex items-baseline gap-4">
@@ -520,14 +650,16 @@ await wb.writeToFile("./orders.xlsx");`;
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
+        </motion.div>
+      </motion.div>
+    </motion.section>
 
     <!-- ── ARTIFACT SHOWCASE TEASER ──────────────────────────────────── -->
-    <div
-      ref="showcaseReveal.target"
-      :class="['scroll-reveal', { 'is-visible': showcaseReveal.isVisible }]"
+    <motion.div
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease }"
       class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
     >
       <div
@@ -553,13 +685,22 @@ await wb.writeToFile("./orders.xlsx");`;
           </UButton>
         </div>
       </div>
-      <LandingArtifactExplorerPreview :limit="3" :show-cta="false" />
-    </div>
+      <motion.div
+        :initial="{ opacity: 0, y: 18 }"
+        :whileInView="{ opacity: 1, y: 0 }"
+        :inViewOptions="inViewOnce"
+        :transition="{ duration: 0.55, ease, delay: 0.08 }"
+      >
+        <LandingArtifactExplorerPreview :limit="3" :show-cta="false" />
+      </motion.div>
+    </motion.div>
 
     <!-- ── STREAMING / SCALE ──────────────────────────────────────────── -->
-    <section
-      ref="streamReveal.target"
-      :class="['scroll-reveal', { 'is-visible': streamReveal.isVisible }]"
+    <motion.section
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease }"
       class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
     >
       <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
@@ -578,8 +719,13 @@ await wb.writeToFile("./orders.xlsx");`;
       <div class="landing-section-container overflow-hidden rounded-[1.75rem]">
         <div class="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch">
           <!-- Buffered -->
-          <div
-            class="flex min-h-[24rem] flex-col border-b border-default/60 px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 lg:border-b-0 lg:border-r landing-buffered-panel"
+          <motion.div
+            :initial="{ opacity: 0, x: -18 }"
+            :whileInView="{ opacity: 1, x: 0 }"
+            :inViewOptions="inViewOnce"
+            :transition="{ duration: 0.5, ease, delay: 0.04 }"
+            :whileHover="{ y: -4 }"
+            class="landing-stream-panel flex min-h-[24rem] flex-col border-b border-default/60 px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 lg:border-b-0 lg:border-r landing-buffered-panel"
           >
             <div class="mb-4 flex items-center gap-3">
               <span
@@ -596,11 +742,16 @@ await wb.writeToFile("./orders.xlsx");`;
                 class="stream-code-block stream-code-block--buffered"
               />
             </div>
-          </div>
+          </motion.div>
 
           <!-- Streaming -->
-          <div
-            class="flex min-h-[24rem] flex-col px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 landing-streaming-panel"
+          <motion.div
+            :initial="{ opacity: 0, x: 18 }"
+            :whileInView="{ opacity: 1, x: 0 }"
+            :inViewOptions="inViewOnce"
+            :transition="{ duration: 0.5, ease, delay: 0.1 }"
+            :whileHover="{ y: -4 }"
+            class="landing-stream-panel flex min-h-[24rem] flex-col px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 landing-streaming-panel"
           >
             <div class="mb-4 flex items-center gap-3">
               <span
@@ -617,7 +768,7 @@ await wb.writeToFile("./orders.xlsx");`;
                 class="stream-code-block stream-code-block--streaming"
               />
             </div>
-          </div>
+          </motion.div>
         </div>
 
         <!-- Stat strip -->
@@ -648,12 +799,14 @@ await wb.writeToFile("./orders.xlsx");`;
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
 
     <!-- ── NEXT STEPS ────────────────────────────────────────────────── -->
-    <section
-      ref="routeReveal.target"
-      :class="['scroll-reveal', { 'is-visible': routeReveal.isVisible }]"
+    <motion.section
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease }"
       class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
     >
       <div class="mb-8 space-y-3 sm:mb-10">
@@ -666,37 +819,47 @@ await wb.writeToFile("./orders.xlsx");`;
           Pick your<br /><em class="not-italic text-primary">starting point.</em>
         </h2>
       </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-        <UPageCard
+      <motion.div
+        :variants="staggerParent"
+        initial="hidden"
+        whileInView="show"
+        :inViewOptions="inViewOnce"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
+      >
+        <motion.div
           v-for="card in routeCards"
           :key="card.title"
-          :to="card.to"
-          spotlight
-          class="landing-route-card rounded-[1.75rem]"
+          :variants="staggerChild"
+          :whileHover="{ y: -4 }"
+          :transition="{ type: 'spring', stiffness: 420, damping: 28 }"
         >
-          <div class="flex h-full flex-col gap-5 p-2">
-            <div
-              class="flex size-11 items-center justify-center rounded-full border border-primary/20 bg-primary/8"
-            >
-              <UIcon :name="card.icon" class="size-5 text-primary" />
+          <UPageCard :to="card.to" spotlight class="landing-route-card rounded-[1.75rem]">
+            <div class="flex h-full flex-col gap-5 p-2">
+              <div
+                class="flex size-11 items-center justify-center rounded-full border border-primary/20 bg-primary/8"
+              >
+                <UIcon :name="card.icon" class="size-5 text-primary" />
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-highlighted">{{ card.title }}</h3>
+                <p class="mt-2 text-sm leading-6 text-toned">{{ card.description }}</p>
+              </div>
+              <div class="mt-auto flex items-center gap-1.5 text-sm font-semibold text-primary">
+                {{ card.cta }}
+                <UIcon name="i-lucide-arrow-right" class="landing-route-arrow size-4" />
+              </div>
             </div>
-            <div>
-              <h3 class="text-lg font-bold text-highlighted">{{ card.title }}</h3>
-              <p class="mt-2 text-sm leading-6 text-toned">{{ card.description }}</p>
-            </div>
-            <div class="mt-auto flex items-center gap-1.5 text-sm font-semibold text-primary">
-              {{ card.cta }}
-              <UIcon name="i-lucide-arrow-right" class="size-4" />
-            </div>
-          </div>
-        </UPageCard>
-      </div>
-    </section>
+          </UPageCard>
+        </motion.div>
+      </motion.div>
+    </motion.section>
 
     <!-- ── FINAL CTA ─────────────────────────────────────────────────── -->
-    <section
-      ref="ctaReveal.target"
-      :class="['scroll-reveal', { 'is-visible': ctaReveal.isVisible }]"
+    <motion.section
+      :initial="fadeUp"
+      :whileInView="visible"
+      :inViewOptions="inViewOnce"
+      :transition="{ duration: 0.7, ease }"
       class="mx-auto mb-16 mt-16 max-w-[90rem] px-4 sm:mb-24 sm:mt-24 sm:px-6 lg:mb-28 lg:mt-28 lg:px-8"
     >
       <div
@@ -714,60 +877,44 @@ await wb.writeToFile("./orders.xlsx");`;
           Define a schema, pass your rows, export a workbook. Your first report ships in under 30
           lines — no configuration, no boilerplate.
         </p>
-        <div class="flex flex-wrap justify-center gap-3">
-          <UButton
-            color="primary"
-            size="xl"
-            to="/getting-started/quick-start"
-            trailing-icon="i-lucide-arrow-right"
-          >
-            Build your first report
-          </UButton>
-          <UButton
-            color="neutral"
-            size="xl"
-            variant="ghost"
-            to="https://github.com/ChronicStone/typed-xlsx"
-            target="_blank"
-            icon="i-simple-icons-github"
-            class="border border-default/60"
-          >
-            GitHub
-          </UButton>
-        </div>
+        <motion.div
+          :initial="{ opacity: 0, y: 16 }"
+          :whileInView="{ opacity: 1, y: 0 }"
+          :inViewOptions="inViewOnce"
+          :transition="{ duration: 0.45, ease, delay: 0.08 }"
+          class="flex flex-wrap justify-center gap-3"
+        >
+          <motion.div :whileHover="{ y: -3, scale: 1.02 }" :transition="hoverTransition">
+            <UButton
+              color="primary"
+              size="xl"
+              to="/getting-started/quick-start"
+              trailing-icon="i-lucide-arrow-right"
+              class="landing-cta-button"
+            >
+              Build your first report
+            </UButton>
+          </motion.div>
+          <motion.div :whileHover="{ y: -3, scale: 1.02 }" :transition="hoverTransition">
+            <UButton
+              color="neutral"
+              size="xl"
+              variant="ghost"
+              to="https://github.com/ChronicStone/typed-xlsx"
+              target="_blank"
+              icon="i-simple-icons-github"
+              class="landing-cta-button border border-default/60"
+            >
+              GitHub
+            </UButton>
+          </motion.div>
+        </motion.div>
       </div>
-    </section>
+    </motion.section>
   </div>
 </template>
 
 <style scoped>
-/* ── Scroll reveal animations ─────────────────────────────────── */
-.scroll-reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
-}
-
-.scroll-reveal.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.scroll-reveal--delay-1 {
-  transition-delay: 0.12s;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scroll-reveal {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-}
-
 /* ── Hero background ──────────────────────────────────────────── */
 .landing-hero-bg {
   background:
@@ -962,6 +1109,29 @@ await wb.writeToFile("./orders.xlsx");`;
   background: var(--landing-surface-hover);
 }
 
+/* ── Stats cards ──────────────────────────────────────────────── */
+.landing-stat-item {
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.landing-stat-item:hover {
+  background: color-mix(in oklab, var(--landing-surface-hover) 82%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 10%, transparent);
+}
+
+/* ── API cards ───────────────────────────────────────────────── */
+.landing-api-card {
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.landing-api-card:hover {
+  background: color-mix(in oklab, var(--landing-surface-hover) 88%, transparent);
+}
+
 /* ── Architecture rows ────────────────────────────────────────── */
 .landing-arch-row {
   transition: background 0.2s ease;
@@ -980,19 +1150,39 @@ await wb.writeToFile("./orders.xlsx");`;
   background: color-mix(in oklab, var(--landing-surface) 60%, transparent);
 }
 
+.landing-stream-panel {
+  transition:
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.landing-stream-panel:hover {
+  box-shadow: 0 16px 42px -28px color-mix(in oklab, var(--ui-primary) 18%, transparent);
+}
+
 /* ── Route cards ──────────────────────────────────────────────── */
 .landing-route-card {
   border: 1px solid var(--landing-border);
   background: var(--landing-surface);
   transition:
-    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
     border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
 
 .landing-route-card:hover {
-  transform: translateY(-2px);
   border-color: var(--landing-border-hover);
   box-shadow: 0 8px 32px -12px color-mix(in oklab, var(--ui-primary) 12%, transparent);
+}
+
+.landing-route-card:hover .landing-route-arrow {
+  transform: translateX(3px);
+}
+
+.landing-route-arrow {
+  transition: transform 0.2s ease;
+}
+
+.landing-cta-button {
+  box-shadow: 0 10px 26px -18px color-mix(in oklab, var(--ui-primary) 24%, transparent);
 }
 </style>
