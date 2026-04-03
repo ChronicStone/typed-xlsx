@@ -1,10 +1,33 @@
 <script setup lang="ts">
+import { motion } from "motion-v";
 import {
   getArtifactAccentClass,
   getArtifactCatalog,
   getArtifactLandingEyebrow,
   getArtifactPreviewKind,
 } from "../../data/artifactCatalog";
+
+const ease = [0.16, 1, 0.3, 1] as const;
+
+const inViewOnce = { once: true, amount: 0.16, margin: "0px 0px -40px 0px" } as const;
+
+const cardStagger = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+} as const;
+
+const cardReveal = {
+  hidden: { opacity: 0, y: 22 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease },
+  },
+} as const;
 
 const props = withDefaults(
   defineProps<{
@@ -33,132 +56,150 @@ function artifactPreviewBars(index: number) {
 
 <template>
   <div class="space-y-4">
-    <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-      <UPageCard
+    <motion.div
+      :variants="cardStagger"
+      initial="hidden"
+      whileInView="show"
+      :inViewOptions="inViewOnce"
+      class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3"
+    >
+      <motion.div
         v-for="(artifact, index) in artifacts"
         :key="artifact.id"
-        :to="`/playground/${artifact.id}`"
-        spotlight
-        class="artifact-card rounded-[1.35rem] border border-default/60 bg-default/95"
+        :variants="cardReveal"
+        :whileHover="{ y: -6, scale: 1.015 }"
+        :transition="{ duration: 0.22, ease }"
       >
-        <div class="artifact-card__inner flex h-full flex-col gap-3 p-1.5">
-          <div :class="['artifact-preview', getArtifactAccentClass(artifact)]">
-            <div class="artifact-preview__chrome">
-              <span />
-              <span />
-              <span />
-            </div>
-
-            <div class="artifact-preview__body">
-              <div class="artifact-preview__title-row">
-                <div class="artifact-preview__title-chip" />
-                <div class="artifact-preview__title-chip artifact-preview__title-chip--short" />
+        <UPageCard
+          :to="`/playground/${artifact.id}`"
+          spotlight
+          class="artifact-card rounded-[1.35rem] border border-default/60 bg-default/95"
+        >
+          <div class="artifact-card__inner flex h-full flex-col gap-3 p-1.5">
+            <motion.div
+              :whileHover="{ y: -4, scale: 1.01 }"
+              :transition="{ duration: 0.22, ease }"
+              :class="['artifact-preview', getArtifactAccentClass(artifact)]"
+            >
+              <div class="artifact-preview__chrome">
+                <span />
+                <span />
+                <span />
               </div>
 
-              <template v-if="getArtifactPreviewKind(artifact) === 'stream'">
-                <div class="artifact-preview__stream-grid">
-                  <div class="artifact-preview__stream-stack">
-                    <span v-for="step in 4" :key="step" class="artifact-preview__stream-node" />
-                  </div>
-                  <div class="artifact-preview__stream-lines">
-                    <span
-                      v-for="(bar, barIndex) in artifactPreviewBars(index).slice(0, 6)"
-                      :key="barIndex"
-                      class="artifact-preview__line"
-                      :style="{ width: bar }"
-                    />
-                  </div>
+              <div class="artifact-preview__body">
+                <div class="artifact-preview__title-row">
+                  <div class="artifact-preview__title-chip" />
+                  <div class="artifact-preview__title-chip artifact-preview__title-chip--short" />
                 </div>
-              </template>
 
-              <template v-else-if="getArtifactPreviewKind(artifact) === 'matrix'">
-                <div class="artifact-preview__matrix">
-                  <div class="artifact-preview__matrix-header">
-                    <span v-for="column in 5" :key="column" />
+                <template v-if="getArtifactPreviewKind(artifact) === 'stream'">
+                  <div class="artifact-preview__stream-grid">
+                    <div class="artifact-preview__stream-stack">
+                      <span v-for="step in 4" :key="step" class="artifact-preview__stream-node" />
+                    </div>
+                    <div class="artifact-preview__stream-lines">
+                      <span
+                        v-for="(bar, barIndex) in artifactPreviewBars(index).slice(0, 6)"
+                        :key="barIndex"
+                        class="artifact-preview__line"
+                        :style="{ width: bar }"
+                      />
+                    </div>
                   </div>
-                  <div class="artifact-preview__matrix-body">
-                    <span v-for="cell in 15" :key="cell" />
-                  </div>
-                </div>
-              </template>
+                </template>
 
-              <template v-else-if="getArtifactPreviewKind(artifact) === 'board'">
-                <div class="artifact-preview__board">
-                  <div class="artifact-preview__board-hero" />
-                  <div class="artifact-preview__board-cards">
-                    <span v-for="card in 4" :key="card" />
+                <template v-else-if="getArtifactPreviewKind(artifact) === 'matrix'">
+                  <div class="artifact-preview__matrix">
+                    <div class="artifact-preview__matrix-header">
+                      <span v-for="column in 5" :key="column" />
+                    </div>
+                    <div class="artifact-preview__matrix-body">
+                      <span v-for="cell in 15" :key="cell" />
+                    </div>
                   </div>
-                  <div class="artifact-preview__board-table">
-                    <span
-                      v-for="row in 4"
-                      :key="row"
-                      :style="{ width: artifactPreviewBars(index)[row] }"
-                    />
-                  </div>
-                </div>
-              </template>
+                </template>
 
-              <template v-else>
-                <div class="artifact-preview__table">
-                  <div class="artifact-preview__table-header">
-                    <span v-for="column in 4" :key="column" />
+                <template v-else-if="getArtifactPreviewKind(artifact) === 'board'">
+                  <div class="artifact-preview__board">
+                    <div class="artifact-preview__board-hero" />
+                    <div class="artifact-preview__board-cards">
+                      <span v-for="card in 4" :key="card" />
+                    </div>
+                    <div class="artifact-preview__board-table">
+                      <span
+                        v-for="row in 4"
+                        :key="row"
+                        :style="{ width: artifactPreviewBars(index)[row] }"
+                      />
+                    </div>
                   </div>
-                  <div class="artifact-preview__table-body">
-                    <span
-                      v-for="(bar, barIndex) in artifactPreviewBars(index)"
-                      :key="barIndex"
-                      class="artifact-preview__line"
-                      :style="{ width: bar }"
-                    />
+                </template>
+
+                <template v-else>
+                  <div class="artifact-preview__table">
+                    <div class="artifact-preview__table-header">
+                      <span v-for="column in 4" :key="column" />
+                    </div>
+                    <div class="artifact-preview__table-body">
+                      <span
+                        v-for="(bar, barIndex) in artifactPreviewBars(index)"
+                        :key="barIndex"
+                        class="artifact-preview__line"
+                        :style="{ width: bar }"
+                      />
+                    </div>
                   </div>
-                </div>
-              </template>
+                </template>
+              </div>
+            </motion.div>
+
+            <div class="flex min-h-0 flex-1 flex-col px-1 pb-0.5">
+              <div class="space-y-1">
+                <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/70">
+                  {{ getArtifactLandingEyebrow(artifact) }}
+                </p>
+                <h3
+                  class="artifact-card__title text-[0.98rem] font-bold leading-[1.3] text-highlighted"
+                >
+                  {{ artifact.title }}
+                </h3>
+                <p class="artifact-card__copy text-[0.92rem] leading-5 text-toned">
+                  {{ artifact.description }}
+                </p>
+              </div>
+
+              <div class="mt-2.5 flex flex-wrap gap-1.5">
+                <UBadge
+                  v-for="feature in artifact.features.slice(0, 3)"
+                  :key="feature"
+                  color="neutral"
+                  variant="subtle"
+                  class="rounded-full font-mono text-[9px]"
+                >
+                  {{ feature }}
+                </UBadge>
+              </div>
+
+              <div
+                class="mt-auto flex items-center justify-between gap-3 border-t border-default/30 pt-2.5"
+              >
+                <span class="text-[11px] text-toned/70">
+                  {{ artifact.inspectSummary?.sheetNames.length ?? 0 }}
+                  {{ (artifact.inspectSummary?.sheetNames.length ?? 0) === 1 ? "sheet" : "sheets" }}
+                </span>
+                <span
+                  class="artifact-card__cta flex items-center gap-1 text-[11px] font-semibold text-primary"
+                >
+                  Open playground
+                  <UIcon name="i-lucide-arrow-right" class="artifact-card__arrow size-3.5" />
+                </span>
+              </div>
             </div>
           </div>
-
-          <div class="flex min-h-0 flex-1 flex-col px-1 pb-0.5">
-            <div class="space-y-1">
-              <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/70">
-                {{ getArtifactLandingEyebrow(artifact) }}
-              </p>
-              <h3
-                class="artifact-card__title text-[0.98rem] font-bold leading-[1.3] text-highlighted"
-              >
-                {{ artifact.title }}
-              </h3>
-              <p class="artifact-card__copy text-[0.92rem] leading-5 text-toned">
-                {{ artifact.description }}
-              </p>
-            </div>
-
-            <div class="mt-2.5 flex flex-wrap gap-1.5">
-              <UBadge
-                v-for="feature in artifact.features.slice(0, 3)"
-                :key="feature"
-                color="neutral"
-                variant="subtle"
-                class="rounded-full font-mono text-[9px]"
-              >
-                {{ feature }}
-              </UBadge>
-            </div>
-
-            <div
-              class="mt-auto flex items-center justify-between gap-3 border-t border-default/30 pt-2.5"
-            >
-              <span class="text-[11px] text-toned/70">
-                {{ artifact.inspectSummary?.sheetNames.length ?? 0 }}
-                {{ (artifact.inspectSummary?.sheetNames.length ?? 0) === 1 ? "sheet" : "sheets" }}
-              </span>
-              <span class="flex items-center gap-1 text-[11px] font-semibold text-primary">
-                Open playground
-                <UIcon name="i-lucide-arrow-right" class="size-3.5" />
-              </span>
-            </div>
-          </div>
-        </div>
-      </UPageCard>
-    </div>
+        </UPageCard>
+      </motion.div>
+    </motion.div>
 
     <div v-if="showCta" class="flex items-center justify-between gap-4 pt-2">
       <p v-if="limit && allArtifacts.length > limit" class="text-sm text-toned">
@@ -222,12 +263,41 @@ function artifactPreviewBars(index: number) {
 
 .artifact-card {
   height: 100%;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.artifact-card:hover {
+  border-color: color-mix(in oklab, var(--ui-primary) 22%, var(--ui-border) 78%);
+  background: color-mix(in oklab, var(--ui-bg-elevated) 84%, var(--ui-bg) 16%);
+  box-shadow: 0 18px 40px -28px color-mix(in oklab, var(--ui-primary) 22%, transparent);
 }
 
 .artifact-card__inner {
   height: 100%;
   overflow: hidden;
   border-radius: calc(1.35rem - 2px);
+}
+
+.artifact-card:hover .artifact-preview {
+  border-color: color-mix(in oklab, currentColor 18%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 55%, transparent),
+    0 18px 34px -30px color-mix(in oklab, currentColor 45%, transparent);
+}
+
+.artifact-card:hover .artifact-card__arrow {
+  transform: translateX(3px);
+}
+
+.artifact-card__cta {
+  transition: color 0.2s ease;
+}
+
+.artifact-card__arrow {
+  transition: transform 0.2s ease;
 }
 
 .artifact-card__title {
