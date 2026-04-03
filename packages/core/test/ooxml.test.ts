@@ -624,8 +624,7 @@ describe("ooxml", () => {
         accessor: "status",
       })
       .column("attainment", {
-        formula: ({ refs, fx }) =>
-          fx.if(refs.column("quota").gt(0), refs.column("amount").div(refs.column("quota")), 0),
+        formula: ({ refs, fx }) => fx.safeDiv(refs.column("amount"), refs.column("quota")),
         conditionalStyle: (c) =>
           c
             .when(({ refs }) => refs.column("attainment").lt(0.5), {
@@ -662,6 +661,119 @@ describe("ooxml", () => {
     expect(stylesPart?.xml).not.toContain(
       '<dxf><font><b/><color rgb="FFB42318"/></font><fill><patternFill patternType="solid"><fgColor rgb="FFFEF2F2"/><bgColor indexed="64"/></patternFill></fill></dxf>',
     );
+  });
+
+  it("serializes safeDiv with a zero fallback guard", () => {
+    const schema = Internal.SchemaBuilder.create<{ amount: number; quota: number }>()
+      .column("amount", {
+        accessor: "amount",
+      })
+      .column("quota", {
+        accessor: "quota",
+      })
+      .column("attainment", {
+        formula: ({ refs, fx }) => fx.safeDiv(refs.column("amount"), refs.column("quota")),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Deals").table("deals", {
+      schema,
+      rows: [{ amount: 100, quota: 80 }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>IF((B2&lt;&gt;0),(A2/B2),0)</f>");
+  });
+
+  it("serializes safeDiv with a custom fallback", () => {
+    const schema = Internal.SchemaBuilder.create<{ revenue: number; units: number }>()
+      .column("revenue", {
+        accessor: "revenue",
+      })
+      .column("units", {
+        accessor: "units",
+      })
+      .column("avgPrice", {
+        formula: ({ refs, fx }) => fx.safeDiv(refs.column("revenue"), refs.column("units"), "N/A"),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Forecast").table("forecast", {
+      schema,
+      rows: [{ revenue: 1000, units: 0 }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>IF((B2&lt;&gt;0),(A2/B2),&quot;N/A&quot;)</f>");
+  });
+
+  it("serializes safeDiv with a custom guard condition", () => {
+    const schema = Internal.SchemaBuilder.create<{ revenue: number; units: number; cost: number }>()
+      .column("revenue", {
+        accessor: "revenue",
+      })
+      .column("units", {
+        accessor: "units",
+      })
+      .column("cost", {
+        accessor: "cost",
+      })
+      .column("marginPct", {
+        formula: ({ refs, fx }) => {
+          const netRevenue = refs.column("revenue");
+          return fx.safeDiv(netRevenue.sub(refs.column("cost")), netRevenue, {
+            fallback: 0,
+            when: netRevenue.gt(0),
+          });
+        },
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Forecast").table("forecast", {
+      schema,
+      rows: [{ revenue: 1000, units: 10, cost: 800 }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>IF((A2&gt;0),((A2-C2)/A2),0)</f>");
+  });
+
+  it("serializes safeDiv with a callback guard condition", () => {
+    const schema = Internal.SchemaBuilder.create<{ revenue: number; cost: number }>()
+      .column("revenue", {
+        accessor: "revenue",
+      })
+      .column("cost", {
+        accessor: "cost",
+      })
+      .column("marginPct", {
+        formula: ({ refs, fx }) =>
+          fx.safeDiv(refs.column("revenue").sub(refs.column("cost")), refs.column("revenue"), {
+            fallback: 0,
+            when: ({ denominator }) => denominator.gt(0),
+          }),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Forecast").table("forecast", {
+      schema,
+      rows: [{ revenue: 1000, cost: 800 }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain("<f>IF((A2&gt;0),((A2-B2)/A2),0)</f>");
   });
 
   it("builds a workbook zip whose XML parts are well formed when conditional formatting is used", () => {

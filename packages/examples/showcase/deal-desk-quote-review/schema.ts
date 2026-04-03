@@ -119,26 +119,21 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
   })
   .column("marginPct", {
     header: "Margin %",
-    formula: ({ refs, fx }) =>
-      fx.if(
-        refs
-          .column("quantity")
-          .mul(refs.column("unitPrice"))
-          .mul(fx.literal(1).sub(refs.column("discountRate")))
-          .gt(0),
-        refs
-          .column("quantity")
-          .mul(refs.column("unitPrice"))
-          .mul(fx.literal(1).sub(refs.column("discountRate")))
-          .sub(refs.column("quantity").mul(refs.column("unitCost")))
-          .div(
-            refs
-              .column("quantity")
-              .mul(refs.column("unitPrice"))
-              .mul(fx.literal(1).sub(refs.column("discountRate"))),
-          ),
-        0,
-      ),
+    formula: ({ refs, fx }) => {
+      const netRevenue = refs
+        .column("quantity")
+        .mul(refs.column("unitPrice"))
+        .mul(fx.literal(1).sub(refs.column("discountRate")));
+
+      return fx.safeDiv(
+        netRevenue.sub(refs.column("quantity").mul(refs.column("unitCost"))),
+        netRevenue,
+        {
+          fallback: 0,
+          when: ({ denominator }) => denominator.gt(0),
+        },
+      );
+    },
     width: 10,
     style: { numFmt: "0.0%", alignment: { horizontal: "right" } },
     conditionalStyle: (conditional) =>

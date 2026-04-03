@@ -44,11 +44,7 @@ export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()
   .column("uplift", {
     header: "Uplift %",
     formula: ({ refs, fx }) =>
-      fx.if(
-        refs.column("currentArr").gt(0),
-        refs.column("targetArr").div(refs.column("currentArr")).sub(1),
-        0,
-      ),
+      fx.safeDiv(refs.column("targetArr"), refs.column("currentArr")).sub(1),
     style: {
       numFmt: "0.0%",
       alignment: { horizontal: "right" },

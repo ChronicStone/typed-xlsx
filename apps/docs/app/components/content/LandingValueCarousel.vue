@@ -35,8 +35,8 @@ const stories: ValueStoryCard[] = [
       "// Row type changed? No error. Wrong value at runtime.",
     afterCode: `// Reference columns by ID — addresses resolved at build time
 .column("subtotal", {
-  formula: ({ row, fx }) =>
-    fx.round(row.ref("qty").mul(row.ref("price")), 2),
+  formula: ({ refs, fx }) =>
+    fx.round(refs.column("qty").mul(refs.column("price")), 2),
   // TypeScript error if "qty" or "price"
   // aren't declared before this column
   style: { numFmt: "$#,##0.00" },
@@ -69,8 +69,8 @@ const stories: ValueStoryCard[] = [
   summary: (s) => [s.formula("sum")],
 })
 .column("margin", {
-  formula: ({ row, fx }) =>
-    fx.round(row.ref("revenue").sub(row.ref("cost")), 2),
+  formula: ({ refs, fx }) =>
+    fx.round(refs.column("revenue").sub(refs.column("cost")), 2),
   summary: (s) => [s.formula("average")],
 });
 
@@ -113,7 +113,7 @@ for (const region of regions) {
   }
 })
 .column("regionalTotal", {
-  formula: ({ row }) => row.group("regions").sum(),
+  formula: ({ refs, fx }) => fx.sum(refs.group("regions")),
 });
 
 workbook.sheet("Regional revenue").table("revenue", {
@@ -176,8 +176,8 @@ worksheet["E22"] = { f: "SUM(E2:E21)" };
     totalsRow: { function: "sum" },
   })
   .column("avgPrice", {
-    formula: ({ row, fx }) =>
-      fx.round(row.ref("revenue").div(row.ref("units")), 2),
+    formula: ({ refs, fx }) =>
+      fx.round(fx.safeDiv(refs.column("revenue"), refs.column("units")), 2),
   })
   .build();
 
@@ -204,11 +204,11 @@ ws[cellRef].s = {
   accessor: "status",
   conditionalStyle: (conditional) =>
     conditional
-      .when(({ row }) => row.ref("status").eq("paid"), {
+      .when(({ refs }) => refs.column("status").eq("paid"), {
         fill: { color: { rgb: "DCFCE7" } },
         font: { color: { rgb: "166534" }, bold: true },
       })
-      .when(({ row }) => row.ref("status").eq("overdue"), {
+      .when(({ refs }) => refs.column("status").eq("overdue"), {
         fill: { color: { rgb: "FEE2E2" } },
         font: { color: { rgb: "991B1B" }, bold: true },
       }),
@@ -264,8 +264,8 @@ worksheet["F2"].v = proposedValue;
   validation: (v) => v.integer().between(10000, 3000000),
 })
 .column("uplift", {
-  formula: ({ row }) =>
-    row.ref("targetArr").div(row.ref("currentArr")),
+  formula: ({ refs, fx }) =>
+    fx.safeDiv(refs.column("targetArr"), refs.column("currentArr")),
   style: { protection: { hidden: true } },
 });
 

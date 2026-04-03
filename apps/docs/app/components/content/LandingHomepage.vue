@@ -26,10 +26,10 @@ const schema = createExcelSchema<Invoice>()
     accessor: "unitPrice",
     style: { numFmt: "$#,##0.00" },
   })
-  // Type-checked formula refs — row.ref("qty") must be declared before this column
+  // Type-checked formula refs — refs.column("qty") must be declared before this column
   .column("subtotal", {
-    formula: ({ row, fx }) =>
-      fx.round(row.ref("qty").mul(row.ref("price")), 2),
+    formula: ({ refs, fx }) =>
+      fx.round(refs.column("qty").mul(refs.column("price")), 2),
     style: { numFmt: "$#,##0.00" },
     summary: (s) => [s.formula("sum")],
   })
@@ -166,7 +166,7 @@ const architectureLayers = [
     title: "The Formula Engine",
     description:
       "Compose Excel formulas from column IDs, not coordinates. Predecessor ordering is enforced at compile time — broken references never reach the spreadsheet.",
-    tags: ["row.ref()", "fx.*", "group sums", "summary formulas", "compile-time safety"],
+    tags: ["refs.column()", "fx.*", "group sums", "summary formulas", "compile-time safety"],
     bar: "w-4/5",
   },
   {
