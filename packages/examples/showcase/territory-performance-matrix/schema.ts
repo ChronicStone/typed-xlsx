@@ -1,7 +1,9 @@
 import { createExcelSchema } from "@chronicstone/typed-xlsx";
 import type { TerritoryRow } from "./data";
 
-export const territoryPerformanceSchema = createExcelSchema<TerritoryRow>({ mode: "excel-table" })
+export const territoryPerformanceSchema = createExcelSchema<TerritoryRow, { regions: string[] }>({
+  mode: "excel-table",
+})
   .column("territory", {
     header: "Territory",
     accessor: "territory",
@@ -18,9 +20,9 @@ export const territoryPerformanceSchema = createExcelSchema<TerritoryRow>({ mode
     accessor: "quarter",
     width: 10,
   })
-  .group("regions", (group, regions: string[]) => {
-    for (const region of regions) {
-      group.column(region, {
+  .dynamic("regions", (builder, { ctx }) => {
+    for (const region of ctx.regions) {
+      builder.column(region, {
         header: region,
         accessor: (row) => row.revenueByRegion[region] ?? 0,
         style: { numFmt: '"$"#,##0', alignment: { horizontal: "right" } },
@@ -30,13 +32,13 @@ export const territoryPerformanceSchema = createExcelSchema<TerritoryRow>({ mode
   })
   .column("regionalTotal", {
     header: "Regional Total",
-    formula: ({ row }) => row.group("regions").sum(),
+    formula: ({ refs, fx }) => fx.sum(refs.dynamic("regions")),
     style: { numFmt: '"$"#,##0', alignment: { horizontal: "right" }, font: { bold: true } },
     totalsRow: { function: "sum" },
   })
   .column("regionalAverage", {
     header: "Regional Avg",
-    formula: ({ row, fx }) => fx.round(row.group("regions").average(), 0),
+    formula: ({ refs, fx }) => fx.round(fx.average(refs.dynamic("regions")), 0),
     style: { numFmt: '"$"#,##0', alignment: { horizontal: "right" } },
     totalsRow: { function: "average" },
   })

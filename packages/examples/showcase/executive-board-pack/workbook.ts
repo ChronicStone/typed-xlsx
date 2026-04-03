@@ -1,6 +1,49 @@
-import { createWorkbook } from "@chronicstone/typed-xlsx";
+import { createWorkbook, spreadsheetThemes } from "@chronicstone/typed-xlsx";
 import { createExecutiveAccounts } from "./data";
-import { executiveBoardSchema } from "./schema";
+import { executiveBoardBaseTheme, executiveBoardSchema } from "./schema";
+
+const boardTheme = executiveBoardBaseTheme.extend({
+  slots: {
+    title: { fill: { color: { rgb: "020617" } } },
+  },
+});
+
+const watchlistTheme = executiveBoardBaseTheme.extend({
+  slots: {
+    title: { fill: { color: { rgb: "450A0A" } } },
+    groupHeader: spreadsheetThemes.rose.slot("groupHeader"),
+    groupHeaderFiller: spreadsheetThemes.rose.slot("groupHeaderFiller"),
+    header: { fill: { color: { rgb: "7F1D1D" } }, font: { color: { rgb: "FFF7ED" } } },
+    summary: { fill: { color: { rgb: "FEE2E2" } } },
+    cellLocked: { fill: { color: { rgb: "FFF7ED" } } },
+  },
+});
+
+const amerTheme = spreadsheetThemes.ocean.extend({
+  slots: {
+    title: { fill: { color: { rgb: "BFDBFE" } } },
+    header: { fill: { color: { rgb: "DBEAFE" } } },
+    cellLocked: { fill: { color: { rgb: "EFF6FF" } } },
+  },
+});
+
+const emeaTheme = spreadsheetThemes.forest.extend({
+  slots: {
+    title: { fill: { color: { rgb: "BBF7D0" } } },
+    header: { fill: { color: { rgb: "DCFCE7" } } },
+    cellLocked: { fill: { color: { rgb: "F0FDF4" } } },
+  },
+});
+
+const apacTheme = spreadsheetThemes.classic.extend({
+  slots: {
+    title: { fill: { color: { rgb: "FBCFE8" } } },
+    groupHeader: { fill: { color: { rgb: "FCE7F3" } }, font: { color: { rgb: "9D174D" } } },
+    groupHeaderFiller: { fill: { color: { rgb: "FDECF5" } }, font: { color: { rgb: "9D174D" } } },
+    header: { fill: { color: { rgb: "FCE7F3" } }, font: { color: { rgb: "9D174D" } } },
+    cellLocked: { fill: { color: { rgb: "FDF2F8" } } },
+  },
+});
 
 export function buildExecutiveBoardPackWorkbook() {
   const workbook = createWorkbook();
@@ -9,28 +52,24 @@ export function buildExecutiveBoardPackWorkbook() {
 
   workbook
     .sheet("Board Overview", {
-      tablesPerRow: 2,
+      tablesPerRow: 1,
       tableColumnGap: 2,
       tableRowGap: 2,
-      freezePane: { rows: 1, columns: 2 },
+      freezePane: { rows: 3, columns: 2 },
     })
     .table("portfolio", {
       title: "Portfolio Snapshot",
       rows: accounts,
       schema: executiveBoardSchema,
-      defaults: {
-        header: { preset: "header.inverse", style: { fill: { color: { rgb: "0B1220" } } } },
-        summary: { preset: "summary.subtle", style: { fill: { color: { rgb: "E0E7FF" } } } },
-        cells: {
-          base: { style: { alignment: { vertical: "top" } } },
-          locked: { style: { fill: { color: { rgb: "F8FAFC" } } } },
-        },
-      },
+      theme: boardTheme,
+      render: { groupHeaders: true },
     })
     .table("watchlist", {
       title: "Executive Watchlist",
       rows: watchlist,
       schema: executiveBoardSchema,
+      theme: watchlistTheme,
+      render: { groupHeaders: true },
       select: {
         include: [
           "accountName",
@@ -44,14 +83,6 @@ export function buildExecutiveBoardPackWorkbook() {
           "executiveSummary",
         ],
       },
-      defaults: {
-        header: { preset: "header.inverse", style: { fill: { color: { rgb: "7F1D1D" } } } },
-        summary: { preset: "summary.subtle", style: { fill: { color: { rgb: "FEE2E2" } } } },
-        cells: {
-          base: { style: { alignment: { vertical: "top" } } },
-          locked: { style: { fill: { color: { rgb: "FFF7ED" } } } },
-        },
-      },
     });
 
   workbook
@@ -59,37 +90,31 @@ export function buildExecutiveBoardPackWorkbook() {
       tablesPerRow: 3,
       tableColumnGap: 2,
       tableRowGap: 2,
-      freezePane: { rows: 1 },
+      freezePane: { rows: 3 },
     })
     .table("amer", {
       title: "AMER",
       rows: accounts.filter((account) => account.region === "AMER"),
       schema: executiveBoardSchema,
+      theme: amerTheme,
+      render: { groupHeaders: true },
       select: { include: ["accountName", "arr", "projectedArr", "nrr", "healthScore"] },
-      defaults: {
-        header: { preset: "header.accent", style: { fill: { color: { rgb: "DBEAFE" } } } },
-        cells: { locked: { style: { fill: { color: { rgb: "EFF6FF" } } } } },
-      },
     })
     .table("emea", {
       title: "EMEA",
       rows: accounts.filter((account) => account.region === "EMEA"),
       schema: executiveBoardSchema,
+      theme: emeaTheme,
+      render: { groupHeaders: true },
       select: { include: ["accountName", "arr", "projectedArr", "nrr", "healthScore"] },
-      defaults: {
-        header: { preset: "header.accent", style: { fill: { color: { rgb: "DCFCE7" } } } },
-        cells: { locked: { style: { fill: { color: { rgb: "F0FDF4" } } } } },
-      },
     })
     .table("apac", {
       title: "APAC",
       rows: accounts.filter((account) => account.region === "APAC"),
       schema: executiveBoardSchema,
+      theme: apacTheme,
+      render: { groupHeaders: true },
       select: { include: ["accountName", "arr", "projectedArr", "nrr", "healthScore"] },
-      defaults: {
-        header: { preset: "header.accent", style: { fill: { color: { rgb: "FCE7F3" } } } },
-        cells: { locked: { style: { fill: { color: { rgb: "FDF2F8" } } } } },
-      },
     });
 
   return workbook.toUint8Array();
