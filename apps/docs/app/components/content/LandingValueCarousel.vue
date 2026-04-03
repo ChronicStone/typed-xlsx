@@ -674,16 +674,4 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(4px);
 }
-
-@media (max-width: 1279px) {
-  .dash-track {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 767px) {
-  .dash-track {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 </style>
