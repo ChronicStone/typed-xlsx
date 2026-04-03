@@ -301,8 +301,8 @@ await wb.writeToFile("./orders.xlsx");`;
       </div>
 
       <!-- Hero code card -->
-      <UPageCard spotlight class="rounded-[1.75rem] border border-default/60">
-        <div class="overflow-hidden rounded-[1.75rem]">
+      <UPageCard spotlight class="min-w-0 rounded-[1.75rem] border border-default/60">
+        <div class="min-w-0 overflow-hidden rounded-[1.75rem]">
           <div class="border-b border-default/60 px-5 py-3.5">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -325,7 +325,7 @@ await wb.writeToFile("./orders.xlsx");`;
             lang="ts"
             twoslash
             theme="vitesse-dark"
-            class="landing-code-block max-h-[480px] overflow-auto px-4 py-3"
+            class="landing-code-block min-w-0 max-h-[480px] overflow-y-auto overflow-x-hidden px-4 py-3"
           />
         </div>
       </UPageCard>
@@ -704,6 +704,15 @@ await wb.writeToFile("./orders.xlsx");`;
     );
 }
 
+/* Hero code block — single vertical scroll on wrapper, horizontal on <pre> */
+.landing-code-block {
+  scrollbar-width: none; /* Firefox */
+}
+
+.landing-code-block::-webkit-scrollbar {
+  display: none; /* Chrome / Safari / Edge */
+}
+
 .landing-code-block :deep(pre) {
   margin: 0;
   border-radius: 0;
@@ -711,11 +720,20 @@ await wb.writeToFile("./orders.xlsx");`;
   background: transparent !important;
   padding: 0;
   overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  scrollbar-width: none;
+}
+
+.landing-code-block :deep(pre)::-webkit-scrollbar {
+  display: none;
 }
 
 .landing-code-block :deep(code) {
   font-size: 0.78rem;
   line-height: 1.8;
+  display: inline-block;
+  min-width: 100%;
 }
 
 .landing-code-block :deep(.line) {
