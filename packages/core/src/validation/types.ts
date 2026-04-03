@@ -1,9 +1,11 @@
 import {
+  createFormulaRefs,
   createFormulaFunctionsContext,
   createFormulaRowContext,
   type FormulaConditionValue,
   type FormulaExpr,
   type FormulaFunctions,
+  type FormulaRefs,
   type FormulaRowContext,
 } from "../formula/expr";
 import { binary, func } from "../formula/expr";
@@ -59,6 +61,7 @@ export interface ValidationBuilder<
   custom(
     condition: (context: {
       row: FormulaRowContext<TColumnId, TGroupId>;
+      refs: FormulaRefs<TColumnId, TGroupId, never>;
       fx: FormulaFunctions<TColumnId, TGroupId>;
     }) => FormulaConditionValue<TColumnId, TGroupId>,
   ): ValidationBuilder<TColumnId, TGroupId>;
@@ -122,12 +125,14 @@ class ValidationBuilderImpl<
   custom(
     condition: (context: {
       row: FormulaRowContext<TColumnId, TGroupId>;
+      refs: FormulaRefs<TColumnId, TGroupId, never>;
       fx: FormulaFunctions<TColumnId, TGroupId>;
     }) => FormulaConditionValue<TColumnId, TGroupId>,
   ) {
     this.rule.type = "custom";
     const resolvedCondition = condition({
       row: createFormulaRowContext<TColumnId, TGroupId>(),
+      refs: createFormulaRefs<TColumnId, TGroupId, never>(),
       fx: createFormulaFunctionsContext<TColumnId, TGroupId>(),
     });
     this.rule.formula1 = toConditionExpr(resolvedCondition);

@@ -43,8 +43,12 @@ export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()
   })
   .column("uplift", {
     header: "Uplift %",
-    formula: ({ row, fx }) =>
-      fx.if(row.ref("currentArr").gt(0), row.ref("targetArr").div(row.ref("currentArr")).sub(1), 0),
+    formula: ({ refs, fx }) =>
+      fx.if(
+        refs.column("currentArr").gt(0),
+        refs.column("targetArr").div(refs.column("currentArr")).sub(1),
+        0,
+      ),
     style: {
       numFmt: "0.0%",
       alignment: { horizontal: "right" },
@@ -52,12 +56,13 @@ export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()
     },
     conditionalStyle: (conditional) =>
       conditional
-        .when(({ row }) => row.ref("targetArr").lt(row.ref("currentArr")), {
+        .when(({ refs }) => refs.column("targetArr").lt(refs.column("currentArr")), {
           fill: { color: { rgb: "FEE2E2" } },
           font: { color: { rgb: "991B1B" }, bold: true },
         })
         .when(
-          ({ row, fx }) => row.ref("targetArr").gte(fx.round(row.ref("currentArr").mul(1.08), 0)),
+          ({ refs, fx }) =>
+            refs.column("targetArr").gte(fx.round(refs.column("currentArr").mul(1.08), 0)),
           {
             fill: { color: { rgb: "DCFCE7" } },
             font: { color: { rgb: "166534" }, bold: true },

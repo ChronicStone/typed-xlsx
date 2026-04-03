@@ -32,6 +32,7 @@ export type {
   SchemaGroupId,
   SchemaKind,
   SchemaKindOf,
+  StructureConditionDefinition,
   TypedPath,
 } from "./schema/builder";
 export { ExcelTableSchemaBuilder, SchemaBuilder } from "./schema/builder";

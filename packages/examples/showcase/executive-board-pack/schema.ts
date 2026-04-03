@@ -79,11 +79,11 @@ export const executiveBoardSchema = createExcelSchema<ExecutiveAccount>()
         style: { numFmt: "0%", alignment: { horizontal: "right" } },
         conditionalStyle: (conditional) =>
           conditional
-            .when(({ row }) => row.ref("nrr").lt(1), {
+            .when(({ refs }) => refs.column("nrr").lt(1), {
               fill: { color: { rgb: "FEE2E2" } },
               font: { color: { rgb: "991B1B" }, bold: true },
             })
-            .when(({ row }) => row.ref("nrr").gte(1.1), {
+            .when(({ refs }) => refs.column("nrr").gte(1.1), {
               fill: { color: { rgb: "DCFCE7" } },
               font: { color: { rgb: "166534" }, bold: true },
             }),
@@ -117,11 +117,11 @@ export const executiveBoardSchema = createExcelSchema<ExecutiveAccount>()
         style: { alignment: { horizontal: "right" } },
         conditionalStyle: (conditional) =>
           conditional
-            .when(({ row }) => row.ref("healthScore").lt(70), {
+            .when(({ refs }) => refs.column("healthScore").lt(70), {
               fill: { color: { rgb: "FEF3C7" } },
               font: { color: { rgb: "92400E" }, bold: true },
             })
-            .when(({ row }) => row.ref("healthScore").gte(85), {
+            .when(({ refs }) => refs.column("healthScore").gte(85), {
               fill: { color: { rgb: "DCFCE7" } },
               font: { color: { rgb: "166534" }, bold: true },
             }),

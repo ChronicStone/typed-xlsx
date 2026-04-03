@@ -110,7 +110,7 @@ describe("ooxml", () => {
         },
       })
       .column("formulaValue", {
-        formula: ({ row }) => row.ref("input").mul(2),
+        formula: ({ refs }) => refs.column("input").mul(2),
         style: {
           protection: { hidden: true },
         },
@@ -156,7 +156,7 @@ describe("ooxml", () => {
         style: { protection: { locked: false } },
       })
       .column("derived", {
-        formula: ({ row }) => row.ref("input").mul(2),
+        formula: ({ refs }) => refs.column("input").mul(2),
         style: { protection: { hidden: true } },
       })
       .column("status", {
@@ -523,7 +523,7 @@ describe("ooxml", () => {
       .column("values", {
         accessor: (row) => row.values,
         conditionalStyle: (conditional) =>
-          conditional.when(({ row }) => row.ref("values").gt(10), {
+          conditional.when(({ refs }) => refs.column("values").gt(10), {
             fill: { color: { rgb: "FEE2E2" } },
           }),
         hyperlink: () => ({
@@ -624,16 +624,17 @@ describe("ooxml", () => {
         accessor: "status",
       })
       .column("attainment", {
-        formula: ({ row, fx }) =>
-          fx.if(row.ref("quota").gt(0), row.ref("amount").div(row.ref("quota")), 0),
+        formula: ({ refs, fx }) =>
+          fx.if(refs.column("quota").gt(0), refs.column("amount").div(refs.column("quota")), 0),
         conditionalStyle: (c) =>
           c
-            .when(({ row }) => row.ref("attainment").lt(0.5), {
+            .when(({ refs }) => refs.column("attainment").lt(0.5), {
               fill: { color: { rgb: "FEF2F2" } },
               font: { color: { rgb: "B42318" }, bold: true },
             })
             .when(
-              ({ row, fx }) => fx.and(row.ref("attainment").gte(1), row.ref("status").eq("won")),
+              ({ refs, fx }) =>
+                fx.and(refs.column("attainment").gte(1), refs.column("status").eq("won")),
               {
                 fill: { color: { rgb: "ECFDF3" } },
                 font: { color: { rgb: "166534" }, bold: true },
@@ -668,9 +669,9 @@ describe("ooxml", () => {
       .column("amount", { accessor: "amount" })
       .column("quota", { accessor: "quota" })
       .column("attainment", {
-        formula: ({ row }) => row.ref("amount").div(row.ref("quota")),
+        formula: ({ refs }) => refs.column("amount").div(refs.column("quota")),
         conditionalStyle: (c) =>
-          c.when(({ row }) => row.ref("attainment").lt(1), {
+          c.when(({ refs }) => refs.column("attainment").lt(1), {
             fill: { color: { rgb: "FEF2F2" } },
           }),
       })
@@ -874,7 +875,7 @@ describe("ooxml", () => {
       })
       .column("score", {
         accessor: "score",
-        validation: (v) => v.custom(({ row }) => row.ref("score").gte(row.ref("amount"))),
+        validation: (v) => v.custom(({ refs }) => refs.column("score").gte(refs.column("amount"))),
       })
       .build();
 
@@ -913,7 +914,7 @@ describe("ooxml", () => {
         accessor: "unitPrice",
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+        formula: ({ refs }) => refs.column("qty").mul(refs.column("unitPrice")),
       })
       .build();
 
@@ -1088,7 +1089,7 @@ describe("ooxml", () => {
         accessor: "unitPrice",
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+        formula: ({ refs }) => refs.column("qty").mul(refs.column("unitPrice")),
       })
       .build();
 
@@ -1113,11 +1114,11 @@ describe("ooxml", () => {
         accessor: "unitPrice",
       })
       .column("roundedTotal", {
-        formula: ({ row, fx }) => fx.round(row.ref("qty").mul(row.ref("unitPrice")), 2),
+        formula: ({ refs, fx }) => fx.round(refs.column("qty").mul(refs.column("unitPrice")), 2),
       })
       .column("status", {
-        formula: ({ row, fx }) =>
-          fx.if(row.ref("qty").gt(10).or(row.ref("unitPrice").gt(100)), "HIGH", "NORMAL"),
+        formula: ({ refs, fx }) =>
+          fx.if(refs.column("qty").gt(10).or(refs.column("unitPrice").gt(100)), "HIGH", "NORMAL"),
       })
       .build();
 

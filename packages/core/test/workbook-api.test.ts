@@ -158,10 +158,10 @@ describe("public buffered api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+            formula: ({ refs }) => refs.column("doubleAmount").add(refs.column("amount")),
           });
       })
       .build();
@@ -183,10 +183,10 @@ describe("public buffered api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+            formula: ({ refs }) => refs.column("doubleAmount").add(refs.column("amount")),
           });
       })
       .build();
@@ -208,20 +208,20 @@ describe("public buffered api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(3),
+            formula: ({ refs }) => refs.column("amount").mul(3),
           });
       })
       .column("derivedTotal", {
-        formula: ({ row }) => row.group("derived").sum(),
+        formula: ({ refs, fx }) => fx.sum(refs.group("derived")),
       })
       .column("derivedMax", {
-        formula: ({ row }) => row.group("derived").max(),
+        formula: ({ refs, fx }) => fx.max(refs.group("derived")),
       })
       .column("derivedCount", {
-        formula: ({ row }) => row.group("derived").count(),
+        formula: ({ refs, fx }) => fx.count(refs.group("derived")),
       })
       .build();
 
@@ -242,7 +242,7 @@ describe("public buffered api", () => {
       .column("amount", { accessor: "amount" })
       .group("derived", (builder) => {
         builder.column("doubleAmount", {
-          formula: ({ row }) => row.ref("amount").mul(2),
+          formula: ({ refs }) => refs.column("amount").mul(2),
         });
       })
       .build();
@@ -265,17 +265,17 @@ describe("public buffered api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(3),
+            formula: ({ refs }) => refs.column("amount").mul(3),
           });
       })
       .column("derivedTotal", {
-        formula: ({ row }) => row.group("derived").sum(),
+        formula: ({ refs, fx }) => fx.sum(refs.group("derived")),
       })
       .column("derivedAverage", {
-        formula: ({ row }) => row.group("derived").average(),
+        formula: ({ refs, fx }) => fx.average(refs.group("derived")),
       })
       .build();
 
@@ -605,7 +605,7 @@ describe("public buffered api", () => {
         accessor: "unitPrice",
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+        formula: ({ refs }) => refs.column("qty").mul(refs.column("unitPrice")),
       })
       .build();
 
@@ -705,7 +705,7 @@ describe("public buffered api", () => {
         accessor: "unitPrice",
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+        formula: ({ refs }) => refs.column("qty").mul(refs.column("unitPrice")),
       })
       .build();
 
@@ -764,7 +764,7 @@ describe("public buffered api", () => {
         },
       })
       .column("formulaValue", {
-        formula: ({ row }) => row.ref("input").mul(2),
+        formula: ({ refs }) => refs.column("input").mul(2),
         style: {
           protection: { hidden: true },
         },

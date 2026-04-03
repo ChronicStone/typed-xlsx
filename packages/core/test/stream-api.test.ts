@@ -120,10 +120,10 @@ describe("public stream api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+            formula: ({ refs }) => refs.column("doubleAmount").add(refs.column("amount")),
           });
       })
       .build();
@@ -155,10 +155,10 @@ describe("public stream api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("doubleAmount").add(row.ref("amount")),
+            formula: ({ refs }) => refs.column("doubleAmount").add(refs.column("amount")),
           });
       })
       .build();
@@ -190,17 +190,17 @@ describe("public stream api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(3),
+            formula: ({ refs }) => refs.column("amount").mul(3),
           });
       })
       .column("derivedTotal", {
-        formula: ({ row }) => row.group("derived").sum(),
+        formula: ({ refs, fx }) => fx.sum(refs.group("derived")),
       })
       .column("derivedMin", {
-        formula: ({ row }) => row.group("derived").min(),
+        formula: ({ refs, fx }) => fx.min(refs.group("derived")),
       })
       .build();
 
@@ -231,17 +231,17 @@ describe("public stream api", () => {
       .group("derived", (builder) => {
         builder
           .column("doubleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(2),
+            formula: ({ refs }) => refs.column("amount").mul(2),
           })
           .column("tripleAmount", {
-            formula: ({ row }) => row.ref("amount").mul(3),
+            formula: ({ refs }) => refs.column("amount").mul(3),
           });
       })
       .column("derivedTotal", {
-        formula: ({ row }) => row.group("derived").sum(),
+        formula: ({ refs, fx }) => fx.sum(refs.group("derived")),
       })
       .column("derivedCount", {
-        formula: ({ row }) => row.group("derived").count(),
+        formula: ({ refs, fx }) => fx.count(refs.group("derived")),
       })
       .build();
 
@@ -582,7 +582,7 @@ describe("public stream api", () => {
         },
       })
       .column("formulaValue", {
-        formula: ({ row }) => row.ref("input").mul(2),
+        formula: ({ refs }) => refs.column("input").mul(2),
         style: {
           protection: { hidden: true },
         },

@@ -121,7 +121,7 @@ describe("planner", () => {
         accessor: "unitPrice",
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice").toExpr()),
+        formula: ({ refs }) => refs.column("qty").mul(refs.column("unitPrice").toExpr()),
       })
       .build();
 
@@ -143,8 +143,12 @@ describe("planner", () => {
         accessor: "unitPrice",
       })
       .column("status", {
-        formula: ({ row, fx }) =>
-          fx.if(row.ref("qty").gt(10).and(row.ref("unitPrice").gte(100)), "PRIORITY", "STANDARD"),
+        formula: ({ refs, fx }) =>
+          fx.if(
+            refs.column("qty").gt(10).and(refs.column("unitPrice").gte(100)),
+            "PRIORITY",
+            "STANDARD",
+          ),
       })
       .build();
 
@@ -166,7 +170,7 @@ describe("planner", () => {
         accessor: (row) => row.qtys,
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("items").mul(row.ref("qtys")),
+        formula: ({ refs }) => refs.column("items").mul(refs.column("qtys")),
       })
       .build();
 
@@ -198,11 +202,11 @@ describe("planner", () => {
         accessor: (row) => row.prices,
       })
       .column("netRevenue", {
-        formula: ({ row, fx }) =>
-          row
-            .ref("qtys")
-            .mul(row.ref("prices"))
-            .mul(fx.literal(1).sub(row.ref("discountRate"))),
+        formula: ({ refs, fx }) =>
+          refs
+            .column("qtys")
+            .mul(refs.column("prices"))
+            .mul(fx.literal(1).sub(refs.column("discountRate"))),
       })
       .build();
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { conditionalStyle } from "../src";
 
-void conditionalStyle().when(({ row }) => row.ref("amount").gt(0), {
+void conditionalStyle().when(({ refs }) => refs.column("amount").gt(0), {
   font: {
     bold: true,
   },
 });
 
-void conditionalStyle().when(({ row }) => row.ref("amount").gt(0), {
+void conditionalStyle().when(({ refs }) => refs.column("amount").gt(0), {
   // @ts-expect-error worksheet protection is not supported in conditional formatting styles
   protection: {
     locked: false,

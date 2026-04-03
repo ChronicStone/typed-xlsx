@@ -31,7 +31,7 @@ export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()
     width: 10,
     style: { alignment: { horizontal: "right" } },
     conditionalStyle: (conditional) =>
-      conditional.when(({ row }) => row.ref("backlogUnits").gte(25), {
+      conditional.when(({ refs }) => refs.column("backlogUnits").gte(25), {
         fill: { color: { rgb: "FEF3C7" } },
         font: { color: { rgb: "92400E" }, bold: true },
       }),
@@ -39,10 +39,12 @@ export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()
   })
   .column("fillRate", {
     header: "Fill Rate",
-    formula: ({ row, fx }) =>
+    formula: ({ refs, fx }) =>
       fx.if(
-        row.ref("shippedUnits").add(row.ref("backlogUnits")).gt(0),
-        row.ref("shippedUnits").div(row.ref("shippedUnits").add(row.ref("backlogUnits"))),
+        refs.column("shippedUnits").add(refs.column("backlogUnits")).gt(0),
+        refs
+          .column("shippedUnits")
+          .div(refs.column("shippedUnits").add(refs.column("backlogUnits"))),
         0,
       ),
     width: 12,

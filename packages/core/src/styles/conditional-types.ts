@@ -1,4 +1,5 @@
 import {
+  createFormulaRefs,
   createFormulaFunctionsContext,
   createFormulaRowContext,
   binary,
@@ -6,6 +7,7 @@ import {
   type FormulaConditionValue,
   type FormulaExpr,
   type FormulaFunctions,
+  type FormulaRefs,
   type FormulaRowContext,
 } from "../formula/expr";
 import type { CellStyle } from "../styles/types";
@@ -27,6 +29,7 @@ export interface ConditionalStyleBuilder<
   when(
     condition: (context: {
       row: FormulaRowContext<TColumnId, TGroupId>;
+      refs: FormulaRefs<TColumnId, TGroupId, never>;
       fx: FormulaFunctions<TColumnId, TGroupId>;
     }) => FormulaConditionValue<TColumnId, TGroupId>,
     style: ConditionalCellStyle,
@@ -52,12 +55,14 @@ class ConditionalStyleBuilderImpl<
   when(
     condition: (context: {
       row: FormulaRowContext<TColumnId, TGroupId>;
+      refs: FormulaRefs<TColumnId, TGroupId, never>;
       fx: FormulaFunctions<TColumnId, TGroupId>;
     }) => FormulaConditionValue<TColumnId, TGroupId>,
     style: ConditionalCellStyle,
   ) {
     const expr = condition({
       row: createFormulaRowContext<TColumnId, TGroupId>(),
+      refs: createFormulaRefs<TColumnId, TGroupId, never>(),
       fx: createFormulaFunctionsContext<TColumnId, TGroupId>(),
     });
 

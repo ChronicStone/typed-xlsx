@@ -242,7 +242,7 @@ describe("stream builder", () => {
       })
       .column("score", {
         accessor: "score",
-        validation: (v) => v.custom(({ row }) => row.ref("score").gte(row.ref("amount"))),
+        validation: (v) => v.custom(({ refs }) => refs.column("score").gte(refs.column("amount"))),
       })
       .build();
 
@@ -277,7 +277,7 @@ describe("stream builder", () => {
       .column("backlog", {
         accessor: "backlog",
         conditionalStyle: (conditional) =>
-          conditional.when(({ row }) => row.ref("backlog").gte(25), {
+          conditional.when(({ refs }) => refs.column("backlog").gte(25), {
             fill: { color: { rgb: "FEF3C7" } },
             font: { color: { rgb: "92400E" }, bold: true },
           }),
@@ -314,7 +314,7 @@ describe("stream builder", () => {
         accessor: "unitPrice",
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+        formula: ({ refs }) => refs.column("qty").mul(refs.column("unitPrice")),
       })
       .build();
 
@@ -429,7 +429,7 @@ describe("stream builder", () => {
         style: { protection: { locked: false } },
       })
       .column("formulaValue", {
-        formula: ({ row }) => row.ref("input").mul(2),
+        formula: ({ refs }) => refs.column("input").mul(2),
         style: { protection: { hidden: true } },
       })
       .column("status", {
@@ -811,7 +811,7 @@ describe("stream builder", () => {
         accessor: (row) => row.qtys,
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("items").mul(row.ref("qtys")),
+        formula: ({ refs }) => refs.column("items").mul(refs.column("qtys")),
       })
       .build();
 
@@ -848,11 +848,11 @@ describe("stream builder", () => {
         accessor: (row) => row.prices,
       })
       .column("netRevenue", {
-        formula: ({ row, fx }) =>
-          row
-            .ref("qtys")
-            .mul(row.ref("prices"))
-            .mul(fx.literal(1).sub(row.ref("discountRate"))),
+        formula: ({ refs, fx }) =>
+          refs
+            .column("qtys")
+            .mul(refs.column("prices"))
+            .mul(fx.literal(1).sub(refs.column("discountRate"))),
       })
       .build();
 
@@ -1026,7 +1026,7 @@ describe("stream builder", () => {
         accessor: "unitPrice",
       })
       .column("lineTotal", {
-        formula: ({ row }) => row.ref("qty").mul(row.ref("unitPrice")),
+        formula: ({ refs }) => refs.column("qty").mul(refs.column("unitPrice")),
       })
       .build();
 
@@ -1055,10 +1055,10 @@ describe("stream builder", () => {
         accessor: "unitPrice",
       })
       .column("roundedTotal", {
-        formula: ({ row, fx }) => fx.round(row.ref("qty").mul(row.ref("unitPrice")), 2),
+        formula: ({ refs, fx }) => fx.round(refs.column("qty").mul(refs.column("unitPrice")), 2),
       })
       .column("status", {
-        formula: ({ row, fx }) => fx.if(row.ref("qty").gt(10), "HIGH", "NORMAL"),
+        formula: ({ refs, fx }) => fx.if(refs.column("qty").gt(10), "HIGH", "NORMAL"),
       })
       .build();
 

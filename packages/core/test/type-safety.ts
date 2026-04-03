@@ -76,21 +76,21 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("doubleAge", {
-    formula: ({ row }) => row.ref("age").mul(2),
+    formula: ({ refs }) => refs.column("age").mul(2),
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("status", {
-    formula: ({ row, fx }) => fx.if(row.ref("age").gte(18), "adult", "minor"),
+    formula: ({ refs, fx }) => fx.if(refs.column("age").gte(18), "adult", "minor"),
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("remaining", {
-    formula: ({ row, fx }) => fx.literal(100).sub(row.ref("age")),
+    formula: ({ refs, fx }) => fx.literal(100).sub(refs.column("age")),
   })
   .build();
 
@@ -105,25 +105,25 @@ createExcelSchema<{ lines: number[] }>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("remaining", {
-    formula: ({ row }) =>
-      // @ts-expect-error literals are provided by fx, not row
-      row.literal(100).sub(row.ref("age")),
+    formula: ({ refs, fx: _fx }) =>
+      // @ts-expect-error literals are provided by fx, not refs
+      refs.literal(100).sub(refs.column("age")),
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("bucket", {
-    formula: ({ row, fx }) =>
-      fx.if(row.ref("age").gt(65).or(row.ref("age").lt(18)), "edge", "core"),
+    formula: ({ refs, fx }) =>
+      fx.if(refs.column("age").gt(65).or(refs.column("age").lt(18)), "edge", "core"),
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("doubleAge", {
-    formula: ({ row }) => {
-      const age = row.ref("age");
+    formula: ({ refs }) => {
+      const age = refs.column("age");
       return age.add(age.toExpr());
     },
   })
@@ -132,9 +132,9 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("doubleAge", {
-    formula: ({ row }) =>
+    formula: ({ refs }) =>
       // @ts-expect-error formula columns can only reference previously declared column ids
-      row.ref("future"),
+      refs.column("future"),
   })
   .build();
 
@@ -142,9 +142,9 @@ createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .group("derived", (b) => {
     b.column("doubleAge", {
-      formula: ({ row }) => row.ref("age").mul(2),
+      formula: ({ refs }) => refs.column("age").mul(2),
     }).column("quadAge", {
-      formula: ({ row }) => row.ref("doubleAge").mul(row.ref("age")),
+      formula: ({ refs }) => refs.column("doubleAge").mul(refs.column("age")),
     });
   })
   .build();
@@ -153,11 +153,11 @@ createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .group("derived", (b) => {
     b.column("doubleAge", {
-      formula: ({ row }) =>
+      formula: ({ refs }) =>
         // @ts-expect-error group formulas cannot reference future group column ids
-        row.ref("quadAge"),
+        refs.column("quadAge"),
     }).column("quadAge", {
-      formula: ({ row }) => row.ref("doubleAge").mul(2),
+      formula: ({ refs }) => refs.column("doubleAge").mul(2),
     });
   })
   .build();
@@ -166,9 +166,9 @@ createExcelSchema<FlatRow>({ mode: "excel-table" })
   .column("age", { accessor: "age" })
   .group("derived", (b) => {
     b.column("doubleAge", {
-      formula: ({ row }) => row.ref("age").mul(2),
+      formula: ({ refs }) => refs.column("age").mul(2),
     }).column("tripleAge", {
-      formula: ({ row }) => row.ref("doubleAge").add(row.ref("age")),
+      formula: ({ refs }) => refs.column("doubleAge").add(refs.column("age")),
     });
   })
   .build();
@@ -179,16 +179,16 @@ createExcelSchema<FlatRow>()
   })
   .column("age", { accessor: "age" })
   .column("totalAges", {
-    formula: ({ row }) => row.group("ages").sum(),
+    formula: ({ refs, fx }) => fx.sum(refs.group("ages")),
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("totalAges", {
-    formula: ({ row }) =>
+    formula: ({ refs, fx }) =>
       // @ts-expect-error formulas can only reference previously declared group ids
-      row.group("ages").sum(),
+      fx.sum(refs.group("ages")),
   })
   .group("ages", (b) => {
     b.column("constant", { accessor: () => 1 });
@@ -198,29 +198,29 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .group("derived", (b) => {
-    b.column("doubleAge", { formula: ({ row }) => row.ref("age").mul(2) });
+    b.column("doubleAge", { formula: ({ refs }) => refs.column("age").mul(2) });
   })
   .column("derivedTotal", {
-    formula: ({ row }) => row.group("derived").sum(),
+    formula: ({ refs, fx }) => fx.sum(refs.group("derived")),
   })
   .build();
 
 createExcelSchema<FlatRow>({ mode: "excel-table" })
   .column("age", { accessor: "age" })
   .group("derived", (b) => {
-    b.column("doubleAge", { formula: ({ row }) => row.ref("age").mul(2) });
+    b.column("doubleAge", { formula: ({ refs }) => refs.column("age").mul(2) });
   })
   .column("derivedAverage", {
-    formula: ({ row }) => row.group("derived").average(),
+    formula: ({ refs, fx }) => fx.average(refs.group("derived")),
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("totalAges", {
-    formula: ({ row }) =>
+    formula: ({ refs, fx }) =>
       // @ts-expect-error unknown group ids are rejected
-      row.group("missing").sum(),
+      fx.sum(refs.group("missing")),
   })
   .build();
 
@@ -233,7 +233,7 @@ createExcelSchema<{
   .column("amount", {
     accessor: "amount",
     conditionalStyle: (conditional) =>
-      conditional.when(({ row }) => row.ref("amount").gt(0), {
+      conditional.when(({ refs }) => refs.column("amount").gt(0), {
         font: { bold: true },
       }),
   })
@@ -241,10 +241,10 @@ createExcelSchema<{
     accessor: () => 42,
     conditionalStyle: (conditional) =>
       conditional
-        .when(({ row }) => row.ref("quota").gt(0), {
+        .when(({ refs }) => refs.column("quota").gt(0), {
           fill: { color: { rgb: "DCFCE7" } },
         })
-        .when(({ row, fx }) => fx.and(row.ref("amount").gt(0), row.ref("quota").gt(0)), {
+        .when(({ refs, fx }) => fx.and(refs.column("amount").gt(0), refs.column("quota").gt(0)), {
           font: { bold: true },
         }),
   })
@@ -254,9 +254,9 @@ createExcelSchema<{
     });
   })
   .column("statusSummary", {
-    formula: ({ row }) => row.group("performance").count(),
+    formula: ({ refs, fx }) => fx.count(refs.group("performance")),
     conditionalStyle: (conditional) =>
-      conditional.when(({ row }) => row.group("performance").count().gte(1), {
+      conditional.when(({ refs, fx }) => fx.count(refs.group("performance")).gte(1), {
         font: { italic: true },
       }),
   })
@@ -270,7 +270,7 @@ createExcelSchema<{
   .column("status", {
     accessor: "status",
     conditionalStyle: (conditional) =>
-      conditional.when(({ row }) => row.ref("status").eq("won"), {
+      conditional.when(({ refs }) => refs.column("status").eq("won"), {
         font: { bold: true },
       }),
   })
@@ -279,9 +279,9 @@ createExcelSchema<{
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("doubleAge", {
-    formula: ({ row }) => row.ref("age").mul(2),
+    formula: ({ refs }) => refs.column("age").mul(2),
     conditionalStyle: (conditional) =>
-      conditional.when(({ row }) => row.ref("age").gt(18), {
+      conditional.when(({ refs }) => refs.column("age").gt(18), {
         font: { bold: true },
       }),
   })
@@ -290,12 +290,12 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("doubleAge", {
-    formula: ({ row }) => row.ref("age").mul(2),
+    formula: ({ refs }) => refs.column("age").mul(2),
     conditionalStyle: (conditional) =>
       conditional.when(
-        ({ row }) =>
+        ({ refs }) =>
           // @ts-expect-error conditionalStyle refs can only target current, previous, or row-path references
-          row.ref("future").gt(0),
+          refs.column("future").gt(0),
         {
           font: { bold: true },
         },
@@ -308,9 +308,9 @@ createExcelSchema<{ amount: number; metrics: { quota: number } }>()
     accessor: "amount",
     conditionalStyle: (conditional) =>
       conditional.when(
-        ({ row }) =>
-          // @ts-expect-error input-object paths are rejected in conditionalStyle refs
-          row.ref("metrics.missing").gt(0),
+        ({ refs }) =>
+          // @ts-expect-error selector refs only accept declared column ids, not accessor paths
+          refs.column("metrics.missing").gt(0),
         {
           font: { bold: true },
         },
@@ -325,9 +325,9 @@ createExcelSchema<{ amount: number; metrics: { quota: number } }>()
     accessor: () => "ok",
     conditionalStyle: (conditional) =>
       conditional.when(
-        ({ row }) =>
-          // @ts-expect-error row.ref only accepts column ids, not accessor paths
-          row.ref("metrics.quota").gt(0),
+        ({ refs }) =>
+          // @ts-expect-error selector refs only accept declared column ids, not accessor paths
+          refs.column("metrics.quota").gt(0),
         {
           font: { bold: true },
         },
@@ -341,9 +341,9 @@ createExcelSchema<FlatRow>()
     accessor: () => "ok",
     conditionalStyle: (conditional) =>
       conditional.when(
-        ({ row }) =>
+        ({ refs, fx }) =>
           // @ts-expect-error unknown group ids are rejected in conditionalStyle refs
-          row.group("missing").sum().gt(0),
+          fx.sum(refs.group("missing")).gt(0),
         {
           font: { bold: true },
         },

@@ -25,8 +25,8 @@ Columns can now emit real Excel formulas through a type-safe DSL with predecesso
 
 New capabilities include:
 
-- `formula: ({ row, fx }) => ...`
-- typed predecessor references via `row.ref("columnId")`
+- `formula: ({ row, refs, fx }) => ...`
+- typed predecessor references via `refs.column("columnId")`
 - arithmetic operators: `.add()`, `.sub()`, `.mul()`, `.div()`
 - comparison operators: `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`
 - boolean composition for conditions
@@ -41,7 +41,7 @@ Report mode already supported sub-row expansion through array-returning accessor
 
 New concepts include:
 
-- `row.ref(...)` for current physical-row references
+- `refs.column(...)` for current physical-row references
 - `row.series(...)` for full logical-row spans across expanded physical rows
 - formula `expansion` control with `"auto"`, `"single"`, and `"expand"`
 
@@ -126,8 +126,8 @@ New capabilities include:
 
 - group-local predecessor scope
 - outer-scope references from inside groups
-- `row.group(groupId)` aggregate helpers
-- group formulas such as `.sum()`, `.average()`, `.min()`, `.max()`, and `.count()`
+- structural scope selectors via `refs.group(groupId)`
+- group formulas such as `fx.sum(refs.group(...))`, `fx.average(refs.group(...))`, `fx.min(refs.group(...))`, `fx.max(refs.group(...))`, and `fx.count(refs.group(...))`
 
 This makes dynamic matrices and context-driven grouped exports far more practical while keeping reference rules safe and explicit.
 
@@ -229,7 +229,7 @@ Notable additions include:
 
 - showcase workbook examples replacing older legacy samples
 - dedicated docs for formulas, excel-table mode, validation, hyperlinks, protection, streaming, and performance
-- a new formula row-model doc that explains logical rows, physical rows, `row.ref(...)`, `row.series(...)`, and summary range semantics
+- a new formula row-model doc that explains logical rows, physical rows, `refs.column(...)`, `row.series(...)`, and summary range semantics
 - dedicated docs for schema context, structural groups, dynamic columns, and spreadsheet themes
 - Mermaid support in the docs app for visual explanations of the formula row model
 

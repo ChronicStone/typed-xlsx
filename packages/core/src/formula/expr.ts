@@ -108,6 +108,13 @@ export interface FormulaRefs<
   dynamic(dynamicId: TDynamicId): FormulaScopeRef<TDynamicId>;
 }
 
+export interface FormulaColumnRefs<
+  TColumnId extends string = string,
+  TScopeId extends string = never,
+> {
+  column(columnId: TColumnId): FormulaOperand<TColumnId, TScopeId>;
+}
+
 export interface FormulaFunctions<
   TColumnId extends string = string,
   TScopeId extends string = string,
@@ -143,8 +150,6 @@ export interface FormulaFunctions<
 }
 
 export interface FormulaRowContext<TColumnId extends string, TScopeId extends string = never> {
-  ref(columnId: TColumnId): FormulaOperand<TColumnId, TScopeId>;
-  group(scopeId: TScopeId): FormulaSeriesContext<TColumnId, TScopeId>;
   series(columnId: TColumnId): FormulaSeriesContext<TColumnId, TScopeId>;
   if(
     condition: FormulaConditionValue<TColumnId, TScopeId>,
@@ -254,28 +259,6 @@ function wrapSeries<TColumnId extends string, TScopeId extends string>(
   };
 }
 
-function wrapScope<TColumnId extends string, TScopeId extends string>(
-  scopeId: TScopeId,
-): FormulaSeriesContext<TColumnId, TScopeId> {
-  return {
-    sum() {
-      return wrapExpr(createScopeAggregateExpr("SUM", scopeId));
-    },
-    average() {
-      return wrapExpr(createScopeAggregateExpr("AVERAGE", scopeId));
-    },
-    min() {
-      return wrapExpr(createScopeAggregateExpr("MIN", scopeId));
-    },
-    max() {
-      return wrapExpr(createScopeAggregateExpr("MAX", scopeId));
-    },
-    count() {
-      return wrapExpr(createScopeAggregateExpr("COUNT", scopeId));
-    },
-  };
-}
-
 function createScopeAggregateExpr<TScopeId extends string>(
   aggregate: FormulaScopeAggregateExpr<TScopeId>["aggregate"],
   scopeId: TScopeId,
@@ -359,17 +342,22 @@ export function createFormulaRowContext<
   const fx = createFormulaFunctions<TColumnId, TScopeId>();
 
   return {
-    ref(columnId) {
-      return wrapExpr({ kind: "ref", columnId });
-    },
-    group(scopeId) {
-      return wrapScope(scopeId);
-    },
     series(columnId) {
       return wrapSeries(columnId);
     },
     if(condition, whenTrue, whenFalse) {
       return fx.if(condition, whenTrue, whenFalse);
+    },
+  };
+}
+
+export function createFormulaColumnRefs<
+  TColumnId extends string,
+  TScopeId extends string,
+>(): FormulaColumnRefs<TColumnId, TScopeId> {
+  return {
+    column(columnId) {
+      return wrapExpr({ kind: "ref", columnId });
     },
   };
 }

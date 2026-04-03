@@ -64,7 +64,7 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
   })
   .column("lineRevenue", {
     header: "Line Revenue",
-    formula: ({ row, fx }) => fx.round(row.ref("quantity").mul(row.ref("unitPrice")), 2),
+    formula: ({ refs, fx }) => fx.round(refs.column("quantity").mul(refs.column("unitPrice")), 2),
     minWidth: 14,
     style: { numFmt: '"$"#,##0.00', alignment: { horizontal: "right" } },
     summary: (summary) => [
@@ -76,7 +76,7 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
   })
   .column("lineCost", {
     header: "Line Cost",
-    formula: ({ row, fx }) => fx.round(row.ref("quantity").mul(row.ref("unitCost")), 2),
+    formula: ({ refs, fx }) => fx.round(refs.column("quantity").mul(refs.column("unitCost")), 2),
     minWidth: 12,
     style: { numFmt: '"$"#,##0.00', alignment: { horizontal: "right" } },
     summary: (summary) => [
@@ -100,12 +100,12 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
   })
   .column("netRevenue", {
     header: "Net Revenue",
-    formula: ({ row, fx }) =>
+    formula: ({ refs, fx }) =>
       fx.round(
-        row
-          .ref("quantity")
-          .mul(row.ref("unitPrice"))
-          .mul(fx.literal(1).sub(row.ref("discountRate"))),
+        refs
+          .column("quantity")
+          .mul(refs.column("unitPrice"))
+          .mul(fx.literal(1).sub(refs.column("discountRate"))),
         2,
       ),
     minWidth: 14,
@@ -119,23 +119,23 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
   })
   .column("marginPct", {
     header: "Margin %",
-    formula: ({ row, fx }) =>
+    formula: ({ refs, fx }) =>
       fx.if(
-        row
-          .ref("quantity")
-          .mul(row.ref("unitPrice"))
-          .mul(fx.literal(1).sub(row.ref("discountRate")))
+        refs
+          .column("quantity")
+          .mul(refs.column("unitPrice"))
+          .mul(fx.literal(1).sub(refs.column("discountRate")))
           .gt(0),
-        row
-          .ref("quantity")
-          .mul(row.ref("unitPrice"))
-          .mul(fx.literal(1).sub(row.ref("discountRate")))
-          .sub(row.ref("quantity").mul(row.ref("unitCost")))
+        refs
+          .column("quantity")
+          .mul(refs.column("unitPrice"))
+          .mul(fx.literal(1).sub(refs.column("discountRate")))
+          .sub(refs.column("quantity").mul(refs.column("unitCost")))
           .div(
-            row
-              .ref("quantity")
-              .mul(row.ref("unitPrice"))
-              .mul(fx.literal(1).sub(row.ref("discountRate"))),
+            refs
+              .column("quantity")
+              .mul(refs.column("unitPrice"))
+              .mul(fx.literal(1).sub(refs.column("discountRate"))),
           ),
         0,
       ),
@@ -143,11 +143,11 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
     style: { numFmt: "0.0%", alignment: { horizontal: "right" } },
     conditionalStyle: (conditional) =>
       conditional
-        .when(({ row }) => row.ref("marginPct").lt(0.18), {
+        .when(({ refs }) => refs.column("marginPct").lt(0.18), {
           fill: { color: { rgb: "FEE2E2" } },
           font: { color: { rgb: "991B1B" }, bold: true },
         })
-        .when(({ row }) => row.ref("discountRate").lt(0.08), {
+        .when(({ refs }) => refs.column("discountRate").lt(0.08), {
           fill: { color: { rgb: "DCFCE7" } },
           font: { color: { rgb: "166534" }, bold: true },
         }),
@@ -178,12 +178,12 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
   })
   .column("approvalFlag", {
     header: "Approval",
-    formula: ({ row, fx }) =>
+    formula: ({ row, refs, fx }) =>
       fx.if(
-        row
-          .ref("discountRate")
+        refs
+          .column("discountRate")
           .gte(0.18)
-          .or(row.ref("stage").eq("Negotiation"))
+          .or(refs.column("stage").eq("Negotiation"))
           .or(row.series("marginPct").min().lt(0.18)),
         "REVIEW",
         "CLEAR",
@@ -191,11 +191,11 @@ export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()
     minWidth: 12,
     conditionalStyle: (conditional) =>
       conditional
-        .when(({ row }) => row.ref("approvalFlag").eq("REVIEW"), {
+        .when(({ refs }) => refs.column("approvalFlag").eq("REVIEW"), {
           fill: { color: { rgb: "FFEDD5" } },
           font: { color: { rgb: "9A3412" }, bold: true },
         })
-        .when(({ row }) => row.ref("approvalFlag").eq("CLEAR"), {
+        .when(({ refs }) => refs.column("approvalFlag").eq("CLEAR"), {
           fill: { color: { rgb: "DCFCE7" } },
           font: { color: { rgb: "166534" }, bold: true },
         }),
@@ -261,15 +261,16 @@ export const dealDeskApprovalSchema = createExcelSchema<QuoteReview>()
     conditionalStyle: (conditional) =>
       conditional
         .when(
-          ({ row }) => row.ref("discountRate").gte(0.18).or(row.ref("stage").eq("Negotiation")),
+          ({ refs }) =>
+            refs.column("discountRate").gte(0.18).or(refs.column("stage").eq("Negotiation")),
           {
             fill: { color: { rgb: "FFEDD5" } },
             font: { color: { rgb: "9A3412" }, bold: true },
           },
         )
         .when(
-          ({ row }) =>
-            row.ref("discountRate").lt(0.18).and(row.ref("stage").eq("Negotiation").not()),
+          ({ refs }) =>
+            refs.column("discountRate").lt(0.18).and(refs.column("stage").eq("Negotiation").not()),
           {
             fill: { color: { rgb: "DCFCE7" } },
             font: { color: { rgb: "166534" }, bold: true },

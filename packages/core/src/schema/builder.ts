@@ -16,6 +16,7 @@ import {
 import { normalizeSummaryInput } from "../summary/builder";
 import type { SummaryInput } from "../summary/builder";
 import type {
+  FormulaColumnRefs,
   FormulaFunctions,
   FormulaRefs,
   FormulaRowContext,
@@ -105,7 +106,8 @@ export type FormulaFn<
   TContext extends SchemaContext = SchemaContext,
 > = (context: {
   row: FormulaRowContext<TPrevColumnId, TGroupId | TDynamicId>;
-  refs: FormulaRefs<TPrevColumnId, TGroupId, TDynamicId>;
+  refs: FormulaColumnRefs<TPrevColumnId, TGroupId | TDynamicId> &
+    FormulaRefs<TPrevColumnId, TGroupId, TDynamicId>;
   fx: FormulaFunctions<TPrevColumnId, TGroupId | TDynamicId>;
   ctx: TContext;
 }) => FormulaValue<TPrevColumnId, TGroupId | TDynamicId>;

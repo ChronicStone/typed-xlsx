@@ -355,7 +355,7 @@ export const kitchenSinkProtectedInputSchema = createExcelSchema<{
   })
   .column("approvedBudget", {
     header: () => "Approved Budget",
-    formula: ({ row, fx }) => fx.round(row.ref("requestedBudget").mul(0.9), 0),
+    formula: ({ refs, fx }) => fx.round(refs.column("requestedBudget").mul(0.9), 0),
     minWidth: 16,
     style: {
       ...currencyStyle,
@@ -454,7 +454,7 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   })
   .column("grossTotal", {
     header: "Gross",
-    formula: ({ row, fx }) => fx.round(row.ref("qty").mul(row.ref("unitPrice")), 2),
+    formula: ({ refs, fx }) => fx.round(refs.column("qty").mul(refs.column("unitPrice")), 2),
     minWidth: 12,
     style: currencyStyle,
     headerStyle,
@@ -462,8 +462,12 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   })
   .column("seatUtilization", {
     header: "Utilization",
-    formula: ({ row, fx }) =>
-      fx.if(row.ref("qty").gt(0), fx.round(row.ref("activatedSeats").div(row.ref("qty")), 4), 0),
+    formula: ({ refs, fx }) =>
+      fx.if(
+        refs.column("qty").gt(0),
+        fx.round(refs.column("activatedSeats").div(refs.column("qty")), 4),
+        0,
+      ),
     width: 12,
     style: {
       numFmt: "0.0%",
@@ -473,19 +477,19 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   })
   .column("lineTotal", {
     header: "Net",
-    formula: ({ row, fx }) =>
-      fx.round(row.ref("grossTotal").mul(fx.literal(1).sub(row.ref("discountRate"))), 2),
+    formula: ({ refs, fx }) =>
+      fx.round(refs.column("grossTotal").mul(fx.literal(1).sub(refs.column("discountRate"))), 2),
     minWidth: 12,
     style: currencyStyle,
     conditionalStyle: (c) =>
       c
-        .when(({ row }) => row.ref("lineTotal").lt(1000), {
+        .when(({ refs }) => refs.column("lineTotal").lt(1000), {
           fill: { color: { rgb: "FEE2E2" } },
           font: { color: { rgb: "991B1B" }, bold: true },
         })
         .when(
-          ({ row, fx }) =>
-            fx.and(row.ref("lineTotal").gte(5000), row.ref("seatUtilization").gte(0.85)),
+          ({ refs, fx }) =>
+            fx.and(refs.column("lineTotal").gte(5000), refs.column("seatUtilization").gte(0.85)),
           {
             fill: { color: { rgb: "DCFCE7" } },
             font: { color: { rgb: "166534" }, bold: true },
@@ -496,28 +500,32 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   })
   .column("segment", {
     header: "Segment",
-    formula: ({ row, fx }) =>
+    formula: ({ refs, fx }) =>
       fx.if(
-        row.ref("lineTotal").gte(5000).or(row.ref("seatUtilization").gte(0.85)),
+        refs.column("lineTotal").gte(5000).or(refs.column("seatUtilization").gte(0.85)),
         "HIGH",
-        fx.if(row.ref("discountRate").gte(0.15), "WATCH", "STANDARD"),
+        fx.if(refs.column("discountRate").gte(0.15), "WATCH", "STANDARD"),
       ),
     minWidth: 12,
     headerStyle,
   })
   .column("riskFlag", {
     header: "Risk",
-    formula: ({ row, fx }) =>
-      fx.if(row.ref("segment").eq("WATCH").or(row.ref("seatUtilization").lt(0.5)), "REVIEW", "OK"),
+    formula: ({ refs, fx }) =>
+      fx.if(
+        refs.column("segment").eq("WATCH").or(refs.column("seatUtilization").lt(0.5)),
+        "REVIEW",
+        "OK",
+      ),
     minWidth: 10,
     conditionalStyle: (c) =>
       c
-        .when(({ row }) => row.ref("riskFlag").eq("REVIEW"), {
+        .when(({ refs }) => refs.column("riskFlag").eq("REVIEW"), {
           fill: { color: { rgb: "FFEDD5" } },
           font: { color: { rgb: "9A3412" }, bold: true },
           border: { left: { style: "thick", color: { rgb: "EA580C" } } },
         })
-        .when(({ row }) => row.ref("riskFlag").eq("OK"), {
+        .when(({ refs }) => refs.column("riskFlag").eq("OK"), {
           fill: { color: { rgb: "DCFCE7" } },
           font: { color: { rgb: "166534" }, bold: true },
         }),
@@ -555,7 +563,8 @@ export const kitchenSinkGroupedFormulaSchema = createExcelSchema<
     for (const region of ctx.regions) {
       builder.column(`region:${region}`, {
         header: `${region} Amount`,
-        formula: ({ row, fx }) => fx.if(row.ref("region").eq(region), row.ref("amount"), 0),
+        formula: ({ refs, fx }) =>
+          fx.if(refs.column("region").eq(region), refs.column("amount"), 0),
         minWidth: 14,
         style: currencyStyle,
       });
@@ -563,14 +572,14 @@ export const kitchenSinkGroupedFormulaSchema = createExcelSchema<
   })
   .column("regionalTotal", {
     header: "Regional Total",
-    formula: ({ row }) => row.group("regions").sum(),
+    formula: ({ refs, fx }) => fx.sum(refs.dynamic("regions")),
     minWidth: 14,
     style: currencyStyle,
     totalsRow: { function: "sum" },
   })
   .column("regionalAverage", {
     header: "Regional Avg",
-    formula: ({ row, fx }) => fx.round(row.group("regions").average(), 2),
+    formula: ({ refs, fx }) => fx.round(fx.average(refs.dynamic("regions")), 2),
     minWidth: 14,
     style: currencyStyle,
     totalsRow: { function: "average" },

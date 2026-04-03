@@ -50,6 +50,7 @@ export type {
   SchemaGroupId,
   SchemaKind,
   SchemaKindOf,
+  StructureConditionDefinition,
   TypedPath,
 } from "./index-internal";
 export { conditionalStyle } from "./index-internal";
