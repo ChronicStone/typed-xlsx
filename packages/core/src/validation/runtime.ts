@@ -127,8 +127,8 @@ function serializeValidationExpr<T extends object>(
     return toValidationColumnRef(columnIndex, targetColumnIndex);
   }
 
-  if (expr.kind === "group") {
-    throw new Error("Group references are not supported in data validation rules.");
+  if (expr.kind === "scope-aggregate") {
+    throw new Error("Scope references are not supported in data validation rules.");
   }
 
   if (expr.kind === "series" || expr.kind === "collection-aggregate") {

@@ -52,9 +52,13 @@ import {
 import { StylesCollector } from "../styles/collector";
 import {
   withTableDefaultBodyStyle,
+  withTableDefaultGroupHeaderFillerStyle,
+  withTableDefaultGroupHeaderStyle,
   withTableDefaultHeaderStyle,
-  withDefaultHyperlinkBodyStyle,
+  withTableDefaultHyperlinkBodyStyle,
+  withTableDefaultTitleStyle,
   withTableDefaultSummaryStyle,
+  resolveTableStyleDefaultsWithTheme,
 } from "../styles/defaults";
 import { serializeCell, serializeInlineStringCell, toCellRef } from "../ooxml/cells";
 import type { CellStyle } from "../styles/types";
@@ -65,6 +69,7 @@ import { resolveAutoFilter } from "./internal/auto-filter";
 import { buildPlannedSummaries, resolveSummaryValue } from "./internal/summaries";
 import { resolveExcelTableOptions } from "./internal/excel-table";
 import { layoutTables, positionTableMerges, type PositionedTable } from "./internal/layout";
+import { buildReportChrome, shiftFormulaCellsInWorksheetXml } from "./internal/report-chrome";
 
 function normalizeColumnSummary(
   summary: ReturnType<typeof resolveColumns<any>>[number]["summary"],
@@ -74,7 +79,9 @@ function normalizeColumnSummary(
 
 interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
-  schema: SchemaDefinition<T, any, any, any, any>;
+  title?: string;
+  render?: import("./types").ReportTableRenderOptions;
+  schema: SchemaDefinition<T, any, any, any, any, any>;
   selection?: TableSelection<TColumnId>;
   columns: ReturnType<typeof resolveColumns<T>>;
   stats: ReturnType<typeof createPlannerStats>;
@@ -96,9 +103,15 @@ interface StreamTableState<T extends object, TColumnId extends string> {
 
 interface StreamTableFinalization {
   tableId: string;
+  title?: string;
+  render?: import("./types").ReportTableRenderOptions;
+  titleStyleIndex?: number;
+  groupHeaderStyleIndex?: number;
+  groupHeaderFillerStyleIndex?: number;
   columns: Array<{
     id: string;
     headerLabel: string;
+    groupPath: Array<{ id: string; headerLabel: string }>;
     style?: CellStyle;
     totalsStyleIndex?: number;
     width: number;
@@ -124,7 +137,7 @@ interface StreamTableFinalization {
   conditionalFormatting: import("../styles/conditional-runtime").WorksheetConditionalFormattingBlock[];
   dataValidations: import("../validation/runtime").WorksheetDataValidation[];
   planner: {
-    columns: Array<{ id: string }>;
+    columns: Array<{ id: string; groupPath: Array<{ id: string; headerLabel: string }> }>;
     merges: PlannedMergeRange[];
     rows: Array<unknown>;
     stats: {
@@ -192,7 +205,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
 
   constructor(
     tableId: string,
-    schema: SchemaDefinition<T, any, any, any, any>,
+    schema: SchemaDefinition<T, any, any, any, any, any>,
     spool: StreamSheetSpool,
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
@@ -202,33 +215,55 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     options?: {
       autoFilter?: boolean;
       defaults?: import("./types").TableStyleDefaults;
+      theme?: import("../styles/theme").SpreadsheetTheme;
       reportAutoFilter?: boolean | TableAutoFilterOptions;
+      title?: string;
+      render?: import("./types").ReportTableRenderOptions;
       name?: string;
       style?: import("./types").ExcelTableStyle;
       totalsRow?: boolean;
     },
   ) {
     const columns = applySelection(resolveColumns(schema, context, selection), selection);
-    const isExcelTable = schema.kind === "excel-table";
-    const resolvedExcelTable = isExcelTable
-      ? resolveExcelTableOptions({
-          autoFilter: options?.autoFilter,
-          columns,
-          hasMerges: false,
-          id: tableId,
-          name: options?.name,
-          style: options?.style,
-          totalsRow: options?.totalsRow,
-        })
-      : undefined;
+    const defaults = resolveTableStyleDefaultsWithTheme({
+      schemaTheme: schema.theme,
+      tableTheme: options?.theme,
+      defaults: options?.defaults,
+    });
+    const resolvedExcelTable =
+      (schema as SchemaDefinition<T, any, any, any, any, any>).kind === "excel-table"
+        ? resolveExcelTableOptions({
+            autoFilter: options?.autoFilter,
+            columns,
+            hasMerges: false,
+            id: tableId,
+            name: options?.name,
+            style: options?.style,
+            totalsRow: options?.totalsRow,
+          })
+        : undefined;
+    if (resolvedExcelTable) {
+      if (options?.title) {
+        throw new Error(
+          "Excel-table mode does not support rendered title rows. Use report mode for table chrome.",
+        );
+      }
+      if (options?.render?.groupHeaders) {
+        throw new Error(
+          "Excel-table mode does not support grouped header rendering. Use report mode for structural header bands.",
+        );
+      }
+    }
     this.state = {
       tableId,
+      title: options?.title,
+      render: options?.render,
       schema,
       selection,
       columns,
       stats: createPlannerStats(columns),
       summaryBindings: createSummaryBindings(columns),
-      defaults: options?.defaults,
+      defaults,
       committedLogicalRows: 0,
       committedPhysicalRows: 0,
       logicalRowBounds: [],
@@ -338,9 +373,21 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     const summaries = this.finalizeSummaries();
     return {
       tableId: this.state.tableId,
+      title: this.state.title,
+      render: this.state.render,
+      titleStyleIndex: this.state.title
+        ? this.styles.addStyle(withTableDefaultTitleStyle(this.state.defaults))
+        : undefined,
+      groupHeaderStyleIndex: this.styles.addStyle(
+        withTableDefaultGroupHeaderStyle(this.state.defaults),
+      ),
+      groupHeaderFillerStyleIndex: this.styles.addStyle(
+        withTableDefaultGroupHeaderFillerStyle(this.state.defaults),
+      ),
       columns: this.state.columns.map((column) => ({
         id: column.id,
         headerLabel: column.headerLabel,
+        groupPath: column.groupPath,
         style: typeof column.style === "function" ? undefined : column.style,
         totalsStyleIndex: this.styles.addStyle(
           withTableDefaultSummaryStyle(
@@ -384,7 +431,10 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         mode: this.state.schema.kind,
       }),
       planner: {
-        columns: this.state.columns.map((column) => ({ id: column.id })),
+        columns: this.state.columns.map((column) => ({
+          id: column.id,
+          groupPath: column.groupPath,
+        })),
         merges: [...this.state.merges],
         rows: Array.from({ length: this.state.committedPhysicalRows }),
         stats: {
@@ -431,19 +481,25 @@ class StreamSheetBuilder {
       this.sharedStrings,
       this.styles,
       this.stringMode,
-      "context" in params ? params.context : undefined,
+      ("context" in params ? params.context : undefined) as Record<string, unknown> | undefined,
       params.select,
       isStreamExcelTableInput(params)
         ? {
             autoFilter: params.autoFilter,
             defaults: params.defaults,
+            theme: params.theme,
+            title: params.title,
+            render: params.render,
             name: params.name,
             style: params.style,
             totalsRow: params.totalsRow,
           }
         : {
             defaults: params.defaults,
+            theme: params.theme,
             reportAutoFilter: params.autoFilter,
+            title: params.title,
+            render: params.render,
           },
     );
     this.tables.push(builder);
@@ -695,12 +751,35 @@ async function* streamWorksheetXml(
   conditionalFormatting: ReturnType<typeof buildPositionedConditionalFormatting>,
   styles: StylesCollector,
 ): AsyncIterable<Uint8Array> {
-  const merges = positionedTables.flatMap((positioned) => positionTableMerges(positioned));
+  const merges = positionedTables.flatMap((positioned) => {
+    const chrome = getStreamReportChrome(positioned.table);
+    return [
+      ...(chrome.titleMerge
+        ? [
+            {
+              startRow: positioned.rowOffset + chrome.titleMerge.startRow,
+              endRow: positioned.rowOffset + chrome.titleMerge.endRow,
+              startCol: positioned.columnOffset + chrome.titleMerge.startCol,
+              endCol: positioned.columnOffset + chrome.titleMerge.endCol,
+            },
+          ]
+        : []),
+      ...chrome.groupHeaderMerges.map((merge) => ({
+        startRow: positioned.rowOffset + merge.startRow,
+        endRow: positioned.rowOffset + merge.endRow,
+        startCol: positioned.columnOffset + merge.startCol,
+        endCol: positioned.columnOffset + merge.endCol,
+      })),
+      ...positionTableMerges(positioned),
+    ];
+  });
   const autoFilteredTables = positionedTables.filter((positioned) => positioned.table.autoFilter);
   const autoFilter =
     autoFilteredTables.length === 1
       ? writeWorksheetAutoFilter({
-          startRow: autoFilteredTables[0]!.rowOffset,
+          startRow:
+            autoFilteredTables[0]!.rowOffset +
+            getStreamReportChrome(autoFilteredTables[0]!.table).autoFilterRowOffset,
           endRow: autoFilteredTables[0]!.rowOffset + autoFilteredTables[0]!.height - 1,
           startCol: autoFilteredTables[0]!.columnOffset,
           endCol: autoFilteredTables[0]!.columnOffset + autoFilteredTables[0]!.width - 1,
@@ -719,14 +798,22 @@ async function* streamWorksheetXml(
   const dataValidations = positionedTables.flatMap((positioned) =>
     positioned.table.dataValidations.map((block) => ({
       ...block,
-      ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
+      ref: shiftWorksheetRange(
+        block.ref,
+        positioned.rowOffset + getStreamReportChrome(positioned.table).bodyRowOffset - 1,
+        positioned.columnOffset,
+      ),
     })),
   );
   const hyperlinks = partitionWorksheetHyperlinks(
     positionedTables.flatMap((positioned) =>
       positioned.table.hyperlinks.map((hyperlink) => ({
         ...hyperlink,
-        ref: shiftCellRef(hyperlink.ref, positioned.rowOffset, positioned.columnOffset),
+        ref: shiftCellRef(
+          hyperlink.ref,
+          positioned.rowOffset + getStreamReportChrome(positioned.table).bodyRowOffset - 1,
+          positioned.columnOffset,
+        ),
       })),
     ),
   );
@@ -742,12 +829,46 @@ async function* streamWorksheetXml(
   );
 
   for (const positioned of positionedTables) {
-    appendCells(
-      rowMap,
-      positioned.rowOffset,
-      positioned.table.columns.map((column, columnIndex) =>
+    const chrome = getStreamReportChrome(positioned.table);
+    if (positioned.table.title) {
+      appendCells(rowMap, positioned.rowOffset, [
         serializeHeaderCellAt(
           positioned.rowOffset,
+          positioned.columnOffset,
+          positioned.table.title,
+          positioned.table.titleStyleIndex,
+        ),
+      ]);
+    }
+
+    chrome.groupHeaderPlaceholders.forEach((cell) => {
+      appendCells(rowMap, positioned.rowOffset + cell.rowOffset, [
+        serializeHeaderCellAt(
+          positioned.rowOffset + cell.rowOffset,
+          positioned.columnOffset + cell.columnOffset,
+          "",
+          positioned.table.groupHeaderFillerStyleIndex,
+        ),
+      ]);
+    });
+
+    chrome.groupHeaderCells.forEach((cell) => {
+      appendCells(rowMap, positioned.rowOffset + cell.rowOffset, [
+        serializeHeaderCellAt(
+          positioned.rowOffset + cell.rowOffset,
+          positioned.columnOffset + cell.columnOffset,
+          cell.value,
+          positioned.table.groupHeaderStyleIndex,
+        ),
+      ]);
+    });
+
+    appendCells(
+      rowMap,
+      positioned.rowOffset + chrome.leafHeaderRowOffset,
+      positioned.table.columns.map((column, columnIndex) =>
+        serializeHeaderCellAt(
+          positioned.rowOffset + chrome.leafHeaderRowOffset,
           positioned.columnOffset + columnIndex,
           column.headerLabel,
           positioned.table.headerStyleIndexes[columnIndex],
@@ -759,7 +880,7 @@ async function* streamWorksheetXml(
       appendShiftedWorksheetChunkRowsAndColumns(
         rowMap,
         chunk,
-        positioned.rowOffset,
+        positioned.rowOffset + chrome.bodyRowOffset - 1,
         positioned.columnOffset,
       );
     }
@@ -768,7 +889,11 @@ async function* streamWorksheetXml(
 
     for (const [summaryRowIndex, summaryRow] of summaryRows.entries()) {
       const summaryRowNumber =
-        positioned.rowOffset + positioned.table.committedPhysicalRows + 2 + summaryRowIndex;
+        positioned.rowOffset +
+        chrome.bodyRowOffset +
+        positioned.table.committedPhysicalRows +
+        summaryRowIndex +
+        1;
       const values = new Map(summaryRow.map((summary) => [summary.columnId, summary]));
 
       appendCells(
@@ -788,12 +913,22 @@ async function* streamWorksheetXml(
                 definition: column.summary?.[summary.summaryIndex]!,
                 value: summary.value,
                 formulaContext: {
-                  startRow: positioned.rowOffset + 1,
-                  endRow: positioned.rowOffset + positioned.table.committedPhysicalRows,
+                  startRow: positioned.rowOffset + chrome.bodyRowOffset,
+                  endRow:
+                    positioned.rowOffset +
+                    chrome.bodyRowOffset +
+                    positioned.table.committedPhysicalRows -
+                    1,
                   column: positioned.columnOffset + columnIndex,
                   logicalRows: positioned.table.logicalRowBounds.map((row) => ({
-                    startRow: positioned.rowOffset + row.logicalRowStartIndex + 1,
-                    endRow: positioned.rowOffset + row.logicalRowStartIndex + row.logicalRowHeight,
+                    startRow:
+                      positioned.rowOffset + chrome.bodyRowOffset + row.logicalRowStartIndex,
+                    endRow:
+                      positioned.rowOffset +
+                      chrome.bodyRowOffset +
+                      row.logicalRowStartIndex +
+                      row.logicalRowHeight -
+                      1,
                   })),
                 },
               }),
@@ -863,7 +998,7 @@ async function* streamWorksheetXml(
       xmlElement(
         "row",
         { r: rowIndex + 1, ht: getDefaultRowHeight(), customHeight: 1 },
-        rowMap.get(rowIndex) ?? [],
+        sortWorksheetCells(rowMap.get(rowIndex) ?? []),
       ),
     );
   }
@@ -948,6 +1083,40 @@ function shiftCellRef(ref: string, rowOffset: number, columnOffset: number) {
   }
 
   return `${toWorksheetCol(fromWorksheetCol(col) + columnOffset)}${Number(row) + rowOffset}`;
+}
+
+function getStreamReportChrome(table: StreamTableFinalization) {
+  return table.excelTable
+    ? {
+        titleRowCount: 0,
+        groupHeaderDepth: 0,
+        leafHeaderRowOffset: 0,
+        headerHeight: 1,
+        bodyRowOffset: 1,
+        autoFilterRowOffset: 0,
+        groupHeaderCells: [] as Array<{
+          rowOffset: number;
+          columnOffset: number;
+          value: string;
+          colSpan: number;
+        }>,
+        groupHeaderPlaceholders: [] as Array<{
+          rowOffset: number;
+          columnOffset: number;
+        }>,
+        groupHeaderMerges: [] as Array<{
+          startRow: number;
+          endRow: number;
+          startCol: number;
+          endCol: number;
+        }>,
+        titleMerge: undefined,
+      }
+    : buildReportChrome({
+        columns: table.planner.columns.map((column) => ({ groupPath: column.groupPath })),
+        title: table.title,
+        render: table.render,
+      });
 }
 
 function serializeHeaderCellAt(
@@ -1048,7 +1217,11 @@ function appendShiftedWorksheetChunkRowsAndColumns(
   rowOffset: number,
   columnOffset: number,
 ) {
-  const content = new TextDecoder().decode(chunk);
+  const content = shiftFormulaCellsInWorksheetXml(
+    new TextDecoder().decode(chunk),
+    rowOffset,
+    columnOffset,
+  );
   const rowMatches = [...content.matchAll(/<row\s+[^>]*r="(\d+)"[^>]*>(.*?)<\/row>/g)];
 
   rowMatches.forEach((match) => {
@@ -1089,11 +1262,65 @@ function fromWorksheetCol(column: string) {
 function appendCells(rowMap: Map<number, string[]>, rowIndex: number, cells: string[]) {
   const existing = rowMap.get(rowIndex);
   if (existing) {
-    existing.push(...cells);
+    upsertWorksheetCells(existing, cells);
     return;
   }
 
   rowMap.set(rowIndex, [...cells]);
+}
+
+function upsertWorksheetCells(target: string[], incoming: string[]) {
+  const existingByRef = new Map(
+    target.map((cell, index) => [getWorksheetCellRef(cell), index] as const),
+  );
+
+  incoming.forEach((cell) => {
+    const ref = getWorksheetCellRef(cell);
+    const existingIndex = ref ? existingByRef.get(ref) : undefined;
+    if (existingIndex !== undefined) {
+      target[existingIndex] = cell;
+      return;
+    }
+
+    target.push(cell);
+    if (ref) {
+      existingByRef.set(ref, target.length - 1);
+    }
+  });
+}
+
+function sortWorksheetCells(cells: string[]) {
+  return [...cells].sort(
+    (left, right) => getWorksheetCellSortKey(left) - getWorksheetCellSortKey(right),
+  );
+}
+
+function getWorksheetCellSortKey(cellXml: string) {
+  const ref = getWorksheetCellRef(cellXml);
+  if (!ref) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const refMatch = ref.match(/^([A-Z]+)(\d+)$/);
+  if (!refMatch) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const [, col, row] = refMatch;
+  if (!col || !row) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  return Number(row) * 10_000 + fromWorksheetCol(col);
+}
+
+function getWorksheetCellRef(cellXml: string) {
+  const refMatch = cellXml.match(/\br="([A-Z]+)(\d+)"/);
+  if (!refMatch) {
+    return undefined;
+  }
+
+  return `${refMatch[1] ?? ""}${refMatch[2] ?? ""}` || undefined;
 }
 
 function buildStyleIndexesByRow<T extends object>(
@@ -1106,16 +1333,9 @@ function buildStyleIndexesByRow<T extends object>(
     columns.map((column, columnIndex) =>
       styles.addStyle(
         expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]
-          ? withDefaultHyperlinkBodyStyle(
-              withTableDefaultBodyStyle(
-                defaults,
-                resolveColumnStyle(
-                  column,
-                  expandedRow.row,
-                  expandedRow.sourceRowIndex,
-                  subRowIndex,
-                ),
-              ),
+          ? withTableDefaultHyperlinkBodyStyle(
+              defaults,
+              resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
               expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]?.style,
             )
           : withTableDefaultBodyStyle(
@@ -1135,7 +1355,12 @@ function resolveColumnStyle<T extends object>(
 ): CellStyle | undefined {
   if (!column.style) return undefined;
   if (typeof column.style === "function") {
-    return column.style(row, rowIndex, subRowIndex);
+    const styleFn = column.style as (...args: any[]) => CellStyle | undefined;
+    if (styleFn.length >= 3) {
+      return styleFn(row, rowIndex, subRowIndex);
+    }
+
+    return styleFn({ ...row, ctx: undefined as never, row, rowIndex, subRowIndex } as never);
   }
   return column.style;
 }

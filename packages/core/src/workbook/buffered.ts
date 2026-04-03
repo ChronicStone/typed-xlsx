@@ -19,6 +19,8 @@ import { computeSummaries } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
 import { resolveExcelTableOptions } from "./internal/excel-table";
 import { toCellRef } from "../ooxml/cells";
+import { buildReportChrome } from "./internal/report-chrome";
+import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
 
 function isBufferedExcelTableInput<T extends object, TColumnId extends string>(
   table: BufferedTableInput<T, TColumnId>,
@@ -31,6 +33,11 @@ function planTable<T extends object, TColumnId extends string>(
   table: BufferedTableInput<T, TColumnId>,
 ): BufferedTablePlan<T> {
   const context = "context" in table ? table.context : undefined;
+  const defaults = resolveTableStyleDefaultsWithTheme({
+    schemaTheme: table.schema.theme,
+    tableTheme: table.theme,
+    defaults: table.defaults,
+  });
   const resolvedColumns = applyColumnSelection(
     resolveColumns(table.schema, context, table.select),
     table.select,
@@ -38,6 +45,17 @@ function planTable<T extends object, TColumnId extends string>(
   const planner = planRows({ kind: table.schema.kind, columns: resolvedColumns }, table.rows);
 
   if (isBufferedExcelTableInput(table)) {
+    if (table.title) {
+      throw new Error(
+        "Excel-table mode does not support rendered title rows. Use report mode for table chrome.",
+      );
+    }
+    if (table.render?.groupHeaders) {
+      throw new Error(
+        "Excel-table mode does not support grouped header rendering. Use report mode for structural header bands.",
+      );
+    }
+
     const excelTable = resolveExcelTableOptions({
       autoFilter: table.autoFilter,
       columns: resolvedColumns,
@@ -52,7 +70,7 @@ function planTable<T extends object, TColumnId extends string>(
       id,
       rowCount: table.rows.length,
       planner,
-      defaults: table.defaults,
+      defaults,
       summaries: [],
       hyperlinks: planner.rows.flatMap((row) =>
         row.cells.flatMap((cell, columnIndex) =>
@@ -88,13 +106,19 @@ function planTable<T extends object, TColumnId extends string>(
 
   const reportTable = table;
   const summaries = computeSummaries(resolvedColumns, table.rows);
+  const reportChrome = buildReportChrome({
+    columns: resolvedColumns,
+    title: reportTable.title,
+    render: reportTable.render,
+  });
 
   return {
     id,
     title: reportTable.title,
+    render: reportTable.render,
     rowCount: table.rows.length,
     planner,
-    defaults: table.defaults,
+    defaults,
     summaries,
     hyperlinks: planner.rows.flatMap((row) =>
       row.cells.flatMap((cell, columnIndex) =>
@@ -111,15 +135,15 @@ function planTable<T extends object, TColumnId extends string>(
     ),
     conditionalFormatting: buildWorksheetConditionalFormatting({
       columns: resolvedColumns,
-      rowStart: 1,
-      rowEnd: planner.rows.length,
+      rowStart: reportChrome.bodyRowOffset,
+      rowEnd: reportChrome.bodyRowOffset + planner.rows.length - 1,
       columnOffset: 0,
       mode: table.schema.kind,
     }),
     dataValidations: buildWorksheetDataValidations({
       columns: resolvedColumns,
-      rowStart: 1,
-      rowEnd: planner.rows.length,
+      rowStart: reportChrome.bodyRowOffset,
+      rowEnd: reportChrome.bodyRowOffset + planner.rows.length - 1,
       columnOffset: 0,
       mode: table.schema.kind,
     }),

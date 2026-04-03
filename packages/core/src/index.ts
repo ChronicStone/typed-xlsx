@@ -8,6 +8,7 @@ export {
   type WorkbookSheetOptions,
   type WorkbookTableInput,
   type WorkbookTableDefaults,
+  type WorkbookReportRenderOptions,
   type WorkbookTableOptions,
   type WorkbookStream,
   type WorkbookStreamStringMode,
@@ -24,6 +25,10 @@ export type {
   LazyText,
   Accessor,
   AccessorValue,
+  SpreadsheetTheme,
+  SpreadsheetThemeInput,
+  SpreadsheetThemeSlotName,
+  SpreadsheetThemeTokens,
   HyperlinkInput,
   Path,
   PathValue,
@@ -38,8 +43,10 @@ export type {
   ReportSchemaDefinition,
   SchemaColumnId,
   SchemaContext,
-  SchemaDefinition,
+  SchemaContextOf,
   SchemaGroupContext,
+  SchemaDefinition,
+  SchemaDynamicId,
   SchemaGroupId,
   SchemaKind,
   SchemaKindOf,
@@ -47,6 +54,7 @@ export type {
 } from "./index-internal";
 export { conditionalStyle } from "./index-internal";
 export { validation } from "./index-internal";
+export { defineSpreadsheetTheme, spreadsheetThemes } from "./index-internal";
 export type {
   SummaryBuilder,
   SummaryCellValue,
@@ -64,6 +72,7 @@ export type {
 } from "./index-internal";
 export type {
   FreezePane,
+  ReportTableRenderOptions,
   SheetLayoutOptions,
   SheetViewOptions,
   TableStyleDefault,

@@ -327,7 +327,7 @@ export async function buildKitchenSinkStreamExample() {
     })
     .table("grouped-formula-orders", {
       schema: kitchenSinkGroupedFormulaSchema,
-      context: { regions: ["AMER", "APAC", "EMEA"] },
+      context: { regions: ["AMER", "APAC", "EMEA"] as const },
       style: "TableStyleLight9",
       totalsRow: true,
     });
