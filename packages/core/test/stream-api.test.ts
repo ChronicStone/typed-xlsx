@@ -145,8 +145,8 @@ describe("public stream api", () => {
     });
 
     const content = Buffer.concat(chunks).toString("latin1");
-    expect(content).toContain("<f>(A2*2)</f>");
-    expect(content).toContain("<f>(B2+A2)</f>");
+    expect(content).toContain("<f>(A3*2)</f>");
+    expect(content).toContain("<f>(B3+A3)</f>");
   });
 
   it("allows formulas inside groups to reference outer predecessor columns in stream excel-table mode", async () => {
@@ -221,8 +221,8 @@ describe("public stream api", () => {
     });
 
     const content = Buffer.concat(chunks).toString("latin1");
-    expect(content).toContain("<f>SUM(B2,C2)</f>");
-    expect(content).toContain("<f>MIN(B2,C2)</f>");
+    expect(content).toContain("<f>SUM(B3,C3)</f>");
+    expect(content).toContain("<f>MIN(B3,C3)</f>");
   });
 
   it("supports aggregating dynamic groups from later stream excel-table formulas", async () => {
