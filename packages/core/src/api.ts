@@ -97,11 +97,11 @@ export interface WorkbookExcelTableInput<
 export type WorkbookReportTableOptions<
   TSchema extends AnyReportSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookReportTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookReportTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookExcelTableOptions<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookExcelTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookExcelTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookTableInput<
   TSchema extends AnySchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
@@ -189,13 +189,11 @@ export interface WorkbookStreamExcelTableOptions<
 export type WorkbookStreamResolvedReportTableOptions<
   TSchema extends AnyReportSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookStreamTableOptions<TSchema, TSelection> &
-  WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookStreamTableOptions<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookStreamResolvedExcelTableOptions<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookStreamExcelTableOptions<TSchema, TSelection> &
-  WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookStreamExcelTableOptions<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookStreamResolvedTableOptions<
   TSchema extends AnySchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
@@ -400,11 +398,11 @@ export function createExcelSchema<
     : SchemaBuilder.create<T, TContext>();
 }
 
-export function createWorkbook(_options?: WorkbookOptions) {
+export function createWorkbook(_options?: WorkbookOptions): Workbook {
   return new PublicWorkbook(_options);
 }
 
-export function createWorkbookStream(options?: WorkbookStreamOptions) {
+export function createWorkbookStream(options?: WorkbookStreamOptions): WorkbookStream {
   return new PublicWorkbookStream(options);
 }
 
