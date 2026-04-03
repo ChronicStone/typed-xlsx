@@ -18,118 +18,165 @@ const stories: ValueStoryCard[] = [
     id: "formula-refs",
     eyebrow: "Formula DSL",
     title: "Column IDs replace fragile cell addresses",
-    body: "Write formulas against column IDs and let the engine resolve final Excel coordinates. Rearranging columns is a layout decision, not a formula maintenance event.",
+    body: "Write formulas against column IDs with arithmetic, rounding, and safe division. The engine resolves final Excel coordinates — rearranging columns never breaks a formula.",
     docsPath: "/formulas/formula-columns",
     beforeCode:
       "// SheetJS: every formula is a string tied to a cell address\n" +
       "const r = dataStartRow + i;\n" +
-      "ws[\n" +
-      "  `D${r}`\n" +
-      "] = {\n" +
+      "ws[`D${r}`] = {\n" +
       '  t: "n",\n' +
       "  f: `=ROUND(B${r}*C${r},2)`,\n" +
       '  z: "$#,##0.00",\n' +
+      "};\n" +
+      "ws[`E${r}`] = {\n" +
+      '  t: "n",\n' +
+      "  f: `=IF(C${r}<>0,B${r}/C${r},0)`,\n" +
       "};\n\n" +
-      "// Insert a column before B?\n" +
-      "// Re-audit every formula string by hand.\n" +
-      "// Row type changed? No error. Wrong value at runtime.",
-    afterCode: `// Reference columns by ID — addresses resolved at build time
-.column("subtotal", {
+      "// Insert a column before B? Re-audit every formula string.\n" +
+      "// Typo in a cell ref? No error — wrong value at runtime.",
+    afterCode: `.column("subtotal", {
   formula: ({ refs, fx }) =>
     fx.round(refs.column("qty").mul(refs.column("price")), 2),
-  // TypeScript error if "qty" or "price"
-  // aren't declared before this column
   style: { numFmt: "$#,##0.00" },
-  summary: (s) => [s.formula("sum")],
-});
-
-// Move columns freely — formulas shift automatically.
-// Row type changes fail before export.`,
-  },
-  {
-    id: "summary-rows",
-    eyebrow: "Summary formulas",
-    title: "Footer totals without range arithmetic",
-    body: "Attach SUM, AVERAGE, or any aggregate directly to the schema. Ranges resolve automatically — no string templates to maintain when the report grows.",
-    docsPath: "/formulas/summary-formulas",
-    beforeCode:
-      "// SheetJS: totals row is manual range math\n" +
-      "const last = dataStartRow + rows.length - 1;\n" +
-      "ws[\n" +
-      "  `E${last + 2}`\n" +
-      "] = {\n" +
-      "  f: `SUM(E${dataStartRow}:E${last})`,\n" +
-      '  z: "$#,##0.00",\n' +
-      "};\n\n" +
-      "// Range is a hardcoded string template.\n" +
-      "// Move a column and update the formula manually.",
-    afterCode: `.column("revenue", {
-  accessor: "revenue",
-  style: { numFmt: "$#,##0.00" },
-  summary: (s) => [s.formula("sum")],
 })
 .column("margin", {
   formula: ({ refs, fx }) =>
-    fx.round(refs.column("revenue").sub(refs.column("cost")), 2),
-  summary: (s) => [s.formula("average")],
+    fx.safeDiv(
+      refs.column("revenue").sub(refs.column("cost")),
+      refs.column("revenue"),
+    ),
+  style: { numFmt: "0.0%" },
 });
 
-// Footer ranges resolve from the schema engine.
-// No string arithmetic required.`,
+// Move columns freely — formulas shift automatically.
+// Misspell a column ID? TypeScript error before export.`,
+  },
+  {
+    id: "summary-rows",
+    eyebrow: "Summary rows",
+    title: "Footer totals, labels, and reducers — no range math",
+    body: "Attach formula aggregates, reducer accumulators, labels, and spacers to any column. Multi-row footers align automatically across the full schema.",
+    docsPath: "/formulas/summary-formulas",
+    beforeCode:
+      "// SheetJS: footer rows are manual range math + cell writes\n" +
+      "const last = dataStartRow + rows.length - 1;\n" +
+      "ws[`D${last + 2}`] = {\n" +
+      "  f: `SUM(D${dataStartRow}:D${last})`,\n" +
+      '  z: "$#,##0.00",\n' +
+      "};\n" +
+      "ws[`A${last + 2}`] = {\n" +
+      '  v: "TOTAL", t: "s",\n' +
+      "};\n\n" +
+      "// Multi-row footers? Duplicate the math per row.\n" +
+      "// Need to count distinct values? Write a JS loop,\n" +
+      "// then poke the result into the right cell.",
+    afterCode: `.column("account", {
+  accessor: "account",
+  summary: (s) => [s.label("TOTAL"), s.label("UNIQUE")],
+})
+.column("revenue", {
+  accessor: "revenue",
+  style: { numFmt: "$#,##0.00" },
+  summary: (s) => [
+    s.formula("sum"),
+    s.cell({
+      init: () => new Set<string>(),
+      step: (acc, row) => acc.add(row.region),
+      finalize: (acc) => acc.size,
+    }),
+  ],
+})
+.column("cost", {
+  accessor: "cost",
+  summary: (s) => [s.formula("sum"), s.spacer()],
+});
+
+// Two footer rows. Ranges, labels, reducers — all aligned.`,
+  },
+  {
+    id: "column-groups",
+    eyebrow: "Column groups",
+    title: "Merged header rows from static column sets",
+    body: "Wrap related columns in a group to get a merged header spanning the set. Formulas can aggregate the entire group by ID — no manual range counting.",
+    docsPath: "/columns/column-groups",
+    beforeCode: `// SheetJS: merge header cells across a column range
+ws["B1"] = { v: "Q1 Revenue", t: "s" };
+ws["!merges"] = [{ s: { r: 0, c: 1 }, e: { r: 0, c: 3 } }];
+
+// Sub-headers go into row 2 — shift all data rows down.
+ws["B2"] = { v: "Jan", t: "s" };
+ws["C2"] = { v: "Feb", t: "s" };
+ws["D2"] = { v: "Mar", t: "s" };
+
+// Total formula manually spans the right cells
+ws["E2"] = { f: "SUM(B3:D3)" };
+
+// Every column add/remove means updating merge ranges,
+// sub-header positions, and formula refs by hand.`,
+    afterCode: `createExcelSchema<SalesRow>()
+  .column("rep", { accessor: "rep" })
+  .group("q1", { header: "Q1 Revenue" }, (group) => {
+    group
+      .column("jan", { accessor: "jan", style: { numFmt: "$#,##0" } })
+      .column("feb", { accessor: "feb", style: { numFmt: "$#,##0" } })
+      .column("mar", { accessor: "mar", style: { numFmt: "$#,##0" } });
+  })
+  .column("q1Total", {
+    formula: ({ refs, fx }) => fx.sum(refs.group("q1")),
+    summary: (s) => [s.formula("sum")],
+  });
+
+// Header merge, sub-headers, and group formula
+// all derived from the schema — nothing manual.`,
   },
   {
     id: "dynamic-columns",
-    eyebrow: "Dynamic groups",
-    title: "Runtime-driven columns with typed context",
-    body: "Generate column groups from runtime data while formulas, totals, and context stay strongly typed. The schema surface stays clean regardless of how many columns are generated.",
-    docsPath: "/schema-builder/column-groups",
+    eyebrow: "Dynamic columns",
+    title: "Runtime-generated columns from typed context",
+    body: "Generate columns from runtime data via schema context. The column set is unknown at definition time but formulas can still aggregate the entire dynamic scope.",
+    docsPath: "/columns/dynamic-columns",
     beforeCode: `// SheetJS: runtime columns mean manual header + cell loops
 let col = 1;
 for (const region of regions) {
   ws[XLSX.utils.encode_cell({ r: 0, c: col })] = {
-    v: region,
-    t: "s",
+    v: region, t: "s",
   };
-
-  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    ws[XLSX.utils.encode_cell({ r: rowIndex + 1, c: col })] = {
-      v: rows[rowIndex]?.revenueByRegion?.[region] ?? 0,
+  for (let i = 0; i < rows.length; i++) {
+    ws[XLSX.utils.encode_cell({ r: i + 1, c: col })] = {
+      v: rows[i]?.revenueByRegion?.[region] ?? 0,
       t: "n",
     };
   }
-
   col += 1;
 }
 
-// Dynamic layout logic leaks into worksheet mutation.`,
-    afterCode: `const schema = createExcelSchema<Row>()
+// Column count changes at runtime.
+// Total formula range? Compute it yourself.`,
+    afterCode: `createExcelSchema<Row, { regions: string[] }>()
   .column("account", { accessor: "account" })
-  .group("regions", (group, regions: string[]) => {
-  for (const region of regions) {
-    group.column(region, {
-      header: region,
-      accessor: (row) => row.revenueByRegion[region] ?? 0,
-    });
-  }
-})
-.column("regionalTotal", {
-  formula: ({ refs, fx }) => fx.sum(refs.group("regions")),
-});
+  .dynamic("regions", (builder, { ctx }) => {
+    for (const region of ctx.regions) {
+      builder.column(region, {
+        header: region,
+        accessor: (row) => row.revenueByRegion[region] ?? 0,
+        style: { numFmt: "$#,##0" },
+      });
+    }
+  })
+  .column("total", {
+    formula: ({ refs, fx }) => fx.sum(refs.dynamic("regions")),
+  })
+  .build();
 
-workbook.sheet("Regional revenue").table("revenue", {
-  rows,
-  schema,
-  context: { regions },
-});
-
-// Runtime columns stay inside the schema surface.`,
+// Columns generated at build time from context.
+// fx.sum(refs.dynamic(...)) spans whatever was created.`,
   },
   {
     id: "sub-rows",
     eyebrow: "Sub-row expansion",
     title: "Nested records without manual row offsets",
     body: "Return an array from an accessor and child rows expand automatically. Parent columns merge, formula references stay coherent — no offset bookkeeping required.",
-    docsPath: "/schema-builder/defining-columns",
+    docsPath: "/columns/defining-columns",
     beforeCode: `// SheetJS: flatten parent/child rows yourself
 const rows = [];
 for (const order of orders) {
@@ -159,7 +206,7 @@ for (const order of orders) {
     eyebrow: "Excel table mode",
     title: "Native Excel tables, not styled ranges",
     body: "Emit real ListObject tables with structured refs, SUBTOTAL() totals that respect active filters, and 60 built-in style presets — from the same schema API.",
-    docsPath: "/excel-table-mode/overview",
+    docsPath: "/excel-tables/table-mode",
     beforeCode: `// Style cells to look table-like
 worksheet["A1"] = "Revenue";
 worksheet["E22"] = { f: "SUM(E2:E21)" };
@@ -188,7 +235,7 @@ worksheet["E22"] = { f: "SUM(E2:E21)" };
     eyebrow: "Typed styling",
     title: "Conditional formatting with full row-type inference",
     body: "Style cells using typed row access and formula-based conditions. Rules translate to native Excel conditional formatting — they stay live when the file opens.",
-    docsPath: "/schema-builder/conditional-styles",
+    docsPath: "/styling/conditional-styles",
     beforeCode: `// SheetJS: style decisions happen against raw worksheet state
 const cellRef = XLSX.utils.encode_cell({ r, c });
 const status = rawRows[r - 1]?.status;
@@ -221,7 +268,7 @@ ws[cellRef].s = {
     eyebrow: "Column selection",
     title: "Include or exclude columns without forking the schema",
     body: "Pass a typed select or exclude list at the table call site. One schema definition powers every export variant — column IDs are checked at compile time.",
-    docsPath: "/schema-builder/selection",
+    docsPath: "/columns/column-selection",
     beforeCode: `// SheetJS: maintain separate export column lists
 const cols = baseColumns.filter((col) => {
   if (col.key === "internalCode" && !isAdmin) return false;
@@ -251,13 +298,18 @@ workbook.sheet("External").table("accounts", {
     eyebrow: "Editable workflows",
     title: "User-editable workbooks that still protect logic",
     body: "Unlock specific input cells, lock formulas, add data validation, and hide computation columns — all declared in the schema alongside the rest of the report definition.",
-    docsPath: "/schema-builder/data-validation",
-    beforeCode: `// Ship an editable workbook
-worksheet["F2"].v = proposedValue;
+    docsPath: "/column-features/data-validation",
+    beforeCode: `// SheetJS: no validation API — write raw XML attributes
+ws["F2"] = { v: proposedValue, t: "n" };
 
-// No validation guardrails.
-// Hidden logic columns easy to expose.
-// Users can overwrite formulas accidentally.`,
+// Want a dropdown? Manually inject dataValidation XML.
+// Want to lock formula cells? Manually set protection
+// per cell, then enable sheet protection separately.
+// Want to hide a helper column? Set column width to 0
+// and hope nobody un-hides it.
+
+// No guardrails. Users overwrite formulas.
+// No typed connection between validation and schema.`,
     afterCode: `.column("targetArr", {
   accessor: "targetArr",
   style: { protection: { locked: false } },
@@ -269,14 +321,92 @@ worksheet["F2"].v = proposedValue;
   style: { protection: { hidden: true } },
 });
 
-// Pair with sheet protection and editable inputs stay unlocked.`,
+// Validation, protection, and formulas live together.
+// Pair with sheet protection — inputs stay editable.`,
+  },
+  {
+    id: "themes",
+    eyebrow: "Spreadsheet themes",
+    title: "Consistent styling from tokens, not scattered objects",
+    body: "Define color tokens and named slots once, then apply the theme to any table. Extend or override per-export — no style objects duplicated across columns.",
+    docsPath: "/styling/themes",
+    beforeCode: `// SheetJS: repeat style objects on every cell
+const headerStyle = {
+  fill: { fgColor: { rgb: "1E3A5F" } },
+  font: { color: { rgb: "FFFFFF" }, bold: true },
+  border: { bottom: { style: "medium", color: { rgb: "2563EB" } } },
+};
+const cellStyle = {
+  border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } },
+};
+
+// 30 columns × 4 cell zones = 120 style assignments.
+// Brand refresh? Find-and-replace hex codes everywhere.`,
+    afterCode: `const theme = defineSpreadsheetTheme({
+  tokens: {
+    colors: {
+      headerFill: "1E3A5F",
+      headerText: "FFFFFF",
+      summaryFill: "F1F5F9",
+      border: "E2E8F0",
+    },
+  },
+});
+
+// Apply to any table — all slots resolve from tokens
+workbook.sheet("Report").table("deals", {
+  schema, rows, theme,
+});
+
+// Brand refresh = change tokens. Every slot updates.
+// Per-table override: theme.extend({ tokens: { ... } })`,
+  },
+  {
+    id: "auto-width",
+    eyebrow: "Auto column width",
+    title: "Content-aware widths without measuring loops",
+    body: "Set autoWidth on a column and the engine measures header and cell content to pick a width. Constraints via minWidth and maxWidth keep the layout predictable.",
+    docsPath: "/columns/defining-columns",
+    beforeCode: `// SheetJS: calculate column widths manually
+const colWidths = headers.map((h, i) => {
+  let max = h.length;
+  for (const row of data) {
+    const cell = row[i];
+    const len = cell != null ? String(cell).length : 0;
+    if (len > max) max = len;
+  }
+  return { wch: Math.min(max + 2, 50) };
+});
+ws["!cols"] = colWidths;
+
+// Every column measured in a loop.
+// Formatted values (dates, currencies)? Measure those too.
+// Font-aware width? Not even possible.`,
+    afterCode: `.column("customer", {
+  accessor: "customer",
+  autoWidth: true,
+})
+.column("revenue", {
+  accessor: "revenue",
+  autoWidth: true,
+  minWidth: 12,
+  maxWidth: 30,
+  style: { numFmt: "$#,##0.00" },
+})
+.column("notes", {
+  accessor: "notes",
+  width: 40, // fixed width when you know the size
+});
+
+// autoWidth measures headers and cell content.
+// minWidth / maxWidth keep the layout bounded.`,
   },
   {
     id: "multi-sheet",
     eyebrow: "Workbook builder",
     title: "Multi-sheet workbooks from a single fluent chain",
     body: "Compose sheets, tables, and output targets in one pipeline. No worksheet object management, no manual append ordering.",
-    docsPath: "/workbook-builder/buffered-workbook",
+    docsPath: "/workbook/building-workbooks",
     beforeCode: `// SheetJS: every worksheet is a separate construction path
 const wb  = XLSX.utils.book_new();
 const ws1 = buildSheet(summaryRows);
@@ -300,7 +430,7 @@ XLSX.utils.book_append_sheet(wb, ws2, "Details");
     eyebrow: "Streaming builder",
     title: "Same schema, production-scale output",
     body: "Keep every schema feature intact, then switch to batch commits when the dataset outgrows memory. Heap stays flat while the ZIP is assembled incrementally.",
-    docsPath: "/streaming/overview",
+    docsPath: "/streaming/streaming-intro",
     beforeCode: `// SheetJS: stream-like export still means manual worksheet writes
 const ws = XLSX.utils.aoa_to_sheet([headers]);
 let rowIndex = 1;
@@ -514,7 +644,7 @@ onBeforeUnmount(() => {
       <div class="border-t border-default/40 bg-elevated/5 px-5 py-4 sm:px-6 sm:py-5">
         <div class="mb-4 flex items-center justify-between gap-3">
           <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-toned/60">
-            10 SheetJS-to-schema examples
+            13 SheetJS-to-schema examples
           </p>
           <div class="flex items-center gap-2">
             <UButton
@@ -615,7 +745,7 @@ onBeforeUnmount(() => {
 
 .dash-track {
   display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-columns: repeat(13, minmax(0, 1fr));
   align-items: center;
   gap: 0.5rem;
 }
