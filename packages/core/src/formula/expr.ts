@@ -19,140 +19,155 @@ export interface FormulaCollectionAggregateExpr<TColumnId extends string = strin
   target: FormulaSeriesExpr<TColumnId>;
 }
 
-export interface FormulaGroupExpr<TGroupId extends string = string> {
-  kind: "group";
+export interface FormulaScopeAggregateExpr<TScopeId extends string = string> {
+  kind: "scope-aggregate";
   aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
-  groupId: TGroupId;
+  scopeId: TScopeId;
 }
 
 export interface FormulaBinaryExpr<
   TColumnId extends string = string,
-  TGroupId extends string = string,
+  TScopeId extends string = string,
 > {
   kind: "binary";
   op: "+" | "-" | "*" | "/" | "=" | "<>" | ">" | ">=" | "<" | "<=";
-  left: FormulaExpr<TColumnId, TGroupId>;
-  right: FormulaExpr<TColumnId, TGroupId>;
+  left: FormulaExpr<TColumnId, TScopeId>;
+  right: FormulaExpr<TColumnId, TScopeId>;
 }
 
 export interface FormulaFunctionExpr<
   TColumnId extends string = string,
-  TGroupId extends string = string,
+  TScopeId extends string = string,
 > {
   kind: "function";
   name: "ABS" | "AND" | "AVERAGE" | "COUNT" | "IF" | "MAX" | "MIN" | "NOT" | "OR" | "ROUND" | "SUM";
-  args: FormulaExpr<TColumnId, TGroupId>[];
+  args: FormulaExpr<TColumnId, TScopeId>[];
 }
 
-export type FormulaExpr<TColumnId extends string = string, TGroupId extends string = string> =
+export type FormulaExpr<TColumnId extends string = string, TScopeId extends string = string> =
   | FormulaLiteralExpr
   | FormulaRefExpr<TColumnId>
   | FormulaSeriesExpr<TColumnId>
   | FormulaCollectionAggregateExpr<TColumnId>
-  | FormulaGroupExpr<TGroupId>
-  | FormulaBinaryExpr<TColumnId, TGroupId>
-  | FormulaFunctionExpr<TColumnId, TGroupId>;
+  | FormulaScopeAggregateExpr<TScopeId>
+  | FormulaBinaryExpr<TColumnId, TScopeId>
+  | FormulaFunctionExpr<TColumnId, TScopeId>;
 
 export interface FormulaSeriesContext<
   TColumnId extends string = string,
-  TGroupId extends string = string,
+  TScopeId extends string = string,
 > {
-  sum(): FormulaOperand<TColumnId, TGroupId>;
-  average(): FormulaOperand<TColumnId, TGroupId>;
-  min(): FormulaOperand<TColumnId, TGroupId>;
-  max(): FormulaOperand<TColumnId, TGroupId>;
-  count(): FormulaOperand<TColumnId, TGroupId>;
+  sum(): FormulaOperand<TColumnId, TScopeId>;
+  average(): FormulaOperand<TColumnId, TScopeId>;
+  min(): FormulaOperand<TColumnId, TScopeId>;
+  max(): FormulaOperand<TColumnId, TScopeId>;
+  count(): FormulaOperand<TColumnId, TScopeId>;
 }
 
 export interface FormulaOperand<
   TColumnId extends string = string,
-  TGroupId extends string = string,
+  TScopeId extends string = string,
 > {
-  add(right: FormulaValue<TColumnId, TGroupId>): FormulaOperand<TColumnId, TGroupId>;
-  sub(right: FormulaValue<TColumnId, TGroupId>): FormulaOperand<TColumnId, TGroupId>;
-  mul(right: FormulaValue<TColumnId, TGroupId>): FormulaOperand<TColumnId, TGroupId>;
-  div(right: FormulaValue<TColumnId, TGroupId>): FormulaOperand<TColumnId, TGroupId>;
-  abs(): FormulaOperand<TColumnId, TGroupId>;
-  round(decimals?: number): FormulaOperand<TColumnId, TGroupId>;
-  eq(right: FormulaValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  neq(right: FormulaValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  gt(right: FormulaValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  gte(right: FormulaValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  lt(right: FormulaValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  lte(right: FormulaValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  toExpr(): FormulaExpr<TColumnId, TGroupId>;
+  add(right: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  sub(right: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  mul(right: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  div(right: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  abs(): FormulaOperand<TColumnId, TScopeId>;
+  round(decimals?: number): FormulaOperand<TColumnId, TScopeId>;
+  eq(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  neq(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  gt(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  gte(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  lt(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  lte(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  toExpr(): FormulaExpr<TColumnId, TScopeId>;
 }
 
 export interface FormulaCondition<
   TColumnId extends string = string,
-  TGroupId extends string = string,
+  TScopeId extends string = string,
 > {
-  and(right: FormulaConditionValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  or(right: FormulaConditionValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
-  not(): FormulaCondition<TColumnId, TGroupId>;
-  toExpr(): FormulaExpr<TColumnId, TGroupId>;
+  and(right: FormulaConditionValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  or(right: FormulaConditionValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  not(): FormulaCondition<TColumnId, TScopeId>;
+  toExpr(): FormulaExpr<TColumnId, TScopeId>;
+}
+
+export interface FormulaScopeRef<TScopeId extends string = string> {
+  kind: "scope-ref";
+  scopeId: TScopeId;
+}
+
+export interface FormulaRefs<
+  TColumnId extends string = string,
+  TGroupId extends string = never,
+  TDynamicId extends string = never,
+> {
+  column(columnId: TColumnId): FormulaOperand<TColumnId, TGroupId | TDynamicId>;
+  group(groupId: TGroupId): FormulaScopeRef<TGroupId>;
+  dynamic(dynamicId: TDynamicId): FormulaScopeRef<TDynamicId>;
 }
 
 export interface FormulaFunctions<
   TColumnId extends string = string,
-  TGroupId extends string = string,
+  TScopeId extends string = string,
 > {
-  literal(value: string | number | boolean): FormulaOperand<TColumnId, TGroupId>;
-  abs(value: FormulaValue<TColumnId, TGroupId>): FormulaOperand<TColumnId, TGroupId>;
+  literal(value: string | number | boolean): FormulaOperand<TColumnId, TScopeId>;
+  abs(value: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
   round(
-    value: FormulaValue<TColumnId, TGroupId>,
+    value: FormulaValue<TColumnId, TScopeId>,
     decimals?: number,
-  ): FormulaOperand<TColumnId, TGroupId>;
-  min(...values: FormulaValue<TColumnId, TGroupId>[]): FormulaOperand<TColumnId, TGroupId>;
-  max(...values: FormulaValue<TColumnId, TGroupId>[]): FormulaOperand<TColumnId, TGroupId>;
+  ): FormulaOperand<TColumnId, TScopeId>;
+  sum(value: FormulaScopeRef<TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  sum(...values: FormulaValue<TColumnId, TScopeId>[]): FormulaOperand<TColumnId, TScopeId>;
+  average(value: FormulaScopeRef<TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  average(...values: FormulaValue<TColumnId, TScopeId>[]): FormulaOperand<TColumnId, TScopeId>;
+  count(value: FormulaScopeRef<TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  count(...values: FormulaValue<TColumnId, TScopeId>[]): FormulaOperand<TColumnId, TScopeId>;
+  min(value: FormulaScopeRef<TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  min(...values: FormulaValue<TColumnId, TScopeId>[]): FormulaOperand<TColumnId, TScopeId>;
+  max(value: FormulaScopeRef<TScopeId>): FormulaOperand<TColumnId, TScopeId>;
+  max(...values: FormulaValue<TColumnId, TScopeId>[]): FormulaOperand<TColumnId, TScopeId>;
   if(
-    condition: FormulaConditionValue<TColumnId, TGroupId>,
-    whenTrue: FormulaValue<TColumnId, TGroupId>,
-    whenFalse: FormulaValue<TColumnId, TGroupId>,
-  ): FormulaOperand<TColumnId, TGroupId>;
+    condition: FormulaConditionValue<TColumnId, TScopeId>,
+    whenTrue: FormulaValue<TColumnId, TScopeId>,
+    whenFalse: FormulaValue<TColumnId, TScopeId>,
+  ): FormulaOperand<TColumnId, TScopeId>;
   and(
-    ...conditions: FormulaConditionValue<TColumnId, TGroupId>[]
-  ): FormulaCondition<TColumnId, TGroupId>;
+    ...conditions: FormulaConditionValue<TColumnId, TScopeId>[]
+  ): FormulaCondition<TColumnId, TScopeId>;
   or(
-    ...conditions: FormulaConditionValue<TColumnId, TGroupId>[]
-  ): FormulaCondition<TColumnId, TGroupId>;
-  not(condition: FormulaConditionValue<TColumnId, TGroupId>): FormulaCondition<TColumnId, TGroupId>;
+    ...conditions: FormulaConditionValue<TColumnId, TScopeId>[]
+  ): FormulaCondition<TColumnId, TScopeId>;
+  not(condition: FormulaConditionValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
 }
 
-export interface FormulaGroupContext<TColumnId extends string, TGroupId extends string> {
-  sum(): FormulaOperand<TColumnId, TGroupId>;
-  average(): FormulaOperand<TColumnId, TGroupId>;
-  min(): FormulaOperand<TColumnId, TGroupId>;
-  max(): FormulaOperand<TColumnId, TGroupId>;
-  count(): FormulaOperand<TColumnId, TGroupId>;
-}
-
-export interface FormulaRowContext<TColumnId extends string, TGroupId extends string = never> {
-  ref(columnId: TColumnId): FormulaOperand<TColumnId, TGroupId>;
-  series(columnId: TColumnId): FormulaSeriesContext<TColumnId, TGroupId>;
-  group(groupId: TGroupId): FormulaGroupContext<TColumnId, TGroupId>;
+export interface FormulaRowContext<TColumnId extends string, TScopeId extends string = never> {
+  ref(columnId: TColumnId): FormulaOperand<TColumnId, TScopeId>;
+  group(scopeId: TScopeId): FormulaSeriesContext<TColumnId, TScopeId>;
+  series(columnId: TColumnId): FormulaSeriesContext<TColumnId, TScopeId>;
   if(
-    condition: FormulaConditionValue<TColumnId, TGroupId>,
-    whenTrue: FormulaValue<TColumnId, TGroupId>,
-    whenFalse: FormulaValue<TColumnId, TGroupId>,
-  ): FormulaOperand<TColumnId, TGroupId>;
+    condition: FormulaConditionValue<TColumnId, TScopeId>,
+    whenTrue: FormulaValue<TColumnId, TScopeId>,
+    whenFalse: FormulaValue<TColumnId, TScopeId>,
+  ): FormulaOperand<TColumnId, TScopeId>;
 }
 
-export type FormulaValue<TColumnId extends string = string, TGroupId extends string = string> =
+export type FormulaValue<TColumnId extends string = string, TScopeId extends string = string> =
   | string
   | number
   | boolean
-  | FormulaExpr<TColumnId, TGroupId>
-  | FormulaOperand<TColumnId, TGroupId>;
+  | FormulaExpr<TColumnId, TScopeId>
+  | FormulaOperand<TColumnId, TScopeId>;
 
 export type FormulaConditionValue<
   TColumnId extends string = string,
-  TGroupId extends string = string,
-> = FormulaExpr<TColumnId, TGroupId> | FormulaCondition<TColumnId, TGroupId>;
+  TScopeId extends string = string,
+> = FormulaExpr<TColumnId, TScopeId> | FormulaCondition<TColumnId, TScopeId>;
 
-function wrapExpr<TColumnId extends string, TGroupId extends string>(
-  expr: FormulaExpr<TColumnId, TGroupId>,
-): FormulaOperand<TColumnId, TGroupId> {
+function wrapExpr<TColumnId extends string, TScopeId extends string>(
+  expr: FormulaExpr<TColumnId, TScopeId>,
+): FormulaOperand<TColumnId, TScopeId> {
   return {
     add(right) {
       return wrapExpr(binary(expr, "+", toExpr(right)));
@@ -196,9 +211,9 @@ function wrapExpr<TColumnId extends string, TGroupId extends string>(
   };
 }
 
-function wrapCondition<TColumnId extends string, TGroupId extends string>(
-  expr: FormulaExpr<TColumnId, TGroupId>,
-): FormulaCondition<TColumnId, TGroupId> {
+function wrapCondition<TColumnId extends string, TScopeId extends string>(
+  expr: FormulaExpr<TColumnId, TScopeId>,
+): FormulaCondition<TColumnId, TScopeId> {
   return {
     and(right) {
       return wrapCondition(func("AND", [expr, toConditionExpr(right)]));
@@ -215,31 +230,9 @@ function wrapCondition<TColumnId extends string, TGroupId extends string>(
   };
 }
 
-function wrapGroup<TColumnId extends string, TGroupId extends string>(
-  groupId: TGroupId,
-): FormulaGroupContext<TColumnId, TGroupId> {
-  return {
-    sum() {
-      return wrapExpr({ aggregate: "SUM", groupId, kind: "group" });
-    },
-    average() {
-      return wrapExpr({ aggregate: "AVERAGE", groupId, kind: "group" });
-    },
-    min() {
-      return wrapExpr({ aggregate: "MIN", groupId, kind: "group" });
-    },
-    max() {
-      return wrapExpr({ aggregate: "MAX", groupId, kind: "group" });
-    },
-    count() {
-      return wrapExpr({ aggregate: "COUNT", groupId, kind: "group" });
-    },
-  };
-}
-
-function wrapSeries<TColumnId extends string, TGroupId extends string>(
+function wrapSeries<TColumnId extends string, TScopeId extends string>(
   columnId: TColumnId,
-): FormulaSeriesContext<TColumnId, TGroupId> {
+): FormulaSeriesContext<TColumnId, TScopeId> {
   const target: FormulaSeriesExpr<TColumnId> = { kind: "series", columnId };
 
   return {
@@ -261,10 +254,62 @@ function wrapSeries<TColumnId extends string, TGroupId extends string>(
   };
 }
 
+function wrapScope<TColumnId extends string, TScopeId extends string>(
+  scopeId: TScopeId,
+): FormulaSeriesContext<TColumnId, TScopeId> {
+  return {
+    sum() {
+      return wrapExpr(createScopeAggregateExpr("SUM", scopeId));
+    },
+    average() {
+      return wrapExpr(createScopeAggregateExpr("AVERAGE", scopeId));
+    },
+    min() {
+      return wrapExpr(createScopeAggregateExpr("MIN", scopeId));
+    },
+    max() {
+      return wrapExpr(createScopeAggregateExpr("MAX", scopeId));
+    },
+    count() {
+      return wrapExpr(createScopeAggregateExpr("COUNT", scopeId));
+    },
+  };
+}
+
+function createScopeAggregateExpr<TScopeId extends string>(
+  aggregate: FormulaScopeAggregateExpr<TScopeId>["aggregate"],
+  scopeId: TScopeId,
+): FormulaScopeAggregateExpr<TScopeId> {
+  return {
+    aggregate,
+    kind: "scope-aggregate",
+    scopeId,
+  };
+}
+
+function isScopeRef<TScopeId extends string>(value: unknown): value is FormulaScopeRef<TScopeId> {
+  return (
+    typeof value === "object" && value !== null && "kind" in value && value.kind === "scope-ref"
+  );
+}
+
 function createFormulaFunctions<
   TColumnId extends string,
-  TGroupId extends string,
->(): FormulaFunctions<TColumnId, TGroupId> {
+  TScopeId extends string,
+>(): FormulaFunctions<TColumnId, TScopeId> {
+  const aggregateFromArgs = (
+    aggregate: FormulaScopeAggregateExpr<TScopeId>["aggregate"],
+    first: FormulaScopeRef<TScopeId> | FormulaValue<TColumnId, TScopeId>,
+    rest: FormulaValue<TColumnId, TScopeId>[],
+  ) => {
+    if (isScopeRef(first) && rest.length === 0) {
+      return wrapExpr<TColumnId, TScopeId>(createScopeAggregateExpr(aggregate, first.scopeId));
+    }
+
+    const values = [first as FormulaValue<TColumnId, TScopeId>, ...rest];
+    return wrapExpr<TColumnId, TScopeId>(func(aggregate, values.map(toExpr)));
+  };
+
   return {
     literal(value) {
       return wrapExpr(literal(value));
@@ -275,11 +320,20 @@ function createFormulaFunctions<
     round(value, decimals = 0) {
       return wrapExpr(func("ROUND", [toExpr(value), literal(decimals)]));
     },
-    min(...values) {
-      return wrapExpr(func("MIN", values.map(toExpr)));
+    sum(first, ...rest) {
+      return aggregateFromArgs("SUM", first, rest);
     },
-    max(...values) {
-      return wrapExpr(func("MAX", values.map(toExpr)));
+    average(first, ...rest) {
+      return aggregateFromArgs("AVERAGE", first, rest);
+    },
+    count(first, ...rest) {
+      return aggregateFromArgs("COUNT", first, rest);
+    },
+    min(first, ...rest) {
+      return aggregateFromArgs("MIN", first, rest);
+    },
+    max(first, ...rest) {
+      return aggregateFromArgs("MAX", first, rest);
     },
     if(condition, whenTrue, whenFalse) {
       return wrapExpr(
@@ -300,19 +354,19 @@ function createFormulaFunctions<
 
 export function createFormulaRowContext<
   TColumnId extends string,
-  TGroupId extends string,
->(): FormulaRowContext<TColumnId, TGroupId> {
-  const fx = createFormulaFunctions<TColumnId, TGroupId>();
+  TScopeId extends string,
+>(): FormulaRowContext<TColumnId, TScopeId> {
+  const fx = createFormulaFunctions<TColumnId, TScopeId>();
 
   return {
     ref(columnId) {
       return wrapExpr({ kind: "ref", columnId });
     },
+    group(scopeId) {
+      return wrapScope(scopeId);
+    },
     series(columnId) {
       return wrapSeries(columnId);
-    },
-    group(groupId) {
-      return wrapGroup(groupId);
     },
     if(condition, whenTrue, whenFalse) {
       return fx.if(condition, whenTrue, whenFalse);
@@ -320,16 +374,34 @@ export function createFormulaRowContext<
   };
 }
 
-export function createFormulaFunctionsContext<
+export function createFormulaRefs<
   TColumnId extends string,
   TGroupId extends string,
->(): FormulaFunctions<TColumnId, TGroupId> {
-  return createFormulaFunctions<TColumnId, TGroupId>();
+  TDynamicId extends string,
+>(): FormulaRefs<TColumnId, TGroupId, TDynamicId> {
+  return {
+    column(columnId) {
+      return wrapExpr({ kind: "ref", columnId });
+    },
+    group(groupId) {
+      return { kind: "scope-ref", scopeId: groupId };
+    },
+    dynamic(dynamicId) {
+      return { kind: "scope-ref", scopeId: dynamicId };
+    },
+  };
 }
 
-export function toExpr<TColumnId extends string, TGroupId extends string>(
-  value: FormulaValue<TColumnId, TGroupId>,
-): FormulaExpr<TColumnId, TGroupId> {
+export function createFormulaFunctionsContext<
+  TColumnId extends string,
+  TScopeId extends string,
+>(): FormulaFunctions<TColumnId, TScopeId> {
+  return createFormulaFunctions<TColumnId, TScopeId>();
+}
+
+export function toExpr<TColumnId extends string, TScopeId extends string>(
+  value: FormulaValue<TColumnId, TScopeId>,
+): FormulaExpr<TColumnId, TScopeId> {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return literal(value);
   }
@@ -341,11 +413,11 @@ export function toExpr<TColumnId extends string, TGroupId extends string>(
   return value;
 }
 
-export function binary<TColumnId extends string, TGroupId extends string>(
-  left: FormulaExpr<TColumnId, TGroupId>,
-  op: FormulaBinaryExpr<TColumnId, TGroupId>["op"],
-  right: FormulaExpr<TColumnId, TGroupId>,
-): FormulaExpr<TColumnId, TGroupId> {
+export function binary<TColumnId extends string, TScopeId extends string>(
+  left: FormulaExpr<TColumnId, TScopeId>,
+  op: FormulaBinaryExpr<TColumnId, TScopeId>["op"],
+  right: FormulaExpr<TColumnId, TScopeId>,
+): FormulaExpr<TColumnId, TScopeId> {
   return {
     kind: "binary",
     op,
@@ -354,10 +426,10 @@ export function binary<TColumnId extends string, TGroupId extends string>(
   };
 }
 
-export function func<TColumnId extends string, TGroupId extends string>(
-  name: FormulaFunctionExpr<TColumnId, TGroupId>["name"],
-  args: FormulaExpr<TColumnId, TGroupId>[],
-): FormulaExpr<TColumnId, TGroupId> {
+export function func<TColumnId extends string, TScopeId extends string>(
+  name: FormulaFunctionExpr<TColumnId, TScopeId>["name"],
+  args: FormulaExpr<TColumnId, TScopeId>[],
+): FormulaExpr<TColumnId, TScopeId> {
   return {
     kind: "function",
     name,
@@ -372,9 +444,9 @@ function literal(value: string | number | boolean): FormulaLiteralExpr {
   };
 }
 
-function toConditionExpr<TColumnId extends string, TGroupId extends string>(
-  value: FormulaConditionValue<TColumnId, TGroupId>,
-): FormulaExpr<TColumnId, TGroupId> {
+function toConditionExpr<TColumnId extends string, TScopeId extends string>(
+  value: FormulaConditionValue<TColumnId, TScopeId>,
+): FormulaExpr<TColumnId, TScopeId> {
   if (typeof value === "object" && value !== null && "toExpr" in value) {
     return value.toExpr();
   }

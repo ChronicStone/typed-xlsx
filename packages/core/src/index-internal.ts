@@ -4,6 +4,13 @@ export type { Path, PathValue } from "./core/path";
 export { getValueAtPath } from "./core/path";
 export type { CellStyle } from "./styles/types";
 export type {
+  SpreadsheetTheme,
+  SpreadsheetThemeInput,
+  SpreadsheetThemeSlotName,
+  SpreadsheetThemeTokens,
+} from "./styles/theme";
+export { defineSpreadsheetTheme, spreadsheetThemes } from "./styles/theme";
+export type {
   ConditionalStyleBuilder,
   ConditionalStyleInput,
   ConditionalStyleRule,
@@ -18,8 +25,10 @@ export type {
   ReportSchemaDefinition,
   SchemaColumnId,
   SchemaContext,
-  SchemaDefinition,
+  SchemaContextOf,
   SchemaGroupContext,
+  SchemaDefinition,
+  SchemaDynamicId,
   SchemaGroupId,
   SchemaKind,
   SchemaKindOf,

@@ -296,7 +296,7 @@ export function buildKitchenSinkBufferedExample() {
         region: order.region,
       })),
       schema: kitchenSinkGroupedFormulaSchema,
-      context: { regions: ["AMER", "APAC", "EMEA"] },
+      context: { regions: ["AMER", "APAC", "EMEA"] as const },
       style: "TableStyleLight9",
       totalsRow: true,
     });

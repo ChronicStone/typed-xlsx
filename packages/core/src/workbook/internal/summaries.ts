@@ -327,8 +327,8 @@ function serializeSummaryFormulaExpr(
     return `${expr.name}(${expr.args.map((arg) => serializeSummaryFormulaExpr(arg, context)).join(",")})`;
   }
 
-  if (expr.kind === "group") {
-    throw new Error("Group formula aggregates are not supported in summary formulas.");
+  if (expr.kind === "scope-aggregate") {
+    throw new Error("Scope formula aggregates are not supported in summary formulas.");
   }
 
   return `(${serializeSummaryFormulaExpr(expr.left, context)}${expr.op}${serializeSummaryFormulaExpr(expr.right, context)})`;
@@ -379,8 +379,8 @@ function serializeSummaryRowFormulaExpr(
     return `${expr.name}(${expr.args.map((arg) => serializeSummaryRowFormulaExpr(arg, context)).join(",")})`;
   }
 
-  if (expr.kind === "group") {
-    throw new Error("Group formula aggregates are not supported in summary formulas.");
+  if (expr.kind === "scope-aggregate") {
+    throw new Error("Scope formula aggregates are not supported in summary formulas.");
   }
 
   if (expr.kind !== "binary") {
@@ -419,8 +419,8 @@ function serializeSummaryConditionalExpr(expr: FormulaExpr<string, never>): stri
     return `${expr.name}(${expr.args.map(serializeSummaryConditionalExpr).join(",")})`;
   }
 
-  if (expr.kind === "group") {
-    throw new Error("Group references are not supported in summary conditional styles.");
+  if (expr.kind === "scope-aggregate") {
+    throw new Error("Scope references are not supported in summary conditional styles.");
   }
 
   if (expr.kind !== "binary") {

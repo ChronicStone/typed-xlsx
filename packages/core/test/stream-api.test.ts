@@ -51,10 +51,10 @@ describe("public stream api", () => {
   it("supports typed stream selection for group ids and requires group context", async () => {
     type Row = { name: string; orgs: number[] };
 
-    const schema = createExcelSchema<Row>()
+    const schema = createExcelSchema<Row, { memberships: number[] }>()
       .column("name", { accessor: "name" })
-      .group("memberships", (builder, orgIds: number[]) => {
-        for (const id of orgIds) {
+      .dynamic("memberships", (builder, { ctx }) => {
+        for (const id of ctx.memberships) {
           builder.column(`org-${id}`, {
             accessor: (row) => row.orgs.includes(id),
           });
@@ -68,6 +68,7 @@ describe("public stream api", () => {
 
     await workbook.sheet("Sheet").table("groups", {
       schema,
+      context: { memberships: [] },
       select: { exclude: ["memberships"] },
     });
 
@@ -80,7 +81,7 @@ describe("public stream api", () => {
       },
     });
 
-    // @ts-expect-error grouped schemas require context when the group is selected
+    // @ts-expect-error contextful schemas always require context
     const _missingContextInput: WorkbookStreamResolvedTableOptions<
       typeof schema,
       { include: ["memberships"] }
@@ -93,10 +94,10 @@ describe("public stream api", () => {
   it("supports flat column groups in streamed native Excel table schemas", async () => {
     type Row = { memberships: number[]; name: string };
 
-    const schema = createExcelSchema<Row>({ mode: "excel-table" })
+    const schema = createExcelSchema<Row, { memberships: number[] }>({ mode: "excel-table" })
       .column("name", { accessor: "name" })
-      .group("memberships", (builder, orgIds: number[]) => {
-        for (const id of orgIds) {
+      .dynamic("memberships", (builder, { ctx }) => {
+        for (const id of ctx.memberships) {
           builder.column(`org-${id}`, {
             accessor: (row) => row.memberships.includes(id),
           });
@@ -398,12 +399,12 @@ describe("public stream api", () => {
       organizations: Array<{ id: number; name: string }>;
     };
 
-    const schema = createExcelSchema<User>()
+    const schema = createExcelSchema<User, { orgs: Array<{ id: number; name: string }> }>()
       .column("firstName", {
         accessor: "firstName",
       })
-      .group("orgs", (builder, orgs: Array<{ id: number; name: string }>) => {
-        for (const org of orgs) {
+      .dynamic("orgs", (builder, { ctx }) => {
+        for (const org of ctx.orgs) {
           builder.column(`org-${org.id}`, {
             header: org.name,
             accessor: (row) => row.organizations.some((entry) => entry.id === org.id),
@@ -461,7 +462,7 @@ describe("public stream api", () => {
       tempStorage: "memory",
     });
     const table = await workbook.sheet("Logs").table("logs", {
-      autoFilter: { enabled: true },
+      autoFilter: true,
       schema,
     });
 

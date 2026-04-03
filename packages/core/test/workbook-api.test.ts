@@ -5,6 +5,8 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   createExcelSchema,
   createWorkbook,
+  defineSpreadsheetTheme,
+  spreadsheetThemes,
   type ExcelTableSchemaDefinition,
   type TableSelection,
 } from "../src";
@@ -26,9 +28,9 @@ describe("public buffered api", () => {
       })
       .column("lineCount", {
         accessor: "lines",
-        transform: (lines) => {
-          expectTypeOf(lines).toEqualTypeOf<Order["lines"]>();
-          return lines.length;
+        transform: ({ value }) => {
+          expectTypeOf(value).toEqualTypeOf<Order["lines"]>();
+          return value.length;
         },
         summary: (summary) => [
           summary.cell({
@@ -76,10 +78,10 @@ describe("public buffered api", () => {
   it("supports typed selection for group ids and requires group context", () => {
     type Row = { name: string; orgs: number[] };
 
-    const schema = createExcelSchema<Row>({ mode: "report" })
+    const schema = createExcelSchema<Row, { memberships: number[] }>({ mode: "report" })
       .column("name", { accessor: "name" })
-      .group("memberships", (builder, orgIds: number[]) => {
-        for (const id of orgIds) {
+      .dynamic("memberships", (builder, { ctx }) => {
+        for (const id of ctx.memberships) {
           builder.column(`org-${id}`, {
             accessor: (row) => row.orgs.includes(id),
           });
@@ -92,6 +94,7 @@ describe("public buffered api", () => {
       .table("groups", {
         rows: [],
         schema,
+        context: { memberships: [] },
         select: { exclude: ["memberships"] },
       });
 
@@ -100,6 +103,7 @@ describe("public buffered api", () => {
       workbook.sheet("Sheet").table("groups-runtime", {
         rows: [{ name: "Ada", orgs: [1, 2] }],
         schema,
+        context: { memberships: [1, 2] },
         select: { exclude: ["memberships"] },
       });
       workbook.toUint8Array();
@@ -119,17 +123,17 @@ describe("public buffered api", () => {
 
     createWorkbook()
       .sheet("Sheet")
-      // @ts-expect-error grouped schemas require context when the group is selected
+      // @ts-expect-error contextful schemas always require context
       .table("groups-missing-context", { rows: [], schema, select: { include: ["memberships"] } });
   });
 
   it("supports flat column groups in buffered native Excel table schemas", () => {
     type Row = { memberships: number[]; name: string };
 
-    const schema = createExcelSchema<Row>({ mode: "excel-table" })
+    const schema = createExcelSchema<Row, { memberships: number[] }>({ mode: "excel-table" })
       .column("name", { accessor: "name" })
-      .group("memberships", (builder, orgIds: number[]) => {
-        for (const id of orgIds) {
+      .dynamic("memberships", (builder, { ctx }) => {
+        for (const id of ctx.memberships) {
           builder.column(`org-${id}`, {
             accessor: (row) => row.memberships.includes(id),
           });
@@ -169,8 +173,8 @@ describe("public buffered api", () => {
     });
 
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
-    expect(content).toContain("<f>(A2*2)</f>");
-    expect(content).toContain("<f>(B2+A2)</f>");
+    expect(content).toContain("<f>(A3*2)</f>");
+    expect(content).toContain("<f>(B3+A3)</f>");
   });
 
   it("allows formulas inside groups to reference outer predecessor columns in buffered excel-table mode", () => {
@@ -228,9 +232,31 @@ describe("public buffered api", () => {
     });
 
     const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
-    expect(content).toContain("<f>SUM(B2,C2)</f>");
-    expect(content).toContain("<f>MAX(B2,C2)</f>");
-    expect(content).toContain("<f>COUNT(B2,C2)</f>");
+    expect(content).toContain("<f>SUM(B3,C3)</f>");
+    expect(content).toContain("<f>MAX(B3,C3)</f>");
+    expect(content).toContain("<f>COUNT(B3,C3)</f>");
+  });
+
+  it("supports opting out of grouped report headers for flat header rendering", () => {
+    const schema = createExcelSchema<{ amount: number }>({ mode: "report" })
+      .column("amount", { accessor: "amount" })
+      .group("derived", (builder) => {
+        builder.column("doubleAmount", {
+          formula: ({ row }) => row.ref("amount").mul(2),
+        });
+      })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ amount: 3 }],
+      schema,
+      render: { groupHeaders: false },
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("<f>(A2*2)</f>");
+    expect(content).not.toContain("Derived");
   });
 
   it("supports aggregating dynamic groups from later buffered excel-table formulas", () => {
@@ -283,6 +309,122 @@ describe("public buffered api", () => {
 
       workbook.toUint8Array();
     }).not.toThrow();
+  });
+
+  it("keeps explicitly included grouped child columns in buffered selections", () => {
+    const schema = createExcelSchema<{
+      accountName: string;
+      arr: number;
+      projectedArr: number;
+      nrr: number;
+      healthScore: number;
+      executiveSummary: string;
+    }>({ mode: "report" })
+      .column("accountName", { accessor: "accountName" })
+      .group("commercial", (builder) =>
+        builder
+          .column("arr", { accessor: "arr" })
+          .column("projectedArr", { accessor: "projectedArr" })
+          .column("nrr", { accessor: "nrr" }),
+      )
+      .group("adoption", (builder) => builder.column("healthScore", { accessor: "healthScore" }))
+      .group("renewal", (builder) =>
+        builder.column("executiveSummary", { accessor: "executiveSummary" }),
+      )
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Board").table("watchlist", {
+      rows: [
+        {
+          accountName: "Acme",
+          arr: 10,
+          projectedArr: 12,
+          nrr: 1.1,
+          healthScore: 88,
+          executiveSummary: "Healthy",
+        },
+      ],
+      schema,
+      select: {
+        include: ["accountName", "arr", "projectedArr", "nrr", "healthScore", "executiveSummary"],
+      },
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("Account name");
+    expect(content).toContain("Arr");
+    expect(content).toContain("Projected arr");
+    expect(content).toContain("Nrr");
+    expect(content).toContain("Health score");
+    expect(content).toContain("Executive summary");
+  });
+
+  it("supports theme slot resolution and extension", () => {
+    const theme = defineSpreadsheetTheme({
+      slots: {
+        header: {
+          fill: { color: { rgb: "112233" } },
+        },
+      },
+    });
+
+    const extended = theme.extend({
+      slots: {
+        header: {
+          font: { color: { rgb: "FFFFFF" } },
+        },
+      },
+    });
+
+    expect(theme.slot("header").fill?.color?.rgb).toBe("112233");
+    expect(extended.slot("header").fill?.color?.rgb).toBe("112233");
+    expect(extended.slot("header").font?.color?.rgb).toBe("FFFFFF");
+    expect(
+      extended.slot("header", { alignment: { horizontal: "left" } }).alignment?.horizontal,
+    ).toBe("left");
+    expect(spreadsheetThemes.classic.slot("groupHeader").fill?.color?.rgb).toBeDefined();
+  });
+
+  it("applies schema theme, then table theme, then explicit defaults", () => {
+    const schemaTheme = defineSpreadsheetTheme({
+      slots: {
+        header: {
+          fill: { color: { rgb: "111111" } },
+          font: { color: { rgb: "EEEEEE" } },
+        },
+      },
+    });
+    const tableTheme = defineSpreadsheetTheme({
+      slots: {
+        header: {
+          fill: { color: { rgb: "222222" } },
+        },
+      },
+    });
+
+    const schema = createExcelSchema<{ name: string }>({ mode: "report" })
+      .theme(schemaTheme)
+      .column("name", { accessor: "name" })
+      .build();
+
+    const workbook = createWorkbook();
+    workbook.sheet("Orders").table("orders", {
+      rows: [{ name: "Ada" }],
+      schema,
+      theme: tableTheme,
+      defaults: {
+        header: {
+          style: {
+            fill: { color: { rgb: "333333" } },
+          },
+        },
+      },
+    });
+
+    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    expect(content).toContain("FF333333");
+    expect(content).not.toContain("FF111111");
   });
 
   it("builds a workbook as a Uint8Array", () => {
@@ -338,12 +480,14 @@ describe("public buffered api", () => {
       organizations: Array<{ id: number; name: string }>;
     };
 
-    const schema = createExcelSchema<User>({ mode: "report" })
+    const schema = createExcelSchema<User, { orgs: Array<{ id: number; name: string }> }>({
+      mode: "report",
+    })
       .column("firstName", {
         accessor: "firstName",
       })
-      .group("orgs", (builder, orgs: Array<{ id: number; name: string }>) => {
-        for (const org of orgs) {
+      .dynamic("orgs", (builder, { ctx }) => {
+        for (const org of ctx.orgs) {
           builder.column(`org-${org.id}`, {
             header: org.name,
             accessor: (row) => row.organizations.some((entry) => entry.id === org.id),
@@ -388,7 +532,7 @@ describe("public buffered api", () => {
 
     const workbook = createWorkbook();
     workbook.sheet("Logs").table("logs", {
-      autoFilter: { enabled: true },
+      autoFilter: true,
       rows: [{ value: "line-1" }],
       schema,
     });

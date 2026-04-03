@@ -1,13 +1,15 @@
 import { resolveAccessor } from "../core/accessor";
 import type {
   ColumnDefinition,
-  ColumnGroupDefinition,
+  DynamicDefinition,
+  GroupDefinition,
   PrimitiveCellValue,
   ResolvedExcelTableTotalsRowDefinition,
   SchemaContext,
   SchemaDefinition,
+  SchemaNode,
 } from "../schema/builder";
-import { SchemaBuilder } from "../schema/builder";
+import { ExcelTableSchemaBuilder, SchemaBuilder } from "../schema/builder";
 import type { SummaryDefinition, SummaryRuntime } from "../summary/runtime";
 import type { ResolvedValidationRule } from "../validation/types";
 import {
@@ -20,6 +22,7 @@ import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./
 import type { CellStyle } from "../styles/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
 import {
+  createFormulaRefs,
   createFormulaFunctionsContext,
   createFormulaRowContext,
   toExpr,
@@ -34,11 +37,14 @@ export interface PlannedHyperlink {
 }
 
 export interface ResolvedColumn<T extends object> extends Omit<
-  ColumnDefinition<T>,
+  ColumnDefinition<T, any, any, any, any, any, any>,
   "header" | "summary" | "totalsRow" | "validation"
 > {
   headerLabel: string;
   groupId?: string;
+  groupPath: Array<{ id: string; headerLabel: string }>;
+  dynamicPath: string[];
+  scopeIds: string[];
   summary?: SummaryDefinition<T, any>[];
   totalsRow?: ResolvedExcelTableTotalsRowDefinition;
   validation?: ResolvedValidationRule<string, string>;
@@ -46,33 +52,33 @@ export interface ResolvedColumn<T extends object> extends Omit<
 
 type RowSeriesMode = "scalar" | "expanded";
 
-function resolveFormulaGroupColumns<T extends object>(
+function resolveFormulaScopeColumns<T extends object>(
   columns: ResolvedColumn<T>[],
-  groupId: string,
+  scopeId: string,
 ) {
-  return columns.filter((column) => column.groupId === groupId);
+  return columns.filter((column) => column.scopeIds.includes(scopeId));
 }
 
-function serializeFormulaGroupExpr<T extends object>(params: {
+function serializeFormulaScopeExpr<T extends object>(params: {
   aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
   columns: ResolvedColumn<T>[];
-  groupId: string;
+  scopeId: string;
   mode: "report" | "excel-table";
   rowIndex: number;
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
 }) {
-  const groupColumns = resolveFormulaGroupColumns(params.columns, params.groupId);
-  if (groupColumns.length === 0) {
-    throw new Error(`Unknown or empty formula group reference '${params.groupId}'.`);
+  const scopeColumns = resolveFormulaScopeColumns(params.columns, params.scopeId);
+  if (scopeColumns.length === 0) {
+    throw new Error(`Unknown or empty formula scope reference '${params.scopeId}'.`);
   }
 
   if (params.mode === "excel-table") {
-    const refs = groupColumns.map((column) => `[@[${column.headerLabel.replaceAll("]", "]]")}]]`);
+    const refs = scopeColumns.map((column) => `[@[${column.headerLabel.replaceAll("]", "]]")}]]`);
     return `${params.aggregate}(${refs.join(",")})`;
   }
 
-  const cellRefs = groupColumns.map((column) => {
+  const cellRefs = scopeColumns.map((column) => {
     const columnIndex = params.columns.findIndex((candidate) => candidate.id === column.id);
     if (columnIndex < 0) {
       throw new Error(`Unknown formula column reference '${column.id}'.`);
@@ -146,19 +152,98 @@ function toCellDataValues(value: unknown): CellData[] {
   return Array.isArray(value) ? (value as CellData[]) : [value as CellData];
 }
 
-function resolveCellHyperlink<T extends object>(
-  column: ResolvedColumn<T>,
-  row: T,
-  rowIndex: number,
-  subRowIndex: number,
-): PlannedHyperlink | undefined {
-  const hyperlink = column.hyperlink;
+function invokeRowTransform<T extends object>(params: {
+  transform: NonNullable<ResolvedColumn<T>["transform"]>;
+  value: unknown;
+  row: T;
+  rowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  if (params.transform.length >= 2) {
+    return (
+      params.transform as (value: unknown, row: T, rowIndex: number) => CellData | CellData[]
+    )(params.value, params.row, params.rowIndex);
+  }
+
+  return (params.transform as (context: unknown) => CellData | CellData[])({
+    ...params.row,
+    ctx: params.ctx,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    value: params.value,
+  });
+}
+
+function invokeRowStyle<T extends object>(params: {
+  style: Extract<NonNullable<ResolvedColumn<T>["style"]>, (...args: any[]) => unknown>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  if (params.style.length >= 3) {
+    return (
+      params.style as (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined
+    )(params.row, params.rowIndex, params.subRowIndex);
+  }
+
+  return (params.style as (context: unknown) => CellStyle | undefined)({
+    ...params.row,
+    ctx: params.ctx,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    subRowIndex: params.subRowIndex,
+  });
+}
+
+function invokeRowHyperlink<T extends object>(params: {
+  hyperlink: Extract<NonNullable<ResolvedColumn<T>["hyperlink"]>, (...args: any[]) => unknown>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  if (params.hyperlink.length >= 2) {
+    return (
+      params.hyperlink as (
+        row: T,
+        rowIndex: number,
+        subRowIndex: number,
+      ) => string | PlannedHyperlink | null | undefined
+    )(params.row, params.rowIndex, params.subRowIndex);
+  }
+
+  return (params.hyperlink as (context: unknown) => string | PlannedHyperlink | null | undefined)({
+    ...params.row,
+    ctx: params.ctx,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    subRowIndex: params.subRowIndex,
+  });
+}
+
+function resolveCellHyperlink<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}): PlannedHyperlink | undefined {
+  const hyperlink = params.column.hyperlink;
   if (!hyperlink) {
     return undefined;
   }
 
   const resolved =
-    typeof hyperlink === "function" ? hyperlink(row, rowIndex, subRowIndex) : hyperlink;
+    typeof hyperlink === "function"
+      ? invokeRowHyperlink({
+          ctx: params.ctx,
+          hyperlink,
+          row: params.row,
+          rowIndex: params.rowIndex,
+          subRowIndex: params.subRowIndex,
+        })
+      : hyperlink;
 
   if (!resolved) {
     return undefined;
@@ -176,6 +261,7 @@ function resolveFormulaCell<T extends object>(params: {
   columns: ResolvedColumn<T>[];
   formulaMode: "report" | "excel-table";
   rowIndex: number;
+  ctx?: SchemaContext;
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
 }) {
@@ -185,7 +271,9 @@ function resolveFormulaCell<T extends object>(params: {
 
   const expr = params.column.formula({
     row: createFormulaRowContext<any, any>(),
+    refs: createFormulaRefs<any, any, any>(),
     fx: createFormulaFunctionsContext<any, any>(),
+    ctx: params.ctx as never,
   } as Parameters<NonNullable<typeof params.column.formula>>[0]);
 
   return {
@@ -237,7 +325,6 @@ function serializeFormulaExpr<T extends object>(
     }
 
     const resolvedRowIndex = referenceRowsByColumnId?.get(expr.columnId) ?? rowIndex;
-
     return toCellRef(resolvedRowIndex + 1, columnIndex);
   }
 
@@ -264,15 +351,14 @@ function serializeFormulaExpr<T extends object>(
 
     const startRef = toCellRef(bounds.startRow + 1, columnIndex);
     const endRef = toCellRef(bounds.endRow + 1, columnIndex);
-
     return `${expr.aggregate}(${startRef}:${endRef})`;
   }
 
-  if (expr.kind === "group") {
-    return serializeFormulaGroupExpr({
+  if (expr.kind === "scope-aggregate") {
+    return serializeFormulaScopeExpr({
       aggregate: expr.aggregate,
       columns,
-      groupId: expr.groupId,
+      scopeId: expr.scopeId,
       mode,
       rowIndex,
       referenceRowsByColumnId,
@@ -348,14 +434,18 @@ function formulaUsesExpandedRefs<T extends object>(
     return seriesModeByColumnId.get(expr.target.columnId) === "expanded";
   }
 
-  if (expr.kind === "group") {
-    return resolveFormulaGroupColumns(columns, expr.groupId).some(
+  if (expr.kind === "scope-aggregate") {
+    return resolveFormulaScopeColumns(columns, expr.scopeId).some(
       (column) => seriesModeByColumnId.get(column.id) === "expanded",
     );
   }
 
   if (expr.kind === "function") {
     return expr.args.some((arg) => formulaUsesExpandedRefs(arg, seriesModeByColumnId, columns));
+  }
+
+  if (expr.kind !== "binary") {
+    return false;
   }
 
   return (
@@ -365,7 +455,7 @@ function formulaUsesExpandedRefs<T extends object>(
 }
 
 function formulaUsesSeriesAggregate(expr: FormulaExpr<string, string>): boolean {
-  if (expr.kind === "literal" || expr.kind === "ref" || expr.kind === "group") {
+  if (expr.kind === "literal" || expr.kind === "ref" || expr.kind === "scope-aggregate") {
     return false;
   }
 
@@ -377,17 +467,33 @@ function formulaUsesSeriesAggregate(expr: FormulaExpr<string, string>): boolean 
     return expr.args.some((arg) => formulaUsesSeriesAggregate(arg));
   }
 
+  if (expr.kind !== "binary") {
+    return false;
+  }
+
   return formulaUsesSeriesAggregate(expr.left) || formulaUsesSeriesAggregate(expr.right);
 }
 
 function isColumnNode<T extends object>(
-  node: ColumnDefinition<T> | ColumnGroupDefinition,
-): node is ColumnDefinition<T> {
-  return !("kind" in node && node.kind === "group");
+  node: SchemaNode<T, any>,
+): node is ColumnDefinition<T, any, any, any, any, any, any> {
+  return (node.kind ?? "column") === "column";
+}
+
+function isGroupNode<T extends object>(
+  node: SchemaNode<T, any>,
+): node is GroupDefinition<T, string, any> {
+  return node.kind === "group";
+}
+
+function isDynamicNode<T extends object>(
+  node: SchemaNode<T, any>,
+): node is DynamicDefinition<T, string, any> {
+  return node.kind === "dynamic";
 }
 
 export function resolveColumns<T extends object>(
-  schema: SchemaDefinition<T, any, any, any, any>,
+  schema: SchemaDefinition<T, any, any, any, any, any>,
   context?: SchemaContext,
   selection?: { include?: readonly string[]; exclude?: readonly string[] },
 ): ResolvedColumn<T>[] {
@@ -395,43 +501,88 @@ export function resolveColumns<T extends object>(
   const include = selection?.include ? new Set<string>(selection.include) : null;
   const exclude = selection?.exclude ? new Set<string>(selection.exclude) : null;
 
-  for (const node of schema.columns) {
-    if (isColumnNode(node)) {
-      if (include && !include.has(node.id)) {
-        continue;
+  function subtreeMatchesInclude(nodes: SchemaNode<T, any>[]): boolean {
+    if (!include) {
+      return true;
+    }
+
+    for (const node of nodes) {
+      if (include.has(node.id)) {
+        return true;
       }
+
+      if (isGroupNode(node) && subtreeMatchesInclude(node.children)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function visitNodes(
+    nodes: SchemaNode<T, any>[],
+    groupPath: Array<{ id: string; headerLabel: string }>,
+    dynamicPath: string[],
+  ) {
+    for (const node of nodes) {
       if (exclude?.has(node.id)) {
         continue;
       }
-      columns.push({
-        ...node,
-        headerLabel: node.header ?? defaultColumnHeader(node.id),
-      } as ResolvedColumn<T>);
-      continue;
-    }
+      if (node.condition && !node.condition({ ctx: context as never })) {
+        continue;
+      }
 
-    if (include && !include.has(node.id)) {
-      continue;
-    }
-    if (exclude?.has(node.id)) {
-      continue;
-    }
+      if (isColumnNode(node)) {
+        if (include && !include.has(node.id)) {
+          continue;
+        }
 
-    const groupContext = context?.[node.id];
-    if (node.requiresContext && groupContext === undefined) {
-      throw new Error(`Group '${node.id}' requires context.`);
-    }
+        columns.push({
+          ...node,
+          dynamicPath: [...dynamicPath],
+          groupId: groupPath[groupPath.length - 1]?.id,
+          groupPath: [...groupPath],
+          headerLabel: node.header ?? defaultColumnHeader(node.id),
+          scopeIds: [...groupPath.map((group) => group.id), ...dynamicPath],
+        } as ResolvedColumn<T>);
+        continue;
+      }
 
-    const groupBuilder = SchemaBuilder.create<T>();
-    node.build(groupBuilder as unknown as SchemaBuilder<T, any>, groupContext as never);
-    columns.push(
-      ...resolveColumns(groupBuilder.build(), context).map((column) => ({
-        ...column,
-        groupId: node.id,
-      })),
-    );
+      if (isGroupNode(node)) {
+        if (include && !include.has(node.id) && !subtreeMatchesInclude(node.children)) {
+          continue;
+        }
+
+        visitNodes(
+          node.children,
+          [
+            ...groupPath,
+            { id: node.id, headerLabel: String(node.header ?? defaultColumnHeader(node.id)) },
+          ],
+          dynamicPath,
+        );
+        continue;
+      }
+
+      if (isDynamicNode(node)) {
+        if (include && !include.has(node.id)) {
+          continue;
+        }
+
+        const dynamicBuilder =
+          schema.kind === "excel-table"
+            ? ExcelTableSchemaBuilder.create<T, any>()
+            : SchemaBuilder.create<T, any>();
+        node.build(dynamicBuilder as never, { ctx: context as never });
+        visitNodes(dynamicBuilder.build().columns as SchemaNode<T, any>[], groupPath, [
+          ...dynamicPath,
+          node.id,
+        ]);
+      }
+    }
   }
 
+  visitNodes(schema.columns as SchemaNode<T, any>[], [], []);
   return columns;
 }
 
@@ -472,7 +623,7 @@ export function createSummaryBindings<T extends object>(
 }
 
 export function planRows<T extends object>(
-  schema: SchemaDefinition<T, any, any, any, any>,
+  schema: SchemaDefinition<T, any, any, any, any, any>,
   rows: T[],
 ): PlannerResult<T>;
 export function planRows<T extends object>(
@@ -481,7 +632,7 @@ export function planRows<T extends object>(
 ): PlannerResult<T>;
 export function planRows<T extends object>(
   schema:
-    | SchemaDefinition<T, any, any, any, any>
+    | SchemaDefinition<T, any, any, any, any, any>
     | { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
   rows: T[],
 ): PlannerResult<T> {
@@ -499,10 +650,16 @@ export function planRows<T extends object>(
       const rawValue = column.formula
         ? undefined
         : column.accessor
-          ? resolveAccessor(row, column.accessor)
+          ? resolveAccessor(row, column.accessor as any, undefined)
           : undefined;
       const transformed = column.transform
-        ? column.transform(rawValue, row, logicalRowIndex)
+        ? invokeRowTransform({
+            ctx: undefined,
+            row,
+            rowIndex: logicalRowIndex,
+            transform: column.transform,
+            value: rawValue,
+          })
         : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
       const values = column.formula ? [] : toCellDataValues(transformed);
       rowHeight = Math.max(rowHeight, values.length);
@@ -546,7 +703,9 @@ export function planRows<T extends object>(
       const expr = toExpr(
         column.formula({
           row: createFormulaRowContext<any, any>(),
+          refs: createFormulaRefs<any, any, any>(),
           fx: createFormulaFunctionsContext<any, any>(),
+          ctx: undefined as never,
         } as Parameters<NonNullable<typeof column.formula>>[0]),
       );
       const inferredSeriesMode: RowSeriesMode = formulaUsesSeriesAggregate(expr)
@@ -574,6 +733,7 @@ export function planRows<T extends object>(
                 column,
                 columns,
                 formulaMode: schema.kind,
+                ctx: undefined,
                 rowIndex: rowStartIndex + subRowIndex,
                 referenceRowsByColumnId: createReferenceRowsByColumnId(
                   seriesModeByColumnId,
@@ -588,6 +748,7 @@ export function planRows<T extends object>(
                 column,
                 columns,
                 formulaMode: schema.kind,
+                ctx: undefined,
                 rowIndex: rowStartIndex,
                 referenceRowsByColumnId: createReferenceRowsByColumnId(
                   seriesModeByColumnId,
@@ -614,7 +775,13 @@ export function planRows<T extends object>(
       const rowStyles: Array<CellStyle | undefined> = expandedCells.map((cell) => {
         if (!cell.column.style) return undefined;
         if (typeof cell.column.style === "function") {
-          return cell.column.style(row, logicalRowIndex, subRowIndex);
+          return invokeRowStyle({
+            ctx: undefined,
+            row,
+            rowIndex: logicalRowIndex,
+            style: cell.column.style,
+            subRowIndex,
+          });
         }
         return cell.column.style;
       });
@@ -632,7 +799,13 @@ export function planRows<T extends object>(
         cells: expandedCells.map((cell) => ({
           columnId: cell.columnId,
           value: cell.values[subRowIndex] ?? null,
-          hyperlink: resolveCellHyperlink(cell.column, row, logicalRowIndex, subRowIndex),
+          hyperlink: resolveCellHyperlink({
+            column: cell.column,
+            row,
+            rowIndex: logicalRowIndex,
+            subRowIndex,
+            ctx: undefined,
+          }),
           sourceRow: row,
           sourceRowIndex: logicalRowIndex,
           subRowIndex,
@@ -671,7 +844,7 @@ export function planRows<T extends object>(
 
 function isResolvedColumnsInput<T extends object>(
   value:
-    | SchemaDefinition<T, any, any, any, any>
+    | SchemaDefinition<T, any, any, any, any, any>
     | { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
 ): value is { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] } {
   return value.columns.length > 0 && "headerLabel" in value.columns[0]!;
