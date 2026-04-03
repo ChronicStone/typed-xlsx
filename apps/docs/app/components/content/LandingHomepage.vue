@@ -329,11 +329,7 @@ await wb.writeToFile("./orders.xlsx");`;
       class="mx-auto grid w-full max-w-[90rem] grid-cols-1 gap-8 px-4 pb-8 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-12 lg:px-8 lg:pt-20"
     >
       <div class="flex flex-col gap-8 lg:pt-4">
-        <motion.div
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
-          :transition="{ duration: 0.4, ease }"
-        >
+        <div class="landing-hero-step" style="--hero-delay: 0ms">
           <UBadge
             color="primary"
             variant="subtle"
@@ -341,36 +337,26 @@ await wb.writeToFile("./orders.xlsx");`;
           >
             @chronicstone/typed-xlsx
           </UBadge>
-        </motion.div>
+        </div>
 
-        <motion.div
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
-          :transition="{ duration: 0.42, ease, delay: 0.04 }"
-        >
+        <div class="landing-hero-step" style="--hero-delay: 40ms">
           <h1
             class="text-balance text-5xl font-bold leading-[0.95] tracking-tight text-highlighted sm:text-6xl lg:text-[5.5rem]"
           >
             Excel&nbsp;Reporting<br /><em class="not-italic text-primary">Re-Engineered.</em>
           </h1>
-        </motion.div>
+        </div>
 
-        <motion.div
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
-          :transition="{ duration: 0.4, ease, delay: 0.08 }"
-        >
+        <div class="landing-hero-step" style="--hero-delay: 80ms">
           <p class="max-w-lg text-pretty text-xl leading-8 text-toned">
             Schema-driven XLSX generation for TypeScript. If the export definition is wrong, the
             compiler tells you — not the spreadsheet.
           </p>
-        </motion.div>
+        </div>
 
-        <motion.div
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
-          :transition="{ duration: 0.4, ease, delay: 0.12 }"
-          class="flex flex-wrap items-center gap-3"
+        <div
+          class="landing-hero-step flex flex-wrap items-center gap-3"
+          style="--hero-delay: 120ms"
         >
           <UButton
             color="primary"
@@ -389,13 +375,11 @@ await wb.writeToFile("./orders.xlsx");`;
           >
             Why typed-xlsx?
           </UButton>
-        </motion.div>
+        </div>
 
-        <motion.div
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
-          :transition="{ duration: 0.4, ease, delay: 0.16 }"
-          class="flex flex-wrap items-center gap-x-6 gap-y-3"
+        <div
+          class="landing-hero-step flex flex-wrap items-center gap-x-6 gap-y-3"
+          style="--hero-delay: 160ms"
         >
           <code
             class="rounded-xl border border-default/50 bg-elevated/70 px-4 py-2.5 font-mono text-sm text-toned backdrop-blur"
@@ -408,15 +392,11 @@ await wb.writeToFile("./orders.xlsx");`;
           <span class="flex items-center gap-2 text-sm text-toned">
             <span class="size-2 rounded-full bg-primary/80" />Zero dependencies
           </span>
-        </motion.div>
+        </div>
       </div>
 
       <!-- Hero code card -->
-      <motion.div
-        :initial="{ opacity: 0 }"
-        :animate="{ opacity: 1 }"
-        :transition="{ duration: 0.35, ease, delay: 0.1 }"
-      >
+      <div class="landing-hero-step" style="--hero-delay: 100ms">
         <UPageCard spotlight class="min-w-0 rounded-[1.75rem] border border-default/60">
           <div class="min-w-0 overflow-hidden rounded-[1.75rem]">
             <div class="border-b border-default/60 px-5 py-3.5">
@@ -445,7 +425,7 @@ await wb.writeToFile("./orders.xlsx");`;
             />
           </div>
         </UPageCard>
-      </motion.div>
+      </div>
     </section>
 
     <!-- ── STATS STRIP ───────────────────────────────────────────────── -->
@@ -928,6 +908,30 @@ await wb.writeToFile("./orders.xlsx");`;
       color-mix(in oklab, var(--ui-bg-elevated) 70%, transparent) 0%,
       transparent 100%
     );
+}
+
+.landing-hero-step {
+  opacity: 0;
+  animation: landing-hero-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--hero-delay, 0ms);
+  will-change: opacity;
+}
+
+@keyframes landing-hero-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-step {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 /* ── Light mode: stronger hero gradient ───────────────────────── */
