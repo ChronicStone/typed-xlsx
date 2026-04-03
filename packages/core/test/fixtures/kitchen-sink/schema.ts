@@ -463,11 +463,7 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   .column("seatUtilization", {
     header: "Utilization",
     formula: ({ refs, fx }) =>
-      fx.if(
-        refs.column("qty").gt(0),
-        fx.round(refs.column("activatedSeats").div(refs.column("qty")), 4),
-        0,
-      ),
+      fx.round(fx.safeDiv(refs.column("activatedSeats"), refs.column("qty")), 4),
     width: 12,
     style: {
       numFmt: "0.0%",

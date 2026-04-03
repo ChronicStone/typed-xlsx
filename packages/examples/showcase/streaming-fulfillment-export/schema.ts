@@ -40,12 +40,9 @@ export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()
   .column("fillRate", {
     header: "Fill Rate",
     formula: ({ refs, fx }) =>
-      fx.if(
-        refs.column("shippedUnits").add(refs.column("backlogUnits")).gt(0),
-        refs
-          .column("shippedUnits")
-          .div(refs.column("shippedUnits").add(refs.column("backlogUnits"))),
-        0,
+      fx.safeDiv(
+        refs.column("shippedUnits"),
+        refs.column("shippedUnits").add(refs.column("backlogUnits")),
       ),
     width: 12,
     style: { numFmt: "0.0%", alignment: { horizontal: "right" } },

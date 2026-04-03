@@ -98,6 +98,19 @@ export interface FormulaScopeRef<TScopeId extends string = string> {
   scopeId: TScopeId;
 }
 
+export interface FormulaSafeDivOptions<
+  TColumnId extends string = string,
+  TScopeId extends string = string,
+> {
+  fallback?: FormulaValue<TColumnId, TScopeId>;
+  when?:
+    | FormulaConditionValue<TColumnId, TScopeId>
+    | ((args: {
+        numerator: FormulaOperand<TColumnId, TScopeId>;
+        denominator: FormulaOperand<TColumnId, TScopeId>;
+      }) => FormulaConditionValue<TColumnId, TScopeId>);
+}
+
 export interface FormulaRefs<
   TColumnId extends string = string,
   TGroupId extends string = never,
@@ -120,6 +133,16 @@ export interface FormulaFunctions<
   TScopeId extends string = string,
 > {
   literal(value: string | number | boolean): FormulaOperand<TColumnId, TScopeId>;
+  safeDiv(
+    numerator: FormulaValue<TColumnId, TScopeId>,
+    denominator: FormulaValue<TColumnId, TScopeId>,
+    fallback?: FormulaValue<TColumnId, TScopeId>,
+  ): FormulaOperand<TColumnId, TScopeId>;
+  safeDiv(
+    numerator: FormulaValue<TColumnId, TScopeId>,
+    denominator: FormulaValue<TColumnId, TScopeId>,
+    options: FormulaSafeDivOptions<TColumnId, TScopeId>,
+  ): FormulaOperand<TColumnId, TScopeId>;
   abs(value: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
   round(
     value: FormulaValue<TColumnId, TScopeId>,
@@ -276,6 +299,12 @@ function isScopeRef<TScopeId extends string>(value: unknown): value is FormulaSc
   );
 }
 
+function isSafeDivOptions<TColumnId extends string, TScopeId extends string>(
+  value: unknown,
+): value is FormulaSafeDivOptions<TColumnId, TScopeId> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function createFormulaFunctions<
   TColumnId extends string,
   TScopeId extends string,
@@ -296,6 +325,31 @@ function createFormulaFunctions<
   return {
     literal(value) {
       return wrapExpr(literal(value));
+    },
+    safeDiv(numerator, denominator, fallbackOrOptions = 0) {
+      const numeratorExpr = toExpr(numerator);
+      const denominatorExpr = toExpr(denominator);
+      const numeratorOperand = wrapExpr(numeratorExpr);
+      const denominatorOperand = wrapExpr(denominatorExpr);
+      const fallback = isSafeDivOptions<TColumnId, TScopeId>(fallbackOrOptions)
+        ? (fallbackOrOptions.fallback ?? 0)
+        : fallbackOrOptions;
+      const when = isSafeDivOptions<TColumnId, TScopeId>(fallbackOrOptions)
+        ? typeof fallbackOrOptions.when === "function"
+          ? fallbackOrOptions.when({
+              numerator: numeratorOperand,
+              denominator: denominatorOperand,
+            })
+          : (fallbackOrOptions.when ?? binary(denominatorExpr, "<>", literal(0)))
+        : binary(denominatorExpr, "<>", literal(0));
+
+      return wrapExpr(
+        func("IF", [
+          toConditionExpr(when),
+          binary(numeratorExpr, "/", denominatorExpr),
+          toExpr(fallback),
+        ]),
+      );
     },
     abs(value) {
       return wrapExpr(func("ABS", [toExpr(value)]));

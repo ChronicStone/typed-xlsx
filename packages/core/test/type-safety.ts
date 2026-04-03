@@ -94,6 +94,32 @@ createExcelSchema<FlatRow>()
   })
   .build();
 
+createExcelSchema<FlatRow>()
+  .column("quota", { accessor: "age" })
+  .column("attainment", {
+    formula: ({ refs, fx }) => fx.safeDiv(refs.column("quota"), 100, 0),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("quota", { accessor: "age" })
+  .column("attainment", {
+    formula: ({ refs, fx }) =>
+      fx.safeDiv(refs.column("quota"), 100, { fallback: 0, when: refs.column("quota").gt(0) }),
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("quota", { accessor: "age" })
+  .column("attainment", {
+    formula: ({ refs, fx }) =>
+      fx.safeDiv(refs.column("quota"), 100, {
+        fallback: 0,
+        when: ({ denominator }) => denominator.gt(0),
+      }),
+  })
+  .build();
+
 createExcelSchema<{ lines: number[] }>()
   .column("line", { accessor: (row) => row.lines })
   .column("lineAverage", {

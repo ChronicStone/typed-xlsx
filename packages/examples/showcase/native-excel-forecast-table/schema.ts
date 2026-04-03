@@ -23,7 +23,8 @@ export const nativeForecastSchema = createExcelSchema<ForecastRow>({ mode: "exce
   })
   .column("avgPrice", {
     header: "Avg Price",
-    formula: ({ refs, fx }) => fx.round(refs.column("revenue").div(refs.column("units")), 2),
+    formula: ({ refs, fx }) =>
+      fx.round(fx.safeDiv(refs.column("revenue"), refs.column("units")), 2),
     totalsRow: { label: "-" },
     style: { numFmt: '"$"#,##0.00', alignment: { horizontal: "right" } },
   })
