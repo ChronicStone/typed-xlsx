@@ -26,14 +26,18 @@ Columns can now emit real Excel formulas through a type-safe DSL with predecesso
 New capabilities include:
 
 - `formula: ({ row, refs, fx }) => ...`
-- typed predecessor references via `refs.column("columnId")`
+- selector-first predecessor references via `refs.column("columnId")`
+- structural selectors via `refs.group("groupId")` and `refs.dynamic("dynamicId")`
 - arithmetic operators: `.add()`, `.sub()`, `.mul()`, `.div()`
 - comparison operators: `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`
 - boolean composition for conditions
 - `fx` helpers such as `round`, `abs`, `min`, `max`, `if`, `and`, `or`, and `not`
+- configurable guarded division via `fx.safeDiv(left, right, fallback?)` and `fx.safeDiv(left, right, { fallback, when })`
 - formulas that reference earlier formula columns
 
 This removes a large class of brittle userland string-building and makes formula-driven workbooks much easier to author safely.
+
+It also finalizes the shipped formula model around `refs.*` selectors instead of the older row-bound selector shape, so ordinary predecessor references, grouped aggregates, and dynamic-scope aggregates now use one consistent API.
 
 ### Logical-row-aware formula model in report mode
 
@@ -205,7 +209,7 @@ This includes presets and overrides for:
 
 These defaults compose with column styles and hyperlink-local overrides, which is especially useful for protected workflow spreadsheets.
 
-### Spreadsheet themes and schema-wide context
+### Typed spreadsheet theme engine and schema-wide context
 
 The schema and workbook APIs now use a cleaner model for shared styling and runtime context.
 
@@ -219,7 +223,9 @@ New capabilities include:
 - global schema context via `createExcelSchema<Row, Context>()`
 - distinct `group()` and `dynamic()` concepts in the schema tree
 
-This makes styling more reusable, keeps table-level defaults composable, and replaces the older selection-correlated context model with a simpler schema-wide contract.
+This adds a real typed theme engine for spreadsheet styling: reusable semantic slots, layered schema/table theming, and composable defaults that can be shared across headers, summaries, and cell states.
+
+It also replaces the older selection-correlated context model with a simpler schema-wide contract, which makes runtime-driven grouped and dynamic schemas easier to reason about.
 
 ### Row-aware formulas and polished examples/docs surface
 
@@ -230,7 +236,10 @@ Notable additions include:
 - showcase workbook examples replacing older legacy samples
 - dedicated docs for formulas, excel-table mode, validation, hyperlinks, protection, streaming, and performance
 - a new formula row-model doc that explains logical rows, physical rows, `refs.column(...)`, `row.series(...)`, and summary range semantics
-- dedicated docs for schema context, structural groups, dynamic columns, and spreadsheet themes
+- dedicated docs for schema context, structural groups, dynamic columns, spreadsheet themes, cell styles, dynamic styles, and conditional styles
+- an explicit v1-to-v2 migration guide covering report mode vs excel-table mode, formula adoption, conditional formatting, validation, hyperlinks, and protection
+- expanded README and package README guidance that repositions the library against SheetJS and ExcelJS with clearer migration-oriented comparisons
+- a much larger landing-page comparison carousel with concrete SheetJS-to-schema examples for formulas, summaries, grouped headers, dynamic columns, sub-row expansion, excel-table mode, validation, theming, and streaming
 - Mermaid support in the docs app for visual explanations of the formula row model
 
 ## Constraints and important behavior changes
