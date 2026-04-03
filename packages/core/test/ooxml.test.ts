@@ -423,6 +423,98 @@ describe("ooxml", () => {
     );
   });
 
+  it("renders report table title and grouped header rows with merges", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      account: string;
+      arr: number;
+      nrr: number;
+      health: number;
+    }>()
+      .column("account", { accessor: "account" })
+      .group("financials", { header: "Financials" }, (group) => {
+        group.column("arr", { accessor: "arr" });
+        group.column("nrr", { accessor: "nrr" });
+      })
+      .group("signals", { header: "Signals" }, (group) => {
+        group.column("health", { accessor: "health" });
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Board").table("portfolio", {
+      title: "Portfolio Snapshot",
+      schema,
+      rows: [{ account: "Acme", arr: 100, nrr: 1.1, health: 92 }],
+      defaults: {
+        title: { preset: "header.inverse" },
+        groupHeader: { preset: "header.accent" },
+      },
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
+
+    expect(sharedStringsPart?.xml).toContain("<t>Portfolio Snapshot</t>");
+    expect(sharedStringsPart?.xml).toContain("<t>Financials</t>");
+    expect(sharedStringsPart?.xml).toContain("<t>Signals</t>");
+    expect(worksheetPart?.xml).toContain('<mergeCell ref="A1:D1"/>');
+    expect(worksheetPart?.xml).toContain('<mergeCell ref="B2:C2"/>');
+    expect(worksheetPart?.xml).toContain('<c r="A3"');
+    expect(worksheetPart?.xml).toContain('<c r="B4"');
+  });
+
+  it("anchors report autoFilter to the leaf header row when title and grouped headers are rendered", () => {
+    const schema = Internal.SchemaBuilder.create<{ account: string; arr: number; nrr: number }>()
+      .column("account", { accessor: "account" })
+      .group("financials", { header: "Financials" }, (group) => {
+        group.column("arr", { accessor: "arr" });
+        group.column("nrr", { accessor: "nrr" });
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Board").table("portfolio", {
+      title: "Portfolio Snapshot",
+      autoFilter: true,
+      schema,
+      rows: [{ account: "Acme", arr: 100, nrr: 1.1 }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain('<autoFilter ref="A3:C4"/>');
+  });
+
+  it("renders styled placeholder cells for ungrouped columns above mixed report headers", () => {
+    const schema = Internal.SchemaBuilder.create<{ account: string; arr: number; nrr: number }>()
+      .column("account", { accessor: "account" })
+      .group("financials", { header: "Financials" }, (group) => {
+        group.column("arr", { accessor: "arr" });
+        group.column("nrr", { accessor: "nrr" });
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Board").table("portfolio", {
+      title: "Portfolio Snapshot",
+      schema,
+      rows: [{ account: "Acme", arr: 100, nrr: 1.1 }],
+      defaults: {
+        groupHeader: { preset: "header.accent" },
+      },
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain('<c r="A2"');
+    expect(worksheetPart?.xml).toContain('<mergeCell ref="B2:C2"/>');
+    expect(worksheetPart?.xml).toContain('<c r="A3"');
+    expect(worksheetPart?.xml).not.toContain('<mergeCell ref="A2:A3"/>');
+  });
+
   it("writes merge cells before conditional formatting when both are present", () => {
     const schema = Internal.SchemaBuilder.create<{ label: string; values: number[] }>()
       .column("label", {

@@ -205,6 +205,22 @@ This includes presets and overrides for:
 
 These defaults compose with column styles and hyperlink-local overrides, which is especially useful for protected workflow spreadsheets.
 
+### Spreadsheet themes and schema-wide context
+
+The schema and workbook APIs now use a cleaner model for shared styling and runtime context.
+
+New capabilities include:
+
+- `defineSpreadsheetTheme(...)`
+- built-in themes via `spreadsheetThemes.*`
+- `theme.extend(...)` and `theme.slot(...)`
+- schema-level themes with `.theme(theme)`
+- table-level themes with `.table(..., { theme })`
+- global schema context via `createExcelSchema<Row, Context>()`
+- distinct `group()` and `dynamic()` concepts in the schema tree
+
+This makes styling more reusable, keeps table-level defaults composable, and replaces the older selection-correlated context model with a simpler schema-wide contract.
+
 ### Row-aware formulas and polished examples/docs surface
 
 The release also significantly expands the examples and documentation surface to match the richer API.
@@ -214,6 +230,7 @@ Notable additions include:
 - showcase workbook examples replacing older legacy samples
 - dedicated docs for formulas, excel-table mode, validation, hyperlinks, protection, streaming, and performance
 - a new formula row-model doc that explains logical rows, physical rows, `row.ref(...)`, `row.series(...)`, and summary range semantics
+- dedicated docs for schema context, structural groups, dynamic columns, and spreadsheet themes
 - Mermaid support in the docs app for visual explanations of the formula row model
 
 ## Constraints and important behavior changes

@@ -89,13 +89,13 @@ function serializeConditionalFormulaExpr<T extends object>(
     return `${toConditionalColumnRef(columnIndex, targetColumnIndex)}2`;
   }
 
-  if (expr.kind === "group") {
-    const groupColumns = columns.filter((column) => column.groupId === expr.groupId);
-    if (groupColumns.length === 0) {
-      throw new Error(`Unknown or empty formula group reference '${expr.groupId}'.`);
+  if (expr.kind === "scope-aggregate") {
+    const scopeColumns = columns.filter((column) => column.scopeIds.includes(expr.scopeId));
+    if (scopeColumns.length === 0) {
+      throw new Error(`Unknown or empty formula scope reference '${expr.scopeId}'.`);
     }
 
-    const refs = groupColumns.map((column) => {
+    const refs = scopeColumns.map((column) => {
       const columnIndex = columns.findIndex((candidate) => candidate.id === column.id);
       if (columnIndex < 0) {
         throw new Error(`Unknown formula column reference '${column.id}'.`);
@@ -119,10 +119,6 @@ function serializeConditionalFormulaExpr<T extends object>(
     return `${expr.name}(${expr.args
       .map((arg) => serializeConditionalFormulaExpr(arg, columns, targetColumnIndex, mode))
       .join(",")})`;
-  }
-
-  if (expr.kind !== "binary") {
-    throw new Error("Unsupported conditional formula expression kind.");
   }
 
   return `(${serializeConditionalFormulaExpr(expr.left, columns, targetColumnIndex, mode)}${expr.op}${serializeConditionalFormulaExpr(expr.right, columns, targetColumnIndex, mode)})`;

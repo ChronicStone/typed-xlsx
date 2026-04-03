@@ -2,12 +2,15 @@ import { groupSummaryRows } from "./summaries";
 import type { PlannedMergeRange } from "../../planner/rows";
 import type { SheetLayoutOptions } from "../types";
 import type { PlannedSummaryCell } from "../types";
+import { buildReportChrome } from "./report-chrome";
 
 export interface LayoutTableLike {
   autoFilter: boolean;
   excelTable?: { totalsRow?: boolean };
+  title?: string;
+  render?: { groupHeaders?: boolean };
   planner: {
-    columns: Array<{ id: string }>;
+    columns: Array<{ id: string; groupPath?: Array<{ id: string; headerLabel: string }> }>;
     merges: PlannedMergeRange[];
     rows: Array<unknown>;
     stats: {
@@ -33,8 +36,16 @@ export interface PositionedMergeRange {
 }
 
 export function getTableHeight(table: LayoutTableLike) {
+  const reportChrome = table.excelTable
+    ? undefined
+    : buildReportChrome({
+        columns: table.planner.columns.map((column) => ({ groupPath: column.groupPath ?? [] })),
+        title: table.title,
+        render: table.render,
+      });
+
   return (
-    1 +
+    (reportChrome?.headerHeight ?? 1) +
     table.planner.rows.length +
     groupSummaryRows(table.summaries).length +
     (table.excelTable?.totalsRow ? 1 : 0)
@@ -81,9 +92,19 @@ export function layoutTables<TTable extends LayoutTableLike>(params: {
 export function positionTableMerges<TTable extends LayoutTableLike>(
   positioned: PositionedTable<TTable>,
 ) {
+  const reportChrome = positioned.table.excelTable
+    ? undefined
+    : buildReportChrome({
+        columns: positioned.table.planner.columns.map((column) => ({
+          groupPath: column.groupPath ?? [],
+        })),
+        title: positioned.table.title,
+        render: positioned.table.render,
+      });
+
   return positioned.table.planner.merges.map((merge) => ({
-    startRow: positioned.rowOffset + 1 + merge.startRow,
-    endRow: positioned.rowOffset + 1 + merge.endRow,
+    startRow: positioned.rowOffset + (reportChrome?.bodyRowOffset ?? 1) + merge.startRow,
+    endRow: positioned.rowOffset + (reportChrome?.bodyRowOffset ?? 1) + merge.endRow,
     startCol: positioned.columnOffset + merge.startCol,
     endCol: positioned.columnOffset + merge.endCol,
   })) satisfies PositionedMergeRange[];

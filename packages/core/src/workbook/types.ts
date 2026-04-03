@@ -6,6 +6,7 @@ import type {
   SchemaDefinition,
 } from "../schema/builder";
 import type { PlannerResult } from "../planner/rows";
+import type { SpreadsheetTheme } from "../styles/theme";
 import type { SummaryResolvedValue } from "../summary/runtime";
 import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { CellStyle } from "../styles/types";
@@ -40,14 +41,22 @@ export interface TableStyleDefault {
 }
 
 export interface TableStyleDefaults {
+  title?: CellStyle | TableStyleDefault;
+  groupHeader?: CellStyle | TableStyleDefault;
+  groupHeaderFiller?: CellStyle | TableStyleDefault;
   header?: CellStyle | TableStyleDefault;
   summary?: CellStyle | TableStyleDefault;
   cells?: {
     base?: CellStyle | TableStyleDefault;
+    hyperlink?: CellStyle | TableStyleDefault;
     unlocked?: CellStyle | TableStyleDefault;
     locked?: CellStyle | TableStyleDefault;
     hidden?: CellStyle | TableStyleDefault;
   };
+}
+
+export interface ReportTableRenderOptions {
+  groupHeaders?: boolean;
 }
 
 export type ExcelTableStyle =
@@ -161,12 +170,14 @@ export interface BufferedReportTableInput<
   TSchemaContext extends SchemaContext = SchemaContext,
 > {
   title?: string;
-  schema: ReportSchemaDefinition<T, string, string, SchemaContext>;
+  schema: ReportSchemaDefinition<T, string, string, string, TSchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
   context?: TSchemaContext;
+  theme?: SpreadsheetTheme;
   autoFilter?: boolean | TableAutoFilterOptions;
   defaults?: TableStyleDefaults;
+  render?: ReportTableRenderOptions;
 }
 
 export interface BufferedExcelTableInput<
@@ -174,15 +185,18 @@ export interface BufferedExcelTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > {
-  schema: ExcelTableSchemaDefinition<T, string, string, TSchemaContext>;
+  title?: string;
+  schema: ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
   context?: TSchemaContext;
+  theme?: SpreadsheetTheme;
   name?: string;
   style?: ExcelTableStyle;
   autoFilter?: boolean;
   totalsRow?: boolean;
   defaults?: TableStyleDefaults;
+  render?: ReportTableRenderOptions;
 }
 
 export type BufferedTableInput<
@@ -337,9 +351,11 @@ export interface PlannedSummaryCell {
 export interface BufferedTablePlan<T extends object> {
   id: string;
   title?: string;
+  render?: ReportTableRenderOptions;
   rowCount: number;
   planner: PlannerResult<T>;
   defaults?: TableStyleDefaults;
+  theme?: SpreadsheetTheme;
   summaries: PlannedSummaryCell[];
   conditionalFormatting?: WorksheetConditionalFormattingBlock[];
   dataValidations?: WorksheetDataValidation[];
@@ -388,8 +404,19 @@ export interface StreamTableCommit<T extends object> {
   rows: T[];
 }
 
-export interface StreamTableInput<T extends object, TSelectableId extends string = string> {
-  schema: SchemaDefinition<T, string, string, SchemaContext, any>;
+export interface StreamTableInput<
+  T extends object,
+  TSelectableId extends string = string,
+  TSchema extends SchemaDefinition<T, string, string, string, any, any> = SchemaDefinition<
+    T,
+    string,
+    string,
+    string,
+    any,
+    any
+  >,
+> {
+  schema: TSchema;
   select?: TableSelection<TSelectableId>;
 }
 
@@ -398,24 +425,34 @@ export interface StreamReportTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > extends StreamTableInput<T, TSelectableId> {
-  schema: ReportSchemaDefinition<T, string, string, SchemaContext>;
+  title?: string;
+  schema: ReportSchemaDefinition<T, string, string, string, TSchemaContext>;
   context?: TSchemaContext;
+  theme?: SpreadsheetTheme;
   autoFilter?: boolean | TableAutoFilterOptions;
   defaults?: TableStyleDefaults;
+  render?: ReportTableRenderOptions;
 }
 
 export interface StreamExcelTableInput<
   T extends object,
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
-> extends StreamTableInput<T, TSelectableId> {
-  schema: ExcelTableSchemaDefinition<T, string, string, TSchemaContext>;
+> extends StreamTableInput<
+  T,
+  TSelectableId,
+  ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>
+> {
+  title?: string;
+  schema: ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>;
   context?: TSchemaContext;
+  theme?: SpreadsheetTheme;
   name?: string;
   style?: ExcelTableStyle;
   autoFilter?: boolean;
   totalsRow?: boolean;
   defaults?: TableStyleDefaults;
+  render?: ReportTableRenderOptions;
 }
 
 export type AnyStreamTableInput<

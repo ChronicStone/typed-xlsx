@@ -58,7 +58,7 @@ createExcelSchema<FlatRow>()
   .column("age", {
     accessor: "age",
     // value is inferred as number — no annotation needed
-    transform: (value) => value.toFixed(0),
+    transform: ({ value }) => value.toFixed(0),
   })
   .build();
 
@@ -67,7 +67,7 @@ createExcelSchema<FlatRow>()
   .column("derived", {
     accessor: (row) => row.age * 2,
     // value is inferred as number
-    transform: (value) => `${value.toFixed(0)} years`,
+    transform: ({ value }) => `${value.toFixed(0)} years`,
   })
   .build();
 
@@ -440,10 +440,10 @@ createWorkbook()
 
 type GroupRow = { name: string; orgs: number[] };
 
-const groupSchema = createExcelSchema<GroupRow>()
+const groupSchema = createExcelSchema<GroupRow, { orgIds: number[] }>()
   .column("name", { accessor: "name" })
-  .group("orgIds", (b, ids: number[]) => {
-    for (const id of ids) {
+  .dynamic("orgIds", (b, { ctx }) => {
+    for (const id of ctx.orgIds) {
       b.column(`org-${id}`, { accessor: (r) => r.orgs.includes(id) });
     }
   })
@@ -470,10 +470,20 @@ createWorkbook()
   .sheet("S")
   .table("group-context", { rows: [], schema: groupSchema, context: { orgIds: [1, 2, 3] } });
 
-// excluding the only contextful group means context is no longer required
+// context stays required for any contextful schema, regardless of selection
 createWorkbook()
   .sheet("S")
+  // @ts-expect-error — schema-level context is required even when a dynamic scope is excluded
   .table("group-excluded", { rows: [], schema: groupSchema, select: { exclude: ["orgIds"] } });
+
+createWorkbook()
+  .sheet("S")
+  .table("group-excluded-with-context", {
+    rows: [],
+    schema: groupSchema,
+    select: { exclude: ["orgIds"] },
+    context: { orgIds: [1, 2, 3] },
+  });
 
 // ── SchemaGroupContext: shape matches the group generic ──────────────────────
 
@@ -483,10 +493,12 @@ const _gc1: GroupCtx = { orgIds: [1, 2, 3] };
 // @ts-expect-error — string is not assignable to number[]
 const _gc2: GroupCtx = { orgIds: "bad" };
 
-const excelTableGroupSchema = createExcelSchema<GroupRow>({ mode: "excel-table" })
+const excelTableGroupSchema = createExcelSchema<GroupRow, { orgIds: number[] }>({
+  mode: "excel-table",
+})
   .column("name", { accessor: "name" })
-  .group("orgIds", (b, ids: number[]) => {
-    for (const id of ids) {
+  .dynamic("orgIds", (b, { ctx }) => {
+    for (const id of ctx.orgIds) {
       b.column(`org-${id}`, { accessor: (r) => r.orgs.includes(id) });
     }
   })
@@ -512,18 +524,24 @@ type DetailedGroupRow = {
   tags: string[];
 };
 
-const detailedGroupSchema = createExcelSchema<DetailedGroupRow>()
+const detailedGroupSchema = createExcelSchema<
+  DetailedGroupRow,
+  {
+    orgs: GroupItem[];
+    tags: string[];
+  }
+>()
   .column("name", { accessor: "name" })
-  .group("orgs", (b, items: GroupItem[]) => {
-    for (const item of items) {
+  .dynamic("orgs", (b, { ctx }) => {
+    for (const item of ctx.orgs) {
       b.column(`org-${item.id}`, {
         header: item.name,
         accessor: (row) => (row.orgs.some((org) => org.id === item.id) ? "Yes" : "No"),
       });
     }
   })
-  .group("tags", (b, tags: string[]) => {
-    for (const tag of tags) {
+  .dynamic("tags", (b, { ctx }) => {
+    for (const tag of ctx.tags) {
       b.column(`tag-${tag}`, { accessor: (row) => (row.tags.includes(tag) ? "Yes" : "No") });
     }
   })
@@ -534,8 +552,8 @@ const detailedGroupSchema = createExcelSchema<DetailedGroupRow>()
 
 createExcelSchema<DetailedGroupRow>()
   .column("name", { accessor: "name" })
-  // @ts-expect-error — passing a single generic argument to group is not supported; type the callback context instead
-  .group<GroupItem[]>("orgs", () => {});
+  // @ts-expect-error — passing a single generic argument to dynamic is not supported; type the schema context instead
+  .dynamic<GroupItem[]>("orgs", () => {});
 
 type DetailedGroupCtx = SchemaGroupContext<typeof detailedGroupSchema>;
 
@@ -549,19 +567,39 @@ const _dgc3: keyof DetailedGroupCtx = "orgs";
 const _dgc4: keyof DetailedGroupCtx = "unknown";
 // @ts-expect-error — orgs must be GroupItem[]
 const _dgc5: DetailedGroupCtx = { orgs: [1], tags: ["vip"] };
-// @ts-expect-error — groups without a context parameter should not appear in the context shape
+// @ts-expect-error — structural groups without runtime context should not appear in the context shape
 const _dgc6: keyof DetailedGroupCtx = "derived";
 
 createWorkbook()
   .sheet("S")
+  // @ts-expect-error — schema-level context is required even when selecting only top-level columns
   .table("detailed-name", { rows: [], schema: detailedGroupSchema, select: { include: ["name"] } });
 
 createWorkbook()
   .sheet("S")
+  .table("detailed-name-with-context", {
+    rows: [],
+    schema: detailedGroupSchema,
+    select: { include: ["name"] },
+    context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
+  });
+
+createWorkbook()
+  .sheet("S")
+  // @ts-expect-error — schema-level context is required even when only structural selections are used
   .table("detailed-derived", {
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["derived"] },
+  });
+
+createWorkbook()
+  .sheet("S")
+  .table("detailed-derived-with-context", {
+    rows: [],
+    schema: detailedGroupSchema,
+    select: { include: ["derived"] },
+    context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
   });
 
 createWorkbook()
@@ -579,7 +617,7 @@ createWorkbook()
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["orgs"] },
-    context: { orgs: [{ id: 1, name: "Acme" }] },
+    context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
   });
 
 createWorkbook()
@@ -588,7 +626,6 @@ createWorkbook()
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["orgs"] },
-    // @ts-expect-error — only the selected orgs group should be present in context
     context: { orgs: [{ id: 1, name: "Acme" }], tags: ["vip"] },
   });
 
@@ -607,11 +644,12 @@ createWorkbook()
     rows: [],
     schema: detailedGroupSchema,
     select: { exclude: ["tags"] },
-    context: { orgs: [{ id: 1, name: "Acme" }] },
+    context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
   });
 
 createWorkbook()
   .sheet("S")
+  // @ts-expect-error — excluding all dynamic scopes does not remove the schema-level context requirement
   .table("detailed-exclude-all-context-groups", {
     rows: [],
     schema: detailedGroupSchema,
@@ -620,17 +658,36 @@ createWorkbook()
 
 createWorkbook()
   .sheet("S")
-  .table("detailed-include-exclude", {
+  .table("detailed-exclude-all-context-groups-with-context", {
     rows: [],
     schema: detailedGroupSchema,
-    select: { include: ["orgs", "tags"], exclude: ["tags"] },
-    context: { orgs: [{ id: 1, name: "Acme" }] },
+    select: { exclude: ["orgs", "tags"] },
+    context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
   });
 
 createWorkbook()
   .sheet("S")
+  .table("detailed-include-exclude", {
+    rows: [],
+    schema: detailedGroupSchema,
+    select: { include: ["orgs", "tags"], exclude: ["tags"] },
+    context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
+  });
+
+createWorkbook()
+  .sheet("S")
+  // @ts-expect-error — schema-level context is required for all tables built from a contextful schema
   .table("detailed-derived-name", {
     rows: [],
     schema: detailedGroupSchema,
     select: { include: ["derived", "name"] },
+  });
+
+createWorkbook()
+  .sheet("S")
+  .table("detailed-derived-name-with-context", {
+    rows: [],
+    schema: detailedGroupSchema,
+    select: { include: ["derived", "name"] },
+    context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
   });

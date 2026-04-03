@@ -88,7 +88,7 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     header: "Line Total",
     accessor: (row) => row.items.map((item) => item.quantity * item.unitPrice),
     minWidth: 12,
-    style: (row, _rowIndex, subRowIndex) => {
+    style: ({ row, subRowIndex }) => {
       const item = row.items[subRowIndex];
       return {
         ...currencyStyle,
@@ -114,7 +114,7 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     header: "Fulfilled",
     accessor: (row) => row.items.map((item) => (item.fulfilled ? "YES" : "PENDING")),
     minWidth: 12,
-    style: (row, _rowIndex, subRowIndex) => ({
+    style: ({ row, subRowIndex }) => ({
       alignment: { horizontal: "center" },
       font: {
         bold: true,
@@ -525,11 +525,14 @@ export const kitchenSinkFormulaColumnSchema = createExcelSchema<{
   })
   .build();
 
-export const kitchenSinkGroupedFormulaSchema = createExcelSchema<{
-  amount: number;
-  customerName: string;
-  region: "AMER" | "APAC" | "EMEA";
-}>({ mode: "excel-table" })
+export const kitchenSinkGroupedFormulaSchema = createExcelSchema<
+  {
+    amount: number;
+    customerName: string;
+    region: "AMER" | "APAC" | "EMEA";
+  },
+  { regions: Array<"AMER" | "APAC" | "EMEA"> }
+>({ mode: "excel-table" })
   .column("customerName", {
     header: "Customer",
     accessor: "customerName",
@@ -548,8 +551,8 @@ export const kitchenSinkGroupedFormulaSchema = createExcelSchema<{
     accessor: "region",
     minWidth: 10,
   })
-  .group("regions", (builder, regions: Array<"AMER" | "APAC" | "EMEA">) => {
-    for (const region of regions) {
+  .dynamic("regions", (builder, { ctx }) => {
+    for (const region of ctx.regions) {
       builder.column(`region:${region}`, {
         header: `${region} Amount`,
         formula: ({ row, fx }) => fx.if(row.ref("region").eq(region), row.ref("amount"), 0),

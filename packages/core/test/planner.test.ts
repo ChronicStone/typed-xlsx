@@ -285,12 +285,15 @@ describe("planner", () => {
       organizations: Array<{ id: number; name: string }>;
     };
 
-    const schema = Internal.SchemaBuilder.create<User>()
+    const schema = Internal.SchemaBuilder.create<
+      User,
+      { orgs: Array<{ id: number; name: string }> }
+    >()
       .column("firstName", {
         accessor: "firstName",
       })
-      .group("orgs", (builder, orgs: Array<{ id: number; name: string }>) => {
-        for (const org of orgs) {
+      .dynamic("orgs", (builder, { ctx }) => {
+        for (const org of ctx.orgs) {
           builder.column(`org-${org.id}`, {
             header: org.name,
             accessor: (row) => row.organizations.some((entry) => entry.id === org.id),

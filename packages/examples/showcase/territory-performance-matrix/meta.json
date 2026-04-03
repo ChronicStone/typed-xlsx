@@ -6,7 +6,7 @@
   "tags": ["dynamic-columns", "matrix", "territory"],
   "features": [
     "typed context",
-    "dynamic column groups",
+    "dynamic columns",
     "group aggregates",
     "formula DSL",
     "excel-table mode"

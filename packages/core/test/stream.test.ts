@@ -714,6 +714,94 @@ describe("stream builder", () => {
     );
   });
 
+  it("renders report title and grouped headers in streamed worksheets", async () => {
+    const schema = Internal.SchemaBuilder.create<{ account: string; arr: number; nrr: number }>()
+      .column("account", { accessor: "account" })
+      .group("financials", { header: "Financials" }, (group) => {
+        group.column("arr", { accessor: "arr" });
+        group.column("nrr", { accessor: "nrr" });
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Board").table("portfolio", {
+      title: "Portfolio Snapshot",
+      schema,
+      defaults: {
+        title: { preset: "header.inverse" },
+        groupHeader: { preset: "header.accent" },
+      },
+    });
+
+    await table.commit({ rows: [{ account: "Acme", arr: 100, nrr: 1.1 }] });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain("Portfolio Snapshot");
+    expect(content).toContain("Financials");
+    expect(content).toContain('<mergeCell ref="A1:C1"/>');
+    expect(content).toContain('<mergeCell ref="B2:C2"/>');
+    expect(content).toContain('r="A3"');
+    expect(content).toContain('r="A4"');
+  });
+
+  it("anchors streamed autoFilter to the leaf header row when grouped headers are rendered", async () => {
+    const schema = Internal.SchemaBuilder.create<{ account: string; arr: number; nrr: number }>()
+      .column("account", { accessor: "account" })
+      .group("financials", { header: "Financials" }, (group) => {
+        group.column("arr", { accessor: "arr" });
+        group.column("nrr", { accessor: "nrr" });
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Board").table("portfolio", {
+      title: "Portfolio Snapshot",
+      autoFilter: true,
+      schema,
+    });
+
+    await table.commit({ rows: [{ account: "Acme", arr: 100, nrr: 1.1 }] });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain('<autoFilter ref="A3:C4"/>');
+  });
+
+  it("renders styled placeholder cells for ungrouped columns above mixed streamed report headers", async () => {
+    const schema = Internal.SchemaBuilder.create<{ account: string; arr: number; nrr: number }>()
+      .column("account", { accessor: "account" })
+      .group("financials", { header: "Financials" }, (group) => {
+        group.column("arr", { accessor: "arr" });
+        group.column("nrr", { accessor: "nrr" });
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Board").table("portfolio", {
+      title: "Portfolio Snapshot",
+      schema,
+      defaults: {
+        groupHeader: { preset: "header.accent" },
+      },
+    });
+
+    await table.commit({ rows: [{ account: "Acme", arr: 100, nrr: 1.1 }] });
+    await workbook.finish();
+
+    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    expect(content).toContain('r="A2"');
+    expect(content).toContain('<mergeCell ref="B2:C2"/>');
+    expect(content).toContain('r="A3"');
+    expect(content).not.toContain('<mergeCell ref="A2:A3"/>');
+  });
+
   it("anchors streamed formula cells to physical sub-rows when rows expand", async () => {
     const schema = Internal.SchemaBuilder.create<{ items: number[]; qtys: number[] }>()
       .column("items", {

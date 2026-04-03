@@ -8,6 +8,7 @@ import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "..
 import type { CellStyle } from "../styles/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
 import {
+  createFormulaRefs,
   createFormulaFunctionsContext,
   createFormulaRowContext,
   toExpr,
@@ -31,6 +32,73 @@ function toValues(value: unknown): CellData[] {
   return Array.isArray(value) ? (value as CellData[]) : [value as CellData];
 }
 
+function invokeRowTransform<T extends object>(params: {
+  transform: Extract<NonNullable<ResolvedColumn<T>["transform"]>, (...args: any[]) => unknown>;
+  value: unknown;
+  row: T;
+  rowIndex: number;
+}) {
+  if (params.transform.length >= 2) {
+    return (
+      params.transform as (value: unknown, row: T, rowIndex: number) => CellData | CellData[]
+    )(params.value, params.row, params.rowIndex);
+  }
+
+  return (params.transform as (context: unknown) => CellData | CellData[])({
+    ...params.row,
+    ctx: undefined,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    value: params.value,
+  });
+}
+
+function invokeRowStyle<T extends object>(params: {
+  style: Extract<NonNullable<ResolvedColumn<T>["style"]>, (...args: any[]) => unknown>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+}) {
+  if (params.style.length >= 3) {
+    return (
+      params.style as (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined
+    )(params.row, params.rowIndex, params.subRowIndex);
+  }
+
+  return (params.style as (context: unknown) => CellStyle | undefined)({
+    ...params.row,
+    ctx: undefined,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    subRowIndex: params.subRowIndex,
+  });
+}
+
+function invokeRowHyperlink<T extends object>(params: {
+  hyperlink: Extract<NonNullable<ResolvedColumn<T>["hyperlink"]>, (...args: any[]) => unknown>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+}) {
+  if (params.hyperlink.length >= 2) {
+    return (
+      params.hyperlink as (
+        row: T,
+        rowIndex: number,
+        subRowIndex: number,
+      ) => string | PlannedHyperlink | null | undefined
+    )(params.row, params.rowIndex, params.subRowIndex);
+  }
+
+  return (params.hyperlink as (context: unknown) => string | PlannedHyperlink | null | undefined)({
+    ...params.row,
+    ctx: undefined,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    subRowIndex: params.subRowIndex,
+  });
+}
+
 function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
@@ -45,7 +113,9 @@ function resolveFormulaCell<T extends object>(params: {
 
   const expr = params.column.formula({
     row: createFormulaRowContext<any, any>(),
+    refs: createFormulaRefs<any, any, any>(),
     fx: createFormulaFunctionsContext<any, any>(),
+    ctx: undefined as never,
   } as Parameters<NonNullable<typeof params.column.formula>>[0]);
 
   return {
@@ -61,33 +131,33 @@ function resolveFormulaCell<T extends object>(params: {
   };
 }
 
-function resolveFormulaGroupColumns<T extends object>(
+function resolveFormulaScopeColumns<T extends object>(
   columns: ResolvedColumn<T>[],
-  groupId: string,
+  scopeId: string,
 ) {
-  return columns.filter((column) => column.groupId === groupId);
+  return columns.filter((column) => column.scopeIds.includes(scopeId));
 }
 
-function serializeFormulaGroupExpr<T extends object>(params: {
+function serializeFormulaScopeExpr<T extends object>(params: {
   aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
   columns: ResolvedColumn<T>[];
-  groupId: string;
+  scopeId: string;
   mode: "report" | "excel-table";
   rowIndex: number;
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
 }) {
-  const groupColumns = resolveFormulaGroupColumns(params.columns, params.groupId);
-  if (groupColumns.length === 0) {
-    throw new Error(`Unknown or empty formula group reference '${params.groupId}'.`);
+  const scopeColumns = resolveFormulaScopeColumns(params.columns, params.scopeId);
+  if (scopeColumns.length === 0) {
+    throw new Error(`Unknown or empty formula scope reference '${params.scopeId}'.`);
   }
 
   if (params.mode === "excel-table") {
-    const refs = groupColumns.map((column) => `[@[${column.headerLabel.replaceAll("]", "]]")}]]`);
+    const refs = scopeColumns.map((column) => `[@[${column.headerLabel.replaceAll("]", "]]")}]]`);
     return `${params.aggregate}(${refs.join(",")})`;
   }
 
-  const cellRefs = groupColumns.map((column) => {
+  const cellRefs = scopeColumns.map((column) => {
     const columnIndex = params.columns.findIndex((candidate) => candidate.id === column.id);
     if (columnIndex < 0) {
       throw new Error(`Unknown formula column reference '${column.id}'.`);
@@ -166,11 +236,11 @@ function serializeFormulaExpr<T extends object>(
     return `${expr.aggregate}(${startRef}:${endRef})`;
   }
 
-  if (expr.kind === "group") {
-    return serializeFormulaGroupExpr({
+  if (expr.kind === "scope-aggregate") {
+    return serializeFormulaScopeExpr({
       aggregate: expr.aggregate,
       columns,
-      groupId: expr.groupId,
+      scopeId: expr.scopeId,
       mode,
       rowIndex,
       referenceRowsByColumnId,
@@ -246,14 +316,18 @@ function formulaUsesExpandedRefs<T extends object>(
     return seriesModeByColumnId.get(expr.target.columnId) === "expanded";
   }
 
-  if (expr.kind === "group") {
-    return resolveFormulaGroupColumns(columns, expr.groupId).some(
+  if (expr.kind === "scope-aggregate") {
+    return resolveFormulaScopeColumns(columns, expr.scopeId).some(
       (column) => seriesModeByColumnId.get(column.id) === "expanded",
     );
   }
 
   if (expr.kind === "function") {
     return expr.args.some((arg) => formulaUsesExpandedRefs(arg, seriesModeByColumnId, columns));
+  }
+
+  if (expr.kind !== "binary") {
+    return false;
   }
 
   return (
@@ -263,7 +337,7 @@ function formulaUsesExpandedRefs<T extends object>(
 }
 
 function formulaUsesSeriesAggregate(expr: FormulaExpr<string, string>): boolean {
-  if (expr.kind === "literal" || expr.kind === "ref" || expr.kind === "group") {
+  if (expr.kind === "literal" || expr.kind === "ref" || expr.kind === "scope-aggregate") {
     return false;
   }
 
@@ -273,6 +347,10 @@ function formulaUsesSeriesAggregate(expr: FormulaExpr<string, string>): boolean 
 
   if (expr.kind === "function") {
     return expr.args.some((arg) => formulaUsesSeriesAggregate(arg));
+  }
+
+  if (expr.kind !== "binary") {
+    return false;
   }
 
   return formulaUsesSeriesAggregate(expr.left) || formulaUsesSeriesAggregate(expr.right);
@@ -290,10 +368,15 @@ export function expandCommittedRow<T extends object>(
     const rawValue = column.formula
       ? undefined
       : column.accessor
-        ? resolveAccessor(row, column.accessor)
+        ? resolveAccessor(row, column.accessor, undefined)
         : undefined;
     const transformed = column.transform
-      ? column.transform(rawValue, row, sourceRowIndex)
+      ? invokeRowTransform({
+          row,
+          rowIndex: sourceRowIndex,
+          transform: column.transform,
+          value: rawValue,
+        })
       : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
     const values = column.formula ? [] : toValues(transformed);
     height = Math.max(height, values.length);
@@ -310,7 +393,9 @@ export function expandCommittedRow<T extends object>(
     const expr = toExpr(
       column.formula({
         row: createFormulaRowContext<any, any>(),
+        refs: createFormulaRefs<any, any, any>(),
         fx: createFormulaFunctionsContext<any, any>(),
+        ctx: undefined as never,
       } as Parameters<NonNullable<typeof column.formula>>[0]),
     );
     const inferredSeriesMode: RowSeriesMode = formulaUsesSeriesAggregate(expr)
@@ -456,7 +541,9 @@ function resolveCellHyperlink<T extends object>(
   }
 
   const resolved =
-    typeof hyperlink === "function" ? hyperlink(row, rowIndex, subRowIndex) : hyperlink;
+    typeof hyperlink === "function"
+      ? invokeRowHyperlink({ hyperlink, row, rowIndex, subRowIndex })
+      : hyperlink;
 
   if (!resolved) {
     return undefined;
@@ -501,7 +588,7 @@ function resolveColumnStyle<T extends object>(
 ): CellStyle | undefined {
   if (!column.style) return undefined;
   if (typeof column.style === "function") {
-    return column.style(row, rowIndex, subRowIndex);
+    return invokeRowStyle({ row, rowIndex, style: column.style, subRowIndex });
   }
   return column.style;
 }

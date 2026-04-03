@@ -2,8 +2,10 @@ import { writeFile } from "node:fs/promises";
 import type {
   ExcelTableSchemaDefinition,
   ReportSchemaDefinition,
+  SchemaContext,
   SchemaDefinition,
-  SchemaGroupContext,
+  SchemaContextOf,
+  SchemaDynamicId,
   SchemaGroupId,
   SchemaKind,
 } from "./schema/builder";
@@ -13,6 +15,7 @@ import { StreamWorkbookBuilder } from "./workbook/stream";
 import type {
   BufferedExcelTableInput,
   BufferedReportTableInput,
+  ReportTableRenderOptions,
   SheetLayoutOptions,
   SheetProtectionInput,
   SheetViewOptions,
@@ -30,70 +33,48 @@ import {
   WorkbookByteStream,
 } from "./workbook/internal/stream-sinks";
 import { FileWorkbookSink } from "./workbook/internal/file-sink";
+import type { SpreadsheetTheme } from "./styles/theme";
 
 export interface WorkbookOptions {
   protection?: WorkbookProtectionInput;
 }
-type AnySchemaDefinition = SchemaDefinition<any, any, any, any, any>;
-type AnyReportSchemaDefinition = ReportSchemaDefinition<any, any, any, any>;
-type AnyExcelTableSchemaDefinition = ExcelTableSchemaDefinition<any, any, any, any>;
+type AnySchemaDefinition = SchemaDefinition<any, any, any, any, any, any>;
+type AnyReportSchemaDefinition = ReportSchemaDefinition<any, any, any, any, any>;
+type AnyExcelTableSchemaDefinition = ExcelTableSchemaDefinition<any, any, any, any, any>;
 type SchemaRow<TSchema extends AnySchemaDefinition> =
-  TSchema extends SchemaDefinition<infer TRow, any, any, any, any> ? TRow : never;
+  TSchema extends SchemaDefinition<infer TRow, any, any, any, any, any> ? TRow : never;
 type SchemaColumnIds<TSchema extends AnySchemaDefinition> =
-  TSchema extends SchemaDefinition<any, infer TColumnId, any, any, any> ? TColumnId : never;
+  TSchema extends SchemaDefinition<any, infer TColumnId, any, any, any, any> ? TColumnId : never;
 type SchemaGroupIds<TSchema extends AnySchemaDefinition> = SchemaGroupId<TSchema>;
+type SchemaDynamicIds<TSchema extends AnySchemaDefinition> = SchemaDynamicId<TSchema>;
 type SchemaSelectableIds<TSchema extends AnySchemaDefinition> =
   | SchemaColumnIds<TSchema>
-  | SchemaGroupIds<TSchema>;
-type SchemaResolvedContext<TSchema extends AnySchemaDefinition> = SchemaGroupContext<TSchema>;
-type SchemaContextualGroupIds<TSchema extends AnySchemaDefinition> = Extract<
-  keyof SchemaResolvedContext<TSchema>,
-  string
->;
-type SelectionIncludedIds<TSelection> = TSelection extends {
-  include: infer TInclude extends readonly unknown[];
-}
-  ? TInclude[number]
-  : never;
-type SelectionExcludedIds<TSelection> = TSelection extends {
-  exclude: infer TExclude extends readonly unknown[];
-}
-  ? TExclude[number]
-  : never;
-type SelectedGroupIds<
-  TSchema extends AnySchemaDefinition,
-  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined,
-> = TSelection extends { include: readonly unknown[] }
-  ? Exclude<
-      Extract<SelectionIncludedIds<TSelection>, SchemaContextualGroupIds<TSchema>>,
-      Extract<SelectionExcludedIds<TSelection>, SchemaContextualGroupIds<TSchema>>
-    >
-  : Exclude<
-      SchemaContextualGroupIds<TSchema>,
-      Extract<SelectionExcludedIds<TSelection>, SchemaContextualGroupIds<TSchema>>
-    >;
-type SelectedSchemaContext<
-  TSchema extends AnySchemaDefinition,
-  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined,
-> = Pick<SchemaResolvedContext<TSchema>, SelectedGroupIds<TSchema, TSelection>>;
-type WorkbookTableContextField<
-  TSchema extends AnySchemaDefinition,
-  TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = [SelectedGroupIds<TSchema, TSelection>] extends [never]
-  ? { context?: SelectedSchemaContext<TSchema, TSelection> }
-  : { context: SelectedSchemaContext<TSchema, TSelection> };
+  | SchemaGroupIds<TSchema>
+  | SchemaDynamicIds<TSchema>;
+type SchemaResolvedContext<TSchema extends AnySchemaDefinition> = SchemaContextOf<TSchema>;
+type IsExactlyUnknown<T> = unknown extends T ? ([T] extends [unknown] ? true : false) : false;
+type WorkbookTableContextField<TSchema extends AnySchemaDefinition> =
+  IsExactlyUnknown<SchemaResolvedContext<TSchema>> extends true
+    ? { context?: never }
+    : { context: SchemaResolvedContext<TSchema> };
 
 export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {
   protection?: SheetProtectionInput;
 }
 
 export type WorkbookTableDefaults = TableStyleDefaults;
+export type WorkbookReportRenderOptions = ReportTableRenderOptions;
+export type WorkbookTheme = SpreadsheetTheme;
 
 export interface WorkbookReportTableInput<
   TSchema extends AnyReportSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
 > extends Omit<
-  BufferedReportTableInput<SchemaRow<TSchema>, SchemaColumnIds<TSchema>>,
+  BufferedReportTableInput<
+    SchemaRow<TSchema>,
+    SchemaSelectableIds<TSchema>,
+    SchemaResolvedContext<TSchema>
+  >,
   "schema" | "select" | "context"
 > {
   schema: TSchema;
@@ -105,7 +86,7 @@ export interface WorkbookExcelTableInput<
 > extends Omit<
   BufferedExcelTableInput<
     SchemaRow<TSchema>,
-    SchemaColumnIds<TSchema>,
+    SchemaSelectableIds<TSchema>,
     SchemaResolvedContext<TSchema>
   >,
   "schema" | "select" | "context"
@@ -116,11 +97,11 @@ export interface WorkbookExcelTableInput<
 export type WorkbookReportTableOptions<
   TSchema extends AnyReportSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookReportTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookReportTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookExcelTableOptions<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookExcelTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookExcelTableInput<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookTableInput<
   TSchema extends AnySchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
@@ -181,7 +162,11 @@ export interface WorkbookStreamTableOptions<
   TSchema extends AnyReportSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
 > extends Omit<
-  StreamReportTableInput<SchemaRow<TSchema>, SchemaColumnIds<TSchema>>,
+  StreamReportTableInput<
+    SchemaRow<TSchema>,
+    SchemaSelectableIds<TSchema>,
+    SchemaResolvedContext<TSchema>
+  >,
   "schema" | "select" | "context"
 > {
   schema: TSchema;
@@ -193,7 +178,7 @@ export interface WorkbookStreamExcelTableOptions<
 > extends Omit<
   StreamExcelTableInput<
     SchemaRow<TSchema>,
-    SchemaColumnIds<TSchema>,
+    SchemaSelectableIds<TSchema>,
     SchemaResolvedContext<TSchema>
   >,
   "schema" | "select" | "context"
@@ -204,13 +189,11 @@ export interface WorkbookStreamExcelTableOptions<
 export type WorkbookStreamResolvedReportTableOptions<
   TSchema extends AnyReportSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookStreamTableOptions<TSchema, TSelection> &
-  WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookStreamTableOptions<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookStreamResolvedExcelTableOptions<
   TSchema extends AnyExcelTableSchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-> = WorkbookStreamExcelTableOptions<TSchema, TSelection> &
-  WorkbookTableContextField<TSchema, TSelection>;
+> = WorkbookStreamExcelTableOptions<TSchema, TSelection> & WorkbookTableContextField<TSchema>;
 export type WorkbookStreamResolvedTableOptions<
   TSchema extends AnySchemaDefinition,
   TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
@@ -389,21 +372,37 @@ class PublicWorkbookStream implements WorkbookStream {
 }
 
 export function createExcelSchema<T extends object>(): SchemaBuilder<T>;
+export function createExcelSchema<T extends object, TContext extends object>(): SchemaBuilder<
+  T,
+  never,
+  never,
+  never,
+  TContext
+>;
 export function createExcelSchema<T extends object>(options: { mode: "report" }): SchemaBuilder<T>;
+export function createExcelSchema<T extends object, TContext extends object>(options: {
+  mode: "report";
+}): SchemaBuilder<T, never, never, never, TContext>;
 export function createExcelSchema<T extends object>(options: {
   mode: "excel-table";
 }): ExcelTableSchemaBuilder<T>;
-export function createExcelSchema<T extends object>(options?: { mode: SchemaKind }) {
+export function createExcelSchema<T extends object, TContext extends object>(options: {
+  mode: "excel-table";
+}): ExcelTableSchemaBuilder<T, never, never, never, TContext>;
+export function createExcelSchema<
+  T extends object,
+  TContext extends SchemaContext = unknown,
+>(options?: { mode: SchemaKind }) {
   return options?.mode === "excel-table"
-    ? ExcelTableSchemaBuilder.create<T>()
-    : SchemaBuilder.create<T>();
+    ? ExcelTableSchemaBuilder.create<T, TContext>()
+    : SchemaBuilder.create<T, TContext>();
 }
 
-export function createWorkbook(_options?: WorkbookOptions) {
+export function createWorkbook(_options?: WorkbookOptions): Workbook {
   return new PublicWorkbook(_options);
 }
 
-export function createWorkbookStream(options?: WorkbookStreamOptions) {
+export function createWorkbookStream(options?: WorkbookStreamOptions): WorkbookStream {
   return new PublicWorkbookStream(options);
 }
 
