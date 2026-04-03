@@ -588,12 +588,12 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch"
+        class="value-code-panels grid grid-cols-1 lg:grid-cols-2 lg:items-stretch"
         @mouseenter="pauseTimer"
         @mouseleave="resumeTimer"
       >
         <div
-          class="relative flex min-h-[23rem] flex-col border-b border-default/60 bg-elevated/20 p-5 sm:min-h-[25rem] sm:p-6 lg:min-h-[27rem] lg:border-b-0 lg:border-r lg:p-8"
+          class="relative flex min-h-0 flex-col border-b border-default/60 bg-elevated/20 p-5 sm:p-6 lg:border-b-0 lg:border-r lg:p-8"
         >
           <div class="mb-5 flex items-center gap-3">
             <span class="flex size-6 items-center justify-center rounded-full bg-red-500/15">
@@ -616,9 +616,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div
-          class="relative flex min-h-[23rem] flex-col bg-elevated/10 p-5 sm:min-h-[25rem] sm:p-6 lg:min-h-[27rem] lg:p-8"
-        >
+        <div class="relative flex min-h-0 flex-col bg-elevated/10 p-5 sm:p-6 lg:p-8">
           <div class="mb-5 flex items-center gap-3">
             <span class="flex size-6 items-center justify-center rounded-full bg-primary/15">
               <UIcon name="i-lucide-check" class="size-3.5 text-primary" />
@@ -693,12 +691,26 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.value-code-panels {
+  min-height: 30rem;
+}
+
 .value-code-block {
   display: block;
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
   min-height: 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.value-code-block.mdc-code-block--ready {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .value-code-stack {
@@ -706,6 +718,18 @@ onBeforeUnmount(() => {
   flex: 1;
   width: 100%;
   min-height: 0;
+}
+
+@media (min-width: 640px) {
+  .value-code-panels {
+    min-height: 32rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .value-code-panels {
+    min-height: 34rem;
+  }
 }
 
 .value-code-block:deep(pre.shiki) {

@@ -89,12 +89,17 @@ const stats = [
     label: "Runtime dependencies",
     sub: "Custom OOXML + ZIP engine — nothing to audit",
   },
-  { value: "2", unit: "", label: "Schema modes", sub: "Report layout or native Excel tables" },
   {
-    value: "60",
+    value: "500",
+    unit: "k+",
+    label: "Streaming rows",
+    sub: "Commit-based exports stay flat enough for real large datasets",
+  },
+  {
+    value: "13",
     unit: "",
-    label: "Table style presets",
-    sub: "Light, Medium & Dark tiers built in",
+    label: "Hard-case examples",
+    sub: "Real SheetJS-to-schema rewrites for formulas, summaries, theming, and more",
   },
   { value: "4", unit: "", label: "Output targets", sub: "File, Buffer, Node stream & Web stream" },
 ] as const;
@@ -452,9 +457,10 @@ await wb.writeToFile("./orders.xlsx");`;
           class="landing-stat-item flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5"
         >
           <p
-            class="font-mono text-3xl font-bold tabular-nums text-highlighted leading-none sm:text-4xl"
+            class="landing-stat-value font-mono text-3xl font-bold tabular-nums text-highlighted leading-none sm:text-4xl"
           >
-            {{ stat.displayValue }}<span class="text-primary">{{ stat.unit }}</span>
+            {{ stat.displayValue
+            }}<span class="landing-stat-unit text-primary">{{ stat.unit }}</span>
           </p>
           <p class="mt-1 text-sm font-semibold text-highlighted">{{ stat.label }}</p>
           <p class="text-xs leading-5 text-toned">{{ stat.sub }}</p>
@@ -1011,6 +1017,19 @@ await wb.writeToFile("./orders.xlsx");`;
   min-height: 1.6em;
 }
 
+.api-code-block {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.api-code-block.mdc-code-block--ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .stream-code-block {
   display: block;
   flex: 1 1 auto;
@@ -1106,7 +1125,14 @@ await wb.writeToFile("./orders.xlsx");`;
 /* ── Value prop cards ─────────────────────────────────────────── */
 .landing-value-card {
   background: var(--landing-surface);
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 .landing-value-card:hover {
@@ -1117,19 +1143,36 @@ await wb.writeToFile("./orders.xlsx");`;
 .landing-stat-item {
   transition:
     background 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.landing-stat-value,
+.landing-stat-unit {
+  display: inline-block;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .landing-stat-item:hover {
   background: color-mix(in oklab, var(--landing-surface-hover) 82%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 10%, transparent);
 }
 
 /* ── API cards ───────────────────────────────────────────────── */
 .landing-api-card {
   transition:
     background 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 .landing-api-card:hover {
@@ -1158,6 +1201,10 @@ await wb.writeToFile("./orders.xlsx");`;
   transition:
     box-shadow 0.2s ease,
     background 0.2s ease;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 .landing-stream-panel:hover {
@@ -1171,6 +1218,10 @@ await wb.writeToFile("./orders.xlsx");`;
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 .landing-route-card:hover {
@@ -1187,6 +1238,19 @@ await wb.writeToFile("./orders.xlsx");`;
 }
 
 .landing-cta-button {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
   box-shadow: 0 10px 26px -18px color-mix(in oklab, var(--ui-primary) 24%, transparent);
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.landing-cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -20px color-mix(in oklab, var(--ui-primary) 28%, transparent);
 }
 </style>

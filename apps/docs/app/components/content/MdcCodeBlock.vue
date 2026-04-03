@@ -223,5 +223,5 @@ useTwoslashTeleport();
 </script>
 
 <template>
-  <div ref="root" :class="props.class" v-html="html" />
+  <div ref="root" :class="[props.class, { 'mdc-code-block--ready': html }]" v-html="html" />
 </template>

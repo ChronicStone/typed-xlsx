@@ -236,6 +236,10 @@ function artifactPreviewBars(index: number) {
   );
   color: var(--ui-primary);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white 55%, transparent);
+  transform-origin: center center;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 .artifact-preview__chrome {
