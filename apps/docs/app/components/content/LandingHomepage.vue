@@ -1,4 +1,21 @@
 <script setup lang="ts">
+import { useScrollRevealGroup } from "../../composables/useScrollReveal";
+
+const [
+  heroReveal,
+  statsReveal,
+  whyReveal,
+  apiReveal,
+  archReveal,
+  showcaseReveal,
+  streamReveal,
+  routeReveal,
+  ctaReveal,
+] = useScrollRevealGroup(9, {
+  threshold: 0.08,
+  rootMargin: "0px 0px -60px 0px",
+});
+
 const HERO_CODE = `import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
 
 type Invoice = {
@@ -243,29 +260,31 @@ await wb.writeToFile("./orders.xlsx");`;
     />
 
     <section
+      ref="heroReveal.target"
+      :class="['scroll-reveal', { 'is-visible': heroReveal.isVisible }]"
       class="mx-auto grid w-full max-w-[90rem] grid-cols-1 gap-8 px-4 pb-8 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-12 lg:px-8 lg:pt-20"
     >
       <div class="flex flex-col gap-8 lg:pt-4">
         <UBadge
           color="primary"
           variant="subtle"
-          class="w-fit rounded-full px-3 py-1 font-mono text-xs tracking-widest uppercase"
+          class="reveal-child reveal-child--1 w-fit rounded-full px-3 py-1 font-mono text-xs tracking-widest uppercase"
         >
           @chronicstone/typed-xlsx
         </UBadge>
 
         <h1
-          class="text-balance text-5xl font-bold leading-[0.95] tracking-tight text-highlighted sm:text-6xl lg:text-[5.5rem]"
+          class="reveal-child reveal-child--2 text-balance text-5xl font-bold leading-[0.95] tracking-tight text-highlighted sm:text-6xl lg:text-[5.5rem]"
         >
           Excel&nbsp;Reporting<br /><em class="not-italic text-primary">Re-Engineered.</em>
         </h1>
 
-        <p class="max-w-lg text-pretty text-xl leading-8 text-toned">
+        <p class="reveal-child reveal-child--3 max-w-lg text-pretty text-xl leading-8 text-toned">
           Schema-driven XLSX generation for TypeScript. If the export definition is wrong, the
           compiler tells you — not the spreadsheet.
         </p>
 
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="reveal-child reveal-child--4 flex flex-wrap items-center gap-3">
           <UButton
             color="primary"
             size="xl"
@@ -285,7 +304,7 @@ await wb.writeToFile("./orders.xlsx");`;
           </UButton>
         </div>
 
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div class="reveal-child reveal-child--5 flex flex-wrap items-center gap-x-6 gap-y-3">
           <code
             class="rounded-xl border border-default/50 bg-elevated/70 px-4 py-2.5 font-mono text-sm text-toned backdrop-blur"
           >
@@ -301,7 +320,10 @@ await wb.writeToFile("./orders.xlsx");`;
       </div>
 
       <!-- Hero code card -->
-      <UPageCard spotlight class="min-w-0 rounded-[1.75rem] border border-default/60">
+      <UPageCard
+        spotlight
+        class="reveal-child reveal-child--3 min-w-0 rounded-[1.75rem] border border-default/60"
+      >
         <div class="min-w-0 overflow-hidden rounded-[1.75rem]">
           <div class="border-b border-default/60 px-5 py-3.5">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -333,15 +355,18 @@ await wb.writeToFile("./orders.xlsx");`;
 
     <!-- ── STATS STRIP ───────────────────────────────────────────────── -->
     <div
+      ref="statsReveal.target"
+      :class="['scroll-reveal scroll-reveal--delay-1', { 'is-visible': statsReveal.isVisible }]"
       class="landing-stats-strip mx-auto mt-14 max-w-[90rem] px-4 sm:mt-16 sm:px-6 lg:mt-20 lg:px-8"
     >
       <div
-        class="grid grid-cols-2 divide-x divide-y divide-default/40 overflow-hidden rounded-2xl border border-default/40 bg-elevated/40 backdrop-blur-sm sm:grid-cols-4 sm:divide-y-0"
+        class="landing-section-container grid grid-cols-2 divide-x divide-y divide-default/40 overflow-hidden rounded-2xl sm:grid-cols-4 sm:divide-y-0"
       >
         <div
-          v-for="stat in stats"
+          v-for="(stat, i) in stats"
           :key="stat.label"
-          class="flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5"
+          :class="['reveal-child', `reveal-child--${i + 1}`]"
+          class="landing-stat-item flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5"
         >
           <p
             class="font-mono text-3xl font-bold tabular-nums text-highlighted leading-none sm:text-4xl"
@@ -355,7 +380,11 @@ await wb.writeToFile("./orders.xlsx");`;
     </div>
 
     <!-- ── WHY TYPED-XLSX ─────────────────────────────────────────────── -->
-    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8">
+    <section
+      ref="whyReveal.target"
+      :class="['scroll-reveal', { 'is-visible': whyReveal.isVisible }]"
+      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8"
+    >
       <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
           Why typed-xlsx
@@ -370,12 +399,12 @@ await wb.writeToFile("./orders.xlsx");`;
       </div>
 
       <div
-        class="grid grid-cols-1 gap-px overflow-hidden rounded-[1.5rem] border border-default/40 sm:grid-cols-2 lg:grid-cols-3"
+        class="landing-section-container grid grid-cols-1 gap-px overflow-hidden rounded-[1.5rem] sm:grid-cols-2 lg:grid-cols-3"
       >
         <div
           v-for="prop in valueProps"
           :key="prop.title"
-          class="group bg-elevated/20 px-5 py-5 transition-colors hover:bg-elevated/40 sm:px-6 sm:py-6"
+          class="group landing-value-card px-5 py-5 transition-colors sm:px-6 sm:py-6"
         >
           <div
             class="mb-4 flex size-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/8 transition-colors group-hover:bg-primary/12"
@@ -389,7 +418,11 @@ await wb.writeToFile("./orders.xlsx");`;
     </section>
 
     <!-- ── API SURFACE ───────────────────────────────────────────────── -->
-    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8">
+    <section
+      ref="apiReveal.target"
+      :class="['scroll-reveal', { 'is-visible': apiReveal.isVisible }]"
+      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8"
+    >
       <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">API surface</p>
         <h2
@@ -400,7 +433,7 @@ await wb.writeToFile("./orders.xlsx");`;
       </div>
 
       <div
-        class="grid grid-cols-1 items-stretch divide-y divide-default/40 overflow-hidden rounded-[1.5rem] border border-default/40 bg-elevated/20 lg:grid-cols-3 lg:divide-x lg:divide-y-0"
+        class="landing-section-container grid grid-cols-1 items-stretch divide-y divide-default/40 overflow-hidden rounded-[1.5rem] lg:grid-cols-3 lg:divide-x lg:divide-y-0"
       >
         <div
           v-for="entry in apiSurface"
@@ -427,7 +460,11 @@ await wb.writeToFile("./orders.xlsx");`;
     <LandingValueCarousel />
 
     <!-- ── ARCHITECTURAL MONOLITH ────────────────────────────────────── -->
-    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
+    <section
+      ref="archReveal.target"
+      :class="['scroll-reveal', { 'is-visible': archReveal.isVisible }]"
+      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
+    >
       <div
         class="mb-8 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:mb-12"
       >
@@ -447,11 +484,11 @@ await wb.writeToFile("./orders.xlsx");`;
         </p>
       </div>
 
-      <div class="overflow-hidden rounded-[1.5rem] border border-default/40 bg-elevated/30">
+      <div class="landing-section-container overflow-hidden rounded-[1.5rem]">
         <div
           v-for="layer in architectureLayers"
           :key="layer.index"
-          class="group grid grid-cols-1 gap-4 border-t border-default/40 px-5 py-5 transition-colors hover:bg-elevated/60 sm:px-6 sm:py-6 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:px-6 lg:py-7 first:border-t-0"
+          class="group grid grid-cols-1 gap-4 border-t border-default/40 px-5 py-5 transition-colors sm:px-6 sm:py-6 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:px-6 lg:py-7 first:border-t-0 landing-arch-row"
         >
           <div class="flex items-baseline gap-4">
             <span class="font-mono text-xs font-semibold tabular-nums text-primary/60">{{
@@ -488,7 +525,11 @@ await wb.writeToFile("./orders.xlsx");`;
     </section>
 
     <!-- ── ARTIFACT SHOWCASE TEASER ──────────────────────────────────── -->
-    <div class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
+    <div
+      ref="showcaseReveal.target"
+      :class="['scroll-reveal', { 'is-visible': showcaseReveal.isVisible }]"
+      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
+    >
       <div
         class="mb-8 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:mb-12"
       >
@@ -516,7 +557,11 @@ await wb.writeToFile("./orders.xlsx");`;
     </div>
 
     <!-- ── STREAMING / SCALE ──────────────────────────────────────────── -->
-    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
+    <section
+      ref="streamReveal.target"
+      :class="['scroll-reveal', { 'is-visible': streamReveal.isVisible }]"
+      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
+    >
       <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">Scale Layer</p>
         <h2
@@ -530,11 +575,11 @@ await wb.writeToFile("./orders.xlsx");`;
         </p>
       </div>
 
-      <div class="overflow-hidden rounded-[1.75rem] border border-default/60">
+      <div class="landing-section-container overflow-hidden rounded-[1.75rem]">
         <div class="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch">
           <!-- Buffered -->
           <div
-            class="flex min-h-[24rem] flex-col border-b border-default/60 bg-elevated/20 px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 lg:border-b-0 lg:border-r"
+            class="flex min-h-[24rem] flex-col border-b border-default/60 px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 lg:border-b-0 lg:border-r landing-buffered-panel"
           >
             <div class="mb-4 flex items-center gap-3">
               <span
@@ -555,7 +600,7 @@ await wb.writeToFile("./orders.xlsx");`;
 
           <!-- Streaming -->
           <div
-            class="flex min-h-[24rem] flex-col bg-elevated/10 px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7"
+            class="flex min-h-[24rem] flex-col px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 landing-streaming-panel"
           >
             <div class="mb-4 flex items-center gap-3">
               <span
@@ -606,7 +651,11 @@ await wb.writeToFile("./orders.xlsx");`;
     </section>
 
     <!-- ── NEXT STEPS ────────────────────────────────────────────────── -->
-    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
+    <section
+      ref="routeReveal.target"
+      :class="['scroll-reveal', { 'is-visible': routeReveal.isVisible }]"
+      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
+    >
       <div class="mb-8 space-y-3 sm:mb-10">
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
           Entry Points
@@ -623,7 +672,7 @@ await wb.writeToFile("./orders.xlsx");`;
           :key="card.title"
           :to="card.to"
           spotlight
-          class="rounded-[1.75rem] border border-default/60 bg-default/95"
+          class="landing-route-card rounded-[1.75rem]"
         >
           <div class="flex h-full flex-col gap-5 p-2">
             <div
@@ -646,6 +695,8 @@ await wb.writeToFile("./orders.xlsx");`;
 
     <!-- ── FINAL CTA ─────────────────────────────────────────────────── -->
     <section
+      ref="ctaReveal.target"
+      :class="['scroll-reveal', { 'is-visible': ctaReveal.isVisible }]"
       class="mx-auto mb-16 mt-16 max-w-[90rem] px-4 sm:mb-24 sm:mt-24 sm:px-6 lg:mb-28 lg:mt-28 lg:px-8"
     >
       <div
@@ -690,6 +741,34 @@ await wb.writeToFile("./orders.xlsx");`;
 </template>
 
 <style scoped>
+/* ── Scroll reveal animations ─────────────────────────────────── */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-reveal--delay-1 {
+  transition-delay: 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── Hero background ──────────────────────────────────────────── */
 .landing-hero-bg {
   background:
     radial-gradient(
@@ -700,6 +779,21 @@ await wb.writeToFile("./orders.xlsx");`;
     linear-gradient(
       180deg,
       color-mix(in oklab, var(--ui-bg-elevated) 70%, transparent) 0%,
+      transparent 100%
+    );
+}
+
+/* ── Light mode: stronger hero gradient ───────────────────────── */
+:root:not(.dark) .landing-hero-bg {
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      color-mix(in oklab, var(--ui-primary) 12%, transparent),
+      transparent
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--ui-bg-elevated) 90%, transparent) 0%,
       transparent 100%
     );
 }
@@ -793,6 +887,7 @@ await wb.writeToFile("./orders.xlsx");`;
   background: color-mix(in oklab, var(--ui-bg) 92%, transparent);
 }
 
+/* ── CTA background ───────────────────────────────────────────── */
 .landing-cta-bg {
   background:
     radial-gradient(
@@ -802,5 +897,102 @@ await wb.writeToFile("./orders.xlsx");`;
     ),
     color-mix(in oklab, var(--ui-bg-elevated) 60%, var(--ui-bg));
   border: 1px solid color-mix(in oklab, var(--ui-border) 50%, transparent);
+}
+
+/* ── Light mode CTA — more contrast ──────────────────────────── */
+:root:not(.dark) .landing-cta-bg {
+  background:
+    radial-gradient(
+      ellipse 100% 80% at 50% 100%,
+      color-mix(in oklab, var(--ui-primary) 8%, transparent),
+      transparent
+    ),
+    color-mix(in oklab, var(--ui-bg-elevated) 100%, var(--ui-bg));
+  border-color: color-mix(in oklab, var(--ui-border) 80%, transparent);
+}
+
+/* ── Light mode: stronger card/section backgrounds ────────────── */
+:root:not(.dark) .light-card-contrast {
+  background: color-mix(in oklab, var(--ui-bg-elevated) 70%, var(--ui-bg) 30%);
+}
+
+:root:not(.dark) .light-border-contrast {
+  border-color: color-mix(in oklab, var(--ui-border) 70%, transparent);
+}
+
+/* ── Micro-interactions: button hover glow ────────────────────── */
+:deep(.landing-btn-glow) {
+  position: relative;
+  overflow: hidden;
+}
+
+:deep(.landing-btn-glow::after) {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(
+    circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    color-mix(in oklab, var(--ui-primary) 20%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+:deep(.landing-btn-glow:hover::after) {
+  opacity: 1;
+}
+
+/* ── Landing section containers — theme-aware surface ─────────── */
+.landing-section-container {
+  background: var(--landing-surface);
+  border: 1px solid var(--landing-border);
+  transition: border-color 0.2s ease;
+}
+
+/* ── Value prop cards ─────────────────────────────────────────── */
+.landing-value-card {
+  background: var(--landing-surface);
+  transition: background 0.2s ease;
+}
+
+.landing-value-card:hover {
+  background: var(--landing-surface-hover);
+}
+
+/* ── Architecture rows ────────────────────────────────────────── */
+.landing-arch-row {
+  transition: background 0.2s ease;
+}
+
+.landing-arch-row:hover {
+  background: var(--landing-surface-hover);
+}
+
+/* ── Streaming panels ─────────────────────────────────────────── */
+.landing-buffered-panel {
+  background: var(--landing-surface);
+}
+
+.landing-streaming-panel {
+  background: color-mix(in oklab, var(--landing-surface) 60%, transparent);
+}
+
+/* ── Route cards ──────────────────────────────────────────────── */
+.landing-route-card {
+  border: 1px solid var(--landing-border);
+  background: var(--landing-surface);
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.landing-route-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--landing-border-hover);
+  box-shadow: 0 8px 32px -12px color-mix(in oklab, var(--ui-primary) 12%, transparent);
 }
 </style>

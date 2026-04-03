@@ -116,12 +116,13 @@ const { subNavigationMode } = useSubNavigation(navigation);
 .landing-card {
   display: block;
   border-radius: 1.5rem;
-  border: 1px solid color-mix(in oklab, var(--ui-border) 92%, transparent);
-  background: color-mix(in oklab, var(--ui-bg) 92%, white 8%);
+  border: 1px solid var(--landing-border);
+  background: var(--landing-surface);
   transition:
     transform 160ms ease,
     border-color 160ms ease,
-    background 160ms ease;
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .landing-card [data-slot="container"] {
@@ -138,8 +139,9 @@ const { subNavigationMode } = useSubNavigation(navigation);
 
 .landing-card:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in oklab, var(--ui-primary) 40%, var(--ui-border) 60%);
-  background: color-mix(in oklab, var(--ui-bg) 88%, white 12%);
+  border-color: var(--landing-border-hover);
+  background: var(--landing-surface-hover);
+  box-shadow: 0 8px 32px -12px color-mix(in oklab, var(--ui-primary) 10%, transparent);
 }
 
 .landing-card-content h3 {
@@ -240,8 +242,8 @@ const { subNavigationMode } = useSubNavigation(navigation);
 
 .landing-pipeline-card {
   border-radius: 1.75rem;
-  border: 1px solid color-mix(in oklab, var(--ui-border) 92%, transparent);
-  background: color-mix(in oklab, var(--ui-bg) 94%, white 6%);
+  border: 1px solid var(--landing-border);
+  background: var(--landing-surface);
   padding: 1.5rem;
   box-shadow: 0 24px 60px -50px rgba(0, 0, 0, 0.28);
 }
@@ -364,12 +366,24 @@ const { subNavigationMode } = useSubNavigation(navigation);
   --twoslash-matched-color: var(--ui-primary);
   --twoslash-unmatched-color: var(--ui-text-toned);
   --twoslash-popup-shadow: 0 18px 48px -24px rgb(0 0 0 / 0.3), 0 6px 18px -10px rgb(0 0 0 / 0.18);
+
+  /* Light-mode landing section surface — gives cards visible lift off the page bg */
+  --landing-surface: color-mix(in oklab, var(--ui-bg-elevated) 50%, var(--ui-bg) 50%);
+  --landing-surface-hover: color-mix(in oklab, var(--ui-bg-elevated) 72%, var(--ui-bg) 28%);
+  --landing-border: color-mix(in oklab, var(--ui-border) 60%, transparent);
+  --landing-border-hover: color-mix(in oklab, var(--ui-primary) 30%, var(--ui-border) 70%);
 }
 
 .dark {
   --vp-code-block-bg: color-mix(in oklab, var(--ui-bg) 90%, white 10%);
   --twoslash-popup-bg: color-mix(in oklab, var(--ui-bg) 94%, white 6%);
   --twoslash-popup-shadow: 0 20px 56px -28px rgb(0 0 0 / 0.55), 0 8px 24px -12px rgb(0 0 0 / 0.3);
+
+  /* Dark mode: keep existing subtle feel */
+  --landing-surface: color-mix(in oklab, var(--ui-bg-elevated) 22%, var(--ui-bg) 78%);
+  --landing-surface-hover: color-mix(in oklab, var(--ui-bg-elevated) 42%, var(--ui-bg) 58%);
+  --landing-border: color-mix(in oklab, var(--ui-border) 40%, transparent);
+  --landing-border-hover: color-mix(in oklab, var(--ui-primary) 24%, var(--ui-border) 76%);
 }
 
 .v-popper--theme-twoslash .v-popper__inner {
