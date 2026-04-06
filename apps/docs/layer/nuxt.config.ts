@@ -142,6 +142,10 @@ export default defineNuxtConfig({
   twoslash: {
     enableInDev: true,
     includeNuxtTypes: true,
+    floatingVueOptions: {
+      classCopyIgnore: "vp-copy-ignore",
+    },
+    throws: false,
   },
   experimental: {
     asyncContext: true,
