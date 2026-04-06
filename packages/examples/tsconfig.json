@@ -4,8 +4,8 @@
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@chronicstone/typed-xlsx": ["../core/src/index.ts"],
-      "@chronicstone/typed-xlsx/*": ["../core/src/*"]
+      "xlsmith": ["../core/src/index.ts"],
+      "xlsmith/*": ["../core/src/*"]
     }
   },
   "include": ["index.ts", "src/**/*.ts", "scripts/**/*.ts", "generated/**/*.ts"]

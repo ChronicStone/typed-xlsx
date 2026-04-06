@@ -1,5 +1,5 @@
 {
-  "name": "@chronicstone/typed-xlsx-docs",
+  "name": "xlsmith-docs",
   "private": true,
   "scripts": {
     "sync:workspace": "node scripts/sync-workspace-artifacts.mjs",
@@ -15,8 +15,6 @@
   },
   "dependencies": {
     "@barzhsieh/nuxt-content-mermaid": "2.2.3",
-    "@chronicstone/typed-xlsx": "workspace:*",
-    "@chronicstone/typed-xlsx-examples": "workspace:*",
     "@shikijs/vitepress-twoslash": "4.0.2",
     "better-sqlite3": "12.8.0",
     "docus": "5.8.1",
@@ -25,6 +23,8 @@
     "nuxt": "4.4.2",
     "nuxt-content-twoslash": "0.4.0",
     "shiki": "4.0.2",
+    "xlsmith": "workspace:*",
+    "xlsmith-examples": "workspace:*",
     "zod": "4.3.6",
     "zod-to-json-schema": "3.25.2"
   },

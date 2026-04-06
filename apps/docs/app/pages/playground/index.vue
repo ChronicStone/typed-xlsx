@@ -6,7 +6,7 @@ const artifacts = getArtifactCatalog();
 useSeo({
   title: "Artifact Playground",
   description:
-    "Explore generated typed-xlsx artifacts — source code, workbook output, and OOXML inspection.",
+    "Explore generated xlsmith artifacts — source code, workbook output, and OOXML inspection.",
   type: "website",
 });
 </script>
@@ -31,8 +31,8 @@ useSeo({
           Browse artifacts,<br /><em class="not-italic text-primary">inspect the output.</em>
         </h1>
         <p class="max-w-2xl text-pretty text-lg leading-8 text-toned">
-          Every artifact is a working typed-xlsx workbook with embedded source, an Excel preview,
-          and OOXML inspection files. Pick one to explore.
+          Every artifact is a working xlsmith workbook with embedded source, an Excel preview, and
+          OOXML inspection files. Pick one to explore.
         </p>
       </div>
 

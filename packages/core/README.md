@@ -1,4 +1,4 @@
-# typed-xlsx
+# xlsmith
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -12,18 +12,28 @@ Define one schema, then generate polished buffered exports or stream large workb
 
 If the export definition is wrong, the compiler tells you before the spreadsheet does.
 
+Previously published as `@chronicstone/typed-xlsx`. The package has been renamed to `xlsmith`.
+
 ```bash
-npm install @chronicstone/typed-xlsx
+npm install xlsmith
+```
+
+```ts
+// before
+import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+
+// after
+import { createExcelSchema, createWorkbook } from "xlsmith";
 ```
 
 - One schema API for buffered exports and streaming exports
 - Report mode for custom layouts, summaries, and sub-row expansion
 - Excel table mode for native tables, totals rows, autoFilter, and structured refs
-- Full comparison against SheetJS and ExcelJS: [Why typed-xlsx?](https://typed-xlsx.vercel.app/getting-started/comparison)
+- Full comparison against SheetJS and ExcelJS: [Why xlsmith?](https://xlsmith.vercel.app/getting-started/comparison)
 
-## Why typed-xlsx
+## Why xlsmith
 
-Most XLSX libraries give you a cell API. `typed-xlsx` gives you a schema API.
+Most XLSX libraries give you a cell API. `xlsmith` gives you a schema API.
 
 - Define columns against your row type with typed path accessors and callback accessors
 - Reference columns by ID in formulas instead of hard-coding fragile cell addresses
@@ -31,25 +41,25 @@ Most XLSX libraries give you a cell API. `typed-xlsx` gives you a schema API.
 - Choose between report mode and native Excel table mode without changing the authoring model
 - Generate polished workbooks with summaries, grouped headers, sub-row expansion, validation, and conditional styles
 
-If you are currently evaluating `typed-xlsx` against lower-level spreadsheet libraries, read the full comparison with SheetJS and ExcelJS:
+If you are currently evaluating `xlsmith` against lower-level spreadsheet libraries, read the full comparison with SheetJS and ExcelJS:
 
-- [Why typed-xlsx? Full comparison](https://typed-xlsx.vercel.app/getting-started/comparison)
+- [Why xlsmith? Full comparison](https://xlsmith.vercel.app/getting-started/comparison)
 
 ## Why not ExcelJS / SheetJS?
 
-Choose `typed-xlsx` when your main job is generating typed reports from application data, not manually editing spreadsheets cell by cell.
+Choose `xlsmith` when your main job is generating typed reports from application data, not manually editing spreadsheets cell by cell.
 
-- `typed-xlsx`: best when you want a schema-first API for report generation, typed formulas, native Excel tables, and streaming with the same authoring model
+- `xlsmith`: best when you want a schema-first API for report generation, typed formulas, native Excel tables, and streaming with the same authoring model
 - `ExcelJS`: best when you need lower-level workbook editing and ad hoc worksheet manipulation
 - `SheetJS`: best when you need parsing, format conversion, or broad spreadsheet interoperability
 
 Read the full tradeoffs and feature matrix here:
 
-- [typed-xlsx vs ExcelJS vs SheetJS](https://typed-xlsx.vercel.app/getting-started/comparison)
+- [xlsmith vs ExcelJS vs SheetJS](https://xlsmith.vercel.app/getting-started/comparison)
 
-## Use typed-xlsx when
+## Use xlsmith when
 
-`typed-xlsx` is a strong fit when you need to generate Excel files from structured TypeScript data such as:
+`xlsmith` is a strong fit when you need to generate Excel files from structured TypeScript data such as:
 
 - financial and operations reports
 - SaaS admin exports
@@ -57,7 +67,7 @@ Read the full tradeoffs and feature matrix here:
 - quote review and approval workbooks
 - large scheduled exports that need bounded memory usage
 
-## Do not use typed-xlsx when
+## Do not use xlsmith when
 
 Reach for a lower-level spreadsheet library when you need to:
 
@@ -79,7 +89,7 @@ The same schema works with both builders.
 ## Quick Example
 
 ```ts
-import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+import { createExcelSchema, createWorkbook } from "xlsmith";
 
 type Invoice = { id: string; qty: number; unitPrice: number };
 
@@ -139,7 +149,7 @@ The package ships its own OOXML serializer and ZIP engine. No SheetJS. No ExcelJ
 
 For the detailed tradeoffs, feature matrix, and cases where the alternatives still win:
 
-- [Compare typed-xlsx vs SheetJS and ExcelJS](https://typed-xlsx.vercel.app/getting-started/comparison)
+- [Compare xlsmith vs SheetJS and ExcelJS](https://xlsmith.vercel.app/getting-started/comparison)
 
 ## Real Workbook Outputs
 
@@ -147,38 +157,38 @@ For the detailed tradeoffs, feature matrix, and cases where the alternatives sti
 
 Best for stakeholder and executive exports.
 
-Example: [Executive Board Pack](https://typed-xlsx.vercel.app/playground/executive-board-pack)
+Example: [Executive Board Pack](https://xlsmith.vercel.app/playground/executive-board-pack)
 
 ### Runtime-driven column matrices
 
 Generate columns from typed runtime context while formulas and totals stay readable.
 
-Example: [Territory Performance Matrix](https://typed-xlsx.vercel.app/playground/territory-performance-matrix)
+Example: [Territory Performance Matrix](https://xlsmith.vercel.app/playground/territory-performance-matrix)
 
 ### Streaming exports at production scale
 
 The schema stays the same while the builder switches to batch commits.
 
-Example: [Streaming Fulfillment Export](https://typed-xlsx.vercel.app/playground/streaming-fulfillment-export)
+Example: [Streaming Fulfillment Export](https://xlsmith.vercel.app/playground/streaming-fulfillment-export)
 
 ### Editable workflow-safe workbooks
 
 Unlock inputs, validate user edits, and keep logic columns protected.
 
-Example: [Renewal Ops Workbook](https://typed-xlsx.vercel.app/playground/renewal-ops-workbook)
+Example: [Renewal Ops Workbook](https://xlsmith.vercel.app/playground/renewal-ops-workbook)
 
 ### Nested records without manual row math
 
 Array-valued accessors expand logical rows into multiple physical rows automatically.
 
-Example: [Deal Desk Quote Review](https://typed-xlsx.vercel.app/playground/deal-desk-quote-review)
+Example: [Deal Desk Quote Review](https://xlsmith.vercel.app/playground/deal-desk-quote-review)
 
 ## Buffered And Streaming
 
 Use buffered mode when the dataset is already in memory and the export size is moderate.
 
 ```ts
-import { createWorkbook } from "@chronicstone/typed-xlsx";
+import { createWorkbook } from "xlsmith";
 
 const workbook = createWorkbook();
 
@@ -193,7 +203,7 @@ await workbook.writeToFile("./orders.xlsx");
 Use streaming mode when rows come from a cursor, paginated API, or a very large dataset.
 
 ```ts
-import { createWorkbookStream } from "@chronicstone/typed-xlsx";
+import { createWorkbookStream } from "xlsmith";
 
 const workbook = createWorkbookStream();
 
@@ -225,7 +235,7 @@ Use excel-table mode when you need:
 - true Excel table behavior for downstream spreadsheet workflows
 
 ```ts
-import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+import { createExcelSchema, createWorkbook } from "xlsmith";
 
 const schema = createExcelSchema<{ units: number; revenue: number }>({ mode: "excel-table" })
   .column("units", {
@@ -263,43 +273,43 @@ createWorkbook()
 ## Installation
 
 ```bash
-pnpm add @chronicstone/typed-xlsx
+pnpm add xlsmith
 ```
 
 ```bash
-npm install @chronicstone/typed-xlsx
+npm install xlsmith
 ```
 
 ```bash
-yarn add @chronicstone/typed-xlsx
+yarn add xlsmith
 ```
 
 ```bash
-bun add @chronicstone/typed-xlsx
+bun add xlsmith
 ```
 
 ## Start Here
 
-- [Introduction](https://typed-xlsx.vercel.app/getting-started/introduction)
-- [Quick Start](https://typed-xlsx.vercel.app/getting-started/quick-start)
-- [Comparison with SheetJS and ExcelJS](https://typed-xlsx.vercel.app/getting-started/comparison)
-- [Schema Modes](https://typed-xlsx.vercel.app/core-concepts/schema-modes)
-- [Buffered vs Streaming](https://typed-xlsx.vercel.app/core-concepts/buffered-vs-streaming)
-- [Excel Table Mode](https://typed-xlsx.vercel.app/excel-table-mode/overview)
-- [Streaming Overview](https://typed-xlsx.vercel.app/streaming/overview)
-- [Playground and example artifacts](https://typed-xlsx.vercel.app/playground)
+- [Introduction](https://xlsmith.vercel.app/getting-started/introduction)
+- [Quick Start](https://xlsmith.vercel.app/getting-started/quick-start)
+- [Comparison with SheetJS and ExcelJS](https://xlsmith.vercel.app/getting-started/comparison)
+- [Schema Modes](https://xlsmith.vercel.app/core-concepts/schema-modes)
+- [Buffered vs Streaming](https://xlsmith.vercel.app/core-concepts/buffered-vs-streaming)
+- [Excel Table Mode](https://xlsmith.vercel.app/excel-table-mode/overview)
+- [Streaming Overview](https://xlsmith.vercel.app/streaming/overview)
+- [Playground and example artifacts](https://xlsmith.vercel.app/playground)
 
 ## License
 
 [MIT](./LICENSE) License © 2023-PRESENT [Cyprien THAO](https://github.com/ChronicStone)
 
-[npm-version-src]: https://img.shields.io/npm/v/@chronicstone/typed-xlsx?style=flat&colorA=080f12&colorB=1fa669
-[npm-version-href]: https://npmjs.com/package/@chronicstone/typed-xlsx
-[npm-downloads-src]: https://img.shields.io/npm/dm/@chronicstone/typed-xlsx?style=flat&colorA=080f12&colorB=1fa669
-[npm-downloads-href]: https://npmjs.com/package/@chronicstone/typed-xlsx
-[bundle-src]: https://img.shields.io/bundlephobia/minzip/@chronicstone/typed-xlsx?style=flat&colorA=080f12&colorB=1fa669&label=minzip
-[bundle-href]: https://bundlephobia.com/result?p=@chronicstone/typed-xlsx
-[license-src]: https://img.shields.io/github/license/ChronicStone/typed-xlsx.svg?style=flat&colorA=080f12&colorB=1fa669
-[license-href]: https://github.com/ChronicStone/typed-xlsx/blob/main/LICENSE
+[npm-version-src]: https://img.shields.io/npm/v/xlsmith?style=flat&colorA=080f12&colorB=1fa669
+[npm-version-href]: https://npmjs.com/package/xlsmith
+[npm-downloads-src]: https://img.shields.io/npm/dm/xlsmith?style=flat&colorA=080f12&colorB=1fa669
+[npm-downloads-href]: https://npmjs.com/package/xlsmith
+[bundle-src]: https://img.shields.io/bundlephobia/minzip/xlsmith?style=flat&colorA=080f12&colorB=1fa669&label=minzip
+[bundle-href]: https://bundlephobia.com/result?p=xlsmith
+[license-src]: https://img.shields.io/github/license/ChronicStone/xlsmith.svg?style=flat&colorA=080f12&colorB=1fa669
+[license-href]: https://github.com/ChronicStone/xlsmith/blob/main/LICENSE
 [jsdocs-src]: https://img.shields.io/badge/jsdocs-reference-080f12?style=flat&colorA=080f12&colorB=1fa669
-[jsdocs-href]: https://www.jsdocs.io/package/@chronicstone/typed-xlsx
+[jsdocs-href]: https://www.jsdocs.io/package/xlsmith

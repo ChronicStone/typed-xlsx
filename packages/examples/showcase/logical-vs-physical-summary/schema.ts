@@ -1,4 +1,4 @@
-import { createExcelSchema } from "@chronicstone/typed-xlsx";
+import { createExcelSchema } from "xlsmith";
 import type { LogicalPhysicalRow } from "./data";
 
 export const logicalVsPhysicalSummarySchema = createExcelSchema<LogicalPhysicalRow>()

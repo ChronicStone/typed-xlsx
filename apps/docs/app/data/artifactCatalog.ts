@@ -1,7 +1,4 @@
-import {
-  getGeneratedExampleArtifacts,
-  type GeneratedExamplesArtifact,
-} from "@chronicstone/typed-xlsx-examples";
+import { getGeneratedExampleArtifacts, type GeneratedExamplesArtifact } from "xlsmith-examples";
 
 type ArtifactKind = "buffered" | "streaming" | "table" | "dynamic" | "workflow";
 
@@ -71,7 +68,7 @@ export function getArtifactPlaygroundSummary(artifact: ArtifactCatalogEntry) {
 function normalizeSourceModule(source: string) {
   return source
     .replaceAll("../../src/_shared/faker", "./_shared/faker")
-    .replaceAll("../../src", "@chronicstone/typed-xlsx");
+    .replaceAll("../../src", "xlsmith");
 }
 
 const sourcePaneOrder = ["schema.ts", "workbook.ts", "data.ts", "buffered.ts", "stream.ts"];
@@ -103,7 +100,7 @@ export function getArtifactWorkbookUrl(artifact: ArtifactCatalogEntry) {
 }
 
 export function getArtifactGithubUrl(artifact: ArtifactCatalogEntry, fileKey?: string) {
-  const root = `https://github.com/ChronicStone/typed-xlsx/tree/main/packages/examples/showcase/${artifact.id}`;
+  const root = `https://github.com/ChronicStone/xlsmith/tree/main/packages/examples/showcase/${artifact.id}`;
   return fileKey ? `${root}/${fileKey}` : root;
 }
 

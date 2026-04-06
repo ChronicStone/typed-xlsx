@@ -1,4 +1,4 @@
-import { createExcelSchema } from "@chronicstone/typed-xlsx";
+import { createExcelSchema } from "xlsmith";
 import type { FulfillmentRow } from "./data";
 
 export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()

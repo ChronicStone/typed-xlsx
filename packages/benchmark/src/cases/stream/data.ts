@@ -1,4 +1,4 @@
-import { createExcelSchema, type CellStyle } from "@chronicstone/typed-xlsx";
+import { createExcelSchema, type CellStyle } from "xlsmith";
 
 export interface StreamBenchmarkRow {
   orderId: string;

@@ -1,5 +1,5 @@
 /**
- * Type-level safety tests for @chronicstone/typed-xlsx.
+ * Type-level safety tests for xlsmith.
  *
  * Not a runtime test file — these assertions are verified by `tsc --noEmit`
  * via `bun run typecheck`. Each `@ts-expect-error` directive must suppress

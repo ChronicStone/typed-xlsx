@@ -1,4 +1,4 @@
-import { createExcelSchema } from "@chronicstone/typed-xlsx";
+import { createExcelSchema } from "xlsmith";
 import type { QuoteReview } from "./data";
 
 export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()

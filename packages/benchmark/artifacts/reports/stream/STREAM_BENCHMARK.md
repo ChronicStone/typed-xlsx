@@ -1,31 +1,31 @@
 # Stream Benchmark
 
-- Generated: 2026-04-02T11:55:57.314Z
+- Generated: 2026-04-06T14:33:49.771Z
 - Runtime: Node v24.3.0
 
 | Rows | Batch size | Commit ms | Finish ms | Total ms | Rows/sec | XLSX MB | Peak RSS MB | Peak heap MB | Peak external MB | Spool MB |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 100,000 | 10,000 | 10567.04 | 9261.48 | 19828.53 | 5043 | 61.19 | 475.73 | 145.91 | 58.32 | 53.24 |
-| 500,000 | 10,000 | 38108.90 | 34076.61 | 72185.53 | 6927 | 310.36 | 1981.34 | 715.64 | 291.98 | 271.62 |
+| 100,000 | 10,000 | 11149.48 | 7195.52 | 18345.01 | 5451 | 61.20 | 574.80 | 158.45 | 59.98 | 53.24 |
+| 500,000 | 10,000 | 30351.94 | 31555.10 | 61907.05 | 8077 | 310.36 | 1954.86 | 716.13 | 292.03 | 271.62 |
 
 ## Checkpoints
 
 ### 100,000 rows
 
-- start: rss 46.59 MB, heap 1.44 MB, external 0.44 MB, arrayBuffers 0.00 MB
-- after batch 1 (10,000 rows): rss 124.41 MB, heap 14.79 MB, external 1.71 MB, arrayBuffers 0.54 MB
-- after batch 10 (100,000 rows): rss 197.91 MB, heap 41.21 MB, external 3.54 MB, arrayBuffers 1.03 MB
-- before finish: rss 197.91 MB, heap 41.21 MB, external 3.54 MB, arrayBuffers 1.03 MB
-- after finish: rss 475.73 MB, heap 145.91 MB, external 58.32 MB, arrayBuffers 0.00 MB
+- start: rss 45.42 MB, heap 1.53 MB, external 0.47 MB, arrayBuffers 0.00 MB
+- after batch 1 (10,000 rows): rss 90.81 MB, heap 14.79 MB, external 1.74 MB, arrayBuffers 0.54 MB
+- after batch 10 (100,000 rows): rss 198.67 MB, heap 40.27 MB, external 3.30 MB, arrayBuffers 0.72 MB
+- before finish: rss 198.67 MB, heap 40.27 MB, external 3.30 MB, arrayBuffers 0.72 MB
+- after finish: rss 574.80 MB, heap 158.45 MB, external 59.98 MB, arrayBuffers 0.00 MB
 
 ### 500,000 rows
 
-- start: rss 48.94 MB, heap 0.96 MB, external 0.31 MB, arrayBuffers 0.00 MB
-- after batch 1 (10,000 rows): rss 132.75 MB, heap 14.52 MB, external 1.69 MB, arrayBuffers 0.54 MB
-- after batch 10 (100,000 rows): rss 224.31 MB, heap 56.19 MB, external 5.30 MB, arrayBuffers 2.32 MB
-- after batch 20 (200,000 rows): rss 249.95 MB, heap 69.73 MB, external 4.71 MB, arrayBuffers 0.99 MB
-- after batch 30 (300,000 rows): rss 357.86 MB, heap 99.88 MB, external 7.63 MB, arrayBuffers 2.35 MB
-- after batch 40 (400,000 rows): rss 434.14 MB, heap 116.93 MB, external 6.15 MB, arrayBuffers 0.33 MB
-- after batch 50 (500,000 rows): rss 497.58 MB, heap 152.68 MB, external 9.18 MB, arrayBuffers 1.74 MB
-- before finish: rss 497.58 MB, heap 152.68 MB, external 9.18 MB, arrayBuffers 1.74 MB
-- after finish: rss 1981.34 MB, heap 715.64 MB, external 291.98 MB, arrayBuffers 0.00 MB
+- start: rss 49.72 MB, heap 1.53 MB, external 0.47 MB, arrayBuffers 0.00 MB
+- after batch 1 (10,000 rows): rss 131.50 MB, heap 14.66 MB, external 1.73 MB, arrayBuffers 0.54 MB
+- after batch 10 (100,000 rows): rss 226.61 MB, heap 56.57 MB, external 5.37 MB, arrayBuffers 2.34 MB
+- after batch 20 (200,000 rows): rss 304.84 MB, heap 94.25 MB, external 7.14 MB, arrayBuffers 2.93 MB
+- after batch 30 (300,000 rows): rss 386.50 MB, heap 91.39 MB, external 5.48 MB, arrayBuffers 0.61 MB
+- after batch 40 (400,000 rows): rss 466.20 MB, heap 129.64 MB, external 7.83 MB, arrayBuffers 1.56 MB
+- after batch 50 (500,000 rows): rss 502.88 MB, heap 168.34 MB, external 11.02 MB, arrayBuffers 3.07 MB
+- before finish: rss 502.88 MB, heap 168.34 MB, external 11.02 MB, arrayBuffers 3.07 MB
+- after finish: rss 1954.86 MB, heap 716.13 MB, external 292.03 MB, arrayBuffers 0.00 MB

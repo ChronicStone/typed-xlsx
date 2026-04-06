@@ -1,4 +1,4 @@
-import { createWorkbook } from "@chronicstone/typed-xlsx";
+import { createWorkbook } from "xlsmith";
 import { createQuoteReviews } from "./data";
 import { dealDeskApprovalSchema, dealDeskQuoteSchema } from "./schema";
 

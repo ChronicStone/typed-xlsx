@@ -64,7 +64,7 @@ describe("stream builder", () => {
       })
       .build();
 
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-stream-"));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "xlsmith-stream-"));
     const sink = new MemoryWorkbookSink();
     const spoolFactory = new Internal.FileSpoolFactory(directory);
     const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
@@ -1106,7 +1106,7 @@ describe("stream builder", () => {
     const content = Buffer.from(sink.toUint8Array()).toString("latin1");
     expect(content).not.toContain("<autoFilter");
     expect(warn).toHaveBeenCalledWith(
-      "[typed-xlsx] Disabled autoFilter for stream table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",
+      "[xlsmith] Disabled autoFilter for stream table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",
     );
   });
 });

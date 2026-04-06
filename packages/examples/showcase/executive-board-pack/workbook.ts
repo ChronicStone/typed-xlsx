@@ -1,4 +1,4 @@
-import { createWorkbook, spreadsheetThemes } from "@chronicstone/typed-xlsx";
+import { createWorkbook, spreadsheetThemes } from "xlsmith";
 import { createExecutiveAccounts } from "./data";
 import { executiveBoardBaseTheme, executiveBoardSchema } from "./schema";
 

@@ -1,5 +1,5 @@
 {
-  "name": "@chronicstone/typed-xlsx-benchmark",
+  "name": "xlsmith-benchmark",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,8 +10,8 @@
     "check": "tsc --noEmit && bun run build"
   },
   "dependencies": {
-    "@chronicstone/typed-xlsx": "workspace:*",
-    "@chronicstone/typed-xlsx-examples": "workspace:*"
+    "xlsmith": "workspace:*",
+    "xlsmith-examples": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "25.5.0"

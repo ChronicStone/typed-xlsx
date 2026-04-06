@@ -1,4 +1,4 @@
-import { createExcelSchema } from "@chronicstone/typed-xlsx";
+import { createExcelSchema } from "xlsmith";
 import type { TerritoryRow } from "./data";
 
 export const territoryPerformanceSchema = createExcelSchema<TerritoryRow, { regions: string[] }>({

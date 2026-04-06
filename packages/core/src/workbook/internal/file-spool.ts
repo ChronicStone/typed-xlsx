@@ -42,7 +42,7 @@ export class FileSpoolFactory implements StreamSpoolFactory {
 
   constructor(directory?: string) {
     this.directory =
-      directory ?? path.join(os.tmpdir(), `typed-xlsx-spool-${Date.now().toString(36)}`);
+      directory ?? path.join(os.tmpdir(), `xlsmith-spool-${Date.now().toString(36)}`);
   }
 
   async create(sheetName: string): Promise<StreamSheetSpool> {

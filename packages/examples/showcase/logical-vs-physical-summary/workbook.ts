@@ -1,4 +1,4 @@
-import { createWorkbook } from "@chronicstone/typed-xlsx";
+import { createWorkbook } from "xlsmith";
 import { createLogicalPhysicalRows } from "./data";
 import { logicalVsPhysicalSummarySchema } from "./schema";
 

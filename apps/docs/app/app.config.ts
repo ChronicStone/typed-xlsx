@@ -1,26 +1,26 @@
 export default defineAppConfig({
   docus: {
-    name: "Typed-xlsx - Documentation",
+    name: "xlsmith - Documentation",
     description:
       "Type-safe, schema-driven Excel reporting for TypeScript with typed formulas, native Excel tables, and streaming exports.",
-    url: "https://typed-xlsx.vercel.app",
+    url: "https://xlsmith.vercel.app",
   },
   seo: {
-    titleTemplate: "%s - Typed-xlsx",
-    title: "Typed-xlsx",
+    titleTemplate: "%s - xlsmith",
+    title: "xlsmith",
     description:
       "Type-safe, schema-driven Excel reporting for TypeScript with typed formulas, native Excel tables, and streaming exports.",
   },
   github: {
     owner: "ChronicStone",
-    name: "typed-xlsx",
-    url: "https://github.com/ChronicStone/typed-xlsx",
+    name: "xlsmith",
+    url: "https://github.com/ChronicStone/xlsmith",
     branch: "main",
   },
   header: {
-    title: "Typed-xlsx",
+    title: "xlsmith",
     logo: {
-      alt: "Typed-xlsx",
+      alt: "xlsmith",
       light: "/logo-light.svg",
       dark: "/logo-dark.svg",
       class: "h-8 md:h-9 w-auto",
@@ -61,6 +61,6 @@ export default defineAppConfig({
     },
   },
   socials: {
-    github: "https://github.com/ChronicStone/typed-xlsx",
+    github: "https://github.com/ChronicStone/xlsmith",
   },
 });

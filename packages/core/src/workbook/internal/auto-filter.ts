@@ -26,7 +26,7 @@ export function resolveAutoFilter(params: {
 
   if (params.warn !== false) {
     console.warn(
-      `[typed-xlsx] Disabled autoFilter for ${params.mode} table '${params.tableId}' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.`,
+      `[xlsmith] Disabled autoFilter for ${params.mode} table '${params.tableId}' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.`,
     );
   }
 

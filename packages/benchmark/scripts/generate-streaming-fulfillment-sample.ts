@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { writeStreamingFulfillmentExportWorkbook } from "@chronicstone/typed-xlsx-examples/showcase/streaming-fulfillment-export/stream";
+import { writeStreamingFulfillmentExportWorkbook } from "xlsmith-examples/showcase/streaming-fulfillment-export/stream";
 
 const TARGET_VISIBLE_ROWS = 50_000;
 
@@ -13,7 +13,7 @@ async function main() {
   fs.mkdirSync(examplesDirectory, { recursive: true });
 
   const outputPath = path.join(examplesDirectory, "streaming-fulfillment-export-sample.xlsx");
-  fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-streaming-fulfillment-"));
+  fs.mkdtempSync(path.join(os.tmpdir(), "xlsmith-streaming-fulfillment-"));
 
   await writeStreamingFulfillmentExportWorkbook({ filePath: outputPath });
 

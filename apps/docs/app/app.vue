@@ -323,11 +323,11 @@ const { subNavigationMode } = useSubNavigation(navigation);
   background: color-mix(in oklab, var(--ui-primary) 6%, var(--ui-bg) 94%);
 }
 
-.typed-xlsx-feature-grid [data-slot="root"] {
+.xlsmith-feature-grid [data-slot="root"] {
   min-height: 100%;
 }
 
-.typed-xlsx-live-card [data-slot="body"] {
+.xlsmith-live-card [data-slot="body"] {
   padding: 0;
 }
 
@@ -693,6 +693,104 @@ body > .twoslash-popup-container .twoslash-popup-docs-tag-name {
 
   .landing-two-col--hero {
     column-gap: 2.5rem;
+  }
+}
+
+/* ── Scroll-reveal animations ─────────────────────────────────── */
+.motion-ready .reveal.reveal-pending {
+  opacity: 0;
+  transform: translate3d(var(--reveal-x, 0px), var(--reveal-y, 24px), 0);
+  transition:
+    opacity var(--reveal-duration, 700ms) cubic-bezier(0.16, 1, 0.3, 1),
+    transform var(--reveal-duration, 700ms) cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.motion-ready .reveal.reveal-pending.in-view {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/* Direction helpers */
+.reveal-from-left {
+  --reveal-x: -18px;
+}
+.reveal-from-right {
+  --reveal-x: 18px;
+}
+
+/* Stagger: children start hidden, animate in sequentially on parent entering view */
+.motion-ready .reveal-stagger.reveal-pending > * {
+  opacity: 0;
+  transform: translate3d(0, var(--reveal-stagger-y, 12px), 0);
+  transition:
+    opacity var(--reveal-stagger-duration, 500ms) cubic-bezier(0.16, 1, 0.3, 1),
+    transform var(--reveal-stagger-duration, 500ms) cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.motion-ready .reveal-stagger.reveal-pending.in-view > * {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(1) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 0 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(2) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 1 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(3) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 2 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(4) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 3 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(5) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 4 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(6) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 5 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(7) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 6 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(8) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 7 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(9) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 8 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(10) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 9 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(11) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 10 * var(--reveal-stagger-step, 70ms));
+}
+.motion-ready .reveal-stagger.reveal-pending.in-view > *:nth-child(12) {
+  transition-delay: calc(var(--reveal-stagger-delay, 0ms) + 11 * var(--reveal-stagger-step, 70ms));
+}
+
+/* Clear reveal delays once the entrance motion has finished */
+.reveal-stagger.reveal-complete > * {
+  transition-delay: 0ms !important;
+}
+
+/* Reset stagger delay on interaction so hover animations are instant */
+.reveal-stagger.in-view > *:hover {
+  transition-delay: 0ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-stagger > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto !important;
   }
 }
 </style>

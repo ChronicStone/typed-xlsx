@@ -1,4 +1,4 @@
-import { createWorkbookStream } from "@chronicstone/typed-xlsx";
+import { createWorkbookStream } from "xlsmith";
 import fs from "node:fs/promises";
 import { createFulfillmentRows } from "./data";
 import { fulfillmentExportSchema } from "./schema";

@@ -1,4 +1,4 @@
-import { createWorkbook } from "@chronicstone/typed-xlsx";
+import { createWorkbook } from "xlsmith";
 import { createForecastRows } from "./data";
 import { nativeForecastSchema } from "./schema";
 

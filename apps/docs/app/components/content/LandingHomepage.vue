@@ -1,36 +1,7 @@
 <script setup lang="ts">
-import { motion } from "motion-v";
-import { stagger } from "motion";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
-// ── Shared animation presets ────────────────────────────────────
-const fadeUp = { opacity: 0, y: 24 } as const;
-const visible = { opacity: 1, y: 0 } as const;
-const ease = [0.16, 1, 0.3, 1] as const;
-
-const inViewOnce = { once: true, amount: 0.08, margin: "0px 0px -60px 0px" } as const;
-const hoverTransition = { duration: 0.22, ease } as const;
-
-// ── Variants for stagger children (value props, api panels, arch rows, route cards) ──
-const staggerParent = {
-  hidden: {},
-  show: {
-    transition: {
-      delayChildren: stagger(0.07),
-    },
-  },
-} as const;
-
-const staggerChild = {
-  hidden: { opacity: 0, y: 12 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease },
-  },
-} as const;
-
-const HERO_CODE = `import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+const HERO_CODE = `import { createExcelSchema, createWorkbook } from "xlsmith";
 
 type Invoice = {
   id: string;
@@ -320,10 +291,14 @@ for await (const batch of db.cursor()) {
 }
 
 await wb.writeToFile("./orders.xlsx");`;
+
+// ── Scroll reveal ─────────────────────────────────────────────────
+const rootEl = ref<HTMLElement | null>(null);
+useReveal(rootEl);
 </script>
 
 <template>
-  <div class="relative overflow-x-hidden">
+  <div ref="rootEl" class="relative overflow-x-hidden">
     <!-- ── HERO ─────────────────────────────────────────────────────── -->
     <div
       class="landing-hero-bg pointer-events-none absolute inset-x-0 top-0 -z-10 h-[50rem]"
@@ -340,7 +315,7 @@ await wb.writeToFile("./orders.xlsx");`;
             variant="subtle"
             class="w-fit rounded-full px-3 py-1 font-mono text-xs tracking-widest uppercase"
           >
-            @chronicstone/typed-xlsx
+            xlsmith
           </UBadge>
         </div>
 
@@ -378,7 +353,7 @@ await wb.writeToFile("./orders.xlsx");`;
             to="/getting-started/comparison"
             class="border border-default/60"
           >
-            Why typed-xlsx?
+            Why xlsmith?
           </UButton>
         </div>
 
@@ -389,7 +364,7 @@ await wb.writeToFile("./orders.xlsx");`;
           <code
             class="rounded-xl border border-default/50 bg-elevated/70 px-4 py-2.5 font-mono text-sm text-toned backdrop-blur"
           >
-            npm install @chronicstone/typed-xlsx
+            npm install xlsmith
           </code>
           <span class="flex items-center gap-2 text-sm text-toned">
             <span class="size-2 rounded-full bg-primary/80" />MIT license
@@ -434,26 +409,16 @@ await wb.writeToFile("./orders.xlsx");`;
     </section>
 
     <!-- ── STATS STRIP ───────────────────────────────────────────────── -->
-    <motion.div
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease, delay: 0.12 }"
+    <div
       class="landing-stats-strip mx-auto mt-14 max-w-[90rem] px-4 sm:mt-16 sm:px-6 lg:mt-20 lg:px-8"
     >
-      <motion.div
-        :variants="staggerParent"
-        initial="hidden"
-        whileInView="show"
-        :inViewOptions="inViewOnce"
-        class="landing-section-container grid grid-cols-2 divide-x divide-y divide-default/40 overflow-hidden rounded-2xl sm:grid-cols-4 sm:divide-y-0"
+      <div
+        class="reveal-stagger landing-section-container grid grid-cols-2 divide-x divide-y divide-default/40 overflow-hidden rounded-2xl sm:grid-cols-4 sm:divide-y-0"
+        style="--reveal-stagger-delay: 120ms"
       >
-        <motion.div
+        <div
           v-for="stat in statsDisplay"
           :key="stat.label"
-          :variants="staggerChild"
-          :whileHover="{ y: -3, scale: 1.01 }"
-          :transition="hoverTransition"
           class="landing-stat-item flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5"
         >
           <p
@@ -464,22 +429,14 @@ await wb.writeToFile("./orders.xlsx");`;
           </p>
           <p class="mt-1 text-sm font-semibold text-highlighted">{{ stat.label }}</p>
           <p class="text-xs leading-5 text-toned">{{ stat.sub }}</p>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── WHY TYPED-XLSX ─────────────────────────────────────────────── -->
-    <motion.section
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease }"
-      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8"
-    >
-      <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
-        <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
-          Why typed-xlsx
-        </p>
+    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8">
+      <div class="reveal mb-8 space-y-3 sm:mb-10 lg:mb-12">
+        <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">Why xlsmith</p>
         <h2
           class="text-balance text-3xl font-bold tracking-tight text-highlighted sm:text-4xl lg:text-5xl"
         >
@@ -489,19 +446,12 @@ await wb.writeToFile("./orders.xlsx");`;
         </h2>
       </div>
 
-      <motion.div
-        :variants="staggerParent"
-        initial="hidden"
-        whileInView="show"
-        :inViewOptions="inViewOnce"
-        class="landing-section-container grid grid-cols-1 gap-px overflow-hidden rounded-[1.5rem] sm:grid-cols-2 lg:grid-cols-3"
+      <div
+        class="reveal-stagger landing-section-container grid grid-cols-1 gap-px overflow-hidden rounded-[1.5rem] sm:grid-cols-2 lg:grid-cols-3"
       >
-        <motion.div
+        <div
           v-for="prop in valueProps"
           :key="prop.title"
-          :variants="staggerChild"
-          :whileHover="{ y: -4 }"
-          :transition="hoverTransition"
           class="group landing-value-card px-5 py-5 transition-colors sm:px-6 sm:py-6"
         >
           <div
@@ -511,19 +461,13 @@ await wb.writeToFile("./orders.xlsx");`;
           </div>
           <h3 class="text-sm font-bold text-highlighted">{{ prop.title }}</h3>
           <p class="mt-1.5 text-sm leading-6 text-toned">{{ prop.description }}</p>
-        </motion.div>
-      </motion.div>
-    </motion.section>
+        </div>
+      </div>
+    </section>
 
     <!-- ── API SURFACE ───────────────────────────────────────────────── -->
-    <motion.section
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease }"
-      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8"
-    >
-      <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
+    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8">
+      <div class="reveal mb-8 space-y-3 sm:mb-10 lg:mb-12">
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">API surface</p>
         <h2
           class="text-balance text-3xl font-bold tracking-tight text-highlighted sm:text-4xl lg:text-5xl"
@@ -532,19 +476,12 @@ await wb.writeToFile("./orders.xlsx");`;
         </h2>
       </div>
 
-      <motion.div
-        :variants="staggerParent"
-        initial="hidden"
-        whileInView="show"
-        :inViewOptions="inViewOnce"
-        class="landing-section-container grid grid-cols-1 items-stretch divide-y divide-default/40 overflow-hidden rounded-[1.5rem] lg:grid-cols-3 lg:divide-x lg:divide-y-0"
+      <div
+        class="reveal-stagger landing-section-container grid grid-cols-1 items-stretch divide-y divide-default/40 overflow-hidden rounded-[1.5rem] lg:grid-cols-3 lg:divide-x lg:divide-y-0"
       >
-        <motion.div
+        <div
           v-for="entry in apiSurface"
           :key="entry.label"
-          :variants="staggerChild"
-          :whileHover="{ y: -4 }"
-          :transition="hoverTransition"
           class="landing-api-card flex flex-col gap-3 px-6 py-6 sm:px-7 sm:py-7"
         >
           <div class="flex items-baseline gap-3">
@@ -559,23 +496,17 @@ await wb.writeToFile("./orders.xlsx");`;
             theme="vitesse-dark"
             class="api-code-block flex-1 overflow-hidden rounded-xl border border-default/40 bg-default/60 p-4"
           />
-        </motion.div>
-      </motion.div>
-    </motion.section>
+        </div>
+      </div>
+    </section>
 
     <!-- ── FEATURE CAROUSEL ──────────────────────────────────────────── -->
     <LandingValueCarousel />
 
     <!-- ── ARCHITECTURAL MONOLITH ────────────────────────────────────── -->
-    <motion.section
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease }"
-      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
-    >
+    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
       <div
-        class="mb-8 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:mb-12"
+        class="reveal mb-8 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:mb-12"
       >
         <div class="space-y-3">
           <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
@@ -593,17 +524,10 @@ await wb.writeToFile("./orders.xlsx");`;
         </p>
       </div>
 
-      <motion.div
-        :variants="staggerParent"
-        initial="hidden"
-        whileInView="show"
-        :inViewOptions="inViewOnce"
-        class="landing-section-container overflow-hidden rounded-[1.5rem]"
-      >
-        <motion.div
+      <div class="reveal-stagger landing-section-container overflow-hidden rounded-[1.5rem]">
+        <div
           v-for="layer in architectureLayers"
           :key="layer.index"
-          :variants="staggerChild"
           class="group grid grid-cols-1 gap-4 border-t border-default/40 px-5 py-5 transition-colors sm:px-6 sm:py-6 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:px-6 lg:py-7 first:border-t-0 landing-arch-row"
         >
           <div class="flex items-baseline gap-4">
@@ -636,20 +560,14 @@ await wb.writeToFile("./orders.xlsx");`;
               </div>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
-    </motion.section>
+        </div>
+      </div>
+    </section>
 
     <!-- ── ARTIFACT SHOWCASE TEASER ──────────────────────────────────── -->
-    <motion.div
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease }"
-      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
-    >
+    <div class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
       <div
-        class="mb-8 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:mb-12"
+        class="reveal mb-8 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:mb-12"
       >
         <div class="space-y-3">
           <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">Showcase</p>
@@ -671,25 +589,12 @@ await wb.writeToFile("./orders.xlsx");`;
           </UButton>
         </div>
       </div>
-      <motion.div
-        :initial="{ opacity: 0, y: 18 }"
-        :whileInView="{ opacity: 1, y: 0 }"
-        :inViewOptions="inViewOnce"
-        :transition="{ duration: 0.55, ease, delay: 0.08 }"
-      >
-        <LandingArtifactExplorerPreview :limit="3" :show-cta="false" />
-      </motion.div>
-    </motion.div>
+      <LandingArtifactExplorerPreview :limit="3" :show-cta="false" />
+    </div>
 
     <!-- ── STREAMING / SCALE ──────────────────────────────────────────── -->
-    <motion.section
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease }"
-      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
-    >
-      <div class="mb-8 space-y-3 sm:mb-10 lg:mb-12">
+    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
+      <div class="reveal mb-8 space-y-3 sm:mb-10 lg:mb-12">
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">Scale Layer</p>
         <h2
           class="text-balance text-3xl font-bold tracking-tight text-highlighted sm:text-4xl lg:text-5xl"
@@ -705,13 +610,9 @@ await wb.writeToFile("./orders.xlsx");`;
       <div class="landing-section-container overflow-hidden rounded-[1.75rem]">
         <div class="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch">
           <!-- Buffered -->
-          <motion.div
-            :initial="{ opacity: 0, x: -18 }"
-            :whileInView="{ opacity: 1, x: 0 }"
-            :inViewOptions="inViewOnce"
-            :transition="{ duration: 0.5, ease, delay: 0.04 }"
-            :whileHover="{ y: -4 }"
-            class="landing-stream-panel flex min-h-[24rem] flex-col border-b border-default/60 px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 lg:border-b-0 lg:border-r landing-buffered-panel"
+          <div
+            class="reveal reveal-from-left landing-stream-panel flex min-h-[24rem] flex-col border-b border-default/60 px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 lg:border-b-0 lg:border-r landing-buffered-panel"
+            style="--reveal-duration: 500ms; --reveal-delay: 40ms"
           >
             <div class="mb-4 flex items-center gap-3">
               <span
@@ -728,16 +629,12 @@ await wb.writeToFile("./orders.xlsx");`;
                 class="stream-code-block stream-code-block--buffered"
               />
             </div>
-          </motion.div>
+          </div>
 
           <!-- Streaming -->
-          <motion.div
-            :initial="{ opacity: 0, x: 18 }"
-            :whileInView="{ opacity: 1, x: 0 }"
-            :inViewOptions="inViewOnce"
-            :transition="{ duration: 0.5, ease, delay: 0.1 }"
-            :whileHover="{ y: -4 }"
-            class="landing-stream-panel flex min-h-[24rem] flex-col px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 landing-streaming-panel"
+          <div
+            class="reveal reveal-from-right landing-stream-panel flex min-h-[24rem] flex-col px-5 py-6 sm:min-h-[25rem] sm:px-7 sm:py-7 landing-streaming-panel"
+            style="--reveal-duration: 500ms; --reveal-delay: 100ms"
           >
             <div class="mb-4 flex items-center gap-3">
               <span
@@ -754,7 +651,7 @@ await wb.writeToFile("./orders.xlsx");`;
                 class="stream-code-block stream-code-block--streaming"
               />
             </div>
-          </motion.div>
+          </div>
         </div>
 
         <!-- Stat strip -->
@@ -785,17 +682,11 @@ await wb.writeToFile("./orders.xlsx");`;
           </div>
         </div>
       </div>
-    </motion.section>
+    </section>
 
     <!-- ── NEXT STEPS ────────────────────────────────────────────────── -->
-    <motion.section
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease }"
-      class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8"
-    >
-      <div class="mb-8 space-y-3 sm:mb-10">
+    <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-24 sm:px-6 lg:mt-28 lg:px-8">
+      <div class="reveal mb-8 space-y-3 sm:mb-10">
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
           Entry Points
         </p>
@@ -805,48 +696,36 @@ await wb.writeToFile("./orders.xlsx");`;
           Pick your<br /><em class="not-italic text-primary">starting point.</em>
         </h2>
       </div>
-      <motion.div
-        :variants="staggerParent"
-        initial="hidden"
-        whileInView="show"
-        :inViewOptions="inViewOnce"
-        class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
-      >
-        <motion.div
+      <div class="reveal-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+        <UPageCard
           v-for="card in routeCards"
           :key="card.title"
-          :variants="staggerChild"
-          :whileHover="{ y: -4 }"
-          :transition="{ type: 'spring', stiffness: 420, damping: 28 }"
+          :to="card.to"
+          spotlight
+          class="landing-route-card rounded-[1.75rem]"
         >
-          <UPageCard :to="card.to" spotlight class="landing-route-card rounded-[1.75rem]">
-            <div class="flex h-full flex-col gap-5 p-2">
-              <div
-                class="flex size-11 items-center justify-center rounded-full border border-primary/20 bg-primary/8"
-              >
-                <UIcon :name="card.icon" class="size-5 text-primary" />
-              </div>
-              <div>
-                <h3 class="text-lg font-bold text-highlighted">{{ card.title }}</h3>
-                <p class="mt-2 text-sm leading-6 text-toned">{{ card.description }}</p>
-              </div>
-              <div class="mt-auto flex items-center gap-1.5 text-sm font-semibold text-primary">
-                {{ card.cta }}
-                <UIcon name="i-lucide-arrow-right" class="landing-route-arrow size-4" />
-              </div>
+          <div class="flex h-full flex-col gap-5 p-2">
+            <div
+              class="flex size-11 items-center justify-center rounded-full border border-primary/20 bg-primary/8"
+            >
+              <UIcon :name="card.icon" class="size-5 text-primary" />
             </div>
-          </UPageCard>
-        </motion.div>
-      </motion.div>
-    </motion.section>
+            <div>
+              <h3 class="text-lg font-bold text-highlighted">{{ card.title }}</h3>
+              <p class="mt-2 text-sm leading-6 text-toned">{{ card.description }}</p>
+            </div>
+            <div class="mt-auto flex items-center gap-1.5 text-sm font-semibold text-primary">
+              {{ card.cta }}
+              <UIcon name="i-lucide-arrow-right" class="landing-route-arrow size-4" />
+            </div>
+          </div>
+        </UPageCard>
+      </div>
+    </section>
 
     <!-- ── FINAL CTA ─────────────────────────────────────────────────── -->
-    <motion.section
-      :initial="fadeUp"
-      :whileInView="visible"
-      :inViewOptions="inViewOnce"
-      :transition="{ duration: 0.7, ease }"
-      class="mx-auto mb-16 mt-16 max-w-[90rem] px-4 sm:mb-24 sm:mt-24 sm:px-6 lg:mb-28 lg:mt-28 lg:px-8"
+    <section
+      class="reveal mx-auto mb-16 mt-16 max-w-[90rem] px-4 sm:mb-24 sm:mt-24 sm:px-6 lg:mb-28 lg:mt-28 lg:px-8"
     >
       <div
         class="landing-cta-bg overflow-hidden rounded-[1.5rem] px-6 py-12 text-center sm:rounded-[2rem] sm:px-12 sm:py-16 lg:px-16 lg:py-20"
@@ -863,40 +742,30 @@ await wb.writeToFile("./orders.xlsx");`;
           Define a schema, pass your rows, export a workbook. Your first report ships in under 30
           lines — no configuration, no boilerplate.
         </p>
-        <motion.div
-          :initial="{ opacity: 0, y: 16 }"
-          :whileInView="{ opacity: 1, y: 0 }"
-          :inViewOptions="inViewOnce"
-          :transition="{ duration: 0.45, ease, delay: 0.08 }"
-          class="flex flex-wrap justify-center gap-3"
-        >
-          <motion.div :whileHover="{ y: -3, scale: 1.02 }" :transition="hoverTransition">
-            <UButton
-              color="primary"
-              size="xl"
-              to="/getting-started/quick-start"
-              trailing-icon="i-lucide-arrow-right"
-              class="landing-cta-button"
-            >
-              Build your first report
-            </UButton>
-          </motion.div>
-          <motion.div :whileHover="{ y: -3, scale: 1.02 }" :transition="hoverTransition">
-            <UButton
-              color="neutral"
-              size="xl"
-              variant="ghost"
-              to="https://github.com/ChronicStone/typed-xlsx"
-              target="_blank"
-              icon="i-simple-icons-github"
-              class="landing-cta-button border border-default/60"
-            >
-              GitHub
-            </UButton>
-          </motion.div>
-        </motion.div>
+        <div class="flex flex-wrap justify-center gap-3">
+          <UButton
+            color="primary"
+            size="xl"
+            to="/getting-started/quick-start"
+            trailing-icon="i-lucide-arrow-right"
+            class="landing-cta-button"
+          >
+            Build your first report
+          </UButton>
+          <UButton
+            color="neutral"
+            size="xl"
+            variant="ghost"
+            to="https://github.com/ChronicStone/xlsmith"
+            target="_blank"
+            icon="i-simple-icons-github"
+            class="landing-cta-button border border-default/60"
+          >
+            GitHub
+          </UButton>
+        </div>
       </div>
-    </motion.section>
+    </section>
   </div>
 </template>
 
@@ -1128,7 +997,8 @@ await wb.writeToFile("./orders.xlsx");`;
   transition:
     background 0.2s ease,
     box-shadow 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: center center;
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
@@ -1137,6 +1007,7 @@ await wb.writeToFile("./orders.xlsx");`;
 
 .landing-value-card:hover {
   background: var(--landing-surface-hover);
+  transform: translateY(-4px);
 }
 
 /* ── Stats cards ──────────────────────────────────────────────── */
@@ -1144,7 +1015,8 @@ await wb.writeToFile("./orders.xlsx");`;
   transition:
     background 0.2s ease,
     box-shadow 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: center center;
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
@@ -1161,6 +1033,7 @@ await wb.writeToFile("./orders.xlsx");`;
 
 .landing-stat-item:hover {
   background: color-mix(in oklab, var(--landing-surface-hover) 82%, transparent);
+  transform: translateY(-3px) scale(1.01);
 }
 
 /* ── API cards ───────────────────────────────────────────────── */
@@ -1168,7 +1041,8 @@ await wb.writeToFile("./orders.xlsx");`;
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: center center;
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
@@ -1177,6 +1051,7 @@ await wb.writeToFile("./orders.xlsx");`;
 
 .landing-api-card:hover {
   background: color-mix(in oklab, var(--landing-surface-hover) 88%, transparent);
+  transform: translateY(-4px);
 }
 
 /* ── Architecture rows ────────────────────────────────────────── */
@@ -1200,7 +1075,8 @@ await wb.writeToFile("./orders.xlsx");`;
 .landing-stream-panel {
   transition:
     box-shadow 0.2s ease,
-    background 0.2s ease;
+    background 0.2s ease,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: center center;
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
@@ -1209,6 +1085,7 @@ await wb.writeToFile("./orders.xlsx");`;
 
 .landing-stream-panel:hover {
   box-shadow: 0 16px 42px -28px color-mix(in oklab, var(--ui-primary) 18%, transparent);
+  transform: translateY(-4px);
 }
 
 /* ── Route cards ──────────────────────────────────────────────── */
@@ -1217,7 +1094,8 @@ await wb.writeToFile("./orders.xlsx");`;
   background: var(--landing-surface);
   transition:
     border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: center center;
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
@@ -1227,6 +1105,7 @@ await wb.writeToFile("./orders.xlsx");`;
 .landing-route-card:hover {
   border-color: var(--landing-border-hover);
   box-shadow: 0 8px 32px -12px color-mix(in oklab, var(--ui-primary) 12%, transparent);
+  transform: translateY(-4px);
 }
 
 .landing-route-card:hover .landing-route-arrow {
@@ -1250,7 +1129,7 @@ await wb.writeToFile("./orders.xlsx");`;
 }
 
 .landing-cta-button:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.02);
   box-shadow: 0 16px 30px -20px color-mix(in oklab, var(--ui-primary) 28%, transparent);
 }
 </style>

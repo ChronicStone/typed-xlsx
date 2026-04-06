@@ -4,51 +4,51 @@
     "batchSize": 10000,
     "batchCount": 10,
     "outputPath": "/Users/cyprienthao/Documents/DEV/ORGANISATIONS/PERSO/packages/typed-xlsx/packages/benchmark/artifacts/reports/stream/files/stream-100000-rows.xlsx",
-    "outputBytes": 64167460,
+    "outputBytes": 64168045,
     "spoolDirectory": "/Users/cyprienthao/Documents/DEV/ORGANISATIONS/PERSO/packages/typed-xlsx/packages/benchmark/artifacts/reports/stream/files/100000-rows-spool",
     "spoolBytes": 55828634,
-    "commitMs": 10567.0425,
-    "finishMs": 9261.484834,
-    "totalMs": 19828.53325,
-    "rowsPerSecond": 5043.237376118075,
-    "peakRssMb": 475.73,
-    "peakHeapUsedMb": 145.91,
-    "peakExternalMb": 58.32,
-    "peakArrayBuffersMb": 1.03,
+    "commitMs": 11149.481249999999,
+    "finishMs": 7195.523999999999,
+    "totalMs": 18345.008416999997,
+    "rowsPerSecond": 5451.074086579963,
+    "peakRssMb": 574.8,
+    "peakHeapUsedMb": 158.45,
+    "peakExternalMb": 59.98,
+    "peakArrayBuffersMb": 0.72,
     "checkpoints": [
       {
         "label": "start",
-        "rssMb": 46.59,
-        "heapUsedMb": 1.44,
-        "externalMb": 0.44,
+        "rssMb": 45.42,
+        "heapUsedMb": 1.53,
+        "externalMb": 0.47,
         "arrayBuffersMb": 0
       },
       {
         "label": "after batch 1 (10,000 rows)",
-        "rssMb": 124.41,
+        "rssMb": 90.81,
         "heapUsedMb": 14.79,
-        "externalMb": 1.71,
+        "externalMb": 1.74,
         "arrayBuffersMb": 0.54
       },
       {
         "label": "after batch 10 (100,000 rows)",
-        "rssMb": 197.91,
-        "heapUsedMb": 41.21,
-        "externalMb": 3.54,
-        "arrayBuffersMb": 1.03
+        "rssMb": 198.67,
+        "heapUsedMb": 40.27,
+        "externalMb": 3.3,
+        "arrayBuffersMb": 0.72
       },
       {
         "label": "before finish",
-        "rssMb": 197.91,
-        "heapUsedMb": 41.21,
-        "externalMb": 3.54,
-        "arrayBuffersMb": 1.03
+        "rssMb": 198.67,
+        "heapUsedMb": 40.27,
+        "externalMb": 3.3,
+        "arrayBuffersMb": 0.72
       },
       {
         "label": "after finish",
-        "rssMb": 475.73,
-        "heapUsedMb": 145.91,
-        "externalMb": 58.32,
+        "rssMb": 574.8,
+        "heapUsedMb": 158.45,
+        "externalMb": 59.98,
         "arrayBuffersMb": 0
       }
     ]
@@ -58,79 +58,79 @@
     "batchSize": 10000,
     "batchCount": 50,
     "outputPath": "/Users/cyprienthao/Documents/DEV/ORGANISATIONS/PERSO/packages/typed-xlsx/packages/benchmark/artifacts/reports/stream/files/stream-500000-rows.xlsx",
-    "outputBytes": 325437271,
+    "outputBytes": 325437856,
     "spoolDirectory": "/Users/cyprienthao/Documents/DEV/ORGANISATIONS/PERSO/packages/typed-xlsx/packages/benchmark/artifacts/reports/stream/files/500000-rows-spool",
     "spoolBytes": 284818598,
-    "commitMs": 38108.900042,
-    "finishMs": 34076.612708,
-    "totalMs": 72185.526833,
-    "rowsPerSecond": 6926.596257401316,
-    "peakRssMb": 1981.34,
-    "peakHeapUsedMb": 715.64,
-    "peakExternalMb": 291.98,
-    "peakArrayBuffersMb": 2.35,
+    "commitMs": 30351.937542,
+    "finishMs": 31555.095834000003,
+    "totalMs": 61907.046292,
+    "rowsPerSecond": 8076.625036213576,
+    "peakRssMb": 1954.86,
+    "peakHeapUsedMb": 716.13,
+    "peakExternalMb": 292.03,
+    "peakArrayBuffersMb": 3.07,
     "checkpoints": [
       {
         "label": "start",
-        "rssMb": 48.94,
-        "heapUsedMb": 0.96,
-        "externalMb": 0.31,
+        "rssMb": 49.72,
+        "heapUsedMb": 1.53,
+        "externalMb": 0.47,
         "arrayBuffersMb": 0
       },
       {
         "label": "after batch 1 (10,000 rows)",
-        "rssMb": 132.75,
-        "heapUsedMb": 14.52,
-        "externalMb": 1.69,
+        "rssMb": 131.5,
+        "heapUsedMb": 14.66,
+        "externalMb": 1.73,
         "arrayBuffersMb": 0.54
       },
       {
         "label": "after batch 10 (100,000 rows)",
-        "rssMb": 224.31,
-        "heapUsedMb": 56.19,
-        "externalMb": 5.3,
-        "arrayBuffersMb": 2.32
+        "rssMb": 226.61,
+        "heapUsedMb": 56.57,
+        "externalMb": 5.37,
+        "arrayBuffersMb": 2.34
       },
       {
         "label": "after batch 20 (200,000 rows)",
-        "rssMb": 249.95,
-        "heapUsedMb": 69.73,
-        "externalMb": 4.71,
-        "arrayBuffersMb": 0.99
+        "rssMb": 304.84,
+        "heapUsedMb": 94.25,
+        "externalMb": 7.14,
+        "arrayBuffersMb": 2.93
       },
       {
         "label": "after batch 30 (300,000 rows)",
-        "rssMb": 357.86,
-        "heapUsedMb": 99.88,
-        "externalMb": 7.63,
-        "arrayBuffersMb": 2.35
+        "rssMb": 386.5,
+        "heapUsedMb": 91.39,
+        "externalMb": 5.48,
+        "arrayBuffersMb": 0.61
       },
       {
         "label": "after batch 40 (400,000 rows)",
-        "rssMb": 434.14,
-        "heapUsedMb": 116.93,
-        "externalMb": 6.15,
-        "arrayBuffersMb": 0.33
+        "rssMb": 466.2,
+        "heapUsedMb": 129.64,
+        "externalMb": 7.83,
+        "arrayBuffersMb": 1.56
       },
       {
         "label": "after batch 50 (500,000 rows)",
-        "rssMb": 497.58,
-        "heapUsedMb": 152.68,
-        "externalMb": 9.18,
-        "arrayBuffersMb": 1.74
+        "rssMb": 502.88,
+        "heapUsedMb": 168.34,
+        "externalMb": 11.02,
+        "arrayBuffersMb": 3.07
       },
       {
         "label": "before finish",
-        "rssMb": 497.58,
-        "heapUsedMb": 152.68,
-        "externalMb": 9.18,
-        "arrayBuffersMb": 1.74
+        "rssMb": 502.88,
+        "heapUsedMb": 168.34,
+        "externalMb": 11.02,
+        "arrayBuffersMb": 3.07
       },
       {
         "label": "after finish",
-        "rssMb": 1981.34,
-        "heapUsedMb": 715.64,
-        "externalMb": 291.98,
+        "rssMb": 1954.86,
+        "heapUsedMb": 716.13,
+        "externalMb": 292.03,
         "arrayBuffersMb": 0
       }
     ]

@@ -600,7 +600,7 @@ onBeforeUnmount(() => {
               <UIcon name="i-lucide-x" class="size-3.5 text-red-400" />
             </span>
             <span class="font-mono text-xs font-semibold uppercase tracking-widest text-red-400/80"
-              >Without typed-xlsx</span
+              >Without xlsmith</span
             >
           </div>
           <div class="value-code-stack">
@@ -622,7 +622,7 @@ onBeforeUnmount(() => {
               <UIcon name="i-lucide-check" class="size-3.5 text-primary" />
             </span>
             <span class="font-mono text-xs font-semibold uppercase tracking-widest text-primary/80"
-              >With typed-xlsx</span
+              >With xlsmith</span
             >
           </div>
           <div class="value-code-stack">

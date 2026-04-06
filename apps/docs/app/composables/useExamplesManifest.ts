@@ -2,7 +2,7 @@ import {
   findGeneratedExampleArtifact,
   getGeneratedExamplesManifest,
   type GeneratedExamplesManifest,
-} from "@chronicstone/typed-xlsx-examples";
+} from "xlsmith-examples";
 
 export function useExamplesManifest() {
   return getGeneratedExamplesManifest() as GeneratedExamplesManifest;

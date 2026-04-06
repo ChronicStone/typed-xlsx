@@ -1,5 +1,5 @@
 {
-  "name": "@chronicstone/typed-xlsx-examples",
+  "name": "xlsmith-examples",
   "private": true,
   "type": "module",
   "exports": {
@@ -12,7 +12,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@chronicstone/typed-xlsx": "workspace:*"
+    "xlsmith": "workspace:*"
   },
   "devDependencies": {
     "@faker-js/faker": "10.4.0",

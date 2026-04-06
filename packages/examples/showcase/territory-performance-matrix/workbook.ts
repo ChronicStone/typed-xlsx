@@ -1,4 +1,4 @@
-import { createWorkbook } from "@chronicstone/typed-xlsx";
+import { createWorkbook } from "xlsmith";
 import { createTerritoryRows } from "./data";
 import { territoryPerformanceSchema } from "./schema";
 

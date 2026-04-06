@@ -32,7 +32,7 @@ We should resume from a real Excel-authored fixture once Excel save is available
 4. Diff Excel-authored:
    - `xl/worksheets/sheet*.xml`
    - `xl/tables/table*.xml`
-5. Align typed-xlsx native table serialization with the real fixture
+5. Align xlsmith native table serialization with the real fixture
 
 ## Documentation implication
 

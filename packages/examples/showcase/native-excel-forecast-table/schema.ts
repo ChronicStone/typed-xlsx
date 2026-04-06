@@ -1,4 +1,4 @@
-import { createExcelSchema } from "@chronicstone/typed-xlsx";
+import { createExcelSchema } from "xlsmith";
 import type { ForecastRow } from "./data";
 
 export const nativeForecastSchema = createExcelSchema<ForecastRow>({ mode: "excel-table" })

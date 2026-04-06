@@ -1,4 +1,4 @@
-import { createExcelSchema } from "@chronicstone/typed-xlsx";
+import { createExcelSchema } from "xlsmith";
 import type { RenewalOpportunity } from "./data";
 
 export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()

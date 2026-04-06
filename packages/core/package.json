@@ -1,5 +1,5 @@
 {
-  "name": "@chronicstone/typed-xlsx",
+  "name": "xlsmith",
   "version": "2.0.0",
   "description": "Type-safe, schema-driven Excel reporting for TypeScript with native Excel tables and streaming exports.",
   "keywords": [
@@ -15,13 +15,13 @@
     "typescript",
     "xlsx"
   ],
-  "homepage": "https://typed-xlsx.vercel.app/",
-  "bugs": "https://github.com/ChronicStone/typed-xlsx/issues",
+  "homepage": "https://xlsmith.vercel.app/",
+  "bugs": "https://github.com/ChronicStone/xlsmith/issues",
   "license": "MIT",
   "author": "ChronicStone <cthao.pro@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ChronicStone/typed-xlsx",
+    "url": "https://github.com/ChronicStone/xlsmith",
     "directory": "packages/core"
   },
   "files": [
