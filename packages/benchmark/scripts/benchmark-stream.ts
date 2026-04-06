@@ -7,6 +7,7 @@ import {
   createSummary,
   STREAM_BENCHMARKS,
   type BenchmarkResult,
+  toSerializableResult,
 } from "../src/runners/stream";
 
 async function main() {
@@ -46,7 +47,7 @@ async function main() {
   const summaryPath = path.join(benchmarkReportDirectory, "summary.json");
   const markdownPath = path.join(benchmarkReportDirectory, "STREAM_BENCHMARK.md");
 
-  fs.writeFileSync(jsonPath, JSON.stringify(results, null, 2));
+  fs.writeFileSync(jsonPath, JSON.stringify(results.map(toSerializableResult), null, 2));
   fs.writeFileSync(summaryPath, JSON.stringify(createSummary(results), null, 2));
   fs.writeFileSync(markdownPath, createMarkdown(results));
 

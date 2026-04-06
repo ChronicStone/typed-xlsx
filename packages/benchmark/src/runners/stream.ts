@@ -31,6 +31,10 @@ export interface BenchmarkResult {
   checkpoints: MemoryPoint[];
 }
 
+function toArtifactsRelativePath(filePath: string) {
+  return path.relative(benchmarkArtifactsDirectory, filePath);
+}
+
 export const STREAM_BENCHMARKS = [
   { logicalRows: 100_000, batchSize: 10_000 },
   { logicalRows: 500_000, batchSize: 10_000 },
@@ -109,8 +113,16 @@ export function createSummary(results: BenchmarkResult[]) {
       peakRssMb: Number(result.peakRssMb.toFixed(2)),
       peakHeapUsedMb: Number(result.peakHeapUsedMb.toFixed(2)),
       spoolSizeMb: Number(toMb(result.spoolBytes).toFixed(2)),
-      reportPath: path.relative(benchmarkArtifactsDirectory, result.outputPath),
+      reportPath: toArtifactsRelativePath(result.outputPath),
     })),
+  };
+}
+
+export function toSerializableResult(result: BenchmarkResult): BenchmarkResult {
+  return {
+    ...result,
+    outputPath: toArtifactsRelativePath(result.outputPath),
+    spoolDirectory: toArtifactsRelativePath(result.spoolDirectory),
   };
 }
 
