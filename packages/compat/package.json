@@ -1,6 +1,6 @@
 {
   "name": "xlsmith",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Deprecated compatibility package. Moved to typed-xlsx.",
   "keywords": [
     "excel",
@@ -40,6 +40,6 @@
     "check": "npm pack --dry-run"
   },
   "dependencies": {
-    "typed-xlsx": "2.0.0"
+    "typed-xlsx": "3.0.0"
   }
 }
