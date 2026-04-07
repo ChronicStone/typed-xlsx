@@ -1,4 +1,4 @@
-import { createExcelSchema } from "xlsmith";
+import { createExcelSchema } from "typed-xlsx";
 import type { QuoteReview } from "./data";
 
 export const dealDeskQuoteSchema = createExcelSchema<QuoteReview>()

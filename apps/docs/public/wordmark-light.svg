@@ -22,6 +22,6 @@
   <circle cx="70" cy="48" r="5" fill="#34A853"/>
   <circle cx="70" cy="67" r="5" fill="#34A853"/>
 
-  <text x="112" y="48" fill="#111827" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="34" font-weight="700" letter-spacing="-1.2">xlsmith</text>
+  <text x="112" y="48" fill="#111827" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="34" font-weight="700" letter-spacing="-1.2">typed-xlsx</text>
   <text x="112" y="73" fill="#217346" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="20" font-weight="500" letter-spacing="0.8">documentation</text>
 </svg>

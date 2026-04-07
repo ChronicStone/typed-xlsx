@@ -1,10 +1,10 @@
-# xlsmith
+# typed-xlsx
 
 ## 2.0.0
 
 ### Major Changes
 
-- [#41](https://github.com/ChronicStone/xlsmith/pull/41) [`6685d00`](https://github.com/ChronicStone/xlsmith/commit/6685d00f0f7600c1ccb99167a135b2a320a63186) Thanks [@ChronicStone](https://github.com/ChronicStone)! - xlsmith 2.0 turns the post-v1 engine into a much more complete Excel authoring toolkit.
+- [#41](https://github.com/ChronicStone/typed-xlsx/pull/41) [`6685d00`](https://github.com/ChronicStone/typed-xlsx/commit/6685d00f0f7600c1ccb99167a135b2a320a63186) Thanks [@ChronicStone](https://github.com/ChronicStone)! - typed-xlsx 2.0 turns the post-v1 engine into a much more complete Excel authoring toolkit.
 
   The `1.0` line established the rewritten core architecture: typed schemas, buffered and streaming builders, reducer-based summaries, custom OOXML generation, and a consistent schema-first API. This release builds on that foundation and adds the Excel-native features that were still missing from the early `1.x` surface.
 
@@ -86,7 +86,7 @@
   - totals row support with per-column configuration
   - compatibility with both buffered and streaming builders
 
-  This makes xlsmith a better fit for analyst workflows, pivot-table preparation, Power Query ingestion, and general “editable spreadsheet” use cases where native Excel tables matter.
+  This makes typed-xlsx a better fit for analyst workflows, pivot-table preparation, Power Query ingestion, and general “editable spreadsheet” use cases where native Excel tables matter.
 
   ### Totals row support in excel-table mode
 
@@ -240,7 +240,7 @@
 
   This release changes the practical shape of the library.
 
-  In `1.x`, xlsmith was already a strong typed export builder with buffered and stream paths. In `2.0`, it becomes capable of authoring much more spreadsheet-native behavior without abandoning that same schema-first model.
+  In `1.x`, typed-xlsx was already a strong typed export builder with buffered and stream paths. In `2.0`, it becomes capable of authoring much more spreadsheet-native behavior without abandoning that same schema-first model.
 
   The end result is one API surface that now covers:
   - polished buffered reports
@@ -257,7 +257,7 @@
 
 ### Patch Changes
 
-- [`1554b7c`](https://github.com/ChronicStone/xlsmith/commit/1554b7c4b04b5deea9ff30d157f34f633ccf2b33) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve schema typing and inference across accessors, groups, and table selection.
+- [`1554b7c`](https://github.com/ChronicStone/typed-xlsx/commit/1554b7c4b04b5deea9ff30d157f34f633ccf2b33) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve schema typing and inference across accessors, groups, and table selection.
   - tighten accessor typing so path accessors, callback accessors, and derived transform values stay precisely inferred
   - improve group typing so group ids and group context shapes are preserved from the group callback signature
   - make table context requirements depend on the selected groups, including fine-grained `include` and `exclude` inference
@@ -267,7 +267,7 @@
 
 ### Patch Changes
 
-- [#25](https://github.com/ChronicStone/xlsmith/pull/25) [`13889a2`](https://github.com/ChronicStone/xlsmith/commit/13889a27c85fd5a8ef32a90d2c2c00843d1a38d3) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Fix custom number format emission so buffered and streamed workbooks both write the required OOXML `numFmts` definitions for styled currency and percent cells.
+- [#25](https://github.com/ChronicStone/typed-xlsx/pull/25) [`13889a2`](https://github.com/ChronicStone/typed-xlsx/commit/13889a27c85fd5a8ef32a90d2c2c00843d1a38d3) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Fix custom number format emission so buffered and streamed workbooks both write the required OOXML `numFmts` definitions for styled currency and percent cells.
 
   This also aligns the financial report example's average profit margin formatting with its percentage-point values and refreshes the generated example workbooks.
 
@@ -275,7 +275,7 @@
 
 ### Patch Changes
 
-- [#22](https://github.com/ChronicStone/xlsmith/pull/22) [`500c374`](https://github.com/ChronicStone/xlsmith/commit/500c37499d547b82a5f0d565bf790106b0829475) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve summary ergonomics by supporting the callback builder form with
+- [#22](https://github.com/ChronicStone/typed-xlsx/pull/22) [`500c374`](https://github.com/ChronicStone/typed-xlsx/commit/500c37499d547b82a5f0d565bf790106b0829475) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve summary ergonomics by supporting the callback builder form with
   `summary.cell(...)`, `summary.label(...)`, and `summary.empty(...)`, while
   updating the docs and examples to teach the new API.
 
@@ -283,17 +283,17 @@
 
 ### Patch Changes
 
-- [#19](https://github.com/ChronicStone/xlsmith/pull/19) [`44cd7ee`](https://github.com/ChronicStone/xlsmith/commit/44cd7eeee3e5adda011731b9a1a48c61edcbdc8b) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve the public API developer experience by strongly typing `select.include` and
+- [#19](https://github.com/ChronicStone/typed-xlsx/pull/19) [`44cd7ee`](https://github.com/ChronicStone/typed-xlsx/commit/44cd7eeee3e5adda011731b9a1a48c61edcbdc8b) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Improve the public API developer experience by strongly typing `select.include` and
   `select.exclude` against schema column ids, and tighten the docs navigation to use
   single-open accordion behavior in the sidebar.
 
-- [#20](https://github.com/ChronicStone/xlsmith/pull/20) [`ee30976`](https://github.com/ChronicStone/xlsmith/commit/ee309766ff097bb70c5d26f60963b8730dc80aa6) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Tighten grouped schema typing so `select.include` and `select.exclude` accept group ids as first-class entries, and require matching `context` when grouped schemas are used. This also updates the groups and reference docs to reflect the V1-style group selection model.
+- [#20](https://github.com/ChronicStone/typed-xlsx/pull/20) [`ee30976`](https://github.com/ChronicStone/typed-xlsx/commit/ee309766ff097bb70c5d26f60963b8730dc80aa6) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Tighten grouped schema typing so `select.include` and `select.exclude` accept group ids as first-class entries, and require matching `context` when grouped schemas are used. This also updates the groups and reference docs to reflect the V1-style group selection model.
 
 ## 1.0.0
 
 ### Major Changes
 
-- [#17](https://github.com/ChronicStone/xlsmith/pull/17) [`32bf450`](https://github.com/ChronicStone/xlsmith/commit/32bf4504deec244e2a9f349b253d21c2592c499e) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Promote the new xlsmith API as the main package surface and retire the legacy SheetJS-based builder.
+- [#17](https://github.com/ChronicStone/typed-xlsx/pull/17) [`32bf450`](https://github.com/ChronicStone/typed-xlsx/commit/32bf4504deec244e2a9f349b253d21c2592c499e) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Promote the new typed-xlsx API as the main package surface and retire the legacy SheetJS-based builder.
 
   This was a complete ground-up rewrite of the library. The old SheetJS / `xlsx-js-style` stack is gone, along with the architectural ceilings that came with it. Every layer from schema definition to layout planning to OOXML serialization and ZIP packaging was rebuilt from scratch to support type-safe modeling, deterministic output, and genuinely streamable large exports.
 

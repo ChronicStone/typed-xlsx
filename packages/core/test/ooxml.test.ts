@@ -1323,7 +1323,7 @@ describe("ooxml", () => {
 
     expect(worksheetPart?.xml).not.toContain("<autoFilter");
     expect(warn).toHaveBeenCalledWith(
-      "[xlsmith] Disabled autoFilter for buffered table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",
+      "[typed-xlsx] Disabled autoFilter for buffered table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",
     );
   });
 

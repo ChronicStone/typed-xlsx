@@ -3,7 +3,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "ChronicStone/xlsmith"
+      "repo": "ChronicStone/typed-xlsx"
     }
   ],
   "commit": false,

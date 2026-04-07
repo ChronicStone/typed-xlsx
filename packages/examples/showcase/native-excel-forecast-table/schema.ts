@@ -1,4 +1,4 @@
-import { createExcelSchema } from "xlsmith";
+import { createExcelSchema } from "typed-xlsx";
 import type { ForecastRow } from "./data";
 
 export const nativeForecastSchema = createExcelSchema<ForecastRow>({ mode: "excel-table" })

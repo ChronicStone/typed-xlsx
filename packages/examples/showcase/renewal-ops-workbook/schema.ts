@@ -1,4 +1,4 @@
-import { createExcelSchema } from "xlsmith";
+import { createExcelSchema } from "typed-xlsx";
 import type { RenewalOpportunity } from "./data";
 
 export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()

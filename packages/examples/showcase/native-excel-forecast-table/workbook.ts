@@ -1,4 +1,4 @@
-import { createWorkbook } from "xlsmith";
+import { createWorkbook } from "typed-xlsx";
 import { createForecastRows } from "./data";
 import { nativeForecastSchema } from "./schema";
 

@@ -3,7 +3,7 @@ import { defineNuxtConfig } from "nuxt/config";
 import { extendViteConfig, createResolver, useNuxt } from "@nuxt/kit";
 import { join } from "node:path";
 
-const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://xlsmith.vercel.app";
+const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://typed-xlsx.vercel.app";
 const { resolve } = createResolver(import.meta.url);
 const shikiOptimizeDeps = [
   "@shikijs/engine-javascript",
@@ -32,7 +32,7 @@ export default defineNuxtConfig({
     },
   },
   alias: {
-    "@xlsmith-package": resolve("../../../packages/core/src/index.ts"),
+    "@typed-xlsx-package": resolve("../../../packages/core/src/index.ts"),
   },
   modules: [
     resolve("../../../node_modules/docus/modules/config.ts"),
@@ -153,7 +153,7 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-07-22",
   llms: {
     domain: siteUrl,
-    title: "xlsmith",
+    title: "typed-xlsx",
     description:
       "Feature-rich, type-safe Excel reporting for TypeScript with schema builders, multi-sheet exports, dynamic formatting, summaries, and reusable report composition.",
   },

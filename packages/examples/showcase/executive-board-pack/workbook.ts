@@ -1,4 +1,4 @@
-import { createWorkbook, spreadsheetThemes } from "xlsmith";
+import { createWorkbook, spreadsheetThemes } from "typed-xlsx";
 import { createExecutiveAccounts } from "./data";
 import { executiveBoardBaseTheme, executiveBoardSchema } from "./schema";
 

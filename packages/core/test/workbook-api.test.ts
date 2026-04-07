@@ -464,7 +464,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "xlsmith-public-buffered-"));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-public-buffered-"));
     const filePath = path.join(directory, "report.xlsx");
 
     await workbook.writeToFile(filePath);

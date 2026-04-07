@@ -1,1 +1,1 @@
-export * from "xlsmith";
+export * from "typed-xlsx";

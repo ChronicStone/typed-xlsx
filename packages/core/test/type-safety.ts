@@ -1,5 +1,5 @@
 /**
- * Type-level safety tests for xlsmith.
+ * Type-level safety tests for typed-xlsx.
  *
  * Not a runtime test file — these assertions are verified by `tsc --noEmit`
  * via `bun run typecheck`. Each `@ts-expect-error` directive must suppress

@@ -1,4 +1,4 @@
-import { createExcelSchema, spreadsheetThemes, type CellStyle } from "xlsmith";
+import { createExcelSchema, spreadsheetThemes, type CellStyle } from "typed-xlsx";
 import type { ExecutiveAccount } from "./data";
 
 const currencyStyle: CellStyle = {

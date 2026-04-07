@@ -1,4 +1,4 @@
-import { createExcelSchema } from "xlsmith";
+import { createExcelSchema } from "typed-xlsx";
 import type { FulfillmentRow } from "./data";
 
 export const fulfillmentExportSchema = createExcelSchema<FulfillmentRow>()

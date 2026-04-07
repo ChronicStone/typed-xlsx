@@ -341,7 +341,7 @@ describe("public stream api", () => {
       rows: [{ value: "line-1" }, { value: "line-2" }],
     });
 
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "xlsmith-public-stream-"));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-public-stream-"));
     const filePath = path.join(directory, "report.xlsx");
 
     await workbook.writeToFile(filePath);

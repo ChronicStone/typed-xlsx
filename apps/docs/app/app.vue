@@ -323,11 +323,11 @@ const { subNavigationMode } = useSubNavigation(navigation);
   background: color-mix(in oklab, var(--ui-primary) 6%, var(--ui-bg) 94%);
 }
 
-.xlsmith-feature-grid [data-slot="root"] {
+.typed-xlsx-feature-grid [data-slot="root"] {
   min-height: 100%;
 }
 
-.xlsmith-live-card [data-slot="body"] {
+.typed-xlsx-live-card [data-slot="body"] {
   padding: 0;
 }
 

@@ -2,7 +2,7 @@ import {
   findGeneratedExampleArtifact,
   getGeneratedExamplesManifest,
   type GeneratedExamplesManifest,
-} from "xlsmith-examples";
+} from "typed-xlsx-examples";
 
 export function useExamplesManifest() {
   return getGeneratedExamplesManifest() as GeneratedExamplesManifest;

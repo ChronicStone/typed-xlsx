@@ -43,7 +43,7 @@ function getSourcePaneKeys(sourceFiles) {
 function normalizeSourceModule(source) {
   return source
     .replaceAll("../../src/_shared/faker", "./_shared/faker")
-    .replaceAll("../../src", "xlsmith");
+    .replaceAll("../../src", "typed-xlsx");
 }
 
 // ---------------------------------------------------------------------------

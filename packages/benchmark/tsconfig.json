@@ -4,9 +4,9 @@
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "xlsmith": ["../core/src/index.ts"],
-      "xlsmith/*": ["../core/src/*"],
-      "xlsmith-examples/*": ["../examples/*"]
+      "typed-xlsx": ["../core/src/index.ts"],
+      "typed-xlsx/*": ["../core/src/*"],
+      "typed-xlsx-examples/*": ["../examples/*"]
     }
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts"]

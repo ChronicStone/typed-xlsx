@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
-const HERO_CODE = `import { createExcelSchema, createWorkbook } from "xlsmith";
+const HERO_CODE = `import { createExcelSchema, createWorkbook } from "typed-xlsx";
 
 type Invoice = {
   id: string;
@@ -264,9 +264,9 @@ const routeCards = [
     cta: "Schema builder",
   },
   {
-    title: "Compare to SheetJS / ExcelJS",
+    title: "Compare typed-xlsx / hucre / others",
     description:
-      "Type safety, formula DSL, native tables, and schema reuse — side by side with the two most popular alternatives.",
+      "See when typed-xlsx wins on advanced typed reporting, and when hucre's broader spreadsheet engine is the better fit.",
     to: "/getting-started/comparison",
     icon: "i-lucide-git-compare-arrows",
     cta: "Library comparison",
@@ -315,7 +315,7 @@ useReveal(rootEl);
             variant="subtle"
             class="w-fit rounded-full px-3 py-1 font-mono text-xs tracking-widest uppercase"
           >
-            xlsmith
+            typed-xlsx
           </UBadge>
         </div>
 
@@ -353,7 +353,7 @@ useReveal(rootEl);
             to="/getting-started/comparison"
             class="border border-default/60"
           >
-            Why xlsmith?
+            Why typed-xlsx?
           </UButton>
         </div>
 
@@ -364,7 +364,7 @@ useReveal(rootEl);
           <code
             class="rounded-xl border border-default/50 bg-elevated/70 px-4 py-2.5 font-mono text-sm text-toned backdrop-blur"
           >
-            npm install xlsmith
+            npm install typed-xlsx
           </code>
           <span class="flex items-center gap-2 text-sm text-toned">
             <span class="size-2 rounded-full bg-primary/80" />MIT license
@@ -436,7 +436,9 @@ useReveal(rootEl);
     <!-- ── WHY TYPED-XLSX ─────────────────────────────────────────────── -->
     <section class="mx-auto mt-16 max-w-[90rem] px-4 sm:mt-20 sm:px-6 lg:mt-24 lg:px-8">
       <div class="reveal mb-8 space-y-3 sm:mb-10 lg:mb-12">
-        <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">Why xlsmith</p>
+        <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
+          Why typed-xlsx
+        </p>
         <h2
           class="text-balance text-3xl font-bold tracking-tight text-highlighted sm:text-4xl lg:text-5xl"
         >
@@ -756,7 +758,7 @@ useReveal(rootEl);
             color="neutral"
             size="xl"
             variant="ghost"
-            to="https://github.com/ChronicStone/xlsmith"
+            to="https://github.com/ChronicStone/typed-xlsx"
             target="_blank"
             icon="i-simple-icons-github"
             class="landing-cta-button border border-default/60"

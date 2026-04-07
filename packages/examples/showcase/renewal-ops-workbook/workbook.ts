@@ -1,4 +1,4 @@
-import { createWorkbook } from "xlsmith";
+import { createWorkbook } from "typed-xlsx";
 import { createRenewalOpportunities } from "./data";
 import { renewalOpsSchema } from "./schema";
 

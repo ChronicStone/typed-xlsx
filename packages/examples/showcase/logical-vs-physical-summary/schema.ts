@@ -1,4 +1,4 @@
-import { createExcelSchema } from "xlsmith";
+import { createExcelSchema } from "typed-xlsx";
 import type { LogicalPhysicalRow } from "./data";
 
 export const logicalVsPhysicalSummarySchema = createExcelSchema<LogicalPhysicalRow>()

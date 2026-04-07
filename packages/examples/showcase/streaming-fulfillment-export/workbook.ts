@@ -1,4 +1,4 @@
-import { createWorkbook } from "xlsmith";
+import { createWorkbook } from "typed-xlsx";
 import { createFulfillmentRows } from "./data";
 import { fulfillmentExportSchema } from "./schema";
 

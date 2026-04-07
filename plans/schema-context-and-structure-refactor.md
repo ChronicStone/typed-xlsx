@@ -1013,7 +1013,7 @@ This refactor changes the user-facing feature surface enough that examples must 
 
 ### Kitchen sink requirements
 
-`packages/xlsmith/examples/kitchen-sink-*` must explicitly demonstrate:
+`packages/core/examples/kitchen-sink-*` must explicitly demonstrate:
 
 - static leaf columns via `column()`
 - structural groups via `group()`

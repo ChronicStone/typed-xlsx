@@ -2,7 +2,7 @@
 
 ## Context
 
-`xlsmith` no longer sits on top of SheetJS. It now owns the OOXML serialization and ZIP assembly pipeline directly, which unlocks Excel-native features that were previously hard or impossible to support cleanly.
+`typed-xlsx` no longer sits on top of SheetJS. It now owns the OOXML serialization and ZIP assembly pipeline directly, which unlocks Excel-native features that were previously hard or impossible to support cleanly.
 
 The next wave of features should preserve the current DX strengths:
 
@@ -32,13 +32,13 @@ As of this roadmap, the library already supports:
 
 Relevant implementation files:
 
-- `packages/xlsmith/src/vnext/schema/builder.ts`
-- `packages/xlsmith/src/vnext/planner/rows.ts`
-- `packages/xlsmith/src/vnext/workbook/buffered.ts`
-- `packages/xlsmith/src/vnext/workbook/stream.ts`
-- `packages/xlsmith/src/vnext/ooxml/cells.ts`
-- `packages/xlsmith/src/vnext/ooxml/worksheet.ts`
-- `packages/xlsmith/src/vnext/ooxml/package.ts`
+- `packages/core/src/vnext/schema/builder.ts`
+- `packages/core/src/vnext/planner/rows.ts`
+- `packages/core/src/vnext/workbook/buffered.ts`
+- `packages/core/src/vnext/workbook/stream.ts`
+- `packages/core/src/vnext/ooxml/cells.ts`
+- `packages/core/src/vnext/ooxml/worksheet.ts`
+- `packages/core/src/vnext/ooxml/package.ts`
 
 ## Key architectural observation
 

@@ -1,5 +1,5 @@
 {
-  "name": "xlsmith-examples",
+  "name": "typed-xlsx-examples",
   "private": true,
   "type": "module",
   "exports": {
@@ -12,7 +12,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "xlsmith": "workspace:*"
+    "typed-xlsx": "workspace:*"
   },
   "devDependencies": {
     "@faker-js/faker": "10.4.0",

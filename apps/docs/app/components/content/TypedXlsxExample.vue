@@ -31,12 +31,12 @@ if (!exampleArtifact) {
 const normalizedDataSource = exampleArtifact.sourceFiles["data.ts"].trim();
 const normalizedSchemaSource = exampleArtifact.sourceFiles["schema.ts"]
   .trim()
-  .replaceAll("../../src", "xlsmith");
+  .replaceAll("../../src", "typed-xlsx");
 const normalizedWorkbookSource = (
   exampleArtifact.sourceFiles["workbook.ts"] || exampleArtifact.sourceFiles["file.ts"]
 )
   .trim()
-  .replaceAll("../../src", "xlsmith");
+  .replaceAll("../../src", "typed-xlsx");
 
 const panes: PaneDefinition[] = [
   { key: "schema", label: "schema.ts" },
@@ -84,7 +84,7 @@ const currentPane = computed(() => panes.find((pane) => pane.key === activePane.
 const currentPaneSource = computed(() => buildPaneSource(currentPane.value.key));
 const sourceUrl = computed(
   () =>
-    `https://github.com/ChronicStone/xlsmith/tree/main/packages/examples/showcase/${props.fileKey}`,
+    `https://github.com/ChronicStone/typed-xlsx/tree/main/packages/examples/showcase/${props.fileKey}`,
 );
 const workbookUrl = computed(() => `/generated/examples/reports/${exampleArtifact.reportPath}`);
 const previewWorkbookUrl = computed(() => {
@@ -125,22 +125,22 @@ onBeforeUnmount(stopDragging);
 </script>
 
 <template>
-  <div class="xlsmith-example">
+  <div class="typed-xlsx-example">
     <UPageCard
       spotlight
-      class="xlsmith-live-card overflow-hidden rounded-[1.75rem] border border-default/70 bg-default/90"
+      class="typed-xlsx-live-card overflow-hidden rounded-[1.75rem] border border-default/70 bg-default/90"
     >
-      <div class="xlsmith-example__toolbar">
+      <div class="typed-xlsx-example__toolbar">
         <div>
-          <p class="xlsmith-example__eyebrow">Live example</p>
-          <h3 class="xlsmith-example__title">Financial report source + workbook preview</h3>
-          <p class="xlsmith-example__copy">
+          <p class="typed-xlsx-example__eyebrow">Live example</p>
+          <h3 class="typed-xlsx-example__title">Financial report source + workbook preview</h3>
+          <p class="typed-xlsx-example__copy">
             Browse the exact schema, data, and file builder source while previewing the generated
             workbook.
           </p>
         </div>
 
-        <div class="xlsmith-example__actions">
+        <div class="typed-xlsx-example__actions">
           <UButton
             color="primary"
             variant="soft"
@@ -163,9 +163,9 @@ onBeforeUnmount(stopDragging);
       </div>
     </UPageCard>
 
-    <div ref="container" class="xlsmith-example__split" :style="splitStyle">
-      <section class="xlsmith-example__pane xlsmith-example__pane--code">
-        <div class="xlsmith-example__tabs">
+    <div ref="container" class="typed-xlsx-example__split" :style="splitStyle">
+      <section class="typed-xlsx-example__pane typed-xlsx-example__pane--code">
+        <div class="typed-xlsx-example__tabs">
           <UButton
             v-for="pane in panes"
             :key="pane.key"
@@ -178,18 +178,18 @@ onBeforeUnmount(stopDragging);
           </UButton>
         </div>
 
-        <div class="xlsmith-example__code-wrap">
+        <div class="typed-xlsx-example__code-wrap">
           <MdcCodeBlock
             :code="currentPaneSource"
             lang="ts"
             twoslash
-            class="xlsmith-example__code-html"
+            class="typed-xlsx-example__code-html"
           />
         </div>
       </section>
 
       <button
-        class="xlsmith-example__divider"
+        class="typed-xlsx-example__divider"
         type="button"
         aria-label="Resize example panels"
         @pointerdown.prevent="startDragging"
@@ -197,35 +197,35 @@ onBeforeUnmount(stopDragging);
         <span />
       </button>
 
-      <section class="xlsmith-example__pane xlsmith-example__pane--preview">
-        <div class="xlsmith-example__preview-header">
+      <section class="typed-xlsx-example__pane typed-xlsx-example__pane--preview">
+        <div class="typed-xlsx-example__preview-header">
           <span>Workbook preview</span>
           <UBadge color="primary" variant="subtle">Excel</UBadge>
         </div>
 
-        <div class="xlsmith-example__preview-stage" :class="{ 'is-dragging': dragging }">
+        <div class="typed-xlsx-example__preview-stage" :class="{ 'is-dragging': dragging }">
           <iframe
             v-if="!iframeFailed"
             :src="iframeUrl"
             v-show="!dragging"
-            class="xlsmith-example__iframe"
+            class="typed-xlsx-example__iframe"
             loading="lazy"
-            title="xlsmith financial report preview"
+            title="typed-xlsx financial report preview"
             @error="iframeFailed = true"
           />
 
           <div
             v-if="dragging && !iframeFailed"
-            class="xlsmith-example__preview-overlay"
+            class="typed-xlsx-example__preview-overlay"
             aria-live="polite"
           >
-            <span class="xlsmith-example__preview-overlay-badge">Preview paused</span>
+            <span class="typed-xlsx-example__preview-overlay-badge">Preview paused</span>
             <p>Release the divider to redraw the workbook.</p>
           </div>
 
-          <div v-if="iframeFailed" class="xlsmith-example__fallback">
+          <div v-if="iframeFailed" class="typed-xlsx-example__fallback">
             <p>Microsoft’s viewer could not load the workbook preview.</p>
-            <div class="xlsmith-example__actions">
+            <div class="typed-xlsx-example__actions">
               <UButton color="primary" :to="workbookUrl" target="_blank">Open workbook</UButton>
               <UButton color="neutral" variant="outline" :to="sourceUrl" target="_blank">
                 Browse examples
@@ -239,12 +239,12 @@ onBeforeUnmount(stopDragging);
 </template>
 
 <style scoped>
-.xlsmith-example {
+.typed-xlsx-example {
   display: grid;
   gap: 1rem;
 }
 
-.xlsmith-example__toolbar {
+.typed-xlsx-example__toolbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -252,7 +252,7 @@ onBeforeUnmount(stopDragging);
   padding: 1.25rem;
 }
 
-.xlsmith-example__eyebrow {
+.typed-xlsx-example__eyebrow {
   margin: 0 0 0.3rem;
   font-size: 0.7rem;
   font-weight: 700;
@@ -261,27 +261,27 @@ onBeforeUnmount(stopDragging);
   color: color-mix(in oklab, var(--ui-primary) 75%, var(--ui-text) 25%);
 }
 
-.xlsmith-example__title {
+.typed-xlsx-example__title {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--ui-text-highlighted);
 }
 
-.xlsmith-example__copy {
+.typed-xlsx-example__copy {
   margin: 0.4rem 0 0;
   max-width: 42rem;
   color: var(--ui-text-toned);
 }
 
-.xlsmith-example__actions {
+.typed-xlsx-example__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
 }
 
-.xlsmith-example__split {
+.typed-xlsx-example__split {
   display: grid;
   min-height: 680px;
   max-height: 860px;
@@ -295,18 +295,18 @@ onBeforeUnmount(stopDragging);
   );
 }
 
-.xlsmith-example__pane {
+.typed-xlsx-example__pane {
   min-width: 0;
   min-height: 0;
 }
 
-.xlsmith-example__pane--code {
+.typed-xlsx-example__pane--code {
   display: flex;
   flex-direction: column;
   background: color-mix(in oklab, var(--ui-bg) 97%, white 3%);
 }
 
-.xlsmith-example__tabs {
+.typed-xlsx-example__tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -315,16 +315,16 @@ onBeforeUnmount(stopDragging);
   background: color-mix(in oklab, var(--ui-bg-elevated) 70%, transparent);
 }
 
-.xlsmith-example__code-wrap {
+.typed-xlsx-example__code-wrap {
   min-height: 0;
   overflow: auto;
 }
 
-.xlsmith-example__code-html {
+.typed-xlsx-example__code-html {
   min-height: 100%;
 }
 
-.xlsmith-example__code-html:deep(pre.shiki) {
+.typed-xlsx-example__code-html:deep(pre.shiki) {
   margin: 0;
   min-height: 100%;
   min-width: max-content;
@@ -337,16 +337,16 @@ onBeforeUnmount(stopDragging);
   line-height: 1.7;
 }
 
-.xlsmith-example__code-html:deep(pre.shiki code) {
+.typed-xlsx-example__code-html:deep(pre.shiki code) {
   display: block;
   min-height: 100%;
 }
 
-.xlsmith-example__code-html:deep(.line) {
+.typed-xlsx-example__code-html:deep(.line) {
   min-height: 1.7em;
 }
 
-.xlsmith-example__divider {
+.typed-xlsx-example__divider {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -356,20 +356,20 @@ onBeforeUnmount(stopDragging);
   cursor: col-resize;
 }
 
-.xlsmith-example__divider span {
+.typed-xlsx-example__divider span {
   width: 4px;
   height: 56px;
   border-radius: 999px;
   background: color-mix(in oklab, var(--ui-primary) 24%, white 18%);
 }
 
-.xlsmith-example__pane--preview {
+.typed-xlsx-example__pane--preview {
   display: flex;
   flex-direction: column;
   background: color-mix(in oklab, var(--ui-bg) 99%, white 1%);
 }
 
-.xlsmith-example__preview-header {
+.typed-xlsx-example__preview-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -380,7 +380,7 @@ onBeforeUnmount(stopDragging);
   font-weight: 600;
 }
 
-.xlsmith-example__preview-stage {
+.typed-xlsx-example__preview-stage {
   position: relative;
   display: flex;
   flex: 1;
@@ -388,11 +388,11 @@ onBeforeUnmount(stopDragging);
   background: linear-gradient(180deg, rgb(255 255 255 / 0.92), rgb(247 247 245 / 0.98));
 }
 
-.dark .xlsmith-example__preview-stage {
+.dark .typed-xlsx-example__preview-stage {
   background: linear-gradient(180deg, rgb(30 30 26 / 0.96), rgb(20 20 18 / 0.98));
 }
 
-.xlsmith-example__iframe {
+.typed-xlsx-example__iframe {
   flex: 1;
   width: 100%;
   min-height: 560px;
@@ -400,7 +400,7 @@ onBeforeUnmount(stopDragging);
   background: white;
 }
 
-.xlsmith-example__preview-overlay {
+.typed-xlsx-example__preview-overlay {
   position: absolute;
   inset: 0;
   display: grid;
@@ -413,11 +413,11 @@ onBeforeUnmount(stopDragging);
   color: var(--ui-text-highlighted);
 }
 
-.dark .xlsmith-example__preview-overlay {
+.dark .typed-xlsx-example__preview-overlay {
   background: linear-gradient(180deg, rgb(24 24 20 / 0.86), rgb(18 18 16 / 0.92));
 }
 
-.xlsmith-example__preview-overlay-badge {
+.typed-xlsx-example__preview-overlay-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -431,13 +431,13 @@ onBeforeUnmount(stopDragging);
   text-transform: uppercase;
 }
 
-.xlsmith-example__preview-overlay p {
+.typed-xlsx-example__preview-overlay p {
   margin: 0;
   max-width: 18rem;
   color: var(--ui-text-toned);
 }
 
-.xlsmith-example__fallback {
+.typed-xlsx-example__fallback {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -450,25 +450,25 @@ onBeforeUnmount(stopDragging);
 }
 
 @media (max-width: 1023px) {
-  .xlsmith-example__split {
+  .typed-xlsx-example__split {
     grid-template-columns: 1fr !important;
     min-height: auto;
     max-height: none;
   }
 
-  .xlsmith-example__divider {
+  .typed-xlsx-example__divider {
     display: none;
   }
 
-  .xlsmith-example__pane--code {
+  .typed-xlsx-example__pane--code {
     min-height: 24rem;
   }
 
-  .xlsmith-example__pane--preview {
+  .typed-xlsx-example__pane--preview {
     min-height: 26rem;
   }
 
-  .xlsmith-example__iframe {
+  .typed-xlsx-example__iframe {
     min-height: 420px;
   }
 }

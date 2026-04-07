@@ -1,5 +1,5 @@
 {
-  "name": "xlsmith-benchmark",
+  "name": "typed-xlsx-benchmark",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,8 +10,8 @@
     "check": "tsc --noEmit && bun run build"
   },
   "dependencies": {
-    "xlsmith": "workspace:*",
-    "xlsmith-examples": "workspace:*"
+    "typed-xlsx": "workspace:*",
+    "typed-xlsx-examples": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "25.5.0"

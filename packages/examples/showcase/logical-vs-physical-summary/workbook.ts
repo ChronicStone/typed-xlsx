@@ -1,4 +1,4 @@
-import { createWorkbook } from "xlsmith";
+import { createWorkbook } from "typed-xlsx";
 import { createLogicalPhysicalRows } from "./data";
 import { logicalVsPhysicalSummarySchema } from "./schema";
 

@@ -1,5 +1,5 @@
 {
-  "name": "xlsmith-docs",
+  "name": "typed-xlsx-docs",
   "private": true,
   "scripts": {
     "sync:workspace": "node scripts/sync-workspace-artifacts.mjs",
@@ -23,8 +23,8 @@
     "nuxt": "4.4.2",
     "nuxt-content-twoslash": "0.4.0",
     "shiki": "4.0.2",
-    "xlsmith": "workspace:*",
-    "xlsmith-examples": "workspace:*",
+    "typed-xlsx": "workspace:*",
+    "typed-xlsx-examples": "workspace:*",
     "zod": "4.3.6",
     "zod-to-json-schema": "3.25.2"
   },

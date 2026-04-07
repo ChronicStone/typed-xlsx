@@ -7,48 +7,48 @@
     "outputBytes": 64168045,
     "spoolDirectory": "reports/stream/files/100000-rows-spool",
     "spoolBytes": 55828634,
-    "commitMs": 11363.397542,
-    "finishMs": 7244.359375,
-    "totalMs": 18607.760583,
-    "rowsPerSecond": 5374.101819181817,
-    "peakRssMb": 472.3,
-    "peakHeapUsedMb": 154.96,
-    "peakExternalMb": 60.27,
-    "peakArrayBuffersMb": 0.59,
+    "commitMs": 7958.409542,
+    "finishMs": 7327.522667,
+    "totalMs": 15285.935084,
+    "rowsPerSecond": 6541.961577782139,
+    "peakRssMb": 594.27,
+    "peakHeapUsedMb": 147.9,
+    "peakExternalMb": 59.05,
+    "peakArrayBuffersMb": 1.27,
     "checkpoints": [
       {
         "label": "start",
-        "rssMb": 40.36,
-        "heapUsedMb": 1.53,
-        "externalMb": 0.47,
+        "rssMb": 49.86,
+        "heapUsedMb": 1.52,
+        "externalMb": 0.46,
         "arrayBuffersMb": 0
       },
       {
         "label": "after batch 1 (10,000 rows)",
-        "rssMb": 122.36,
-        "heapUsedMb": 14.81,
-        "externalMb": 1.75,
+        "rssMb": 123.42,
+        "heapUsedMb": 14.93,
+        "externalMb": 1.74,
         "arrayBuffersMb": 0.54
       },
       {
         "label": "after batch 10 (100,000 rows)",
-        "rssMb": 204.88,
-        "heapUsedMb": 36.45,
-        "externalMb": 2.96,
-        "arrayBuffersMb": 0.59
+        "rssMb": 206.19,
+        "heapUsedMb": 46.03,
+        "externalMb": 4.11,
+        "arrayBuffersMb": 1.27
       },
       {
         "label": "before finish",
-        "rssMb": 204.88,
-        "heapUsedMb": 36.45,
-        "externalMb": 2.96,
-        "arrayBuffersMb": 0.59
+        "rssMb": 206.19,
+        "heapUsedMb": 46.03,
+        "externalMb": 4.11,
+        "arrayBuffersMb": 1.27
       },
       {
         "label": "after finish",
-        "rssMb": 472.3,
-        "heapUsedMb": 154.96,
-        "externalMb": 60.27,
+        "rssMb": 594.27,
+        "heapUsedMb": 147.9,
+        "externalMb": 59.05,
         "arrayBuffersMb": 0
       }
     ]
@@ -61,76 +61,76 @@
     "outputBytes": 325437856,
     "spoolDirectory": "reports/stream/files/500000-rows-spool",
     "spoolBytes": 284818598,
-    "commitMs": 29622.329999999998,
-    "finishMs": 32504.517874999998,
-    "totalMs": 62126.861333,
-    "rowsPerSecond": 8048.048610085094,
-    "peakRssMb": 1911.03,
-    "peakHeapUsedMb": 708.88,
-    "peakExternalMb": 290.67,
-    "peakArrayBuffersMb": 2.35,
+    "commitMs": 36707.35,
+    "finishMs": 37619.123583,
+    "totalMs": 74326.487542,
+    "rowsPerSecond": 6727.076934954886,
+    "peakRssMb": 1868.36,
+    "peakHeapUsedMb": 708.03,
+    "peakExternalMb": 290.52,
+    "peakArrayBuffersMb": 3.6,
     "checkpoints": [
       {
         "label": "start",
-        "rssMb": 48.97,
-        "heapUsedMb": 0.96,
-        "externalMb": 0.31,
+        "rssMb": 48.8,
+        "heapUsedMb": 1.53,
+        "externalMb": 0.47,
         "arrayBuffersMb": 0
       },
       {
         "label": "after batch 1 (10,000 rows)",
-        "rssMb": 133.5,
-        "heapUsedMb": 14.65,
-        "externalMb": 1.74,
+        "rssMb": 132.63,
+        "heapUsedMb": 14.58,
+        "externalMb": 1.71,
         "arrayBuffersMb": 0.54
       },
       {
         "label": "after batch 10 (100,000 rows)",
-        "rssMb": 225.59,
-        "heapUsedMb": 56.43,
-        "externalMb": 5.36,
+        "rssMb": 224.84,
+        "heapUsedMb": 56.72,
+        "externalMb": 5.37,
         "arrayBuffersMb": 2.32
       },
       {
         "label": "after batch 20 (200,000 rows)",
-        "rssMb": 293.36,
-        "heapUsedMb": 69.97,
-        "externalMb": 4.78,
-        "arrayBuffersMb": 1.02
+        "rssMb": 336.38,
+        "heapUsedMb": 75.03,
+        "externalMb": 5.33,
+        "arrayBuffersMb": 1.37
       },
       {
         "label": "after batch 30 (300,000 rows)",
-        "rssMb": 395.7,
-        "heapUsedMb": 105.31,
-        "externalMb": 7.73,
-        "arrayBuffersMb": 2.35
+        "rssMb": 371.23,
+        "heapUsedMb": 119.95,
+        "externalMb": 9.61,
+        "arrayBuffersMb": 3.6
       },
       {
         "label": "after batch 40 (400,000 rows)",
-        "rssMb": 466.48,
-        "heapUsedMb": 129.97,
-        "externalMb": 6.79,
-        "arrayBuffersMb": 0.74
+        "rssMb": 462.77,
+        "heapUsedMb": 129.54,
+        "externalMb": 7.81,
+        "arrayBuffersMb": 1.56
       },
       {
         "label": "after batch 50 (500,000 rows)",
-        "rssMb": 557.66,
-        "heapUsedMb": 140.24,
-        "externalMb": 7.49,
-        "arrayBuffersMb": 0.52
+        "rssMb": 521.44,
+        "heapUsedMb": 156.26,
+        "externalMb": 9.46,
+        "arrayBuffersMb": 1.9
       },
       {
         "label": "before finish",
-        "rssMb": 557.66,
-        "heapUsedMb": 140.24,
-        "externalMb": 7.49,
-        "arrayBuffersMb": 0.52
+        "rssMb": 521.44,
+        "heapUsedMb": 156.26,
+        "externalMb": 9.46,
+        "arrayBuffersMb": 1.9
       },
       {
         "label": "after finish",
-        "rssMb": 1911.03,
-        "heapUsedMb": 708.88,
-        "externalMb": 290.67,
+        "rssMb": 1868.36,
+        "heapUsedMb": 708.03,
+        "externalMb": 290.52,
         "arrayBuffersMb": 0
       }
     ]

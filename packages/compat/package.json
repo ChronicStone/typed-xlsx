@@ -1,20 +1,20 @@
 {
-  "name": "@chronicstone/typed-xlsx",
+  "name": "xlsmith",
   "version": "2.0.1",
-  "description": "Deprecated compatibility package. Moved to xlsmith.",
+  "description": "Deprecated compatibility package. Moved to typed-xlsx.",
   "keywords": [
     "excel",
     "reporting",
     "typescript",
     "xlsx"
   ],
-  "homepage": "https://xlsmith.vercel.app/",
-  "bugs": "https://github.com/ChronicStone/xlsmith/issues",
+  "homepage": "https://typed-xlsx.vercel.app/",
+  "bugs": "https://github.com/ChronicStone/typed-xlsx/issues",
   "license": "MIT",
   "author": "ChronicStone <cthao.pro@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ChronicStone/xlsmith",
+    "url": "https://github.com/ChronicStone/typed-xlsx",
     "directory": "packages/compat"
   },
   "files": [
@@ -40,6 +40,6 @@
     "check": "npm pack --dry-run"
   },
   "dependencies": {
-    "xlsmith": "workspace:*"
+    "typed-xlsx": "2.0.0"
   }
 }

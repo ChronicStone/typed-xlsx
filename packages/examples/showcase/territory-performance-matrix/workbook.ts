@@ -1,4 +1,4 @@
-import { createWorkbook } from "xlsmith";
+import { createWorkbook } from "typed-xlsx";
 import { createTerritoryRows } from "./data";
 import { territoryPerformanceSchema } from "./schema";
 

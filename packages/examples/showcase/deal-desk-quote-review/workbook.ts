@@ -1,4 +1,4 @@
-import { createWorkbook } from "xlsmith";
+import { createWorkbook } from "typed-xlsx";
 import { createQuoteReviews } from "./data";
 import { dealDeskApprovalSchema, dealDeskQuoteSchema } from "./schema";
 

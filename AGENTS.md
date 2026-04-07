@@ -16,7 +16,7 @@
 
 ## Examples
 
-- `packages/xlsmith/examples/kitchen-sink-*` must reflect the current user-facing feature surface.
+- `packages/core/examples/kitchen-sink-*` must reflect the current user-facing feature surface.
 - Any new user-facing feature must be reflected in the kitchen-sink example unless there is a clear, documented reason not to.
 - If a feature is intentionally omitted from kitchen sink, explain why in the PR or working notes.
 - Prefer one focused kitchen-sink usage per feature rather than many redundant variations.

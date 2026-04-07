@@ -201,7 +201,7 @@ watch(artifactId, () => {
 useSeo({
   title: computed(() => `${artifact.value?.title ?? "Artifact"} Playground`),
   description: computed(
-    () => artifact.value?.description ?? "Generated xlsmith artifact playground.",
+    () => artifact.value?.description ?? "Generated typed-xlsx artifact playground.",
   ),
   type: "website",
 });

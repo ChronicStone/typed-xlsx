@@ -1,4 +1,4 @@
-import { createWorkbookStream } from "xlsmith";
+import { createWorkbookStream } from "typed-xlsx";
 import fs from "node:fs/promises";
 import { createFulfillmentRows } from "./data";
 import { fulfillmentExportSchema } from "./schema";

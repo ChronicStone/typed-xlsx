@@ -1,10 +1,10 @@
 ---
-"xlsmith": major
-"@chronicstone/typed-xlsx": patch
+"typed-xlsx": major
+"xlsmith": patch
 ---
 
-Rename the public package from `@chronicstone/typed-xlsx` to `xlsmith`.
+Restore `typed-xlsx` as the canonical public package name.
 
 The API stays the same. Consumers only need to update their package install command and import path.
 
-Publish a compatibility release for `@chronicstone/typed-xlsx` that re-exports `xlsmith`, and deprecate the old package on npm.
+Publish a compatibility release for `xlsmith` that re-exports `typed-xlsx`, and deprecate both transition package names on npm.

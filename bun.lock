@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "xlsmith-workspace",
+      "name": "typed-xlsx-workspace",
       "devDependencies": {
         "@changesets/changelog-github": "0.6.0",
         "@changesets/cli": "2.30.0",
@@ -13,7 +13,7 @@
       },
     },
     "apps/docs": {
-      "name": "xlsmith-docs",
+      "name": "typed-xlsx-docs",
       "dependencies": {
         "@barzhsieh/nuxt-content-mermaid": "2.2.3",
         "@shikijs/vitepress-twoslash": "4.0.2",
@@ -24,31 +24,31 @@
         "nuxt": "4.4.2",
         "nuxt-content-twoslash": "0.4.0",
         "shiki": "4.0.2",
-        "xlsmith": "workspace:*",
-        "xlsmith-examples": "workspace:*",
+        "typed-xlsx": "workspace:*",
+        "typed-xlsx-examples": "workspace:*",
         "zod": "4.3.6",
         "zod-to-json-schema": "3.25.2",
       },
     },
     "packages/benchmark": {
-      "name": "xlsmith-benchmark",
+      "name": "typed-xlsx-benchmark",
       "dependencies": {
-        "xlsmith": "workspace:*",
-        "xlsmith-examples": "workspace:*",
+        "typed-xlsx": "workspace:*",
+        "typed-xlsx-examples": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "25.5.0",
       },
     },
     "packages/compat": {
-      "name": "@chronicstone/typed-xlsx",
+      "name": "xlsmith",
       "version": "2.0.1",
       "dependencies": {
-        "xlsmith": "workspace:*",
+        "typed-xlsx": "workspace:*",
       },
     },
     "packages/core": {
-      "name": "xlsmith",
+      "name": "typed-xlsx",
       "version": "2.0.0",
       "devDependencies": {
         "@faker-js/faker": "10.4.0",
@@ -59,9 +59,9 @@
       },
     },
     "packages/examples": {
-      "name": "xlsmith-examples",
+      "name": "typed-xlsx-examples",
       "dependencies": {
-        "xlsmith": "workspace:*",
+        "typed-xlsx": "workspace:*",
       },
       "devDependencies": {
         "@faker-js/faker": "10.4.0",
@@ -195,8 +195,6 @@
     "@chevrotain/types": ["@chevrotain/types@11.1.2", "", {}, "sha512-U+HFai5+zmJCkK86QsaJtoITlboZHBqrVketcO2ROv865xfCMSFpELQoz1GkX5GzME8pTa+3kbKrZHQtI0gdbw=="],
 
     "@chevrotain/utils": ["@chevrotain/utils@11.1.2", "", {}, "sha512-4mudFAQ6H+MqBTfqLmU7G1ZwRzCLfJEooL/fsF6rCX5eePMbGhoy5n4g+G4vlh2muDcsCTJtL+uKbOzWxs5LHA=="],
-
-    "@chronicstone/typed-xlsx": ["@chronicstone/typed-xlsx@workspace:packages/compat"],
 
     "@clack/core": ["@clack/core@1.1.0", "", { "dependencies": { "sisteransi": "^1.0.5" } }, "sha512-SVcm4Dqm2ukn64/8Gub2wnlA5nS2iWJyCkdNHcvNHPIeBTGojpdJ+9cZKwLfmqy7irD4N5qLteSilJlE0WLAtA=="],
 
@@ -2898,6 +2896,14 @@
 
     "typed-array-buffer": ["typed-array-buffer@1.0.3", "", { "dependencies": { "call-bound": "^1.0.3", "es-errors": "^1.3.0", "is-typed-array": "^1.1.14" } }, "sha512-nAYYwfY3qnzX30IkA6AQZjVbtK6duGontcQm1WSG1MD94YLqK0515GNApXkoxKOWMusVssAHWLh9SeaoefYFGw=="],
 
+    "typed-xlsx": ["typed-xlsx@workspace:packages/core"],
+
+    "typed-xlsx-benchmark": ["typed-xlsx-benchmark@workspace:packages/benchmark"],
+
+    "typed-xlsx-docs": ["typed-xlsx-docs@workspace:apps/docs"],
+
+    "typed-xlsx-examples": ["typed-xlsx-examples@workspace:packages/examples"],
+
     "typescript": ["typescript@6.0.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ=="],
 
     "uc.micro": ["uc.micro@2.1.0", "", {}, "sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A=="],
@@ -3062,13 +3068,7 @@
 
     "wsl-utils": ["wsl-utils@0.1.0", "", { "dependencies": { "is-wsl": "^3.1.0" } }, "sha512-h3Fbisa2nKGPxCpm89Hk33lBLsnaGBvctQopaBSOW/uIs6FTe1ATyAnKFJrzVs9vpGdsTe73WF3V4lIsk4Gacw=="],
 
-    "xlsmith": ["xlsmith@workspace:packages/core"],
-
-    "xlsmith-benchmark": ["xlsmith-benchmark@workspace:packages/benchmark"],
-
-    "xlsmith-docs": ["xlsmith-docs@workspace:apps/docs"],
-
-    "xlsmith-examples": ["xlsmith-examples@workspace:packages/examples"],
+    "xlsmith": ["xlsmith@workspace:packages/compat"],
 
     "xmlhttprequest-ssl": ["xmlhttprequest-ssl@2.1.2", "", {}, "sha512-TEU+nJVUUnA4CYJFLvK5X9AOeH4KvDvhIfm0vV1GaQRtchnG0hgK5p8hw/xjv8cunWYCsiPCSDzObPyhEwq3KQ=="],
 

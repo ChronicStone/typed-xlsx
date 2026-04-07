@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { createWorkbookStream } from "xlsmith";
+import { createWorkbookStream } from "typed-xlsx";
 import { createStreamBenchmarkBatch, createStreamBenchmarkSchema } from "../cases/stream/data";
 
 export interface MemoryPoint {
