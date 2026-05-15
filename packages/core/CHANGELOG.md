@@ -1,5 +1,19 @@
 # typed-xlsx
 
+## 3.0.0
+
+### Major Changes
+
+- [`1a39b5c`](https://github.com/ChronicStone/typed-xlsx/commit/1a39b5cac47165e97c39d19c0b08840f00de33ef) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Restore `typed-xlsx` as the canonical public package name.
+
+  The API stays the same. Consumers only need to update their package install command and import path.
+
+### Patch Changes
+
+- [#47](https://github.com/ChronicStone/typed-xlsx/pull/47) [`4e09990`](https://github.com/ChronicStone/typed-xlsx/commit/4e099901b2ab2a4185b59389a8b95388da44c6ff) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Avoid top-level Node.js built-in imports from the browser-facing package entry.
+
+  Node-only APIs such as `toNodeReadable()` and file-backed streaming still work in Node.js, while browser builds can import and bundle `typed-xlsx` without resolving `node:stream`.
+
 ## 2.0.0
 
 ### Major Changes

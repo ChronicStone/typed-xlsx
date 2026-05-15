@@ -40,16 +40,9 @@
         "@types/node": "25.5.0",
       },
     },
-    "packages/compat": {
-      "name": "xlsmith",
-      "version": "2.0.1",
-      "dependencies": {
-        "typed-xlsx": "workspace:*",
-      },
-    },
     "packages/core": {
       "name": "typed-xlsx",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "devDependencies": {
         "@faker-js/faker": "10.4.0",
         "@types/node": "25.5.0",
@@ -3067,8 +3060,6 @@
     "ws": ["ws@8.20.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA=="],
 
     "wsl-utils": ["wsl-utils@0.1.0", "", { "dependencies": { "is-wsl": "^3.1.0" } }, "sha512-h3Fbisa2nKGPxCpm89Hk33lBLsnaGBvctQopaBSOW/uIs6FTe1ATyAnKFJrzVs9vpGdsTe73WF3V4lIsk4Gacw=="],
-
-    "xlsmith": ["xlsmith@workspace:packages/compat"],
 
     "xmlhttprequest-ssl": ["xmlhttprequest-ssl@2.1.2", "", {}, "sha512-TEU+nJVUUnA4CYJFLvK5X9AOeH4KvDvhIfm0vV1GaQRtchnG0hgK5p8hw/xjv8cunWYCsiPCSDzObPyhEwq3KQ=="],
 
