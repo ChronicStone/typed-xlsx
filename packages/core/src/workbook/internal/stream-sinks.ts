@@ -1,5 +1,52 @@
-import { Readable } from "node:stream";
 import type { StreamWorkbookSink } from "../types";
+
+const nodeStreamSpecifier = `${"node:"}stream`;
+
+type NodeReadableModule = {
+  Readable: {
+    from(source: AsyncIterable<Uint8Array>): NodeJS.ReadableStream;
+  };
+};
+
+function isNodeReadableModule(value: unknown): value is NodeReadableModule {
+  const readable = (value as { Readable?: unknown } | undefined)?.Readable;
+  const readableFrom = (readable as { from?: unknown } | undefined)?.from;
+
+  return (
+    (typeof value === "object" || typeof value === "function") &&
+    value !== null &&
+    typeof readable === "function" &&
+    typeof readableFrom === "function"
+  );
+}
+
+function getNodeReadableModule() {
+  const processLike =
+    typeof process === "object"
+      ? process
+      : ((globalThis as { process?: { getBuiltinModule?: (specifier: string) => unknown } })
+          .process ?? undefined);
+
+  const builtInModule =
+    processLike?.getBuiltinModule?.(nodeStreamSpecifier) ??
+    processLike?.getBuiltinModule?.("stream");
+
+  if (isNodeReadableModule(builtInModule)) {
+    return builtInModule;
+  }
+
+  const requireLike = (globalThis as { require?: unknown }).require;
+  if (typeof requireLike === "function") {
+    const requiredModule = requireLike(nodeStreamSpecifier);
+    if (isNodeReadableModule(requiredModule)) {
+      return requiredModule;
+    }
+  }
+
+  throw new Error(
+    "toNodeReadable() requires a Node.js-compatible stream module. Use toReadableStream() in browser runtimes.",
+  );
+}
 
 export class NodeWritableWorkbookSink implements StreamWorkbookSink {
   constructor(private readonly writable: NodeJS.WritableStream) {}
@@ -125,7 +172,8 @@ export class WorkbookByteStream implements StreamWorkbookSink, AsyncIterable<Uin
     }
   }
 
-  toNodeReadable() {
+  toNodeReadable(): NodeJS.ReadableStream {
+    const { Readable } = getNodeReadableModule();
     return Readable.from(this);
   }
 

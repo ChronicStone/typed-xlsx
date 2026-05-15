@@ -1,4 +1,3 @@
-import { writeFile } from "node:fs/promises";
 import type {
   ExcelTableSchemaDefinition,
   ReportSchemaDefinition,
@@ -21,18 +20,19 @@ import type {
   SheetViewOptions,
   StreamExcelTableInput,
   StreamReportTableInput,
+  StreamSheetSpool,
+  StreamSpoolFactory,
+  StreamWorkbookSink,
   TableStyleDefaults,
   TableSelection,
   WorkbookProtectionInput,
 } from "./workbook/types";
-import { FileSpoolFactory } from "./workbook/internal/file-spool";
 import { MemorySpoolFactory } from "./workbook/internal/memory";
 import {
   NodeWritableWorkbookSink,
   WebWritableWorkbookSink,
   WorkbookByteStream,
 } from "./workbook/internal/stream-sinks";
-import { FileWorkbookSink } from "./workbook/internal/file-sink";
 import type { SpreadsheetTheme } from "./styles/theme";
 
 export interface WorkbookOptions {
@@ -237,6 +237,113 @@ export interface WorkbookStream {
   toNodeReadable(): NodeJS.ReadableStream;
 }
 
+const nodeProtocol = "node:";
+
+function importNodeFs() {
+  return import(`${nodeProtocol}fs`) as Promise<typeof import("node:fs")>;
+}
+
+function importNodeFsPromises() {
+  return import(`${nodeProtocol}fs/promises`) as Promise<typeof import("node:fs/promises")>;
+}
+
+function importNodeOs() {
+  return import(`${nodeProtocol}os`) as Promise<typeof import("node:os")>;
+}
+
+function importNodePath() {
+  return import(`${nodeProtocol}path`) as Promise<typeof import("node:path")>;
+}
+
+function sanitizeFileName(value: string) {
+  return value.replaceAll(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+class LazyFileSheetSpool implements StreamSheetSpool {
+  private handlePromise: Promise<import("node:fs/promises").FileHandle> | undefined;
+  private closed = false;
+
+  constructor(private readonly filePath: string) {}
+
+  private async handle() {
+    const fsp = await importNodeFsPromises();
+    this.handlePromise ??= fsp.open(this.filePath, "a+");
+    return await this.handlePromise;
+  }
+
+  async append(chunk: Uint8Array) {
+    const handle = await this.handle();
+    await handle.write(chunk, 0, chunk.length, null);
+  }
+
+  async *read(): AsyncIterable<Uint8Array> {
+    const fs = await importNodeFs();
+    const stream = fs.createReadStream(this.filePath);
+
+    for await (const chunk of stream) {
+      yield chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+    }
+  }
+
+  async close() {
+    if (this.closed) return;
+    this.closed = true;
+    const handle = await this.handle();
+    await handle.close();
+  }
+}
+
+class LazyFileSpoolFactory implements StreamSpoolFactory {
+  private directoryPromise: Promise<string> | undefined;
+
+  constructor(private readonly directory: string | undefined) {}
+
+  private async resolveDirectory() {
+    if (this.directory) return this.directory;
+
+    this.directoryPromise ??= Promise.all([importNodeOs(), importNodePath()]).then(([os, path]) =>
+      path.join(os.tmpdir(), `typed-xlsx-spool-${Date.now().toString(36)}`),
+    );
+
+    return await this.directoryPromise;
+  }
+
+  async create(sheetName: string): Promise<StreamSheetSpool> {
+    const [fsp, path, directory] = await Promise.all([
+      importNodeFsPromises(),
+      importNodePath(),
+      this.resolveDirectory(),
+    ]);
+    await fsp.mkdir(directory, { recursive: true });
+    const filePath = path.join(directory, `${sanitizeFileName(sheetName)}.spool`);
+    await fsp.writeFile(filePath, "");
+    return new LazyFileSheetSpool(filePath);
+  }
+}
+
+class LazyFileWorkbookSink implements StreamWorkbookSink {
+  private initialized = false;
+
+  constructor(private readonly filePath: string) {}
+
+  async write(chunk: Uint8Array) {
+    const [fsp, path] = await Promise.all([importNodeFsPromises(), importNodePath()]);
+    await fsp.mkdir(path.dirname(this.filePath), { recursive: true });
+
+    if (!this.initialized) {
+      await fsp.writeFile(this.filePath, chunk);
+      this.initialized = true;
+      return;
+    }
+
+    await fsp.appendFile(this.filePath, chunk);
+  }
+
+  async close() {
+    // The filesystem writes complete during write().
+  }
+}
+
 class PublicWorkbookSheet implements WorkbookSheet {
   constructor(private readonly sheetBuilder: ReturnType<BufferedWorkbookBuilder["sheet"]>) {}
 
@@ -274,6 +381,7 @@ class PublicWorkbook implements Workbook {
   }
 
   async writeToFile(filePath: string) {
+    const { writeFile } = await importNodeFsPromises();
     await writeFile(filePath, this.toBuffer());
   }
 }
@@ -308,7 +416,7 @@ class PublicWorkbookStream implements WorkbookStream {
     const spoolFactory =
       options.tempStorage === "memory"
         ? new MemorySpoolFactory()
-        : new FileSpoolFactory(options.tempDirectory);
+        : new LazyFileSpoolFactory(options.tempDirectory);
     const stringMode = resolveStringMode(options);
 
     this.workbook = StreamWorkbookBuilder.create({
@@ -323,7 +431,7 @@ class PublicWorkbookStream implements WorkbookStream {
   }
 
   async writeToFile(filePath: string) {
-    await this.finalizeWith(new FileWorkbookSink(filePath));
+    await this.finalizeWith(new LazyFileWorkbookSink(filePath));
   }
 
   async pipeTo(stream: WritableStream<Uint8Array>) {
@@ -340,8 +448,12 @@ class PublicWorkbookStream implements WorkbookStream {
   }
 
   toNodeReadable() {
-    const byteStream = this.createByteStreamOutput();
-    return byteStream.toNodeReadable();
+    const byteStream = new WorkbookByteStream();
+    const readable = byteStream.toNodeReadable();
+    this.startOutput(byteStream).catch((error) => {
+      byteStream.fail(error instanceof Error ? error : new Error(String(error)));
+    });
+    return readable;
   }
 
   private createByteStreamOutput() {
@@ -352,9 +464,7 @@ class PublicWorkbookStream implements WorkbookStream {
     return byteStream;
   }
 
-  private async finalizeWith(
-    sink: FileWorkbookSink | NodeWritableWorkbookSink | WebWritableWorkbookSink,
-  ) {
+  private async finalizeWith(sink: StreamWorkbookSink) {
     await this.startOutput(sink);
   }
 

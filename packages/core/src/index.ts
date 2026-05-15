@@ -53,9 +53,9 @@ export type {
   StructureConditionDefinition,
   TypedPath,
 } from "./index-internal";
-export { conditionalStyle } from "./index-internal";
-export { validation } from "./index-internal";
-export { defineSpreadsheetTheme, spreadsheetThemes } from "./index-internal";
+export { conditionalStyle } from "./styles/conditional-types";
+export { validation } from "./validation/types";
+export { defineSpreadsheetTheme, spreadsheetThemes } from "./styles/theme";
 export type {
   SummaryBuilder,
   SummaryCellValue,
