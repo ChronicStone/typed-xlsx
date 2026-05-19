@@ -1,5 +1,11 @@
 # typed-xlsx
 
+## 3.0.1
+
+### Patch Changes
+
+- [#48](https://github.com/ChronicStone/typed-xlsx/pull/48) [`484fd9d`](https://github.com/ChronicStone/typed-xlsx/commit/484fd9db9c24e25c3abb3e15e6bc931603f9641f) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Fix column format definitions so buffered and streamed workbooks apply number formats alongside static and dynamic cell styles.
+
 ## 3.0.0
 
 ### Major Changes
