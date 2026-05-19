@@ -3,7 +3,7 @@ import {
   type BufferedSheetPlan,
   type BufferedTablePlan,
 } from "../workbook/types";
-import type { PlannedCell, ResolvedColumn } from "../planner/rows";
+import { resolveColumnCellStyle, type PlannedCell, type ResolvedColumn } from "../planner/rows";
 import type { CellStyle } from "../styles/types";
 import { StylesCollector } from "../styles/collector";
 import { serializeCell, toCellRef } from "./cells";
@@ -490,22 +490,15 @@ function resolveDataCellStyle<T extends object>(
   column: ResolvedColumn<T> | undefined,
   cell: PlannedCell<T>,
 ): CellStyle | undefined {
-  if (!column?.style) return undefined;
-  if (typeof column.style === "function") {
-    const styleFn = column.style as (...args: any[]) => CellStyle | undefined;
-    if (styleFn.length >= 3) {
-      return styleFn(cell.sourceRow, cell.sourceRowIndex, cell.subRowIndex);
-    }
+  if (!column) return undefined;
 
-    return styleFn({
-      ...cell.sourceRow,
-      ctx: undefined as never,
-      row: cell.sourceRow,
-      rowIndex: cell.sourceRowIndex,
-      subRowIndex: cell.subRowIndex,
-    } as never);
-  }
-  return column.style;
+  return resolveColumnCellStyle({
+    column,
+    ctx: undefined,
+    row: cell.sourceRow,
+    rowIndex: cell.sourceRowIndex,
+    subRowIndex: cell.subRowIndex,
+  });
 }
 
 function buildWorksheetColumns(

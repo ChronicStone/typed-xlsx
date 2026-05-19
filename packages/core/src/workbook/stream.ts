@@ -1,4 +1,9 @@
-import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
+import {
+  createPlannerStats,
+  createSummaryBindings,
+  resolveColumnCellStyle,
+  resolveColumns,
+} from "../planner/rows";
 import { buildWorksheetConditionalFormatting } from "../styles/conditional-runtime";
 import { buildWorksheetDataValidations } from "../validation/runtime";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
@@ -1353,16 +1358,13 @@ function resolveColumnStyle<T extends object>(
   rowIndex: number,
   subRowIndex: number,
 ): CellStyle | undefined {
-  if (!column.style) return undefined;
-  if (typeof column.style === "function") {
-    const styleFn = column.style as (...args: any[]) => CellStyle | undefined;
-    if (styleFn.length >= 3) {
-      return styleFn(row, rowIndex, subRowIndex);
-    }
-
-    return styleFn({ ...row, ctx: undefined as never, row, rowIndex, subRowIndex } as never);
-  }
-  return column.style;
+  return resolveColumnCellStyle({
+    column,
+    ctx: undefined,
+    row,
+    rowIndex,
+    subRowIndex,
+  });
 }
 
 function toWorksheetCol(column: number) {
