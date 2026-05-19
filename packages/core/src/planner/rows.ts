@@ -196,6 +196,68 @@ function invokeRowStyle<T extends object>(params: {
   });
 }
 
+function invokeRowFormat<T extends object>(params: {
+  format: Extract<NonNullable<ResolvedColumn<T>["format"]>, (...args: any[]) => unknown>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  if (params.format.length >= 3) {
+    return (params.format as (row: T, rowIndex: number, subRowIndex: number) => string | undefined)(
+      params.row,
+      params.rowIndex,
+      params.subRowIndex,
+    );
+  }
+
+  return (params.format as (context: unknown) => string | undefined)({
+    ...params.row,
+    ctx: params.ctx,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    subRowIndex: params.subRowIndex,
+  });
+}
+
+export function resolveColumnCellStyle<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}): CellStyle | undefined {
+  const baseStyle =
+    typeof params.column.style === "function"
+      ? invokeRowStyle({
+          ctx: params.ctx,
+          row: params.row,
+          rowIndex: params.rowIndex,
+          style: params.column.style,
+          subRowIndex: params.subRowIndex,
+        })
+      : params.column.style;
+  const numberFormat =
+    typeof params.column.format === "function"
+      ? invokeRowFormat({
+          ctx: params.ctx,
+          format: params.column.format,
+          row: params.row,
+          rowIndex: params.rowIndex,
+          subRowIndex: params.subRowIndex,
+        })
+      : params.column.format;
+
+  if (!baseStyle && !numberFormat) {
+    return undefined;
+  }
+
+  return {
+    ...(baseStyle ?? {}),
+    ...(numberFormat ? { numFmt: numberFormat } : {}),
+  };
+}
+
 function invokeRowHyperlink<T extends object>(params: {
   hyperlink: Extract<NonNullable<ResolvedColumn<T>["hyperlink"]>, (...args: any[]) => unknown>;
   row: T;
@@ -772,19 +834,15 @@ export function planRows<T extends object>(
     });
 
     for (let subRowIndex = 0; subRowIndex < rowHeight; subRowIndex++) {
-      const rowStyles: Array<CellStyle | undefined> = expandedCells.map((cell) => {
-        if (!cell.column.style) return undefined;
-        if (typeof cell.column.style === "function") {
-          return invokeRowStyle({
-            ctx: undefined,
-            row,
-            rowIndex: logicalRowIndex,
-            style: cell.column.style,
-            subRowIndex,
-          });
-        }
-        return cell.column.style;
-      });
+      const rowStyles: Array<CellStyle | undefined> = expandedCells.map((cell) =>
+        resolveColumnCellStyle({
+          column: cell.column,
+          ctx: undefined,
+          row,
+          rowIndex: logicalRowIndex,
+          subRowIndex,
+        }),
+      );
       const rowValues = expandedCells.map((cell) =>
         getCellPrimitiveValue(cell.values[subRowIndex] ?? null),
       );

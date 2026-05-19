@@ -1,4 +1,4 @@
-import type { ResolvedColumn } from "../planner/rows";
+import { resolveColumnCellStyle, type ResolvedColumn } from "../planner/rows";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
 import { serializeCell, serializeInlineStringCell } from "../ooxml/cells";
@@ -50,27 +50,6 @@ function invokeRowTransform<T extends object>(params: {
     row: params.row,
     rowIndex: params.rowIndex,
     value: params.value,
-  });
-}
-
-function invokeRowStyle<T extends object>(params: {
-  style: Extract<NonNullable<ResolvedColumn<T>["style"]>, (...args: any[]) => unknown>;
-  row: T;
-  rowIndex: number;
-  subRowIndex: number;
-}) {
-  if (params.style.length >= 3) {
-    return (
-      params.style as (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined
-    )(params.row, params.rowIndex, params.subRowIndex);
-  }
-
-  return (params.style as (context: unknown) => CellStyle | undefined)({
-    ...params.row,
-    ctx: undefined,
-    row: params.row,
-    rowIndex: params.rowIndex,
-    subRowIndex: params.subRowIndex,
   });
 }
 
@@ -586,9 +565,11 @@ function resolveColumnStyle<T extends object>(
   rowIndex: number,
   subRowIndex: number,
 ): CellStyle | undefined {
-  if (!column.style) return undefined;
-  if (typeof column.style === "function") {
-    return invokeRowStyle({ row, rowIndex, style: column.style, subRowIndex });
-  }
-  return column.style;
+  return resolveColumnCellStyle({
+    column,
+    ctx: undefined,
+    row,
+    rowIndex,
+    subRowIndex,
+  });
 }

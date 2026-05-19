@@ -1427,6 +1427,42 @@ describe("ooxml", () => {
     expect(stylesPart?.xml).toContain('formatCode="0.00&quot;%&quot;"');
   });
 
+  it("applies column format definitions alongside dynamic cell styles", () => {
+    const schema = Internal.SchemaBuilder.create<{ amount: number; completion: number }>()
+      .column("amount", {
+        accessor: "amount",
+        format: "$#,##0.00",
+      })
+      .column("completion", {
+        accessor: "completion",
+        format: ({ completion }) => (completion >= 0.8 ? "0.0%" : "0%"),
+        style: ({ completion }) => ({
+          fill: {
+            color: {
+              rgb: completion >= 0.8 ? "C6EFCE" : "FFC7CE",
+            },
+          },
+        }),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Formats").table("formats", {
+      schema,
+      rows: [{ amount: 1234.5, completion: 0.875 }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(worksheetPart?.xml).toContain('<c r="A2" s="');
+    expect(worksheetPart?.xml).toContain('<c r="B2" s="');
+    expect(stylesPart?.xml).toContain('formatCode="$#,##0.00"');
+    expect(stylesPart?.xml).toContain('formatCode="0.0%"');
+    expect(stylesPart?.xml).toContain('rgb="FFC6EFCE"');
+  });
+
   it("writes multiple summary rows when a column defines multiple summaries", () => {
     const schema = Internal.SchemaBuilder.create<{ amount: number; label: string }>()
       .column("label", {

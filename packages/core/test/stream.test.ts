@@ -143,6 +143,48 @@ describe("stream builder", () => {
     expect(content).toContain(' ht="');
   });
 
+  it("applies column format definitions to streamed cell styles", async () => {
+    const schema = Internal.SchemaBuilder.create<{ amount: number; completion: number }>()
+      .column("amount", {
+        accessor: "amount",
+        format: "$#,##0.00",
+      })
+      .column("completion", {
+        accessor: "completion",
+        format: "0.0%",
+        style: ({ completion }) => ({
+          fill: {
+            color: {
+              rgb: completion >= 0.8 ? "C6EFCE" : "FFC7CE",
+            },
+          },
+        }),
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Formats").table("formats", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ amount: 1234.5, completion: 0.875 }],
+    });
+    await workbook.finish();
+
+    const entries = unzipWorkbookEntries(sink.toUint8Array());
+    const worksheet = entries.get("xl/worksheets/sheet1.xml");
+    const styles = entries.get("xl/styles.xml");
+
+    expect(worksheet).toContain('<c r="A2" s="');
+    expect(worksheet).toContain('<c r="B2" s="');
+    expect(styles).toContain('formatCode="$#,##0.00"');
+    expect(styles).toContain('formatCode="0.0%"');
+    expect(styles).toContain('rgb="FFC6EFCE"');
+  });
+
   it("writes native Excel table parts and worksheet relationships in streamed workbooks", async () => {
     const schema = Internal.ExcelTableSchemaBuilder.create<{ amount: number; id: string }>()
       .column("id", {
