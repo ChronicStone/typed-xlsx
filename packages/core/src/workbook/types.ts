@@ -11,11 +11,26 @@ import type { SummaryResolvedValue } from "../summary/runtime";
 import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { CellStyle } from "../styles/types";
 import type { WorksheetDataValidation } from "../validation/runtime";
+import type { SparklineDefaults } from "../sparkline/types";
+import type { ImageMediaType, ImageSize } from "../image/types";
 
 export interface WorksheetHyperlink {
   ref: string;
   target: string;
   tooltip?: string;
+}
+
+export interface WorksheetImage {
+  row: number;
+  column: number;
+  data: Uint8Array;
+  mediaType: ImageMediaType;
+  alt?: string;
+  size: ImageSize;
+  padding: {
+    x?: number;
+    y?: number;
+  };
 }
 
 export interface TableSelection<TColumnId extends string = string> {
@@ -41,6 +56,7 @@ export interface TableStyleDefault {
 }
 
 export interface TableStyleDefaults {
+  rowHeight?: number;
   title?: CellStyle | TableStyleDefault;
   groupHeader?: CellStyle | TableStyleDefault;
   groupHeaderFiller?: CellStyle | TableStyleDefault;
@@ -53,6 +69,7 @@ export interface TableStyleDefaults {
     locked?: CellStyle | TableStyleDefault;
     hidden?: CellStyle | TableStyleDefault;
   };
+  sparkline?: SparklineDefaults;
 }
 
 export interface ReportTableRenderOptions {
@@ -360,6 +377,7 @@ export interface BufferedTablePlan<T extends object> {
   conditionalFormatting?: WorksheetConditionalFormattingBlock[];
   dataValidations?: WorksheetDataValidation[];
   hyperlinks?: WorksheetHyperlink[];
+  images?: WorksheetImage[];
   autoFilter: boolean;
   excelTable?: ResolvedExcelTableOptions;
 }

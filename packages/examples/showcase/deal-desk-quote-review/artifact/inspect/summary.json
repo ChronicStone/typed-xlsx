@@ -1,7 +1,11 @@
 {
   "id": "deal-desk-quote-review",
   "title": "Deal Desk Quote Review",
-  "tags": ["quote-review", "sub-rows", "pricing"],
+  "tags": [
+    "quote-review",
+    "sub-rows",
+    "pricing"
+  ],
   "features": [
     "sub-row expansion",
     "formula DSL",
@@ -10,6 +14,15 @@
     "summary rows",
     "wrapped text"
   ],
-  "sheetNames": ["Quote Review", "Approvals"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml", "sheet2.xml"]
+  "sheetNames": [
+    "Quote Review",
+    "Approvals"
+  ],
+  "inspectFiles": [
+    "content-types.xml",
+    "workbook.xml",
+    "styles.xml",
+    "sheet1.xml",
+    "sheet2.xml"
+  ]
 }

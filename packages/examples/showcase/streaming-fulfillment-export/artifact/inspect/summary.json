@@ -1,7 +1,11 @@
 {
   "id": "streaming-fulfillment-export",
   "title": "Streaming Fulfillment Export",
-  "tags": ["streaming", "scale", "fulfillment"],
+  "tags": [
+    "streaming",
+    "scale",
+    "fulfillment"
+  ],
   "features": [
     "createWorkbookStream",
     "batch commit",
@@ -9,6 +13,13 @@
     "large dataset",
     "same schema as buffered"
   ],
-  "sheetNames": ["Fulfillment Export"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml"]
+  "sheetNames": [
+    "Fulfillment Export"
+  ],
+  "inspectFiles": [
+    "content-types.xml",
+    "workbook.xml",
+    "styles.xml",
+    "sheet1.xml"
+  ]
 }

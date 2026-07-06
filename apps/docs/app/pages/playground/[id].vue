@@ -78,7 +78,7 @@ const treeItems = computed(() => {
     kind: "inspect" as const,
     key: `inspect/${file}`,
     label: file,
-    lang: file.endsWith(".json") ? "json" : file.endsWith(".xml") ? "xml" : "text",
+    lang: file.endsWith(".json") ? "json" : /\.(xml|rels)$/.test(file) ? "xml" : "text",
     code: null,
   }));
 
@@ -134,6 +134,7 @@ watch(
     try {
       const content = await $fetch<string>(
         `/generated/examples/showcase/${artifact.value!.id}/artifact/inspect/${item.label}`,
+        { responseType: "text" },
       );
 
       inspectContent.value = item.lang === "xml" ? formatXml(content) : content;
@@ -292,6 +293,41 @@ useSeo({
               Artifacts
             </p>
             <p class="mt-2 text-base font-bold text-highlighted">{{ inspectFiles.length }}</p>
+          </div>
+        </div>
+
+        <div class="border-t border-default/40 px-5 py-4">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-primary/70">
+            Feature coverage
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <UBadge
+              v-for="feature in artifact.features"
+              :key="feature"
+              color="neutral"
+              variant="subtle"
+              class="rounded-full font-mono text-[9px]"
+            >
+              {{ feature }}
+            </UBadge>
+          </div>
+        </div>
+
+        <div
+          v-if="artifact.inspectSummary?.sheetNames.length"
+          class="border-t border-default/40 px-5 py-4"
+        >
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-primary/70">
+            Workbook tabs
+          </p>
+          <div class="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <span
+              v-for="sheetName in artifact.inspectSummary.sheetNames"
+              :key="sheetName"
+              class="truncate rounded-lg border border-default/40 bg-elevated/40 px-2.5 py-1.5 text-xs text-toned"
+            >
+              {{ sheetName }}
+            </span>
           </div>
         </div>
       </UPageCard>

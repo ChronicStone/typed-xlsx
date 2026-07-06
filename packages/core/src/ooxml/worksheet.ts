@@ -34,6 +34,12 @@ import {
   type WorksheetColumnDefinition,
 } from "./worksheet-parts";
 import { writeExcelTableXml, writeWorksheetTableParts, type WorksheetTablePart } from "./table";
+import { writeWorksheetDrawing } from "./drawing";
+import {
+  buildWorksheetSparklineGroups,
+  worksheetSparklineNamespaceAttributes,
+  writeWorksheetSparklines,
+} from "../sparkline/runtime";
 import { groupSummaryRows } from "../workbook/internal/summaries";
 import { resolveSummaryValue } from "../workbook/internal/summaries";
 import {
@@ -43,12 +49,15 @@ import {
   type PositionedTable,
 } from "../workbook/internal/layout";
 import { buildReportChrome, shiftFormulaA1Refs } from "../workbook/internal/report-chrome";
+import { getCellPrimitiveValue } from "../cell-data";
+import { summarizeExcelTotalsRowValues } from "../workbook/internal/totals-row";
 
 export function serializeWorksheet(
   sheet: BufferedSheetPlan,
   sharedStrings: SharedStringsCollector,
   styles: StylesCollector,
   startingTableIndex = 0,
+  worksheetName = sheet.name,
 ) {
   const rowMap = new Map<number, string[]>();
   const rowHeights = new Map<number, number>();
@@ -78,6 +87,27 @@ export function serializeWorksheet(
     ),
   );
   const partitionedHyperlinks = partitionWorksheetHyperlinks(hyperlinks);
+  const images = positionedTables.flatMap((positioned) =>
+    buildPositionedImages(
+      positioned.table.images ?? [],
+      positioned.columnOffset,
+      positioned.rowOffset + getReportChrome(positioned.table).bodyRowOffset - 1,
+    ),
+  );
+  const sparklineGroups = positionedTables.flatMap((positioned) =>
+    buildWorksheetSparklineGroups({
+      columns: positioned.table.planner.columns,
+      rowStart: positioned.rowOffset + getReportChrome(positioned.table).bodyRowOffset,
+      rowEnd:
+        positioned.rowOffset +
+        getReportChrome(positioned.table).bodyRowOffset +
+        positioned.table.planner.rows.length -
+        1,
+      columnOffset: positioned.columnOffset,
+      sheetName: worksheetName,
+      defaults: positioned.table.defaults?.sparkline,
+    }),
+  );
 
   for (const positioned of positionedTables) {
     const chrome = getReportChrome(positioned.table);
@@ -123,6 +153,7 @@ export function serializeWorksheet(
       {
         xmlns: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
         "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+        ...worksheetSparklineNamespaceAttributes(sparklineGroups.length > 0),
       },
       [
         xmlSelfClosing("dimension", {
@@ -139,10 +170,13 @@ export function serializeWorksheet(
         writeWorksheetDataValidations(dataValidations),
         writeWorksheetHyperlinks(partitionedHyperlinks.worksheetHyperlinks),
         writeWorksheetTableParts(tableParts),
+        writeWorksheetDrawing(images.length > 0 ? "rIdDrawing1" : undefined),
+        writeWorksheetSparklines(sparklineGroups),
       ],
     ),
     tableParts,
     hyperlinks: partitionedHyperlinks.worksheetHyperlinks,
+    images,
   };
 }
 
@@ -231,6 +265,18 @@ function buildPositionedHyperlinks(
   }));
 }
 
+function buildPositionedImages(
+  images: import("../workbook/types").WorksheetImage[],
+  columnOffset: number,
+  rowOffset: number,
+) {
+  return images.map((image) => ({
+    ...image,
+    row: image.row + rowOffset,
+    column: image.column + columnOffset,
+  }));
+}
+
 function shiftRef(ref: string, columnOffset: number, rowOffset: number) {
   const match = ref.match(/^([A-Z]+)(\d+)$/);
   if (!match) return ref;
@@ -252,15 +298,20 @@ function writeTableIntoRowMap(
 
   if (table.title) {
     rowHeights.set(rowOffset, getDefaultRowHeight());
-    writeCells(rowMap, rowOffset, [
-      serializeCell(
-        rowOffset,
-        columnOffset,
-        table.title,
-        sharedStrings,
-        styles.addStyle(withTableDefaultTitleStyle(table.defaults)),
+    const titleStyleIndex = styles.addStyle(withTableDefaultTitleStyle(table.defaults));
+    writeCells(
+      rowMap,
+      rowOffset,
+      Array.from({ length: positioned.width }, (_, titleColumnIndex) =>
+        serializeCell(
+          rowOffset,
+          columnOffset + titleColumnIndex,
+          titleColumnIndex === 0 ? table.title : null,
+          sharedStrings,
+          titleStyleIndex,
+        ),
       ),
-    ]);
+    );
   }
 
   reportChrome.groupHeaderPlaceholders.forEach((cell) => {
@@ -309,7 +360,8 @@ function writeTableIntoRowMap(
 
   table.planner.rows.forEach((row, rowIndex) => {
     const sheetRowIndex = rowOffset + reportChrome.bodyRowOffset + rowIndex;
-    rowHeights.set(sheetRowIndex, Math.max(rowHeights.get(sheetRowIndex) ?? 0, row.height));
+    const bodyRowHeight = Math.max(row.height, table.defaults?.rowHeight ?? 0);
+    rowHeights.set(sheetRowIndex, Math.max(rowHeights.get(sheetRowIndex) ?? 0, bodyRowHeight));
     writeCells(
       rowMap,
       sheetRowIndex,
@@ -438,6 +490,13 @@ function writeTableIntoRowMap(
                   excelTable.totalsRowColumns[columnIndex]?.headerLabel ?? column.headerLabel,
                   totalsRow.function,
                 )!,
+                value: summarizeExcelTotalsRowValues(
+                  table.planner.rows.map((row) => {
+                    const cell = row.cells.find((candidate) => candidate.columnId === column.id);
+                    return getCellPrimitiveValue(cell?.value ?? null);
+                  }),
+                  totalsRow.function,
+                ),
               };
 
         return [

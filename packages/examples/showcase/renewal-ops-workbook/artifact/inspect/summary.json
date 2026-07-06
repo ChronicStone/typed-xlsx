@@ -1,7 +1,11 @@
 {
   "id": "renewal-ops-workbook",
   "title": "Renewal Ops Workbook",
-  "tags": ["renewals", "editable", "workflow"],
+  "tags": [
+    "renewals",
+    "editable",
+    "workflow"
+  ],
   "features": [
     "validation DSL",
     "sheet protection",
@@ -10,6 +14,14 @@
     "hyperlinks",
     "conditional styles"
   ],
-  "sheetNames": ["Renewal Planner"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml"]
+  "sheetNames": [
+    "Renewal Planner"
+  ],
+  "inspectFiles": [
+    "content-types.xml",
+    "workbook.xml",
+    "styles.xml",
+    "sheet1.xml",
+    "worksheets/sheet1.xml.rels"
+  ]
 }

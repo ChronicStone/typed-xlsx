@@ -202,6 +202,130 @@ for (const order of orders) {
 // Single-value columns are merged for you.`,
   },
   {
+    id: "sparklines",
+    eyebrow: "Sparkline columns",
+    title: "Native Excel mini charts, one schema field",
+    body: "Declare a sparkline column against typed source columns and every row gets a live Excel chart — line, column, or win/loss. Sources are type-checked like formula refs.",
+    docsPath: "/columns/sparklines",
+    beforeCode:
+      "// SheetJS / ExcelJS: no sparkline API at all.\n" +
+      "// The only route is post-processing the OOXML by hand:\n" +
+      "//   1. unzip the generated .xlsx\n" +
+      "//   2. inject <x14:sparklineGroups> into sheet1.xml\n" +
+      "//   3. compute source/target refs per row yourself\n" +
+      "//   4. re-zip and hope Excel accepts it\n\n" +
+      'sheetXml = sheetXml.replace("</worksheet>", `\n' +
+      '  <extLst><ext uri="{05C60535-1F16-4fd2-B633-F4F36F0B64E0}">\n' +
+      "    <x14:sparklineGroups>\n" +
+      "      <x14:sparkline><xm:f>B2:D2</xm:f><xm:sqref>E2</xm:sqref></x14:sparkline>\n" +
+      "      <!-- ...one entry per row... -->\n" +
+      "  </x14:sparklineGroups></ext></extLst></worksheet>`);\n\n" +
+      "// In practice: the feature just gets dropped.",
+    afterCode: `.column("jan", { accessor: "jan" })
+.column("feb", { accessor: "feb" })
+.column("mar", { accessor: "mar" })
+.column("trend", {
+  header: "Trend",
+  sparkline: {
+    source: { from: "jan", to: "mar" },
+    type: "line",
+    style: {
+      line: { color: "#2563EB", weight: 1.25 },
+      high: { color: "#16A34A" },
+      low: { color: "#DC2626" },
+    },
+  },
+});
+
+// Source columns are type-checked, refs resolve per row.
+// Works in buffered and streaming exports.`,
+  },
+  {
+    id: "badge-checkbox",
+    eyebrow: "Badges & checkboxes",
+    title: "Status colors and boolean glyphs live in the schema",
+    body: "Map values to styled badge variants and render booleans as checkbox glyphs without losing formula-friendly truthy/falsey cells.",
+    docsPath: "/columns/badges-and-checkboxes",
+    beforeCode:
+      "// SheetJS: status styling is a lookup table + per-cell writes\n" +
+      "const statusStyles = {\n" +
+      '  Live: { fill: "DCFCE7", font: "166534" },\n' +
+      '  "Low stock": { fill: "FEF3C7", font: "92400E" },\n' +
+      "};\n\n" +
+      "for (let i = 0; i < rows.length; i++) {\n" +
+      "  const s = statusStyles[rows[i].status];\n" +
+      "  if (s) ws[`C${i + 2}`].s = {\n" +
+      "    fill: { fgColor: { rgb: s.fill } },\n" +
+      "    font: { color: { rgb: s.font }, bold: true },\n" +
+      "  };\n" +
+      '  ws[`D${i + 2}`] = { v: rows[i].done ? "☑" : "☐", t: "s" };\n' +
+      "}\n\n" +
+      "// Unknown status? Unstyled cell, no fallback.\n" +
+      "// Mapping logic copy-pasted into every export.",
+    afterCode: `.column("status", {
+  type: "badge",
+  accessor: "status",
+  variants: {
+    Live: {
+      style: {
+        fill: { color: { rgb: "DCFCE7" } },
+        font: { color: { rgb: "166534" }, bold: true },
+      },
+    },
+    "Low stock": {
+      style: {
+        fill: { color: { rgb: "FEF3C7" } },
+        font: { color: { rgb: "92400E" }, bold: true },
+      },
+    },
+  },
+  defaultVariant: {
+    style: { fill: { color: { rgb: "F1F5F9" } } },
+  },
+})
+.column("done", { type: "checkbox", accessor: "done" });
+
+// Status mapping is declared once, typed against T.
+// Checkbox cells display glyphs but store 1/0 for formulas.`,
+  },
+  {
+    id: "image-columns",
+    eyebrow: "Image columns",
+    title: "Embedded thumbnails or IMAGE() formulas per column",
+    body: "Point a column at image bytes or a URL. Drawing parts, anchors, and byte-level deduplication are handled — or skip embedding entirely with Excel's IMAGE() formula.",
+    docsPath: "/columns/images",
+    beforeCode:
+      "// ExcelJS: images are workbook-level objects + anchor math\n" +
+      "const imgId = workbook.addImage({\n" +
+      '  buffer: pngBytes, extension: "png",\n' +
+      "});\n\n" +
+      "worksheet.addImage(imgId, {\n" +
+      "  tl: { col: 0.15, row: rowIndex + 0.2 },\n" +
+      "  ext: { width: 56, height: 56 },\n" +
+      "});\n" +
+      "worksheet.getRow(rowIndex + 1).height = 44;\n\n" +
+      "// One registration + anchor per cell, offsets tuned by hand.\n" +
+      "// URL-backed IMAGE() formulas? Not supported.",
+    afterCode: `// Embedded: bytes stored in the workbook, deduplicated
+.column("thumbnail", {
+  type: "image",
+  accessor: "thumbnail",
+  alt: "name",
+  size: { width: 56, height: 56 },
+  padding: 3,
+})
+
+// Or URL-backed: Excel's IMAGE() formula, no bytes embedded
+.column("preview", {
+  type: "image",
+  source: "url",
+  accessor: "thumbnailUrl",
+});
+
+// Anchors, drawing parts, and media dedup are generated.
+// Identical bytes across rows are embedded once.`,
+  },
+  {
     id: "excel-table-mode",
     eyebrow: "Excel table mode",
     title: "Native Excel tables, not styled ranges",
@@ -642,7 +766,7 @@ onBeforeUnmount(() => {
       <div class="border-t border-default/40 bg-elevated/5 px-5 py-4 sm:px-6 sm:py-5">
         <div class="mb-4 flex items-center justify-between gap-3">
           <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-toned/60">
-            13 SheetJS-to-schema examples
+            {{ stories.length }} before / after examples
           </p>
           <div class="flex items-center gap-2">
             <UButton
@@ -662,7 +786,12 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="dash-track" role="tablist" aria-label="Feature examples">
+        <div
+          class="dash-track"
+          role="tablist"
+          aria-label="Feature examples"
+          :style="{ gridTemplateColumns: `repeat(${stories.length}, minmax(0, 1fr))` }"
+        >
           <button
             v-for="(story, i) in stories"
             :key="story.id"
@@ -769,7 +898,6 @@ onBeforeUnmount(() => {
 
 .dash-track {
   display: grid;
-  grid-template-columns: repeat(13, minmax(0, 1fr));
   align-items: center;
   gap: 0.5rem;
 }

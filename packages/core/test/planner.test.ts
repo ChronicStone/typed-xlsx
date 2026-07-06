@@ -112,6 +112,73 @@ describe("planner", () => {
     expect(result.stats.rowHeights.get(0)).toBe(result.rows[0]?.height);
   });
 
+  it("normalizes badge and checkbox renderer values", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      approved: boolean;
+      checks: boolean[];
+      status: string;
+    }>()
+      .column("status", {
+        type: "badge",
+        accessor: "status",
+        variants: {
+          active: { label: "Active" },
+          blocked: { label: "Blocked" },
+        },
+      })
+      .column("approved", {
+        type: "checkbox",
+        accessor: "approved",
+      })
+      .column("checks", {
+        type: "checkbox",
+        accessor: "checks",
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [
+      { approved: true, checks: [true, false], status: "active" },
+    ]);
+
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]?.cells[0]?.value).toBe("Active");
+    expect(result.rows[0]?.cells[1]?.value).toBe(1);
+    expect(result.rows[0]?.cells[2]?.value).toBe(1);
+    expect(result.rows[1]?.cells[2]?.value).toBe(0);
+    expect(result.merges).toContainEqual({
+      startRow: 0,
+      endRow: 1,
+      startCol: 0,
+      endCol: 0,
+    });
+  });
+
+  it("keeps checkbox renderer values usable by formula columns", () => {
+    const schema = Internal.SchemaBuilder.create<{ approved: boolean | null }>()
+      .column("approved", {
+        type: "checkbox",
+        accessor: "approved",
+      })
+      .column("state", {
+        formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(1), "Approved", "Blocked"),
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [
+      { approved: true },
+      { approved: false },
+      { approved: null },
+    ]);
+
+    expect(result.rows[0]?.cells[0]?.value).toBe(1);
+    expect(result.rows[1]?.cells[0]?.value).toBe(0);
+    expect(result.rows[2]?.cells[0]?.value).toBeNull();
+    expect(result.rows[0]?.cells[1]?.value).toMatchObject({
+      kind: "formula",
+      formula: 'IF((A2=1),"Approved","Blocked")',
+    });
+  });
+
   it("plans formula-based columns using predecessor references", () => {
     const schema = Internal.SchemaBuilder.create<{ qty: number; unitPrice: number }>()
       .column("qty", {
@@ -278,9 +345,18 @@ describe("planner", () => {
 
     const result = Internal.planRows(schema, [{ amounts: [10, 20, 30] }]);
 
-    expect(result.rows[0]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
-    expect(result.rows[1]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
-    expect(result.rows[2]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
+    expect(result.rows[0]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
+    expect(result.rows[1]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
+    expect(result.rows[2]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
   });
 
   it("resolves grouped columns from context during planning", () => {

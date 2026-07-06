@@ -89,7 +89,7 @@ export const renewalOpsSchema = createExcelSchema<RenewalOpportunity>()
     header: "Sponsor",
     accessor: "account.sponsor.email",
     minWidth: 24,
-    hyperlink: (row) => ({
+    hyperlink: (row: RenewalOpportunity) => ({
       target: `mailto:${row.account.sponsor.email}`,
       tooltip: "Email sponsor",
     }),

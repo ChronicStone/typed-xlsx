@@ -1,7 +1,11 @@
 {
   "id": "logical-vs-physical-summary",
   "title": "Logical vs Physical Summary",
-  "tags": ["sub-rows", "summary-formulas", "formula-dsl"],
+  "tags": [
+    "sub-rows",
+    "summary-formulas",
+    "formula-dsl"
+  ],
   "features": [
     "sub-row expansion",
     "row.series aggregates",
@@ -9,6 +13,13 @@
     "physical cell summaries",
     "formula DSL"
   ],
-  "sheetNames": ["Logical vs Physical"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml"]
+  "sheetNames": [
+    "Logical vs Physical"
+  ],
+  "inspectFiles": [
+    "content-types.xml",
+    "workbook.xml",
+    "styles.xml",
+    "sheet1.xml"
+  ]
 }

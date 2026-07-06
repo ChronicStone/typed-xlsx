@@ -31,6 +31,14 @@ export interface SpreadsheetThemeTokens {
     hiddenFill: string;
     hiddenText: string;
     hyperlink: string;
+    sparklineSeries: string;
+    sparklineMarkers: string;
+    sparklineFirst: string;
+    sparklineLast: string;
+    sparklineHigh: string;
+    sparklineLow: string;
+    sparklineNegative: string;
+    sparklineAxis: string;
     border: string;
   };
   borders: {
@@ -102,6 +110,14 @@ const DEFAULT_THEME_TOKENS: SpreadsheetThemeTokens = {
     hiddenFill: "F1F5F9",
     hiddenText: "475569",
     hyperlink: "0563C1",
+    sparklineSeries: "2563EB",
+    sparklineMarkers: "2563EB",
+    sparklineFirst: "16A34A",
+    sparklineLast: "16A34A",
+    sparklineHigh: "16A34A",
+    sparklineLow: "DC2626",
+    sparklineNegative: "DC2626",
+    sparklineAxis: "64748B",
     border: "000000",
   },
   borders: {

@@ -231,6 +231,18 @@ export function tableDefaultsFromTheme(theme: SpreadsheetTheme): TableStyleDefau
       locked: theme.slot("cellLocked"),
       hidden: theme.slot("cellHidden"),
     },
+    sparkline: {
+      colors: {
+        series: theme.tokens.colors.sparklineSeries,
+        markers: theme.tokens.colors.sparklineMarkers,
+        first: theme.tokens.colors.sparklineFirst,
+        last: theme.tokens.colors.sparklineLast,
+        high: theme.tokens.colors.sparklineHigh,
+        low: theme.tokens.colors.sparklineLow,
+        negative: theme.tokens.colors.sparklineNegative,
+        axis: theme.tokens.colors.sparklineAxis,
+      },
+    },
   };
 }
 

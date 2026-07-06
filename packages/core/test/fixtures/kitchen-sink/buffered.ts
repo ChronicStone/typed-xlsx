@@ -1,13 +1,20 @@
 import { createExcelSchema, createWorkbook } from "../../../src";
-import { createKitchenSinkOrders } from "./data";
+import {
+  createKitchenSinkOrders,
+  createKitchenSinkProductImageRows,
+  createKitchenSinkSparklineRows,
+} from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
   kitchenSinkHyperlinkSchema,
+  kitchenSinkProductImageSchema,
   kitchenSinkProtectedInputSchema,
   kitchenSinkSchema,
+  kitchenSinkSparklineGallerySchema,
   kitchenSinkValidationSchema,
+  sparklineGalleryDefaults,
 } from "./schema";
 
 type KitchenSinkHyperlinkRow = {
@@ -87,6 +94,17 @@ export function buildKitchenSinkBufferedExample() {
     lineTotal: order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
     createdAt: order.createdAt,
   }));
+
+  workbook
+    .sheet("Sparkline Gallery", {
+      freezePane: { rows: 3, columns: 1 },
+    })
+    .table("sparkline-gallery", {
+      title: "Sparkline Gallery",
+      schema: kitchenSinkSparklineGallerySchema,
+      rows: createKitchenSinkSparklineRows(),
+      defaults: sparklineGalleryDefaults,
+    });
 
   workbook
     .sheet("Kitchen Sink Grid", {
@@ -270,6 +288,16 @@ export function buildKitchenSinkBufferedExample() {
           }) satisfies KitchenSinkHyperlinkRow,
       ),
       schema: kitchenSinkHyperlinkSchema,
+    });
+
+  workbook
+    .sheet("Images", {
+      freezePane: { rows: 1 },
+    })
+    .table("product-images", {
+      title: "Product Image Renderer",
+      rows: createKitchenSinkProductImageRows(),
+      schema: kitchenSinkProductImageSchema,
     });
 
   workbook

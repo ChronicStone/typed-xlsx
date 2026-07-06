@@ -1,0 +1,27 @@
+{
+  "id": "product-media-catalog",
+  "title": "Product Media Catalog",
+  "description": "A product export with embedded thumbnail images, URL-backed IMAGE formulas, badge statuses, checkboxes, sparklines, and storefront hyperlinks.",
+  "developerHook": "Choose between portable embedded media and lightweight URL formulas with the same image renderer column API.",
+  "tags": ["images", "catalog", "renderers"],
+  "features": [
+    "image columns",
+    "url image formulas",
+    "renderer columns",
+    "badge renderer",
+    "checkbox renderer",
+    "worksheet drawings",
+    "hyperlink renderer",
+    "sparkline renderer"
+  ],
+  "datasetProfile": "small",
+  "artifactFile": "artifact/product-media-catalog.xlsx",
+  "primarySourceFile": "schema.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "table",
+    "accentClass": "artifact-accent-sky",
+    "landingEyebrow": "Image export",
+    "playgroundSummary": "A product catalog export that embeds PNG thumbnails from local bytes and combines image, hyperlink, and sparkline renderer columns in one schema."
+  }
+}

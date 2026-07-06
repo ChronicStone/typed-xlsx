@@ -1,6 +1,6 @@
 import type { ResolvedExcelTableOptions } from "../workbook/types";
 import { toCellRef } from "./cells";
-import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
+import { xmlDocument, xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
 
 function toExcelTotalsRowFunction(value: string) {
   switch (value) {
@@ -71,7 +71,7 @@ export function writeExcelTableXml(params: {
             ? xmlElement(
                 "tableColumn",
                 attributes,
-                xmlElement("calculatedColumnFormula", undefined, tableColumn.formula),
+                xmlElement("calculatedColumnFormula", undefined, xmlEscape(tableColumn.formula)),
               )
             : xmlSelfClosing("tableColumn", attributes);
         }),

@@ -1,5 +1,5 @@
-import { createExcelSchema, type CellStyle } from "../../../src";
-import type { KitchenSinkOrder } from "./data";
+import { createExcelSchema, type CellStyle, type TableStyleDefaults } from "../../../src";
+import type { KitchenSinkOrder, KitchenSinkProductImageRow, KitchenSinkSparklineRow } from "./data";
 
 const headerStyle: CellStyle = {
   font: { bold: true, color: { rgb: "1F2937" } },
@@ -9,6 +9,52 @@ const headerStyle: CellStyle = {
 const currencyStyle: CellStyle = {
   numFmt: '"$"#,##0.00',
   alignment: { horizontal: "right" },
+};
+
+const sparklineGalleryCellBorder: NonNullable<CellStyle["border"]> = {
+  top: { style: "thin", color: { rgb: "94A3B8" } },
+  right: { style: "thin", color: { rgb: "94A3B8" } },
+  bottom: { style: "thin", color: { rgb: "94A3B8" } },
+  left: { style: "thin", color: { rgb: "94A3B8" } },
+};
+
+const sparklineGalleryHeaderBorder: NonNullable<CellStyle["border"]> = {
+  top: { style: "medium", color: { rgb: "334155" } },
+  right: { style: "thin", color: { rgb: "64748B" } },
+  bottom: { style: "medium", color: { rgb: "334155" } },
+  left: { style: "thin", color: { rgb: "64748B" } },
+};
+
+export const sparklineGalleryDefaults: TableStyleDefaults = {
+  rowHeight: 44,
+  title: {
+    font: { bold: true, color: { rgb: "0F172A" }, size: 12 },
+    fill: { color: { rgb: "E0F2FE" } },
+    border: sparklineGalleryHeaderBorder,
+    alignment: { horizontal: "center", vertical: "center" },
+  },
+  groupHeader: {
+    font: { bold: true, color: { rgb: "1E3A8A" } },
+    fill: { color: { rgb: "EAF4FF" } },
+    border: sparklineGalleryHeaderBorder,
+    alignment: { horizontal: "center", vertical: "center" },
+  },
+  groupHeaderFiller: {
+    fill: { color: { rgb: "F8FBFF" } },
+    border: sparklineGalleryCellBorder,
+  },
+  header: {
+    font: { bold: true, color: { rgb: "1E3A8A" } },
+    fill: { color: { rgb: "DBEAFE" } },
+    border: sparklineGalleryHeaderBorder,
+    alignment: { horizontal: "center", vertical: "center" },
+  },
+  cells: {
+    base: {
+      border: sparklineGalleryCellBorder,
+      alignment: { vertical: "center" },
+    },
+  },
 };
 
 export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
@@ -35,6 +81,36 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     header: "Account",
     accessor: (row) => `${row.customer.tier.toUpperCase()} / ${row.region}`,
     minWidth: 18,
+    headerStyle,
+  })
+  .column("tierBadge", {
+    type: "badge",
+    header: "Tier",
+    accessor: "customer.tier",
+    width: 14,
+    variants: {
+      enterprise: {
+        label: "Enterprise",
+        style: {
+          fill: { color: { rgb: "DBEAFE" } },
+          font: { color: { rgb: "1D4ED8" }, bold: true },
+        },
+      },
+      growth: {
+        label: "Growth",
+        style: {
+          fill: { color: { rgb: "DCFCE7" } },
+          font: { color: { rgb: "166534" }, bold: true },
+        },
+      },
+      starter: {
+        label: "Starter",
+        style: {
+          fill: { color: { rgb: "FEF3C7" } },
+          font: { color: { rgb: "92400E" }, bold: true },
+        },
+      },
+    },
     headerStyle,
   })
   .column("email", {
@@ -125,6 +201,13 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     }),
     headerStyle,
   })
+  .column("allFulfilled", {
+    type: "checkbox",
+    header: "All Done",
+    accessor: (row) => row.items.every((item) => item.fulfilled),
+    width: 10,
+    headerStyle,
+  })
   .column("notes", {
     header: "Notes",
     accessor: "notes",
@@ -153,6 +236,144 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     style: {
       numFmt: "yyyy-mm-dd hh:mm",
     },
+    headerStyle,
+  })
+  .build();
+
+export const kitchenSinkSparklineGallerySchema = createExcelSchema<KitchenSinkSparklineRow>()
+  .column("segment", {
+    header: "Segment",
+    accessor: "segment",
+    minWidth: 18,
+    headerStyle,
+  })
+  .group("monthly", { header: "Monthly Revenue" }, (group) => {
+    group
+      .column("jan", { header: "Jan", accessor: "jan", width: 9, headerStyle })
+      .column("feb", { header: "Feb", accessor: "feb", width: 9, headerStyle })
+      .column("mar", { header: "Mar", accessor: "mar", width: 9, headerStyle })
+      .column("apr", { header: "Apr", accessor: "apr", width: 9, headerStyle })
+      .column("may", { header: "May", accessor: "may", width: 9, headerStyle })
+      .column("jun", { header: "Jun", accessor: "jun", width: 9, headerStyle });
+  })
+  .column("lineTrend", {
+    type: "sparkline",
+    header: "Line",
+    width: 22,
+    source: { group: "monthly" },
+    sparklineType: "line",
+    emptyCells: "span",
+    style: {
+      line: { color: "#2563EB", weight: 1.05 },
+      dots: false,
+      last: { color: "#10B981" },
+      low: { color: "#EF4444" },
+    },
+    headerStyle,
+  })
+  .column("columnTrend", {
+    header: "Column",
+    width: 22,
+    sparkline: {
+      source: { group: "monthly" },
+      type: "column",
+      style: {
+        series: "#0EA5E9",
+        high: { color: "#22C55E" },
+        low: { color: "#FB923C" },
+      },
+    },
+    headerStyle,
+  })
+  .group("movement", { header: "MoM Delta" }, (group) => {
+    group
+      .column("deltaJan", {
+        header: "Jan",
+        accessor: "deltaJan",
+        width: 9,
+        style: { numFmt: "+#,##0;-#,##0;0", alignment: { horizontal: "right" } },
+        headerStyle,
+      })
+      .column("deltaFeb", {
+        header: "Feb",
+        accessor: "deltaFeb",
+        width: 9,
+        style: { numFmt: "+#,##0;-#,##0;0", alignment: { horizontal: "right" } },
+        headerStyle,
+      })
+      .column("deltaMar", {
+        header: "Mar",
+        accessor: "deltaMar",
+        width: 9,
+        style: { numFmt: "+#,##0;-#,##0;0", alignment: { horizontal: "right" } },
+        headerStyle,
+      })
+      .column("deltaApr", {
+        header: "Apr",
+        accessor: "deltaApr",
+        width: 9,
+        style: { numFmt: "+#,##0;-#,##0;0", alignment: { horizontal: "right" } },
+        headerStyle,
+      })
+      .column("deltaMay", {
+        header: "May",
+        accessor: "deltaMay",
+        width: 9,
+        style: { numFmt: "+#,##0;-#,##0;0", alignment: { horizontal: "right" } },
+        headerStyle,
+      })
+      .column("deltaJun", {
+        header: "Jun",
+        accessor: "deltaJun",
+        width: 9,
+        style: { numFmt: "+#,##0;-#,##0;0", alignment: { horizontal: "right" } },
+        headerStyle,
+      });
+  })
+  .column("winLoss", {
+    header: "Win/Loss",
+    width: 22,
+    sparkline: {
+      source: { group: "movement" },
+      type: "winLoss",
+      style: {
+        series: "#16A34A",
+        negative: { color: "#EF4444" },
+        axis: { visible: true, color: "#475569" },
+      },
+    },
+    headerStyle,
+  })
+  .build();
+
+export const kitchenSinkProductImageSchema = createExcelSchema<KitchenSinkProductImageRow>()
+  .column("thumbnail", {
+    type: "image",
+    header: "Photo",
+    accessor: "thumbnail",
+    alt: "productName",
+    size: { width: 42, height: 42 },
+    padding: 2,
+    width: 10,
+    headerStyle,
+  })
+  .column("sku", {
+    header: "SKU",
+    accessor: "sku",
+    width: 12,
+    headerStyle,
+  })
+  .column("productName", {
+    header: "Product",
+    accessor: "productName",
+    minWidth: 24,
+    headerStyle,
+  })
+  .column("unitPrice", {
+    header: "Unit Price",
+    accessor: "unitPrice",
+    minWidth: 12,
+    style: currencyStyle,
     headerStyle,
   })
   .build();

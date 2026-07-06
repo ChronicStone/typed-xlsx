@@ -1,13 +1,20 @@
 import { createExcelSchema, createWorkbookStream } from "../../../src";
-import { createKitchenSinkOrders } from "./data";
+import {
+  createKitchenSinkOrders,
+  createKitchenSinkProductImageRows,
+  createKitchenSinkSparklineRows,
+} from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
   kitchenSinkHyperlinkSchema,
+  kitchenSinkProductImageSchema,
   kitchenSinkProtectedInputSchema,
   kitchenSinkSchema,
+  kitchenSinkSparklineGallerySchema,
   kitchenSinkValidationSchema,
+  sparklineGalleryDefaults,
 } from "./schema";
 
 type KitchenSinkHyperlinkRow = {
@@ -105,6 +112,17 @@ export async function buildKitchenSinkStreamExample() {
   const allOrderBatches = repeatOrders(8);
   const allOrders = allOrderBatches.flat();
   const enterpriseOrders = allOrders.filter((order) => order.customer.tier === "enterprise");
+
+  const sparklineGalleryTable = await workbook
+    .sheet("Sparkline Gallery", {
+      freezePane: { rows: 3, columns: 1 },
+    })
+    .table("sparkline-gallery", {
+      title: "Sparkline Gallery",
+      schema: kitchenSinkSparklineGallerySchema,
+      defaults: sparklineGalleryDefaults,
+    });
+  await sparklineGalleryTable.commit({ rows: createKitchenSinkSparklineRows() });
 
   const gridSheet = workbook.sheet("Kitchen Sink Grid", {
     tablesPerRow: 2,
@@ -285,13 +303,12 @@ export async function buildKitchenSinkStreamExample() {
     });
   }
 
-  const hyperlinkTable = await workbook
-    .sheet("Hyperlinks", {
-      freezePane: { rows: 1 },
-    })
-    .table("hyperlink-orders", {
-      schema: kitchenSinkHyperlinkSchema,
-    });
+  const hyperlinkSheet = workbook.sheet("Hyperlinks", {
+    freezePane: { rows: 1 },
+  });
+  const hyperlinkTable = await hyperlinkSheet.table("hyperlink-orders", {
+    schema: kitchenSinkHyperlinkSchema,
+  });
   for (const rows of allOrderBatches) {
     await hyperlinkTable.commit({
       rows: rows.map(
@@ -305,6 +322,14 @@ export async function buildKitchenSinkStreamExample() {
       ),
     });
   }
+  const productImageTable = await workbook
+    .sheet("Images", {
+      freezePane: { rows: 1 },
+    })
+    .table("product-images", {
+      schema: kitchenSinkProductImageSchema,
+    });
+  await productImageTable.commit({ rows: createKitchenSinkProductImageRows() });
 
   const nativeTable = await workbook
     .sheet("Native Excel Table", {
