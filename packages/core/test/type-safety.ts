@@ -422,6 +422,67 @@ createExcelSchema<{ approved: boolean; status: "active" | "blocked" }>()
   })
   .build();
 
+createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
+  .column("status", {
+    type: "badge",
+    accessor: "status",
+    variants: {
+      active: { label: "Active" },
+      blocked: { label: "Blocked" },
+      pending: { label: "Pending" },
+    },
+  })
+  .build();
+
+createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
+  .column("status", {
+    type: "badge",
+    accessor: "status",
+    variants: {
+      active: { label: "Active" },
+    },
+    defaultVariant: { label: "Other" },
+  })
+  .build();
+
+createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
+  .column("status", {
+    // @ts-expect-error badge variants must cover every literal value when no defaultVariant is provided
+    type: "badge",
+    accessor: "status",
+    variants: {
+      active: { label: "Active" },
+      blocked: { label: "Blocked" },
+    },
+  })
+  .build();
+
+createExcelSchema<{ status: "active" | "blocked" }>()
+  .column("status", {
+    // @ts-expect-error badge variant keys must match the accessor literal values
+    type: "badge",
+    accessor: "status",
+    variants: {
+      active: { label: "Active" },
+      blocked: { label: "Blocked" },
+      archived: { label: "Archived" },
+    },
+  })
+  .build();
+
+createExcelSchema<{ status: "active" | "blocked" }>()
+  .column("status", {
+    // @ts-expect-error defaultVariant allows partial variants, but not unknown variant keys
+    type: "badge",
+    accessor: "status",
+    variants: {
+      active: { label: "Active" },
+      archived: { label: "Archived" },
+    },
+    defaultVariant: { label: "Other" },
+  })
+  .build();
+
 createExcelSchema<{ checks: boolean[] }>()
   .column("checks", {
     type: "checkbox",

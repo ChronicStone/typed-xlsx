@@ -209,12 +209,47 @@ export interface BadgeVariantOptions {
 }
 
 export type BadgeVariantDefinition = CellStyle | BadgeVariantOptions;
-export type BadgeVariants = Record<string, BadgeVariantDefinition>;
+type BadgeVariantItemValue<TValue> = TValue extends readonly (infer TItem)[]
+  ? TItem
+  : TValue extends (infer TItem)[]
+    ? TItem
+    : TValue;
+type BadgeVariantKey<TValue> = TValue extends Date
+  ? string
+  : TValue extends string
+    ? string extends TValue
+      ? string
+      : TValue
+    : TValue extends number
+      ? number extends TValue
+        ? string
+        : `${TValue}`
+      : TValue extends boolean
+        ? boolean extends TValue
+          ? "false" | "true"
+          : `${TValue}`
+        : TValue extends null
+          ? "null"
+          : TValue extends undefined
+            ? "undefined"
+            : never;
+type BadgeVariantKeys<TValue> = [BadgeVariantKey<BadgeVariantItemValue<TValue>>] extends [never]
+  ? string
+  : BadgeVariantKey<BadgeVariantItemValue<TValue>>;
+export type BadgeVariants<TValue = BadgeSourceValue> = Record<
+  BadgeVariantKeys<TValue>,
+  BadgeVariantDefinition
+>;
 
-export interface BadgeColumnDefinition {
-  variants?: BadgeVariants;
-  defaultVariant?: BadgeVariantDefinition;
-}
+export type BadgeColumnDefinition<TValue = BadgeSourceValue> =
+  | {
+      variants: BadgeVariants<TValue>;
+      defaultVariant?: never;
+    }
+  | {
+      variants?: Partial<BadgeVariants<TValue>>;
+      defaultVariant: BadgeVariantDefinition;
+    };
 
 export interface CheckboxColumnDefinition {
   checkedLabel?: LazyText;
@@ -353,7 +388,7 @@ type BadgeRendererColumnInput<
   AccessorColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
   "type" | "transform"
 > &
-  BadgeColumnDefinition & {
+  BadgeColumnDefinition<AccessorValue<T, TAccessor>> & {
     type: "badge";
     transform?: never;
   };
@@ -580,7 +615,7 @@ type ExcelTableBadgeRendererColumnInput<
   >,
   "transform" | "type"
 > &
-  BadgeColumnDefinition & {
+  BadgeColumnDefinition<AccessorValue<T, TAccessor>> & {
     type: "badge";
     transform?: never;
   };
@@ -946,7 +981,7 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
 }
 
 function normalizeBadgeTransform<T extends object, TContext extends SchemaContext>(
-  variants?: BadgeVariants,
+  variants?: Partial<BadgeVariants>,
   defaultVariant?: BadgeVariantDefinition,
 ): TransformFn<T, unknown, TContext> {
   return (context) => {
@@ -962,7 +997,7 @@ function normalizeBadgeTransform<T extends object, TContext extends SchemaContex
 function normalizeBadgeStyle<T extends object, TContext extends SchemaContext>(
   accessor: Accessor<T, unknown, TContext> | Path<T> | undefined,
   style: CellStyle | StyleFn<T, TContext> | undefined,
-  variants?: BadgeVariants,
+  variants?: Partial<BadgeVariants>,
   defaultVariant?: BadgeVariantDefinition,
 ): CellStyle | StyleFn<T, TContext> {
   return (context) => {
@@ -1042,7 +1077,7 @@ function resolveRendererStyle<T extends object, TContext extends SchemaContext>(
 
 function resolveBadgeVariant(
   value: unknown,
-  variants?: BadgeVariants,
+  variants?: Partial<BadgeVariants>,
   defaultVariant?: BadgeVariantDefinition,
 ) {
   const variant = variants?.[toBadgeKey(value)];
