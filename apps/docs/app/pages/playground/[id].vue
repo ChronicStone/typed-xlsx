@@ -78,7 +78,7 @@ const treeItems = computed(() => {
     kind: "inspect" as const,
     key: `inspect/${file}`,
     label: file,
-    lang: file.endsWith(".json") ? "json" : file.endsWith(".xml") ? "xml" : "text",
+    lang: file.endsWith(".json") ? "json" : /\.(xml|rels)$/.test(file) ? "xml" : "text",
     code: null,
   }));
 
@@ -134,6 +134,7 @@ watch(
     try {
       const content = await $fetch<string>(
         `/generated/examples/showcase/${artifact.value!.id}/artifact/inspect/${item.label}`,
+        { responseType: "text" },
       );
 
       inspectContent.value = item.lang === "xml" ? formatXml(content) : content;

@@ -35,17 +35,30 @@ const schema = createExcelSchema<Invoice>()
     style: { numFmt: "$#,##0.00" },
     summary: (s) => [s.formula("sum")],
   })
-  // TypeScript fails if you reference a later column
+  // Badge renderer — value-to-style mapping declared on the column
   .column("status", {
+    type: "badge",
     accessor: "status",
-    style: (row) => ({
-      font: {
-        bold: row.status === "overdue",
-        color: {
-          rgb: row.status === "paid" ? "166534" : "B42318",
+    variants: {
+      paid: {
+        style: {
+          fill: { color: { rgb: "DCFCE7" } },
+          font: { color: { rgb: "166534" }, bold: true },
         },
       },
-    }),
+      overdue: {
+        style: {
+          fill: { color: { rgb: "FEE2E2" } },
+          font: { color: { rgb: "B42318" }, bold: true },
+        },
+      },
+      pending: {
+        style: {
+          fill: { color: { rgb: "FEF3C7" } },
+          font: { color: { rgb: "92400E" } },
+        },
+      },
+    },
   })
   .build();
 
