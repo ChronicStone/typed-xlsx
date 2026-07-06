@@ -13,5 +13,5 @@
     "column selection"
   ],
   "sheetNames": ["Board Overview", "Regional Views"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml", "sheet2.xml"]
+  "inspectFiles": ["content-types.xml", "workbook.xml", "styles.xml", "sheet1.xml", "sheet2.xml"]
 }

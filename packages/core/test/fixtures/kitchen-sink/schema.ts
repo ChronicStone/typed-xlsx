@@ -1,5 +1,5 @@
 import { createExcelSchema, type CellStyle, type TableStyleDefaults } from "../../../src";
-import type { KitchenSinkOrder, KitchenSinkSparklineRow } from "./data";
+import type { KitchenSinkOrder, KitchenSinkProductImageRow, KitchenSinkSparklineRow } from "./data";
 
 const headerStyle: CellStyle = {
   font: { bold: true, color: { rgb: "1F2937" } },
@@ -220,18 +220,17 @@ export const kitchenSinkSparklineGallerySchema = createExcelSchema<KitchenSinkSp
       .column("jun", { header: "Jun", accessor: "jun", width: 9, headerStyle });
   })
   .column("lineTrend", {
+    type: "sparkline",
     header: "Line",
     width: 22,
-    sparkline: {
-      source: { group: "monthly" },
-      type: "line",
-      emptyCells: "span",
-      style: {
-        line: { color: "#2563EB", weight: 1.05 },
-        dots: false,
-        last: { color: "#10B981" },
-        low: { color: "#EF4444" },
-      },
+    source: { group: "monthly" },
+    sparklineType: "line",
+    emptyCells: "span",
+    style: {
+      line: { color: "#2563EB", weight: 1.05 },
+      dots: false,
+      last: { color: "#10B981" },
+      low: { color: "#EF4444" },
     },
     headerStyle,
   })
@@ -306,6 +305,38 @@ export const kitchenSinkSparklineGallerySchema = createExcelSchema<KitchenSinkSp
         axis: { visible: true, color: "#475569" },
       },
     },
+    headerStyle,
+  })
+  .build();
+
+export const kitchenSinkProductImageSchema = createExcelSchema<KitchenSinkProductImageRow>()
+  .column("thumbnail", {
+    type: "image",
+    header: "Photo",
+    accessor: "thumbnail",
+    alt: "productName",
+    size: { width: 42, height: 42 },
+    padding: 2,
+    width: 10,
+    headerStyle,
+  })
+  .column("sku", {
+    header: "SKU",
+    accessor: "sku",
+    width: 12,
+    headerStyle,
+  })
+  .column("productName", {
+    header: "Product",
+    accessor: "productName",
+    minWidth: 24,
+    headerStyle,
+  })
+  .column("unitPrice", {
+    header: "Unit Price",
+    accessor: "unitPrice",
+    minWidth: 12,
+    style: currencyStyle,
     headerStyle,
   })
   .build();

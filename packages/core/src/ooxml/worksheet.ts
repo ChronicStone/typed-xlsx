@@ -34,6 +34,7 @@ import {
   type WorksheetColumnDefinition,
 } from "./worksheet-parts";
 import { writeExcelTableXml, writeWorksheetTableParts, type WorksheetTablePart } from "./table";
+import { writeWorksheetDrawing } from "./drawing";
 import {
   buildWorksheetSparklineGroups,
   worksheetSparklineNamespaceAttributes,
@@ -86,6 +87,13 @@ export function serializeWorksheet(
     ),
   );
   const partitionedHyperlinks = partitionWorksheetHyperlinks(hyperlinks);
+  const images = positionedTables.flatMap((positioned) =>
+    buildPositionedImages(
+      positioned.table.images ?? [],
+      positioned.columnOffset,
+      positioned.rowOffset + getReportChrome(positioned.table).bodyRowOffset - 1,
+    ),
+  );
   const sparklineGroups = positionedTables.flatMap((positioned) =>
     buildWorksheetSparklineGroups({
       columns: positioned.table.planner.columns,
@@ -162,11 +170,13 @@ export function serializeWorksheet(
         writeWorksheetDataValidations(dataValidations),
         writeWorksheetHyperlinks(partitionedHyperlinks.worksheetHyperlinks),
         writeWorksheetTableParts(tableParts),
+        writeWorksheetDrawing(images.length > 0 ? "rIdDrawing1" : undefined),
         writeWorksheetSparklines(sparklineGroups),
       ],
     ),
     tableParts,
     hyperlinks: partitionedHyperlinks.worksheetHyperlinks,
+    images,
   };
 }
 
@@ -252,6 +262,18 @@ function buildPositionedHyperlinks(
   return hyperlinks.map((hyperlink) => ({
     ...hyperlink,
     ref: shiftRef(hyperlink.ref, columnOffset, rowOffset),
+  }));
+}
+
+function buildPositionedImages(
+  images: import("../workbook/types").WorksheetImage[],
+  columnOffset: number,
+  rowOffset: number,
+) {
+  return images.map((image) => ({
+    ...image,
+    row: image.row + rowOffset,
+    column: image.column + columnOffset,
   }));
 }
 

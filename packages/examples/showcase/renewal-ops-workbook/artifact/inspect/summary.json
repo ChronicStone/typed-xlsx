@@ -11,5 +11,11 @@
     "conditional styles"
   ],
   "sheetNames": ["Renewal Planner"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml"]
+  "inspectFiles": [
+    "content-types.xml",
+    "workbook.xml",
+    "styles.xml",
+    "sheet1.xml",
+    "worksheets/sheet1.xml.rels"
+  ]
 }

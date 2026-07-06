@@ -12,11 +12,25 @@ import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-
 import type { CellStyle } from "../styles/types";
 import type { WorksheetDataValidation } from "../validation/runtime";
 import type { SparklineDefaults } from "../sparkline/types";
+import type { ImageMediaType, ImageSize } from "../image/types";
 
 export interface WorksheetHyperlink {
   ref: string;
   target: string;
   tooltip?: string;
+}
+
+export interface WorksheetImage {
+  row: number;
+  column: number;
+  data: Uint8Array;
+  mediaType: ImageMediaType;
+  alt?: string;
+  size: ImageSize;
+  padding: {
+    x?: number;
+    y?: number;
+  };
 }
 
 export interface TableSelection<TColumnId extends string = string> {
@@ -363,6 +377,7 @@ export interface BufferedTablePlan<T extends object> {
   conditionalFormatting?: WorksheetConditionalFormattingBlock[];
   dataValidations?: WorksheetDataValidation[];
   hyperlinks?: WorksheetHyperlink[];
+  images?: WorksheetImage[];
   autoFilter: boolean;
   excelTable?: ResolvedExcelTableOptions;
 }

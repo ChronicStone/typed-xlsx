@@ -36,6 +36,25 @@ export interface KitchenSinkSparklineRow {
   deltaJun: number;
 }
 
+export interface KitchenSinkProductImageRow {
+  productName: string;
+  sku: string;
+  thumbnail: Uint8Array;
+  unitPrice: number;
+}
+
+const productThumbnails = {
+  node: "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAbElEQVR4nO3QwQ2AIBREQSqxFkuxOc725wVLICTCapyfvCvZoWz72b5cSQ8ASA8ASA8ASA8ASA8AeOqho15DAQAABAGzbilg9Md7AQAAAAAAAAAAAPwIMOOWAd4UQDqAdADpANIBpANIB5DuBt7QUN1JPkANAAAAAElFTkSuQmCC",
+  license:
+    "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAmElEQVR4nO3SsQ2AMBBD0VRMxAyswVzMxUAgCiREFV0i7CO/cB2/nMu0LkfmFHUBAOoCANQF0gLmfcsLuMqnBdzlUwKe5e0A73I1AQAAAAAA4wJ6vdsFEPl9qwtEAT0QckArwgLQgrABRBEAfguIwGwA0ctYAFqmJQfUTMsWUDMtW0DNtAAAAAAAwHiALwJAHQDqAFAHgDon2COGMuDoxsEAAAAASUVORK5CYII=",
+  device:
+    "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAaklEQVR4nO3PsQ2AQBADwa+Aigio8dslgJwUOHNiLG3uGXNbjs6N9AGA9AGA9AGA9AGA9AGA9AGA9IFSwD7XkgAACjG3AdcBAPwN8HYAAAAAAI+fBmgL+GIA6QDSAaQDSAeQDiAdQLr2gBM067YHeC33XQAAAABJRU5ErkJggg==",
+} satisfies Record<string, string>;
+
+function decodePng(base64: string) {
+  return Uint8Array.from(Buffer.from(base64, "base64"));
+}
+
 function computeSeededDate(day: number) {
   return new Date(Date.UTC(2025, 2, day, 9, 30, 0));
 }
@@ -263,6 +282,29 @@ export function createKitchenSinkSparklineRows(): KitchenSinkSparklineRow[] {
       deltaApr: -3,
       deltaMay: 19,
       deltaJun: 25,
+    },
+  ];
+}
+
+export function createKitchenSinkProductImageRows(): KitchenSinkProductImageRow[] {
+  return [
+    {
+      productName: "Assembly node kit",
+      sku: "AX-100",
+      thumbnail: decodePng(productThumbnails.node),
+      unitPrice: 1450,
+    },
+    {
+      productName: "Workspace license",
+      sku: "LIC-24",
+      thumbnail: decodePng(productThumbnails.license),
+      unitPrice: 79,
+    },
+    {
+      productName: "Retail POS device",
+      sku: "POS-14",
+      thumbnail: decodePng(productThumbnails.device),
+      unitPrice: 520,
     },
   ];
 }

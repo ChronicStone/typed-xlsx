@@ -11,6 +11,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const onePixelPng = Uint8Array.from(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64",
+  ),
+);
+
 describe("stream builder", () => {
   it("commits batches, updates summaries, and writes a final manifest report to the sink", async () => {
     const schema = Internal.SchemaBuilder.create<{ amount: number; name: string }>()
@@ -1201,5 +1208,129 @@ describe("stream builder", () => {
     expect(worksheetXml).toContain('<x14:colorNegative rgb="FFEF4444"/>');
     expect(worksheetXml).toContain("<xm:f>'Revenue FY'!B2:D2</xm:f>");
     expect(worksheetXml).toContain("<xm:sqref>E2</xm:sqref>");
+  });
+
+  it("writes image renderer columns as drawing and media parts in streamed worksheets", async () => {
+    const schema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnail?: Uint8Array;
+    }>()
+      .column("photo", {
+        type: "image",
+        accessor: "thumbnail",
+        alt: "name",
+        size: { width: 48, height: 48 },
+      })
+      .column("name", { accessor: "name" })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Products").table("products", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+    await workbook.finish();
+
+    const entries = unzipWorkbookEntries(Buffer.from(sink.toUint8Array()));
+    const worksheetXml = entries.get("xl/worksheets/sheet1.xml");
+    const worksheetRels = entries.get("xl/worksheets/_rels/sheet1.xml.rels");
+    const drawingXml = entries.get("xl/drawings/drawing1.xml");
+    const drawingRels = entries.get("xl/drawings/_rels/drawing1.xml.rels");
+
+    expect(worksheetXml).toContain('<drawing r:id="rIdDrawing1"/>');
+    expect(worksheetRels).toContain("relationships/drawing");
+    expect(drawingXml).toContain('descr="Acme Anvil"');
+    expect(drawingXml).toContain('r:embed="rIdImage1"');
+    expect(drawingRels).toContain('Target="../media/image1.png"');
+    expect(entries.has("xl/media/image1.png")).toBe(true);
+  });
+
+  it("deduplicates embedded image media across streamed worksheets", async () => {
+    const schema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnail?: Uint8Array;
+    }>()
+      .column("photo", {
+        type: "image",
+        accessor: "thumbnail",
+        alt: "name",
+        size: { width: 48, height: 48 },
+      })
+      .column("name", { accessor: "name" })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const products = await workbook.sheet("Products").table("products", {
+      schema,
+    });
+    const catalog = await workbook.sheet("Catalog").table("catalog", {
+      schema,
+    });
+
+    await products.commit({
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+    await catalog.commit({
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+    await workbook.finish();
+
+    const entries = unzipWorkbookEntries(Buffer.from(sink.toUint8Array()));
+    const firstDrawingRels = entries.get("xl/drawings/_rels/drawing1.xml.rels");
+    const secondDrawingRels = entries.get("xl/drawings/_rels/drawing2.xml.rels");
+
+    expect(firstDrawingRels).toContain('Target="../media/image1.png"');
+    expect(secondDrawingRels).toContain('Target="../media/image1.png"');
+    expect(entries.has("xl/media/image1.png")).toBe(true);
+    expect(entries.has("xl/media/image2.png")).toBe(false);
+  });
+
+  it("writes url image renderer columns as Excel IMAGE formulas in streamed worksheets", async () => {
+    const schema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnailUrl?: string;
+    }>()
+      .column("photo", {
+        type: "image",
+        source: "url",
+        accessor: "thumbnailUrl",
+        alt: "name",
+        size: { width: 48, height: 48 },
+      })
+      .column("name", { accessor: "name" })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Products").table("products", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [
+        {
+          name: "Acme Anvil",
+          thumbnailUrl: "https://cdn.example.com/products/acme-anvil.png",
+        },
+      ],
+    });
+    await workbook.finish();
+
+    const entries = unzipWorkbookEntries(Buffer.from(sink.toUint8Array()));
+    const worksheetXml = entries.get("xl/worksheets/sheet1.xml");
+
+    expect(worksheetXml).toContain(
+      "<f>IMAGE(&quot;https://cdn.example.com/products/acme-anvil.png&quot;,&quot;Acme Anvil&quot;,3,48,48)</f>",
+    );
+    expect(entries.has("xl/drawings/drawing1.xml")).toBe(false);
+    expect(entries.has("xl/media/image1.png")).toBe(false);
   });
 });

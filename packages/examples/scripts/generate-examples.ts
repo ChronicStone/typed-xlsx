@@ -74,24 +74,39 @@ function writeInspectArtifacts(
   const inspectDir = path.join(reportDir, "artifact", "inspect");
   ensureDir(inspectDir);
 
-  const workbookXml = entries.get("xl/workbook.xml") || "";
-  const stylesXml = entries.get("xl/styles.xml") || "";
   const sheetEntries = listSheetEntries(entries);
+  const worksheetRelationshipEntries = [...entries.keys()]
+    .filter((entry) => /^xl\/worksheets\/_rels\/sheet\d+\.xml\.rels$/.test(entry))
+    .sort();
+  const drawingEntries = [...entries.keys()]
+    .filter((entry) => /^xl\/drawings\/drawing\d+\.xml$/.test(entry))
+    .sort();
+  const drawingRelationshipEntries = [...entries.keys()]
+    .filter((entry) => /^xl\/drawings\/_rels\/drawing\d+\.xml\.rels$/.test(entry))
+    .sort();
+  const inspectEntries = [
+    { source: "[Content_Types].xml", file: "content-types.xml" },
+    { source: "xl/workbook.xml", file: "workbook.xml" },
+    { source: "xl/styles.xml", file: "styles.xml" },
+    ...sheetEntries.map((entry) => ({ source: entry, file: path.basename(entry) })),
+    ...worksheetRelationshipEntries.map((entry) => ({
+      source: entry,
+      file: `worksheets/${path.basename(entry)}`,
+    })),
+    ...drawingEntries.map((entry) => ({ source: entry, file: `drawings/${path.basename(entry)}` })),
+    ...drawingRelationshipEntries.map((entry) => ({
+      source: entry,
+      file: `drawings/${path.basename(entry)}`,
+    })),
+  ].filter(({ source }) => entries.has(source));
 
-  if (workbookXml) {
-    fs.writeFileSync(path.join(inspectDir, "workbook.xml"), workbookXml);
+  for (const entry of inspectEntries) {
+    const target = path.join(inspectDir, entry.file);
+    ensureDir(path.dirname(target));
+    fs.writeFileSync(target, entries.get(entry.source) || "");
   }
 
-  if (stylesXml) {
-    fs.writeFileSync(path.join(inspectDir, "styles.xml"), stylesXml);
-  }
-
-  for (const sheetEntry of sheetEntries) {
-    fs.writeFileSync(
-      path.join(inspectDir, path.basename(sheetEntry)),
-      entries.get(sheetEntry) || "",
-    );
-  }
+  const workbookXml = entries.get("xl/workbook.xml") || "";
 
   fs.writeFileSync(
     path.join(inspectDir, "summary.json"),
@@ -102,11 +117,7 @@ function writeInspectArtifacts(
         tags: meta.tags,
         features: meta.features,
         sheetNames: listSheetNames(workbookXml),
-        inspectFiles: [
-          "workbook.xml",
-          "styles.xml",
-          ...sheetEntries.map((entry) => path.basename(entry)),
-        ],
+        inspectFiles: [...inspectEntries.map((entry) => entry.file)],
       },
       null,
       2,

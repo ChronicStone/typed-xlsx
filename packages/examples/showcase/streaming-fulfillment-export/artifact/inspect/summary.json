@@ -10,5 +10,5 @@
     "same schema as buffered"
   ],
   "sheetNames": ["Fulfillment Export"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml"]
+  "inspectFiles": ["content-types.xml", "workbook.xml", "styles.xml", "sheet1.xml"]
 }

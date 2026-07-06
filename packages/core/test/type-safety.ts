@@ -7,7 +7,7 @@
  * annotates compiles cleanly (meaning a regression fixed the error).
  */
 
-import type { Path, SchemaColumnId, SchemaGroupContext } from "../src";
+import type { ImageUrlValue, ImageValue, Path, SchemaColumnId, SchemaGroupContext } from "../src";
 import { createExcelSchema, createWorkbook } from "../src";
 
 // ── Path<T> ──────────────────────────────────────────────────────────────────
@@ -324,6 +324,87 @@ createExcelSchema<FlatRow, { months: string[] }>()
     sparkline: {
       source: { dynamic: "months" },
     },
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("trend", {
+    type: "sparkline",
+    source: ["age"],
+    sparklineType: "line",
+    style: {
+      high: { color: "#22C55E" },
+    },
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("trend", {
+    // @ts-expect-error renderer sparkline sources can only target previously declared column ids
+    type: "sparkline",
+    source: ["future"],
+  })
+  .build();
+
+createExcelSchema<{ name: string; thumbnail?: Uint8Array }>()
+  .column("photo", {
+    type: "image",
+    accessor: "thumbnail",
+    alt: "name",
+    size: { width: 64, height: 64 },
+  })
+  .build();
+
+createExcelSchema<{ name: string; thumbnail?: ImageValue }>()
+  .column("photo", {
+    type: "image",
+    accessor: (row) => row.thumbnail,
+    alt: (context: { name: string }) => context.name,
+  })
+  .build();
+
+createExcelSchema<{ name: string; thumbnailUrl?: string }>()
+  .column("photo", {
+    type: "image",
+    source: "url",
+    accessor: "thumbnailUrl",
+    alt: "name",
+    size: { width: 64, height: 64 },
+  })
+  .build();
+
+createExcelSchema<{ name: string; thumbnail?: ImageUrlValue }>()
+  .column("photo", {
+    type: "image",
+    source: "url",
+    accessor: (row) => row.thumbnail,
+    alt: (context: { name: string }) => context.name,
+  })
+  .build();
+
+createExcelSchema<{ thumbnailUrl?: string }>().column("photo", {
+  // @ts-expect-error url image columns do not take embedded media types
+  type: "image",
+  source: "url",
+  accessor: "thumbnailUrl",
+  mediaType: "image/png",
+});
+
+createExcelSchema<{ thumbnail?: Uint8Array }>().column("photo", {
+  // @ts-expect-error image renderer columns cannot also be formula columns
+  type: "image",
+  accessor: "thumbnail",
+  // @ts-expect-error image renderer columns cannot also be formula columns
+  formula: ({ refs }: any) => refs.column("photo"),
+});
+
+createExcelSchema<FlatRow>()
+  .column("portal", {
+    type: "hyperlink",
+    accessor: "name",
+    target: (context: { name: string }) => `https://example.com/${context.name}`,
   })
   .build();
 

@@ -21,6 +21,23 @@ import { normalizeSummaryInput } from "../summary/builder";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./metrics";
 import type { CellStyle } from "../styles/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
+import { getValueAtPath } from "../core/path";
+import {
+  imageHeightToPoints,
+  imageUrlHeightToPoints,
+  imageUrlWidthToColumnWidth,
+  imageWidthToColumnWidth,
+  resolveImageUrlValue,
+  resolveImageValue,
+  writeImageFormula,
+} from "../image/runtime";
+import type {
+  ImageColumnOptions,
+  ImageSourceValue,
+  ImageUrlSourceValue,
+  ResolvedImageUrlValue,
+  ResolvedImageValue,
+} from "../image/types";
 import {
   createFormulaRefs,
   createFormulaFunctionsContext,
@@ -40,6 +57,9 @@ export interface PlannedHyperlink {
   tooltip?: string;
   style?: CellStyle;
 }
+
+export interface PlannedImage extends ResolvedImageValue {}
+export interface PlannedImageUrl extends ResolvedImageUrlValue {}
 
 export interface ResolvedColumn<T extends object> extends Omit<
   ColumnDefinition<T, any, any, any, any, any, any>,
@@ -104,6 +124,7 @@ export interface PlannedCell<T extends object> {
   columnId: string;
   value: CellData;
   hyperlink?: PlannedHyperlink;
+  image?: PlannedImage;
   sourceRow: T;
   sourceRowIndex: number;
   subRowIndex: number;
@@ -326,6 +347,156 @@ function resolveCellHyperlink<T extends object>(params: {
   }
 
   return resolved;
+}
+
+function invokeRowImageValue<T extends object>(params: {
+  value: (context: unknown) => unknown;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  return (params.value as (context: unknown) => unknown)({
+    ...params.row,
+    ctx: params.ctx,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    subRowIndex: params.subRowIndex,
+  });
+}
+
+function resolveImageOptionValue<T extends object, TValue>(params: {
+  value: TValue | ((context: any) => TValue | undefined) | undefined;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  if (typeof params.value !== "function") {
+    return params.value;
+  }
+
+  return invokeRowImageValue({
+    ctx: params.ctx,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    subRowIndex: params.subRowIndex,
+    value: params.value as (context: unknown) => unknown,
+  }) as TValue | undefined;
+}
+
+function resolveImageAlt<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  const alt = params.column.image?.alt;
+  if (!alt) {
+    return undefined;
+  }
+
+  if (typeof alt === "function") {
+    return resolveImageOptionValue({
+      ctx: params.ctx,
+      row: params.row,
+      rowIndex: params.rowIndex,
+      subRowIndex: params.subRowIndex,
+      value: alt,
+    });
+  }
+
+  const pathValue = getValueAtPath(params.row, alt);
+  return typeof pathValue === "string" ? pathValue : alt;
+}
+
+function resolveImageSourceValue<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  row: T;
+  sourceValue?: unknown;
+  ctx?: SchemaContext;
+}) {
+  if (params.sourceValue !== undefined) {
+    return params.sourceValue;
+  }
+
+  if (!params.column.accessor) {
+    return undefined;
+  }
+
+  return resolveAccessor(params.row, params.column.accessor as any, params.ctx);
+}
+
+export function resolveColumnImage<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  sourceValue?: unknown;
+  ctx?: SchemaContext;
+}): PlannedImage | undefined {
+  if (!params.column.image || params.column.image.source === "url") {
+    return undefined;
+  }
+
+  const sourceValue = resolveImageSourceValue(params);
+  const options: ImageColumnOptions = {
+    mediaType: resolveImageOptionValue({
+      ctx: params.ctx,
+      row: params.row,
+      rowIndex: params.rowIndex,
+      subRowIndex: params.subRowIndex,
+      value: params.column.image.mediaType,
+    }),
+    alt: resolveImageAlt(params),
+    size: params.column.image.size,
+    fit: params.column.image.fit,
+    padding: params.column.image.padding,
+  };
+
+  return resolveImageValue(sourceValue as ImageSourceValue, options);
+}
+
+export function resolveColumnImageUrl<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  sourceValue?: unknown;
+  ctx?: SchemaContext;
+}): PlannedImageUrl | undefined {
+  if (!params.column.image || params.column.image.source !== "url") {
+    return undefined;
+  }
+
+  const sourceValue = resolveImageSourceValue(params);
+
+  return resolveImageUrlValue(sourceValue as ImageUrlSourceValue, {
+    alt: resolveImageAlt(params),
+    size: params.column.image.size,
+    fit: params.column.image.fit,
+  });
+}
+
+export function resolveColumnCellValues<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  imageUrl?: PlannedImageUrl;
+  transformed: unknown;
+}): CellData[] {
+  if (params.column.formula) {
+    return [];
+  }
+
+  if (params.imageUrl) {
+    return [{ kind: "formula", formula: writeImageFormula(params.imageUrl) }];
+  }
+
+  if (params.column.image) {
+    return [null];
+  }
+
+  return toCellDataValues(params.transformed);
 }
 
 function resolveFormulaCell<T extends object>(params: {
@@ -787,11 +958,33 @@ export function planRows<T extends object>(
             value: rawValue,
           })
         : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
-      const values = column.formula ? [] : toCellDataValues(transformed);
+      const image = resolveColumnImage({
+        column,
+        row,
+        rowIndex: logicalRowIndex,
+        subRowIndex: 0,
+        sourceValue: rawValue,
+        ctx: undefined,
+      });
+      const imageUrl = resolveColumnImageUrl({
+        column,
+        row,
+        rowIndex: logicalRowIndex,
+        subRowIndex: 0,
+        sourceValue: rawValue,
+        ctx: undefined,
+      });
+      const values = resolveColumnCellValues({
+        column,
+        imageUrl,
+        transformed,
+      });
       rowHeight = Math.max(rowHeight, values.length);
 
       const measuredWidth = Math.max(
         ...values.map((value) => measurePrimitiveValue(getCellPrimitiveValue(value))),
+        image ? imageWidthToColumnWidth(image) : 0,
+        imageUrl ? imageUrlWidthToColumnWidth(imageUrl) : 0,
         0,
       );
       const currentWidth = stats.columnWidths.get(column.id) ?? 0;
@@ -806,6 +999,8 @@ export function planRows<T extends object>(
 
       return {
         column,
+        image,
+        imageUrl,
         values,
       };
     });
@@ -823,6 +1018,8 @@ export function planRows<T extends object>(
         return {
           columnId: column.id,
           column,
+          images: rawCells[columnIndex]!.image ? [rawCells[columnIndex]!.image] : [],
+          imageUrls: rawCells[columnIndex]!.imageUrl ? [rawCells[columnIndex]!.imageUrl] : [],
           values,
           seriesMode,
         };
@@ -919,6 +1116,8 @@ export function planRows<T extends object>(
       return {
         columnId: column.id,
         column,
+        images: [],
+        imageUrls: [],
         values,
         seriesMode,
       };
@@ -941,7 +1140,16 @@ export function planRows<T extends object>(
       const rowValues = expandedCells.map((cell) =>
         getCellPrimitiveValue(cell.values[subRowIndex] ?? null),
       );
-      const physicalHeight = estimateRowHeight(rowValues, rowStyles);
+      const imageHeight = Math.max(
+        ...expandedCells.map((cell) =>
+          cell.images[subRowIndex] ? imageHeightToPoints(cell.images[subRowIndex]!) : 0,
+        ),
+        ...expandedCells.map((cell) =>
+          cell.imageUrls[subRowIndex] ? imageUrlHeightToPoints(cell.imageUrls[subRowIndex]!) : 0,
+        ),
+        0,
+      );
+      const physicalHeight = Math.max(estimateRowHeight(rowValues, rowStyles), imageHeight);
 
       plannedRows.push({
         logicalRowIndex,
@@ -959,6 +1167,7 @@ export function planRows<T extends object>(
             subRowIndex,
             ctx: undefined,
           }),
+          image: cell.images[subRowIndex],
           sourceRow: row,
           sourceRowIndex: logicalRowIndex,
           subRowIndex,

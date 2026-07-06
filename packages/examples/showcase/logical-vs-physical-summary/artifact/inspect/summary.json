@@ -10,5 +10,5 @@
     "formula DSL"
   ],
   "sheetNames": ["Logical vs Physical"],
-  "inspectFiles": ["workbook.xml", "styles.xml", "sheet1.xml"]
+  "inspectFiles": ["content-types.xml", "workbook.xml", "styles.xml", "sheet1.xml"]
 }

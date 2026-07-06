@@ -9,6 +9,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const onePixelPng = Uint8Array.from(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64",
+  ),
+);
+
 describe("ooxml", () => {
   it("serializes a buffered workbook plan into workbook and worksheet xml parts", () => {
     const schema = Internal.SchemaBuilder.create<{ name: string; amount: number }>()
@@ -281,6 +288,206 @@ describe("ooxml", () => {
     expect(worksheetPart?.xml).not.toContain('ref="A3"');
     expect(worksheetRelsPart?.xml).toContain(
       'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"',
+    );
+    expect(worksheetRelsPart?.xml).toContain('Target="https://example.com/customers/c_1"');
+  });
+
+  it("writes image renderer columns as drawing and media parts", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnail?: Uint8Array;
+    }>()
+      .column("photo", {
+        type: "image",
+        header: "Photo",
+        accessor: "thumbnail",
+        alt: "name",
+        size: { width: 40, height: 32 },
+        padding: 2,
+      })
+      .column("name", {
+        accessor: "name",
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Products").table("products", {
+      schema,
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+
+    const entries = unzipWorkbookEntries(workbook.buildXlsx());
+    const worksheetXml = entries.get("xl/worksheets/sheet1.xml");
+    const worksheetRels = entries.get("xl/worksheets/_rels/sheet1.xml.rels");
+    const drawingXml = entries.get("xl/drawings/drawing1.xml");
+    const drawingRels = entries.get("xl/drawings/_rels/drawing1.xml.rels");
+    const contentTypes = entries.get("[Content_Types].xml");
+
+    expect(worksheetXml).toContain('<drawing r:id="rIdDrawing1"/>');
+    expect(worksheetRels).toContain("relationships/drawing");
+    expect(worksheetRels).toContain('Target="../drawings/drawing1.xml"');
+    expect(drawingXml).toContain("<xdr:oneCellAnchor>");
+    expect(drawingXml).toContain("<xdr:col>0</xdr:col>");
+    expect(drawingXml).toContain("<xdr:row>1</xdr:row>");
+    expect(drawingXml).toContain('descr="Acme Anvil"');
+    expect(drawingXml).toContain('r:embed="rIdImage1"');
+    expect(drawingRels).toContain("relationships/image");
+    expect(drawingRels).toContain('Target="../media/image1.png"');
+    expect(contentTypes).toContain('Extension="png" ContentType="image/png"');
+    expect(contentTypes).toContain(
+      'PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"',
+    );
+    expect(entries.has("xl/media/image1.png")).toBe(true);
+    expectWorkbookXmlToBeWellFormed(entries);
+  });
+
+  it("deduplicates embedded image media across buffered worksheets", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnail?: Uint8Array;
+    }>()
+      .column("photo", {
+        type: "image",
+        header: "Photo",
+        accessor: "thumbnail",
+        alt: "name",
+        size: { width: 40, height: 32 },
+      })
+      .column("name", {
+        accessor: "name",
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Products").table("products", {
+      schema,
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+    workbook.sheet("Catalog").table("catalog", {
+      schema,
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+
+    const entries = unzipWorkbookEntries(workbook.buildXlsx());
+    const firstDrawingRels = entries.get("xl/drawings/_rels/drawing1.xml.rels");
+    const secondDrawingRels = entries.get("xl/drawings/_rels/drawing2.xml.rels");
+
+    expect(firstDrawingRels).toContain('Target="../media/image1.png"');
+    expect(secondDrawingRels).toContain('Target="../media/image1.png"');
+    expect(entries.has("xl/media/image1.png")).toBe(true);
+    expect(entries.has("xl/media/image2.png")).toBe(false);
+    expectWorkbookXmlToBeWellFormed(entries);
+  });
+
+  it("rejects invalid image geometry before writing drawing xml", () => {
+    const invalidSizeSchema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnail?: Uint8Array;
+    }>()
+      .column("photo", {
+        type: "image",
+        accessor: "thumbnail",
+        size: { width: 0, height: 32 },
+      })
+      .build();
+    const invalidPaddingSchema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnail?: Uint8Array;
+    }>()
+      .column("photo", {
+        type: "image",
+        accessor: "thumbnail",
+        padding: -1,
+      })
+      .build();
+
+    const invalidSizeWorkbook = Internal.BufferedWorkbookBuilder.create();
+    invalidSizeWorkbook.sheet("Products").table("products", {
+      schema: invalidSizeSchema,
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+
+    const invalidPaddingWorkbook = Internal.BufferedWorkbookBuilder.create();
+    invalidPaddingWorkbook.sheet("Products").table("products", {
+      schema: invalidPaddingSchema,
+      rows: [{ name: "Acme Anvil", thumbnail: onePixelPng }],
+    });
+
+    expect(() => invalidSizeWorkbook.buildXlsx()).toThrow(
+      "Image column size must use positive width and height values.",
+    );
+    expect(() => invalidPaddingWorkbook.buildXlsx()).toThrow(
+      "Image column padding must be a non-negative finite value.",
+    );
+  });
+
+  it("writes url image renderer columns as Excel IMAGE formulas", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      name: string;
+      thumbnailUrl?: string;
+    }>()
+      .column("photo", {
+        type: "image",
+        source: "url",
+        header: "Photo",
+        accessor: "thumbnailUrl",
+        alt: "name",
+        size: { width: 40, height: 32 },
+      })
+      .column("name", {
+        accessor: "name",
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Products").table("products", {
+      schema,
+      rows: [
+        {
+          name: "Acme Anvil",
+          thumbnailUrl: "https://cdn.example.com/products/acme-anvil.png",
+        },
+      ],
+    });
+
+    const entries = unzipWorkbookEntries(workbook.buildXlsx());
+    const worksheetXml = entries.get("xl/worksheets/sheet1.xml");
+
+    expect(worksheetXml).toContain(
+      "<f>IMAGE(&quot;https://cdn.example.com/products/acme-anvil.png&quot;,&quot;Acme Anvil&quot;,3,32,40)</f>",
+    );
+    expect(entries.has("xl/drawings/drawing1.xml")).toBe(false);
+    expect(entries.has("xl/media/image1.png")).toBe(false);
+    expectWorkbookXmlToBeWellFormed(entries);
+  });
+
+  it("normalizes hyperlink renderer columns to worksheet hyperlinks", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      customer: string;
+      id: string;
+    }>()
+      .column("portal", {
+        type: "hyperlink",
+        accessor: "customer",
+        target: (context: { id: string }) => `https://example.com/customers/${context.id}`,
+        tooltip: "Open portal",
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Customers").table("customers", {
+      schema,
+      rows: [{ customer: "Acme", id: "c_1" }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const worksheetRelsPart = xml.parts.find(
+      (part) => part.path === "xl/worksheets/_rels/sheet1.xml.rels",
+    );
+
+    expect(worksheetPart?.xml).toContain(
+      '<hyperlink ref="A2" tooltip="Open portal" r:id="rIdHyperlink1"/>',
     );
     expect(worksheetRelsPart?.xml).toContain('Target="https://example.com/customers/c_1"');
   });
@@ -1657,6 +1864,42 @@ describe("ooxml", () => {
     expect(worksheetPart?.xml).toContain("<xm:f>'Revenue FY'!B2:D2</xm:f>");
     expect(worksheetPart?.xml).toContain("<xm:sqref>E2</xm:sqref>");
     expectWorkbookXmlToBeWellFormed(new Map(xml.parts.map((part) => [part.path, part.xml])));
+  });
+
+  it("normalizes sparkline renderer columns to native sparkline metadata", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      jan: number;
+      feb: number;
+      mar: number;
+    }>()
+      .column("jan", { accessor: "jan" })
+      .column("feb", { accessor: "feb" })
+      .column("mar", { accessor: "mar" })
+      .column("trend", {
+        type: "sparkline",
+        source: { from: "jan", to: "mar" },
+        sparklineType: "column",
+        style: {
+          negative: { visible: true, color: "#EF4444" },
+        },
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Revenue").table("forecast", {
+      schema,
+      rows: [{ jan: 10, feb: -4, mar: 16 }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain(
+      '<x14:sparklineGroup type="column" displayEmptyCellsAs="gap" negative="1"',
+    );
+    expect(worksheetPart?.xml).toContain('<x14:colorNegative rgb="FFEF4444"/>');
+    expect(worksheetPart?.xml).toContain("<xm:f>'Revenue'!A2:C2</xm:f>");
+    expect(worksheetPart?.xml).toContain("<xm:sqref>D2</xm:sqref>");
   });
 
   it("throws when sparkline sources are excluded from the rendered table", () => {

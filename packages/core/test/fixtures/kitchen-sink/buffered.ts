@@ -1,10 +1,15 @@
 import { createExcelSchema, createWorkbook } from "../../../src";
-import { createKitchenSinkOrders, createKitchenSinkSparklineRows } from "./data";
+import {
+  createKitchenSinkOrders,
+  createKitchenSinkProductImageRows,
+  createKitchenSinkSparklineRows,
+} from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
   kitchenSinkHyperlinkSchema,
+  kitchenSinkProductImageSchema,
   kitchenSinkProtectedInputSchema,
   kitchenSinkSchema,
   kitchenSinkSparklineGallerySchema,
@@ -283,6 +288,16 @@ export function buildKitchenSinkBufferedExample() {
           }) satisfies KitchenSinkHyperlinkRow,
       ),
       schema: kitchenSinkHyperlinkSchema,
+    });
+
+  workbook
+    .sheet("Images", {
+      freezePane: { rows: 1 },
+    })
+    .table("product-images", {
+      title: "Product Image Renderer",
+      rows: createKitchenSinkProductImageRows(),
+      schema: kitchenSinkProductImageSchema,
     });
 
   workbook

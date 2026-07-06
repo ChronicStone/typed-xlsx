@@ -44,6 +44,9 @@ describe("kitchen sink examples", () => {
     const bufferedProtectedSheet = readWorksheetByName(bufferedEntries, "Protected Input");
     const bufferedHyperlinkSheet = readWorksheetByName(bufferedEntries, "Hyperlinks");
     const bufferedHyperlinkRels = readWorksheetRelationshipsByName(bufferedEntries, "Hyperlinks");
+    const bufferedImagesSheet = readWorksheetByName(bufferedEntries, "Images");
+    const bufferedImagesRels = readWorksheetRelationshipsByName(bufferedEntries, "Images");
+    const bufferedDrawing = readWorkbookEntry(bufferedEntries, "xl/drawings/drawing1.xml");
     const bufferedStyles = readWorkbookEntry(bufferedEntries, "xl/styles.xml");
     const bufferedWorkbook = readWorkbookEntry(bufferedEntries, "xl/workbook.xml");
 
@@ -57,6 +60,12 @@ describe("kitchen sink examples", () => {
     expect(bufferedStyles).toContain('<protection hidden="1"/>');
     expect(bufferedHyperlinkSheet).toContain("<hyperlinks>");
     expect(bufferedHyperlinkRels).toContain("relationships/hyperlink");
+    expect(bufferedImagesSheet).toContain("<drawing");
+    expect(bufferedImagesRels).toContain("relationships/drawing");
+    expect(bufferedDrawing).toContain("<xdr:oneCellAnchor>");
+    expect(bufferedEntries.has("xl/media/image1.png")).toBe(true);
+    expect(bufferedEntries.has("xl/media/image2.png")).toBe(true);
+    expect(bufferedEntries.has("xl/media/image3.png")).toBe(true);
     expect(bufferedWorkbook).toContain("<workbookProtection");
     expect(bufferedWorkbook).toContain('lockStructure="1"');
     expect(bufferedWorkbook).toContain('workbookPassword="');
@@ -67,6 +76,9 @@ describe("kitchen sink examples", () => {
     const streamedProtectedSheet = readWorksheetByName(streamedEntries, "Protected Input");
     const streamedHyperlinkSheet = readWorksheetByName(streamedEntries, "Hyperlinks");
     const streamedHyperlinkRels = readWorksheetRelationshipsByName(streamedEntries, "Hyperlinks");
+    const streamedImagesSheet = readWorksheetByName(streamedEntries, "Images");
+    const streamedImagesRels = readWorksheetRelationshipsByName(streamedEntries, "Images");
+    const streamedDrawing = readWorkbookEntry(streamedEntries, "xl/drawings/drawing1.xml");
     const streamedStyles = readWorkbookEntry(streamedEntries, "xl/styles.xml");
     const streamedWorkbook = readWorkbookEntry(streamedEntries, "xl/workbook.xml");
 
@@ -82,6 +94,12 @@ describe("kitchen sink examples", () => {
     expect(streamedStyles).toContain('<protection hidden="1"/>');
     expect(streamedHyperlinkSheet).toContain("<hyperlinks>");
     expect(streamedHyperlinkRels).toContain("relationships/hyperlink");
+    expect(streamedImagesSheet).toContain("<drawing");
+    expect(streamedImagesRels).toContain("relationships/drawing");
+    expect(streamedDrawing).toContain("<xdr:oneCellAnchor>");
+    expect(streamedEntries.has("xl/media/image1.png")).toBe(true);
+    expect(streamedEntries.has("xl/media/image2.png")).toBe(true);
+    expect(streamedEntries.has("xl/media/image3.png")).toBe(true);
     expect(streamedWorkbook).toContain("<workbookProtection");
     expect(streamedWorkbook).toContain('lockStructure="1"');
     expect(streamedWorkbook).toContain('workbookPassword="');

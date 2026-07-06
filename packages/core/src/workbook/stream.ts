@@ -87,6 +87,14 @@ import {
   writeWorksheetSparklines,
 } from "../sparkline/runtime";
 import type { ResolvedSparklineDefinition } from "../sparkline/types";
+import {
+  createWorksheetDrawingPart,
+  createWorksheetMediaRegistry,
+  writeWorksheetDrawing,
+  writeWorksheetDrawingRelationship,
+  type WorksheetDrawingPart,
+} from "../ooxml/drawing";
+import type { ImageMediaType } from "../image/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
 
 function normalizeColumnSummary(
@@ -114,6 +122,7 @@ interface StreamTableState<T extends object, TColumnId extends string> {
   }>;
   merges: PlannedMergeRange[];
   hyperlinks: import("./types").WorksheetHyperlink[];
+  images: import("./types").WorksheetImage[];
   spool: StreamSheetSpool;
   autoFilter: boolean;
   excelTable?: import("./types").ResolvedExcelTableOptions;
@@ -148,6 +157,7 @@ interface StreamTableFinalization {
   merges: PlannedMergeRange[];
   summaries: PlannedSummaryCell[];
   hyperlinks: import("./types").WorksheetHyperlink[];
+  images: import("./types").WorksheetImage[];
   defaults?: import("./types").TableStyleDefaults;
   headerStyleIndexes: number[];
   summaryStyleIndexes: Array<number | undefined>;
@@ -170,7 +180,7 @@ interface StreamTableFinalization {
 
 interface StreamWorksheetPart {
   path: string;
-  source: AsyncIterable<Uint8Array> | string;
+  source: AsyncIterable<Uint8Array> | string | Uint8Array;
 }
 
 interface StreamWorkbookProtection {
@@ -291,6 +301,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       logicalRowBounds: [],
       merges: [],
       hyperlinks: [],
+      images: [],
       spool,
       autoFilter: false,
       excelTable: resolvedExcelTable,
@@ -392,6 +403,20 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
           });
         });
       });
+      expanded.imagesByColumn?.forEach((images, columnIndex) => {
+        images.forEach((image, subRowIndex) => {
+          if (!image) return;
+          this.state.images.push({
+            row: 1 + this.state.committedPhysicalRows + subRowIndex,
+            column: columnIndex,
+            data: image.data,
+            mediaType: image.mediaType,
+            alt: image.alt,
+            size: image.size,
+            padding: image.padding,
+          });
+        });
+      });
       this.state.committedLogicalRows += 1;
       this.state.committedPhysicalRows += expanded.height;
     }
@@ -438,6 +463,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       merges: [...this.state.merges],
       summaries,
       hyperlinks: [...this.state.hyperlinks],
+      images: [...this.state.images],
       defaults: this.state.defaults,
       headerStyleIndexes: this.state.columns.map((column) =>
         this.styles.addStyle(withTableDefaultHeaderStyle(this.state.defaults, column.headerStyle)),
@@ -680,10 +706,15 @@ export class StreamWorkbookBuilder {
     const worksheetParts: StreamWorksheetPart[] = [];
     const worksheetRelationshipParts: StreamWorksheetPart[] = [];
     const tableParts: StreamWorksheetPart[] = [];
+    const drawingParts: StreamWorksheetPart[] = [];
+    const mediaParts: Array<StreamWorksheetPart & { mediaType: ImageMediaType }> = [];
+    const mediaRegistry = createWorksheetMediaRegistry();
     const rawSheetNames = finalizedSheets.map((sheet) => sheet.name);
     const worksheetNames = buildWorksheetNames(rawSheetNames);
     let worksheetIndex = 0;
     let tableIndex = 0;
+    let drawingIndex = 0;
+    let pictureIndex = 0;
 
     for (const sheet of finalizedSheets) {
       worksheetIndex += 1;
@@ -699,6 +730,26 @@ export class StreamWorkbookBuilder {
           })),
         ),
       );
+      const worksheetImages = positionedTables.flatMap((positioned) =>
+        positioned.table.images.map((image) => ({
+          ...image,
+          row:
+            image.row +
+            positioned.rowOffset +
+            getStreamReportChrome(positioned.table).bodyRowOffset -
+            1,
+          column: image.column + positioned.columnOffset,
+        })),
+      );
+      const drawing =
+        worksheetImages.length > 0
+          ? createWorksheetDrawingPart({
+              drawingIndex: drawingIndex + 1,
+              imageStartIndex: pictureIndex + 1,
+              images: worksheetImages,
+              mediaRegistry,
+            })
+          : undefined;
 
       const worksheetName = worksheetNames[worksheetIndex - 1] ?? `Sheet ${worksheetIndex}`;
       workbookSheetDefs.push({
@@ -714,15 +765,17 @@ export class StreamWorkbookBuilder {
           worksheetTableParts,
           conditionalFormatting,
           this.styles,
+          drawing?.relId,
         ),
       });
 
-      if (worksheetTableParts.length > 0) {
+      if (worksheetTableParts.length > 0 || drawing) {
         worksheetRelationshipParts.push({
           path: `xl/worksheets/_rels/sheet${worksheetIndex}.xml.rels`,
           source: writeStreamWorksheetRelationshipsXml(
             worksheetTableParts,
             worksheetHyperlinks.externalRelationships,
+            drawing,
           ),
         });
         tableParts.push(
@@ -731,12 +784,28 @@ export class StreamWorkbookBuilder {
             source: part.xml,
           })),
         );
+        if (drawing) {
+          drawingIndex += 1;
+          pictureIndex += worksheetImages.length;
+          drawingParts.push(
+            { path: drawing.path, source: drawing.xml },
+            { path: drawing.relsPath, source: drawing.relationshipsXml },
+          );
+          mediaParts.push(
+            ...drawing.mediaParts.map((part) => ({
+              path: part.path,
+              source: part.data,
+              mediaType: part.mediaType,
+            })),
+          );
+        }
       } else if (worksheetHyperlinks.externalRelationships.length > 0) {
         worksheetRelationshipParts.push({
           path: `xl/worksheets/_rels/sheet${worksheetIndex}.xml.rels`,
           source: writeStreamWorksheetRelationshipsXml(
             [],
             worksheetHyperlinks.externalRelationships,
+            undefined,
           ),
         });
       }
@@ -764,6 +833,8 @@ export class StreamWorkbookBuilder {
       ...worksheetParts,
       ...worksheetRelationshipParts,
       ...tableParts,
+      ...drawingParts,
+      ...mediaParts,
     ];
 
     await writeXlsxPackageToSink(
@@ -772,6 +843,8 @@ export class StreamWorkbookBuilder {
         worksheetCount: worksheetParts.length,
         hasSharedStrings: this.sharedStrings.count() > 0,
         tableCount: tableIndex,
+        drawingCount: drawingIndex,
+        mediaTypes: mediaParts.map((part) => part.mediaType),
       },
       targetSink,
     );
@@ -830,6 +903,7 @@ async function* streamWorksheetXml(
   tableParts: WorksheetTablePart[],
   conditionalFormatting: ReturnType<typeof buildPositionedConditionalFormatting>,
   styles: StylesCollector,
+  drawingRelId?: string,
 ): AsyncIterable<Uint8Array> {
   const merges = positionedTables.flatMap((positioned) => {
     const chrome = getStreamReportChrome(positioned.table);
@@ -1113,7 +1187,7 @@ async function* streamWorksheetXml(
   }
 
   yield encodeXml(
-    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetTableParts(tableParts)}${writeWorksheetSparklines(sparklineGroups)}</worksheet>`,
+    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetTableParts(tableParts)}${writeWorksheetDrawing(drawingRelId)}${writeWorksheetSparklines(sparklineGroups)}</worksheet>`,
   );
 }
 
@@ -1130,8 +1204,9 @@ function writeWorksheetRootAttributes(hasSparklines: boolean) {
 function writeStreamWorksheetRelationshipsXml(
   tableParts: WorksheetTablePart[],
   hyperlinks: Array<{ relId: string; target: string }>,
+  drawing?: WorksheetDrawingPart,
 ) {
-  if (hyperlinks.length === 0) {
+  if (hyperlinks.length === 0 && !drawing) {
     return writeWorksheetRelationshipsXml(tableParts);
   }
 
@@ -1148,6 +1223,14 @@ function writeStreamWorksheetRelationshipsXml(
           Target: `../tables/${part.path.split("/").pop()}`,
         }),
       ),
+      ...(drawing
+        ? [
+            writeWorksheetDrawingRelationship({
+              relId: drawing.relId,
+              drawingPath: drawing.path,
+            }),
+          ]
+        : []),
       ...hyperlinks.map((hyperlink) =>
         xmlSelfClosing("Relationship", {
           Id: hyperlink.relId,

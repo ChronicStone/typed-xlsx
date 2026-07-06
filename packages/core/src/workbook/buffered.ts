@@ -12,6 +12,8 @@ import type {
   SheetProtectionInput,
   SheetViewOptions,
   WorkbookProtectionInput,
+  WorksheetHyperlink,
+  WorksheetImage,
 } from "./types";
 import { resolveSheetProtection as resolveProtection, resolveWorkbookProtection } from "./types";
 import { applyColumnSelection } from "./internal/selection";
@@ -26,6 +28,46 @@ function isBufferedExcelTableInput<T extends object, TColumnId extends string>(
   table: BufferedTableInput<T, TColumnId>,
 ): table is import("./types").BufferedExcelTableInput<T, TColumnId> {
   return table.schema.kind === "excel-table";
+}
+
+function collectPlannerHyperlinks<T extends object>(
+  planner: ReturnType<typeof planRows<T>>,
+): WorksheetHyperlink[] {
+  return planner.rows.flatMap((row) =>
+    row.cells.flatMap((cell, columnIndex) =>
+      cell.hyperlink
+        ? [
+            {
+              ref: toCellRef(row.physicalRowIndex + 1, columnIndex),
+              target: cell.hyperlink.target,
+              tooltip: cell.hyperlink.tooltip,
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
+function collectPlannerImages<T extends object>(
+  planner: ReturnType<typeof planRows<T>>,
+): WorksheetImage[] {
+  return planner.rows.flatMap((row) =>
+    row.cells.flatMap((cell, columnIndex) =>
+      cell.image
+        ? [
+            {
+              row: row.physicalRowIndex + 1,
+              column: columnIndex,
+              data: cell.image.data,
+              mediaType: cell.image.mediaType,
+              alt: cell.image.alt,
+              size: cell.image.size,
+              padding: cell.image.padding,
+            },
+          ]
+        : [],
+    ),
+  );
 }
 
 function planTable<T extends object, TColumnId extends string>(
@@ -78,19 +120,8 @@ function planTable<T extends object, TColumnId extends string>(
       planner,
       defaults,
       summaries: [],
-      hyperlinks: planner.rows.flatMap((row) =>
-        row.cells.flatMap((cell, columnIndex) =>
-          cell.hyperlink
-            ? [
-                {
-                  ref: toCellRef(row.physicalRowIndex + 1, columnIndex),
-                  target: cell.hyperlink.target,
-                  tooltip: cell.hyperlink.tooltip,
-                },
-              ]
-            : [],
-        ),
-      ),
+      hyperlinks: collectPlannerHyperlinks(planner),
+      images: collectPlannerImages(planner),
       conditionalFormatting: buildWorksheetConditionalFormatting({
         columns: resolvedColumns,
         rowStart: 1,
@@ -126,19 +157,8 @@ function planTable<T extends object, TColumnId extends string>(
     planner,
     defaults,
     summaries,
-    hyperlinks: planner.rows.flatMap((row) =>
-      row.cells.flatMap((cell, columnIndex) =>
-        cell.hyperlink
-          ? [
-              {
-                ref: toCellRef(row.physicalRowIndex + 1, columnIndex),
-                target: cell.hyperlink.target,
-                tooltip: cell.hyperlink.tooltip,
-              },
-            ]
-          : [],
-      ),
-    ),
+    hyperlinks: collectPlannerHyperlinks(planner),
+    images: collectPlannerImages(planner),
     conditionalFormatting: buildWorksheetConditionalFormatting({
       columns: resolvedColumns,
       rowStart: reportChrome.bodyRowOffset,

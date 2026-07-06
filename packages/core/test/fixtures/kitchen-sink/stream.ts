@@ -1,10 +1,15 @@
 import { createExcelSchema, createWorkbookStream } from "../../../src";
-import { createKitchenSinkOrders, createKitchenSinkSparklineRows } from "./data";
+import {
+  createKitchenSinkOrders,
+  createKitchenSinkProductImageRows,
+  createKitchenSinkSparklineRows,
+} from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
   kitchenSinkHyperlinkSchema,
+  kitchenSinkProductImageSchema,
   kitchenSinkProtectedInputSchema,
   kitchenSinkSchema,
   kitchenSinkSparklineGallerySchema,
@@ -298,13 +303,12 @@ export async function buildKitchenSinkStreamExample() {
     });
   }
 
-  const hyperlinkTable = await workbook
-    .sheet("Hyperlinks", {
-      freezePane: { rows: 1 },
-    })
-    .table("hyperlink-orders", {
-      schema: kitchenSinkHyperlinkSchema,
-    });
+  const hyperlinkSheet = workbook.sheet("Hyperlinks", {
+    freezePane: { rows: 1 },
+  });
+  const hyperlinkTable = await hyperlinkSheet.table("hyperlink-orders", {
+    schema: kitchenSinkHyperlinkSchema,
+  });
   for (const rows of allOrderBatches) {
     await hyperlinkTable.commit({
       rows: rows.map(
@@ -318,6 +322,14 @@ export async function buildKitchenSinkStreamExample() {
       ),
     });
   }
+  const productImageTable = await workbook
+    .sheet("Images", {
+      freezePane: { rows: 1 },
+    })
+    .table("product-images", {
+      schema: kitchenSinkProductImageSchema,
+    });
+  await productImageTable.commit({ rows: createKitchenSinkProductImageRows() });
 
   const nativeTable = await workbook
     .sheet("Native Excel Table", {

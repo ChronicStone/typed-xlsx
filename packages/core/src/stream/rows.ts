@@ -1,4 +1,12 @@
-import { resolveColumnCellStyle, type ResolvedColumn } from "../planner/rows";
+import {
+  resolveColumnCellStyle,
+  resolveColumnCellValues,
+  resolveColumnImage,
+  resolveColumnImageUrl,
+  type PlannedImageUrl,
+  type PlannedImage,
+  type ResolvedColumn,
+} from "../planner/rows";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
 import { serializeCell, serializeInlineStringCell } from "../ooxml/cells";
@@ -7,6 +15,12 @@ import { resolveAccessor } from "../core/accessor";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "../planner/metrics";
 import type { CellStyle } from "../styles/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
+import {
+  imageHeightToPoints,
+  imageUrlHeightToPoints,
+  imageUrlWidthToColumnWidth,
+  imageWidthToColumnWidth,
+} from "../image/runtime";
 import {
   createFormulaRefs,
   createFormulaFunctionsContext,
@@ -27,15 +41,13 @@ interface ExpandedRow<T extends object> {
   sourceRowIndex: number;
   valuesByColumn: CellData[][];
   hyperlinksByColumn: Array<Array<PlannedHyperlink | undefined>>;
+  imagesByColumn?: Array<Array<PlannedImage | undefined>>;
+  imageUrlsByColumn?: Array<Array<PlannedImageUrl | undefined>>;
   height: number;
   physicalRowHeights: number[];
 }
 
 type RowSeriesMode = "scalar" | "expanded";
-
-function toValues(value: unknown): CellData[] {
-  return Array.isArray(value) ? (value as CellData[]) : [value as CellData];
-}
 
 function invokeRowTransform<T extends object>(params: {
   transform: Extract<NonNullable<ResolvedColumn<T>["transform"]>, (...args: any[]) => unknown>;
@@ -399,7 +411,7 @@ export function expandCommittedRow<T extends object>(
   excelTableName?: string,
 ) {
   let height = 1;
-  const rawValuesByColumn = columns.map((column) => {
+  const resolvedCellsByColumn = columns.map((column) => {
     const rawValue = column.formula
       ? undefined
       : column.accessor
@@ -413,15 +425,35 @@ export function expandCommittedRow<T extends object>(
           value: rawValue,
         })
       : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
-    const values = column.formula ? [] : toValues(transformed);
+    const image = resolveColumnImage({
+      column,
+      row,
+      rowIndex: sourceRowIndex,
+      subRowIndex: 0,
+      sourceValue: rawValue,
+      ctx: undefined,
+    });
+    const imageUrl = resolveColumnImageUrl({
+      column,
+      row,
+      rowIndex: sourceRowIndex,
+      subRowIndex: 0,
+      sourceValue: rawValue,
+      ctx: undefined,
+    });
+    const values = resolveColumnCellValues({
+      column,
+      imageUrl,
+      transformed,
+    });
     height = Math.max(height, values.length);
-    return values;
+    return { image, imageUrl, values };
   });
   const seriesModeByColumnId = new Map<string, RowSeriesMode>();
   const valuesByColumnId = new Map<string, CellData[]>();
   const valuesByColumn = columns.map((column, columnIndex) => {
     if (!column.formula) {
-      const values = rawValuesByColumn[columnIndex]!;
+      const values = resolvedCellsByColumn[columnIndex]!.values;
       seriesModeByColumnId.set(
         column.id,
         values.length > 1 || column.sparkline ? "expanded" : "scalar",
@@ -522,6 +554,16 @@ export function expandCommittedRow<T extends object>(
       resolveCellHyperlink(column, row, sourceRowIndex, subRowIndex),
     ),
   );
+  const imagesByColumn = columns.map((_column, columnIndex) =>
+    Array.from({ length: height }, (_, subRowIndex) =>
+      subRowIndex === 0 ? resolvedCellsByColumn[columnIndex]!.image : undefined,
+    ),
+  );
+  const imageUrlsByColumn = columns.map((_column, columnIndex) =>
+    Array.from({ length: height }, (_, subRowIndex) =>
+      subRowIndex === 0 ? resolvedCellsByColumn[columnIndex]!.imageUrl : undefined,
+    ),
+  );
   const physicalRowHeights = Array.from({ length: height }, (_, subRowIndex) => {
     const rowValues = valuesByColumn.map((values) =>
       getCellPrimitiveValue(values[subRowIndex] ?? null),
@@ -529,7 +571,16 @@ export function expandCommittedRow<T extends object>(
     const rowStyles = columns.map((column) =>
       resolveColumnStyle(column, row, sourceRowIndex, subRowIndex),
     );
-    return estimateRowHeight(rowValues, rowStyles);
+    const imageHeight = Math.max(
+      ...imagesByColumn.map((images) =>
+        images[subRowIndex] ? imageHeightToPoints(images[subRowIndex]!) : 0,
+      ),
+      ...imageUrlsByColumn.map((images) =>
+        images[subRowIndex] ? imageUrlHeightToPoints(images[subRowIndex]!) : 0,
+      ),
+      0,
+    );
+    return Math.max(estimateRowHeight(rowValues, rowStyles), imageHeight);
   });
 
   return {
@@ -537,6 +588,8 @@ export function expandCommittedRow<T extends object>(
     sourceRowIndex,
     valuesByColumn,
     hyperlinksByColumn,
+    imagesByColumn,
+    imageUrlsByColumn,
     height,
     physicalRowHeights,
   } satisfies ExpandedRow<T>;
@@ -640,6 +693,12 @@ export function updateColumnWidthStats<T extends object>(params: {
     const measured = Math.max(
       ...(params.expandedRow.valuesByColumn[columnIndex] ?? []).map((value) =>
         measurePrimitiveValue(getCellPrimitiveValue(value)),
+      ),
+      ...(params.expandedRow.imagesByColumn?.[columnIndex] ?? []).map((image) =>
+        image ? imageWidthToColumnWidth(image) : 0,
+      ),
+      ...(params.expandedRow.imageUrlsByColumn?.[columnIndex] ?? []).map((image) =>
+        image ? imageUrlWidthToColumnWidth(image) : 0,
       ),
       0,
     );

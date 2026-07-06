@@ -28,6 +28,20 @@ export type {
   SparklineType,
 } from "./sparkline/types";
 export type {
+  ImageColumnSource,
+  ImageData,
+  ImageFit,
+  ImageMediaType,
+  ImagePadding,
+  ImageSize,
+  ImageSourceValue,
+  ImageUrlSourceValue,
+  ImageUrlValue,
+  ImageValue,
+  ResolvedImageUrlValue,
+  ResolvedImageValue,
+} from "./image/types";
+export type {
   ConditionalStyleBuilder,
   ConditionalStyleInput,
   ConditionalStyleRule,
@@ -35,9 +49,14 @@ export type {
 export { conditionalStyle } from "./styles/conditional-types";
 export type {
   CellValue,
+  BoundRowImageContext,
+  ColumnRendererType,
   ColumnDefinition,
   ExcelTableSchemaDefinition,
   HyperlinkInput,
+  ImageAltInput,
+  ImageColumnDefinition,
+  ImageMediaTypeInput,
   PrimitiveCellValue,
   ReportSchemaDefinition,
   SchemaColumnId,

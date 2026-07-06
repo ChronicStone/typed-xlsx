@@ -7,7 +7,8 @@ import {
 } from "../archive/zip";
 import { serializeBufferedWorkbookPlan } from "./workbook";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
-import type { WorkbookXmlPart } from "./workbook";
+import type { ImageMediaType } from "../image/types";
+import type { WorkbookBinaryPart, WorkbookXmlPart } from "./workbook";
 
 export interface WorkbookPackagePartSource {
   path: string;
@@ -18,7 +19,10 @@ export function writeContentTypesXml(
   sheetCount: number,
   hasSharedStrings: boolean,
   tableCount: number,
+  drawingCount = 0,
+  mediaTypes: ImageMediaType[] = [],
 ) {
+  const uniqueMediaTypes = [...new Set(mediaTypes)];
   const overrides = [
     xmlSelfClosing("Override", {
       PartName: "/xl/workbook.xml",
@@ -49,6 +53,12 @@ export function writeContentTypesXml(
         ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml",
       }),
     ),
+    ...Array.from({ length: drawingCount }, (_, index) =>
+      xmlSelfClosing("Override", {
+        PartName: `/xl/drawings/drawing${index + 1}.xml`,
+        ContentType: "application/vnd.openxmlformats-officedocument.drawing+xml",
+      }),
+    ),
   ];
 
   return xmlDocument(
@@ -65,6 +75,12 @@ export function writeContentTypesXml(
         Extension: "xml",
         ContentType: "application/xml",
       }),
+      ...(uniqueMediaTypes.includes("image/png")
+        ? [xmlSelfClosing("Default", { Extension: "png", ContentType: "image/png" })]
+        : []),
+      ...(uniqueMediaTypes.includes("image/jpeg")
+        ? [xmlSelfClosing("Default", { Extension: "jpeg", ContentType: "image/jpeg" })]
+        : []),
       ...overrides,
     ],
   );
@@ -155,16 +171,29 @@ export function buildBufferedWorkbookXlsx(plan: BufferedWorkbookPlan) {
   const worksheetCount = plan.sheets.length;
   const hasSharedStrings = xml.parts.some((part) => part.path === "xl/sharedStrings.xml");
   const tableCount = xml.parts.filter((part) => part.path.startsWith("xl/tables/")).length;
+  const drawingCount = xml.parts.filter((part) =>
+    part.path.startsWith("xl/drawings/drawing"),
+  ).length;
   return buildXlsxPackage(xml.parts, {
     worksheetCount,
     hasSharedStrings,
     tableCount,
+    drawingCount,
+    mediaTypes: xml.binaryParts.flatMap((part) => (part.mediaType ? [part.mediaType] : [])),
+    binaryParts: xml.binaryParts,
   });
 }
 
 export function buildXlsxPackage(
   parts: WorkbookXmlPart[],
-  options: { worksheetCount: number; hasSharedStrings: boolean; tableCount: number },
+  options: {
+    worksheetCount: number;
+    hasSharedStrings: boolean;
+    tableCount: number;
+    drawingCount?: number;
+    mediaTypes?: ImageMediaType[];
+    binaryParts?: WorkbookBinaryPart[];
+  },
 ) {
   const zip = new ZipBuilder();
   const encoder = new TextEncoder();
@@ -173,7 +202,13 @@ export function buildXlsxPackage(
   zip.add(
     "[Content_Types].xml",
     encoder.encode(
-      writeContentTypesXml(options.worksheetCount, options.hasSharedStrings, options.tableCount),
+      writeContentTypesXml(
+        options.worksheetCount,
+        options.hasSharedStrings,
+        options.tableCount,
+        options.drawingCount ?? 0,
+        options.mediaTypes ?? [],
+      ),
     ),
   );
   zip.add("_rels/.rels", encoder.encode(writeRootRelationshipsXml()));
@@ -188,13 +223,22 @@ export function buildXlsxPackage(
   for (const part of parts) {
     zip.add(part.path, encoder.encode(part.xml));
   }
+  for (const part of options.binaryParts ?? []) {
+    zip.add(part.path, part.data);
+  }
 
   return zip.build();
 }
 
 export async function writeXlsxPackageToSink(
   parts: WorkbookPackagePartSource[],
-  options: { worksheetCount: number; hasSharedStrings: boolean; tableCount: number },
+  options: {
+    worksheetCount: number;
+    hasSharedStrings: boolean;
+    tableCount: number;
+    drawingCount?: number;
+    mediaTypes?: ImageMediaType[];
+  },
   sink: ZipChunkSink,
 ) {
   const zip = new ZipStreamWriter(sink);
@@ -202,7 +246,13 @@ export async function writeXlsxPackageToSink(
 
   await zip.add(
     "[Content_Types].xml",
-    writeContentTypesXml(options.worksheetCount, options.hasSharedStrings, options.tableCount),
+    writeContentTypesXml(
+      options.worksheetCount,
+      options.hasSharedStrings,
+      options.tableCount,
+      options.drawingCount ?? 0,
+      options.mediaTypes ?? [],
+    ),
   );
   await zip.add("_rels/.rels", writeRootRelationshipsXml());
   await zip.add(
