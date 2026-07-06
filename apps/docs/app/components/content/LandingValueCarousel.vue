@@ -225,15 +225,14 @@ for (const order of orders) {
 .column("feb", { accessor: "feb" })
 .column("mar", { accessor: "mar" })
 .column("trend", {
+  type: "sparkline",
   header: "Trend",
-  sparkline: {
-    source: { from: "jan", to: "mar" },
-    type: "line",
-    style: {
-      line: { color: "#2563EB", weight: 1.25 },
-      high: { color: "#16A34A" },
-      low: { color: "#DC2626" },
-    },
+  source: { from: "jan", to: "mar" },
+  sparklineType: "line",
+  style: {
+    line: { color: "#2563EB", weight: 1.25 },
+    high: { color: "#16A34A" },
+    low: { color: "#DC2626" },
   },
 });
 

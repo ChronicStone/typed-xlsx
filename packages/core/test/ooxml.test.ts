@@ -1879,7 +1879,7 @@ describe("ooxml", () => {
     expect(workbookPart?.xml).not.toContain("|");
   });
 
-  it("writes native sparkline extension metadata for sparkline columns", () => {
+  it("writes native sparkline extension metadata for sparkline renderer columns", () => {
     const theme = Internal.defineSpreadsheetTheme({
       tokens: {
         colors: {
@@ -1899,26 +1899,25 @@ describe("ooxml", () => {
       .column("feb", { accessor: "feb" })
       .column("mar", { accessor: "mar" })
       .column("trend", {
+        type: "sparkline",
         header: "Trend",
         width: 18,
-        sparkline: {
-          source: ["jan", "feb", "mar"],
-          type: "line",
-          emptyCells: "zero",
-          style: {
-            line: { color: "#2563EB", weight: 1.75 },
-            dots: { color: "#7C3AED" },
-            high: { color: "#22C55E" },
-            low: { color: "#EF4444" },
-            axis: {
-              visible: true,
-              color: "#64748B",
-              min: { value: 0 },
-              max: { type: "custom", value: 20 },
-            },
-            hidden: true,
-            rightToLeft: true,
+        source: ["jan", "feb", "mar"],
+        sparklineType: "line",
+        emptyCells: "zero",
+        style: {
+          line: { color: "#2563EB", weight: 1.75 },
+          dots: { color: "#7C3AED" },
+          high: { color: "#22C55E" },
+          low: { color: "#EF4444" },
+          axis: {
+            visible: true,
+            color: "#64748B",
+            min: { value: 0 },
+            max: { type: "custom", value: 20 },
           },
+          hidden: true,
+          rightToLeft: true,
         },
       })
       .build();
@@ -1996,9 +1995,8 @@ describe("ooxml", () => {
       .column("feb", { accessor: "feb" })
       .column("mar", { accessor: "mar" })
       .column("trend", {
-        sparkline: {
-          source: ["jan", "feb", "mar"],
-        },
+        type: "sparkline",
+        source: ["jan", "feb", "mar"],
       })
       .build();
 

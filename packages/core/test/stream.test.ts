@@ -1174,13 +1174,12 @@ describe("stream builder", () => {
       .column("feb", { accessor: "feb" })
       .column("mar", { accessor: "mar" })
       .column("trend", {
-        sparkline: {
-          source: { from: "jan", to: "mar" },
-          type: "column",
-          style: {
-            series: "#0EA5E9",
-            negative: { color: "#EF4444" },
-          },
+        type: "sparkline",
+        source: { from: "jan", to: "mar" },
+        sparklineType: "column",
+        style: {
+          series: "#0EA5E9",
+          negative: { color: "#EF4444" },
         },
       })
       .build();

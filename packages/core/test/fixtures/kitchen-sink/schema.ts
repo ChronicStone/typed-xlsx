@@ -272,16 +272,15 @@ export const kitchenSinkSparklineGallerySchema = createExcelSchema<KitchenSinkSp
     headerStyle,
   })
   .column("columnTrend", {
+    type: "sparkline",
     header: "Column",
     width: 22,
-    sparkline: {
-      source: { group: "monthly" },
-      type: "column",
-      style: {
-        series: "#0EA5E9",
-        high: { color: "#22C55E" },
-        low: { color: "#FB923C" },
-      },
+    source: { group: "monthly" },
+    sparklineType: "column",
+    style: {
+      series: "#0EA5E9",
+      high: { color: "#22C55E" },
+      low: { color: "#FB923C" },
     },
     headerStyle,
   })
@@ -331,16 +330,15 @@ export const kitchenSinkSparklineGallerySchema = createExcelSchema<KitchenSinkSp
       });
   })
   .column("winLoss", {
+    type: "sparkline",
     header: "Win/Loss",
     width: 22,
-    sparkline: {
-      source: { group: "movement" },
-      type: "winLoss",
-      style: {
-        series: "#16A34A",
-        negative: { color: "#EF4444" },
-        axis: { visible: true, color: "#475569" },
-      },
+    source: { group: "movement" },
+    sparklineType: "winLoss",
+    style: {
+      series: "#16A34A",
+      negative: { color: "#EF4444" },
+      axis: { visible: true, color: "#475569" },
     },
     headerStyle,
   })

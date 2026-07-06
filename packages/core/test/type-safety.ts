@@ -255,19 +255,18 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    sparkline: {
-      source: ["age"],
-      style: {
-        line: { color: "#2563EB", weight: 1.25 },
-        dots: false,
-        high: { color: "#22C55E" },
-        low: { visible: true, color: "#EF4444" },
-        axis: {
-          visible: true,
-          color: "#64748B",
-          min: { value: 0 },
-          max: "group",
-        },
+    type: "sparkline",
+    source: ["age"],
+    style: {
+      line: { color: "#2563EB", weight: 1.25 },
+      dots: false,
+      high: { color: "#22C55E" },
+      low: { visible: true, color: "#EF4444" },
+      axis: {
+        visible: true,
+        color: "#64748B",
+        min: { value: 0 },
+        max: "group",
       },
     },
   })
@@ -276,20 +275,18 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    sparkline: {
-      // @ts-expect-error sparkline sources can only target previously declared column ids
-      source: ["future"],
-    },
+    // @ts-expect-error sparkline sources can only target previously declared column ids
+    type: "sparkline",
+    source: ["future"],
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    sparkline: {
-      // @ts-expect-error sparkline sources cannot target the current column id
-      source: ["trend"],
-    },
+    // @ts-expect-error sparkline sources cannot target the current column id
+    type: "sparkline",
+    source: ["trend"],
   })
   .build();
 
@@ -298,19 +295,17 @@ createExcelSchema<FlatRow>()
     b.column("age", { accessor: "age" });
   })
   .column("trend", {
-    sparkline: {
-      source: { group: "ages" },
-    },
+    type: "sparkline",
+    source: { group: "ages" },
   })
   .build();
 
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    sparkline: {
-      // @ts-expect-error sparkline group sources must reference declared groups
-      source: { group: "ages" },
-    },
+    // @ts-expect-error sparkline group sources must reference declared groups
+    type: "sparkline",
+    source: { group: "ages" },
   })
   .build();
 
@@ -321,9 +316,8 @@ createExcelSchema<FlatRow, { months: string[] }>()
     });
   })
   .column("trend", {
-    sparkline: {
-      source: { dynamic: "months" },
-    },
+    type: "sparkline",
+    source: { dynamic: "months" },
   })
   .build();
 
