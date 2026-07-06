@@ -1,4 +1,9 @@
-import type { Accessor, AccessorContext, AccessorValue } from "../core/accessor";
+import {
+  resolveAccessor,
+  type Accessor,
+  type AccessorContext,
+  type AccessorValue,
+} from "../core/accessor";
 import type { Path } from "../core/path";
 import {
   normalizeConditionalStyleInput,
@@ -7,6 +12,7 @@ import {
 } from "../styles/conditional-types";
 import type { SpreadsheetTheme } from "../styles/theme";
 import type { CellStyle } from "../styles/types";
+import { deepMerge } from "../styles/merge";
 import { resolveLazyText, type LazyText } from "../text";
 import {
   normalizeValidationInput,
@@ -172,6 +178,10 @@ export type HyperlinkInput<T extends object, TContext extends SchemaContext = Sc
       context: BoundRowHyperlinkContext<T, TContext>,
     ) => string | HyperlinkDefinition | null | undefined);
 
+export type BadgeSourceValue = PrimitiveCellValue | PrimitiveCellValue[];
+export type CheckboxValue = boolean | null | undefined;
+export type CheckboxSourceValue = CheckboxValue | CheckboxValue[];
+
 export type ImageMediaTypeInput<T extends object, TContext extends SchemaContext = SchemaContext> =
   | ImageMediaType
   | ((context: BoundRowImageContext<T, TContext>) => ImageMediaType | undefined);
@@ -193,7 +203,26 @@ export interface ImageColumnDefinition<
   padding?: number | ImagePadding;
 }
 
-export type ColumnRendererType = "hyperlink" | "image" | "sparkline";
+export interface BadgeVariantOptions {
+  label?: LazyText;
+  style?: CellStyle;
+}
+
+export type BadgeVariantDefinition = CellStyle | BadgeVariantOptions;
+export type BadgeVariants = Record<string, BadgeVariantDefinition>;
+
+export interface BadgeColumnDefinition {
+  variants?: BadgeVariants;
+  defaultVariant?: BadgeVariantDefinition;
+}
+
+export interface CheckboxColumnDefinition {
+  checkedLabel?: LazyText;
+  uncheckedLabel?: LazyText;
+  emptyLabel?: LazyText;
+}
+
+export type ColumnRendererType = "badge" | "checkbox" | "hyperlink" | "image" | "sparkline";
 
 export type ExcelTableTotalsRowFunction =
   | "sum"
@@ -326,6 +355,42 @@ type SparklineRendererColumnInput<
     formula?: never;
     type: "sparkline";
     sparklineType?: SparklineType;
+  };
+
+type BadgeRendererColumnInput<
+  T extends object,
+  TAccessor extends Accessor<T, BadgeSourceValue, TContext> | Path<T>,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TContext extends SchemaContext,
+> = Omit<
+  AccessorColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
+  "type" | "transform"
+> &
+  BadgeColumnDefinition & {
+    type: "badge";
+    transform?: never;
+  };
+
+type CheckboxRendererColumnInput<
+  T extends object,
+  TAccessor extends Accessor<T, CheckboxSourceValue, TContext> | Path<T>,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TContext extends SchemaContext,
+> = Omit<
+  AccessorColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
+  "format" | "summary" | "transform" | "type"
+> &
+  CheckboxColumnDefinition & {
+    type: "checkbox";
+    format?: never;
+    summary?: never;
+    transform?: never;
   };
 
 type BaseImageColumnInput<
@@ -529,6 +594,58 @@ type ExcelTableSparklineRendererColumnInput<
     sparklineType?: SparklineType;
   };
 
+type ExcelTableBadgeRendererColumnInput<
+  T extends object,
+  TAccessor extends Accessor<T, BadgeSourceValue, TContext> | Path<T>,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TContext extends SchemaContext,
+> = Omit<
+  ExcelTableAccessorColumnInput<
+    T,
+    TAccessor,
+    TReference,
+    TPrevColumnId,
+    TGroupId,
+    TDynamicId,
+    TContext
+  >,
+  "transform" | "type"
+> &
+  BadgeColumnDefinition & {
+    type: "badge";
+    transform?: never;
+  };
+
+type ExcelTableCheckboxRendererColumnInput<
+  T extends object,
+  TAccessor extends Accessor<T, CheckboxSourceValue, TContext> | Path<T>,
+  TReference extends string,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TContext extends SchemaContext,
+> = Omit<
+  ExcelTableAccessorColumnInput<
+    T,
+    TAccessor,
+    TReference,
+    TPrevColumnId,
+    TGroupId,
+    TDynamicId,
+    TContext
+  >,
+  "format" | "summary" | "transform" | "type"
+> &
+  CheckboxColumnDefinition & {
+    type: "checkbox";
+    format?: never;
+    summary?: never;
+    transform?: never;
+  };
+
 type ExcelTableImageColumnInput<
   T extends object,
   TAccessor extends Accessor<T, ImageSourceValue | ImageUrlSourceValue, TContext> | Path<T>,
@@ -659,6 +776,21 @@ interface BuiltSchemaNodeOwner<T extends object, TContext extends SchemaContext>
   build(): { columns: SchemaNode<T, TContext>[] };
 }
 
+const DEFAULT_BADGE_STYLE: CellStyle = {
+  fill: { color: { rgb: "E2E8F0" } },
+  font: { bold: true, color: { rgb: "334155" } },
+  alignment: { horizontal: "center", vertical: "center" },
+};
+
+const DEFAULT_CHECKBOX_STYLE: CellStyle = {
+  alignment: { horizontal: "center", vertical: "center" },
+  font: { bold: true, color: { rgb: "0F172A" } },
+};
+
+const DEFAULT_CHECKED_LABEL = "☑";
+const DEFAULT_UNCHECKED_LABEL = "☐";
+const DEFAULT_EMPTY_CHECKBOX_LABEL = "";
+
 function normalizeColumnDefinition<T extends object, TContext extends SchemaContext>(
   id: string,
   definition: ColumnDefinition<T, TContext, any, any, any, any, any>,
@@ -750,6 +882,42 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
     };
   }
 
+  if (definition.type === "badge") {
+    const { defaultVariant, style, variants, ...rest } = definition as ColumnDefinition<
+      T,
+      TContext,
+      any,
+      any,
+      any,
+      any,
+      any
+    > &
+      BadgeColumnDefinition;
+
+    return {
+      ...rest,
+      style: normalizeBadgeStyle(rest.accessor, style, variants, defaultVariant),
+      transform: normalizeBadgeTransform(variants, defaultVariant),
+    };
+  }
+
+  if (definition.type === "checkbox") {
+    const { checkedLabel, emptyLabel, style, uncheckedLabel, ...rest } =
+      definition as ColumnDefinition<T, TContext, any, any, any, any, any> &
+        CheckboxColumnDefinition;
+
+    return {
+      ...rest,
+      width: rest.width ?? 8,
+      style: normalizeCheckboxStyle(style),
+      transform: normalizeCheckboxTransform({
+        checkedLabel,
+        emptyLabel,
+        uncheckedLabel,
+      }),
+    };
+  }
+
   if (definition.type === "image") {
     const { alt, fit, mediaType, padding, size, source, ...rest } = definition as ColumnDefinition<
       T,
@@ -803,6 +971,149 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
   }
 
   return definition;
+}
+
+function normalizeBadgeTransform<T extends object, TContext extends SchemaContext>(
+  variants?: BadgeVariants,
+  defaultVariant?: BadgeVariantDefinition,
+): TransformFn<T, unknown, TContext> {
+  return (context) => {
+    return mapRendererValue(context.value, (value) => {
+      const variant = resolveBadgeVariant(value, variants, defaultVariant);
+      const label = resolveBadgeVariantLabel(variant);
+
+      return label ?? toBadgeCellValue(value);
+    });
+  };
+}
+
+function normalizeBadgeStyle<T extends object, TContext extends SchemaContext>(
+  accessor: Accessor<T, unknown, TContext> | Path<T> | undefined,
+  style: CellStyle | StyleFn<T, TContext> | undefined,
+  variants?: BadgeVariants,
+  defaultVariant?: BadgeVariantDefinition,
+): CellStyle | StyleFn<T, TContext> {
+  return (context) => {
+    const value = accessor
+      ? resolveAccessor(context.row, accessor as Accessor<T, unknown, TContext>, context.ctx)
+      : undefined;
+    const variant = resolveBadgeVariant(value, variants, defaultVariant);
+
+    return deepMerge<CellStyle>(
+      DEFAULT_BADGE_STYLE,
+      resolveRendererStyle(style, context),
+      resolveBadgeVariantStyle(variant),
+    );
+  };
+}
+
+function normalizeCheckboxTransform<T extends object, TContext extends SchemaContext>(options: {
+  checkedLabel?: LazyText;
+  uncheckedLabel?: LazyText;
+  emptyLabel?: LazyText;
+}): TransformFn<T, CheckboxSourceValue, TContext> {
+  const checkedLabel = resolveLazyText(options.checkedLabel) ?? DEFAULT_CHECKED_LABEL;
+  const uncheckedLabel = resolveLazyText(options.uncheckedLabel) ?? DEFAULT_UNCHECKED_LABEL;
+  const emptyLabel = resolveLazyText(options.emptyLabel) ?? DEFAULT_EMPTY_CHECKBOX_LABEL;
+
+  return ({ value }) => {
+    return mapRendererValue(value, (item) => {
+      if (item === null || item === undefined) {
+        return emptyLabel;
+      }
+
+      return item ? checkedLabel : uncheckedLabel;
+    });
+  };
+}
+
+function normalizeCheckboxStyle<T extends object, TContext extends SchemaContext>(
+  style: CellStyle | StyleFn<T, TContext> | undefined,
+): CellStyle | StyleFn<T, TContext> {
+  return (context) =>
+    deepMerge<CellStyle>(DEFAULT_CHECKBOX_STYLE, resolveRendererStyle(style, context));
+}
+
+function resolveRendererStyle<T extends object, TContext extends SchemaContext>(
+  style: CellStyle | StyleFn<T, TContext> | undefined,
+  context: BoundRowStyleContext<T, TContext>,
+): CellStyle | undefined {
+  if (typeof style !== "function") {
+    return style;
+  }
+
+  if (style.length >= 3) {
+    return (style as (row: T, rowIndex: number, subRowIndex: number) => CellStyle | undefined)(
+      context.row,
+      context.rowIndex,
+      context.subRowIndex,
+    );
+  }
+
+  return style(context);
+}
+
+function resolveBadgeVariant(
+  value: unknown,
+  variants?: BadgeVariants,
+  defaultVariant?: BadgeVariantDefinition,
+) {
+  const variant = variants?.[toBadgeKey(value)];
+  return variant ?? defaultVariant;
+}
+
+function resolveBadgeVariantLabel(variant?: BadgeVariantDefinition) {
+  if (!variant || !isBadgeVariantOptions(variant)) {
+    return undefined;
+  }
+
+  return resolveLazyText(variant.label);
+}
+
+function resolveBadgeVariantStyle(variant?: BadgeVariantDefinition) {
+  if (!variant) {
+    return undefined;
+  }
+
+  return isBadgeVariantOptions(variant) ? variant.style : variant;
+}
+
+function isBadgeVariantOptions(variant: BadgeVariantDefinition): variant is BadgeVariantOptions {
+  return "label" in variant || "style" in variant;
+}
+
+function toBadgeCellValue(value: unknown): PrimitiveCellValue {
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value instanceof Date
+  ) {
+    return value;
+  }
+
+  return String(value);
+}
+
+function mapRendererValue(
+  value: unknown,
+  mapValue: (value: unknown) => PrimitiveCellValue,
+): CellValue {
+  return Array.isArray(value) ? value.map(mapValue) : mapValue(value);
+}
+
+function toBadgeKey(value: unknown) {
+  if (value === null) {
+    return "null";
+  }
+
+  if (value === undefined) {
+    return "undefined";
+  }
+
+  return String(value);
 }
 
 function normalizeHyperlinkRendererTarget<T extends object, TContext extends SchemaContext>(
@@ -1078,6 +1389,54 @@ export class SchemaBuilder<
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
+    definition: BadgeRendererColumnInput<
+      T,
+      TPath,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TAccessor extends Accessor<T, BadgeSourceValue, TSchemaContext>>(
+    id: TId,
+    definition: BadgeRendererColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TPath extends Path<T>>(
+    id: TId,
+    definition: CheckboxRendererColumnInput<
+      T,
+      TPath,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TAccessor extends Accessor<T, CheckboxSourceValue, TSchemaContext>>(
+    id: TId,
+    definition: CheckboxRendererColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TPath extends Path<T>>(
+    id: TId,
     definition: ImageColumnInput<
       T,
       TPath,
@@ -1143,6 +1502,8 @@ export class SchemaBuilder<
       | FormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | SparklineColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | SparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
+      | BadgeRendererColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
+      | CheckboxRendererColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | ImageColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | HyperlinkRendererColumnInput<
           T,
@@ -1282,7 +1643,7 @@ export class ExcelTableSchemaBuilder<
         >
       : never,
   ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
-  column<TId extends string, TAccessor extends Accessor<T, PrimitiveCellValue, TSchemaContext>>(
+  column<TId extends string, TAccessor extends Accessor<T, BadgeSourceValue, TSchemaContext>>(
     id: TId,
     definition: ExcelTableAccessorColumnInput<
       T,
@@ -1313,6 +1674,54 @@ export class ExcelTableSchemaBuilder<
     id: TId,
     definition: ExcelTableSparklineRendererColumnInput<
       T,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TPath extends Path<T>>(
+    id: TId,
+    definition: ExcelTableBadgeRendererColumnInput<
+      T,
+      TPath,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TAccessor extends Accessor<T, PrimitiveCellValue, TSchemaContext>>(
+    id: TId,
+    definition: ExcelTableBadgeRendererColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TPath extends Path<T>>(
+    id: TId,
+    definition: ExcelTableCheckboxRendererColumnInput<
+      T,
+      TPath,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext
+    >,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string, TAccessor extends Accessor<T, CheckboxSourceValue, TSchemaContext>>(
+    id: TId,
+    definition: ExcelTableCheckboxRendererColumnInput<
+      T,
+      TAccessor,
+      FormulaLikeReference<TId, TColumnId>,
       TColumnId,
       TGroupId,
       TDynamicId,
@@ -1394,6 +1803,24 @@ export class ExcelTableSchemaBuilder<
       | ExcelTableFormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | ExcelTableSparklineColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | ExcelTableSparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
+      | ExcelTableBadgeRendererColumnInput<
+          T,
+          any,
+          string,
+          TColumnId,
+          TGroupId,
+          TDynamicId,
+          TSchemaContext
+        >
+      | ExcelTableCheckboxRendererColumnInput<
+          T,
+          any,
+          string,
+          TColumnId,
+          TGroupId,
+          TDynamicId,
+          TSchemaContext
+        >
       | ExcelTableImageColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | ExcelTableHyperlinkRendererColumnInput<
           T,

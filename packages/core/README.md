@@ -29,7 +29,7 @@ import { createExcelSchema, createWorkbook } from "typed-xlsx";
 - One schema API for buffered exports and streaming exports
 - Report mode for custom layouts, summaries, and sub-row expansion
 - Excel table mode for native tables, totals rows, autoFilter, and structured refs
-- Renderer columns for hyperlinks, sparklines, and embedded or URL-backed images
+- Renderer columns for badges, checkboxes, hyperlinks, sparklines, and embedded or URL-backed images
 - Full comparison against SheetJS and ExcelJS: [Why typed-xlsx?](https://typed-xlsx.vercel.app/getting-started/comparison)
 
 ## Why typed-xlsx
@@ -40,7 +40,7 @@ Most XLSX libraries give you a cell API. `typed-xlsx` gives you a schema API.
 - Reference columns by ID in formulas instead of hard-coding fragile cell addresses
 - Reuse one schema across buffered exports and streaming exports
 - Choose between report mode and native Excel table mode without changing the authoring model
-- Generate polished workbooks with summaries, grouped headers, sub-row expansion, validation, conditional styles, hyperlinks, sparklines, and product thumbnails
+- Generate polished workbooks with summaries, grouped headers, sub-row expansion, validation, conditional styles, badges, checkboxes, hyperlinks, sparklines, and product thumbnails
 
 If you are currently evaluating `typed-xlsx` against lower-level spreadsheet libraries, read the full comparison with SheetJS and ExcelJS:
 
@@ -81,7 +81,7 @@ Reach for a lower-level spreadsheet library when you need to:
 
 Three functions cover the main surface:
 
-- `createExcelSchema()` describes columns, formulas, summaries, styles, groups, validation, hyperlinks, sparklines, and image renderers
+- `createExcelSchema()` describes columns, formulas, summaries, styles, groups, validation, badges, checkboxes, hyperlinks, sparklines, and image renderers
 - `createWorkbook()` builds buffered workbooks for small and medium exports
 - `createWorkbookStream()` commits row batches for large exports with much flatter memory usage
 
@@ -154,6 +154,12 @@ For the detailed tradeoffs, feature matrix, and cases where the alternatives sti
 
 ## Real Workbook Outputs
 
+### Kitchen sink feature tour
+
+Open one workbook with a feature map and one named sheet per major library primitive.
+
+Example: [Kitchen Sink Feature Tour](https://typed-xlsx.vercel.app/playground/kitchen-sink)
+
 ### Board-ready multi-sheet reporting
 
 Best for stakeholder and executive exports.
@@ -171,6 +177,12 @@ Example: [Territory Performance Matrix](https://typed-xlsx.vercel.app/playground
 The schema stays the same while the builder switches to batch commits.
 
 Example: [Streaming Fulfillment Export](https://typed-xlsx.vercel.app/playground/streaming-fulfillment-export)
+
+### Product catalogs with media
+
+Embed product thumbnails, use URL-backed image formulas, and combine badge, checkbox, hyperlink, and sparkline renderer columns.
+
+Example: [Product Media Catalog](https://typed-xlsx.vercel.app/playground/product-media-catalog)
 
 ### Editable workflow-safe workbooks
 

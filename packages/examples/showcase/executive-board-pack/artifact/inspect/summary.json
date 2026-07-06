@@ -1,7 +1,11 @@
 {
   "id": "executive-board-pack",
   "title": "Executive Board Pack",
-  "tags": ["board-report", "multi-sheet", "stakeholder-export"],
+  "tags": [
+    "board-report",
+    "multi-sheet",
+    "stakeholder-export"
+  ],
   "features": [
     "buffered workbook",
     "multi-sheet composition",
@@ -12,6 +16,15 @@
     "freeze panes",
     "column selection"
   ],
-  "sheetNames": ["Board Overview", "Regional Views"],
-  "inspectFiles": ["content-types.xml", "workbook.xml", "styles.xml", "sheet1.xml", "sheet2.xml"]
+  "sheetNames": [
+    "Board Overview",
+    "Regional Views"
+  ],
+  "inspectFiles": [
+    "content-types.xml",
+    "workbook.xml",
+    "styles.xml",
+    "sheet1.xml",
+    "sheet2.xml"
+  ]
 }

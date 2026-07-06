@@ -294,6 +294,41 @@ useSeo({
             <p class="mt-2 text-base font-bold text-highlighted">{{ inspectFiles.length }}</p>
           </div>
         </div>
+
+        <div class="border-t border-default/40 px-5 py-4">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-primary/70">
+            Feature coverage
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <UBadge
+              v-for="feature in artifact.features"
+              :key="feature"
+              color="neutral"
+              variant="subtle"
+              class="rounded-full font-mono text-[9px]"
+            >
+              {{ feature }}
+            </UBadge>
+          </div>
+        </div>
+
+        <div
+          v-if="artifact.inspectSummary?.sheetNames.length"
+          class="border-t border-default/40 px-5 py-4"
+        >
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-primary/70">
+            Workbook tabs
+          </p>
+          <div class="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <span
+              v-for="sheetName in artifact.inspectSummary.sheetNames"
+              :key="sheetName"
+              class="truncate rounded-lg border border-default/40 bg-elevated/40 px-2.5 py-1.5 text-xs text-toned"
+            >
+              {{ sheetName }}
+            </span>
+          </div>
+        </div>
       </UPageCard>
     </section>
 

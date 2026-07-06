@@ -1,0 +1,33 @@
+{
+  "id": "kitchen-sink",
+  "title": "Kitchen Sink Feature Tour",
+  "description": "A feature-by-feature workbook that gives every major typed-xlsx primitive its own clearly named tab.",
+  "developerHook": "Open one workbook and inspect typed accessors, sub-rows, formulas, summaries, dynamic columns, renderers, media, validation, protection, and native Excel tables in isolation.",
+  "tags": ["kitchen-sink", "feature-tour", "playground"],
+  "features": [
+    "typed accessors",
+    "sub-row expansion",
+    "formula DSL",
+    "summary rows",
+    "dynamic columns",
+    "badge renderer",
+    "checkbox renderer",
+    "hyperlink renderer",
+    "sparkline renderer",
+    "image columns",
+    "data validation",
+    "sheet protection",
+    "excel-table mode",
+    "multi-table layout"
+  ],
+  "datasetProfile": "medium",
+  "artifactFile": "artifact/kitchen-sink.xlsx",
+  "primarySourceFile": "workbook.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "board",
+    "accentClass": "artifact-accent-emerald",
+    "landingEyebrow": "Feature tour workbook",
+    "playgroundSummary": "A standalone playground kitchen sink with a feature map and one properly named sheet per major library primitive."
+  }
+}

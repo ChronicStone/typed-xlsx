@@ -83,6 +83,36 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
     minWidth: 18,
     headerStyle,
   })
+  .column("tierBadge", {
+    type: "badge",
+    header: "Tier",
+    accessor: "customer.tier",
+    width: 14,
+    variants: {
+      enterprise: {
+        label: "Enterprise",
+        style: {
+          fill: { color: { rgb: "DBEAFE" } },
+          font: { color: { rgb: "1D4ED8" }, bold: true },
+        },
+      },
+      growth: {
+        label: "Growth",
+        style: {
+          fill: { color: { rgb: "DCFCE7" } },
+          font: { color: { rgb: "166534" }, bold: true },
+        },
+      },
+      starter: {
+        label: "Starter",
+        style: {
+          fill: { color: { rgb: "FEF3C7" } },
+          font: { color: { rgb: "92400E" }, bold: true },
+        },
+      },
+    },
+    headerStyle,
+  })
   .column("email", {
     header: "Email",
     accessor: "customer.email",
@@ -169,6 +199,13 @@ export const kitchenSinkSchema = createExcelSchema<KitchenSinkOrder>()
         },
       },
     }),
+    headerStyle,
+  })
+  .column("allFulfilled", {
+    type: "checkbox",
+    header: "All Done",
+    accessor: (row) => row.items.every((item) => item.fulfilled),
+    width: 10,
     headerStyle,
   })
   .column("notes", {

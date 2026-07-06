@@ -13,6 +13,7 @@ export type ProductMediaRow = {
   storefrontUrl: string;
   thumbnail: Uint8Array;
   thumbnailUrl: string;
+  listedOnline: boolean;
 };
 
 const thumbnailPng = {
@@ -41,6 +42,7 @@ export function createProductMediaRows(): ProductMediaRow[] {
       storefrontUrl: "https://example.com/products/atlas-field-backpack",
       thumbnail: decodePng(thumbnailPng.box),
       thumbnailUrl: "https://dummyimage.com/48x48/1e40af/ffffff.png&text=BK",
+      listedOnline: true,
     },
     {
       sku: "EL-2088",
@@ -55,6 +57,7 @@ export function createProductMediaRows(): ProductMediaRow[] {
       storefrontUrl: "https://example.com/products/pulse-usb-c-dock",
       thumbnail: decodePng(thumbnailPng.bolt),
       thumbnailUrl: "https://dummyimage.com/48x48/065f46/ffffff.png&text=EL",
+      listedOnline: true,
     },
     {
       sku: "HM-4310",
@@ -69,6 +72,7 @@ export function createProductMediaRows(): ProductMediaRow[] {
       storefrontUrl: "https://example.com/products/northstar-desk-lamp",
       thumbnail: decodePng(thumbnailPng.tag),
       thumbnailUrl: "https://dummyimage.com/48x48/92400e/ffffff.png&text=HM",
+      listedOnline: false,
     },
     {
       sku: "OF-7712",
@@ -83,6 +87,7 @@ export function createProductMediaRows(): ProductMediaRow[] {
       storefrontUrl: "https://example.com/products/modular-storage-cube",
       thumbnail: decodePng(thumbnailPng.cube),
       thumbnailUrl: "https://dummyimage.com/48x48/581c87/ffffff.png&text=OF",
+      listedOnline: true,
     },
   ];
 }

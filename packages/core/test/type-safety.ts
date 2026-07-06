@@ -408,6 +408,48 @@ createExcelSchema<FlatRow>()
   })
   .build();
 
+createExcelSchema<{ approved: boolean; status: "active" | "blocked" }>()
+  .column("status", {
+    type: "badge",
+    accessor: "status",
+    variants: {
+      active: {
+        label: "Active",
+        style: { fill: { color: { rgb: "DCFCE7" } } },
+      },
+      blocked: {
+        style: { fill: { color: { rgb: "FEE2E2" } } },
+      },
+    },
+  })
+  .column("approved", {
+    type: "checkbox",
+    accessor: "approved",
+  })
+  .build();
+
+createExcelSchema<{ checks: boolean[] }>()
+  .column("checks", {
+    type: "checkbox",
+    accessor: "checks",
+  })
+  .build();
+
+createExcelSchema<{ approved: boolean }>().column("approved", {
+  // @ts-expect-error checkbox renderer columns cannot also be formula columns
+  type: "checkbox",
+  accessor: "approved",
+  // @ts-expect-error checkbox renderer columns cannot also be formula columns
+  formula: ({ refs }: any) => refs.column("approved"),
+});
+
+createExcelSchema<{ approved: boolean }>().column("approved", {
+  // @ts-expect-error checkbox renderer columns do not take number formats
+  type: "checkbox",
+  accessor: "approved",
+  format: "0",
+});
+
 // ── conditionalStyle: mirrors formula ref/group typing plus row paths ─────────
 
 createExcelSchema<{

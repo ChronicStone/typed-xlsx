@@ -1,13 +1,15 @@
 {
   "id": "product-media-catalog",
   "title": "Product Media Catalog",
-  "description": "A product export with embedded thumbnail images, URL-backed IMAGE formulas, renderer-style sparklines, and storefront hyperlinks.",
+  "description": "A product export with embedded thumbnail images, URL-backed IMAGE formulas, badge statuses, checkboxes, sparklines, and storefront hyperlinks.",
   "developerHook": "Choose between portable embedded media and lightweight URL formulas with the same image renderer column API.",
   "tags": ["images", "catalog", "renderers"],
   "features": [
     "image columns",
     "url image formulas",
     "renderer columns",
+    "badge renderer",
+    "checkbox renderer",
     "worksheet drawings",
     "hyperlink renderer",
     "sparkline renderer"

@@ -6,7 +6,7 @@ const artifacts = getArtifactCatalog();
 useSeo({
   title: "Artifact Playground",
   description:
-    "Explore generated typed-xlsx artifacts — source code, workbook output, and OOXML inspection.",
+    "Explore generated typed-xlsx artifacts, from the kitchen-sink feature tour to real-world workbook examples.",
   type: "website",
 });
 </script>
@@ -28,11 +28,13 @@ useSeo({
         <h1
           class="max-w-4xl text-balance text-4xl font-bold tracking-tight text-highlighted sm:text-5xl lg:text-6xl"
         >
-          Browse artifacts,<br /><em class="not-italic text-primary">inspect the output.</em>
+          Start with the kitchen sink,<br /><em class="not-italic text-primary"
+            >then inspect real workbooks.</em
+          >
         </h1>
         <p class="max-w-2xl text-pretty text-lg leading-8 text-toned">
-          Every artifact is a working typed-xlsx workbook with embedded source, an Excel preview,
-          and OOXML inspection files. Pick one to explore.
+          The first artifact walks feature-by-feature through the library. The rest are realistic
+          exports with embedded source, workbook downloads, and OOXML inspection files.
         </p>
       </div>
 

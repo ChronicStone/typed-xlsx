@@ -43,11 +43,18 @@ function inferKindFromArtifact(artifact: GeneratedExamplesArtifact): ArtifactKin
   return "buffered";
 }
 
-export const artifactCatalog = getGeneratedExampleArtifacts().map((artifact) => ({
-  ...artifact,
-  kind: inferKindFromArtifact(artifact),
-  inspectSummary: inspectSummaryById[artifact.id],
-})) satisfies ArtifactCatalogEntry[];
+export const artifactCatalog = getGeneratedExampleArtifacts()
+  .map((artifact) => ({
+    ...artifact,
+    kind: inferKindFromArtifact(artifact),
+    inspectSummary: inspectSummaryById[artifact.id],
+  }))
+  .sort((left, right) => {
+    if (left.id === "kitchen-sink") return -1;
+    if (right.id === "kitchen-sink") return 1;
+
+    return left.title.localeCompare(right.title);
+  }) satisfies ArtifactCatalogEntry[];
 
 export function getArtifactPreviewKind(artifact: ArtifactCatalogEntry) {
   return artifact.preview.kind;

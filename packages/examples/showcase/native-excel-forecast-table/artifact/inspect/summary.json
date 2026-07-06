@@ -1,7 +1,11 @@
 {
   "id": "native-excel-forecast-table",
   "title": "Native Excel Forecast Table",
-  "tags": ["excel-table", "forecast", "operations"],
+  "tags": [
+    "excel-table",
+    "forecast",
+    "operations"
+  ],
   "features": [
     "excel-table mode",
     "autoFilter",
@@ -9,7 +13,9 @@
     "structured references",
     "table styles"
   ],
-  "sheetNames": ["Forecast Table"],
+  "sheetNames": [
+    "Forecast Table"
+  ],
   "inspectFiles": [
     "content-types.xml",
     "workbook.xml",

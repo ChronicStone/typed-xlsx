@@ -50,19 +50,37 @@ export const productMediaCatalogSchema = createExcelSchema<ProductMediaRow>()
     headerStyle,
   })
   .column("status", {
+    type: "badge",
     header: "Status",
     accessor: "status",
     width: 12,
-    conditionalStyle: (conditional) =>
-      conditional
-        .when(({ refs }) => refs.column("status").eq("Low stock"), {
+    variants: {
+      Live: {
+        style: {
+          fill: { color: { rgb: "DCFCE7" } },
+          font: { color: { rgb: "166534" }, bold: true },
+        },
+      },
+      "Low stock": {
+        style: {
           fill: { color: { rgb: "FEF3C7" } },
           font: { color: { rgb: "92400E" }, bold: true },
-        })
-        .when(({ refs }) => refs.column("status").eq("Launch"), {
+        },
+      },
+      Launch: {
+        style: {
           fill: { color: { rgb: "DBEAFE" } },
           font: { color: { rgb: "1D4ED8" }, bold: true },
-        }),
+        },
+      },
+    },
+    headerStyle,
+  })
+  .column("listedOnline", {
+    type: "checkbox",
+    header: "Listed",
+    accessor: "listedOnline",
+    width: 9,
     headerStyle,
   })
   .column("price", {

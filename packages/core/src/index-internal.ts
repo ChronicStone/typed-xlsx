@@ -48,8 +48,16 @@ export type {
 } from "./styles/conditional-types";
 export { conditionalStyle } from "./styles/conditional-types";
 export type {
+  BadgeColumnDefinition,
+  BadgeVariantDefinition,
+  BadgeVariantOptions,
+  BadgeVariants,
+  BadgeSourceValue,
   CellValue,
   BoundRowImageContext,
+  CheckboxColumnDefinition,
+  CheckboxSourceValue,
+  CheckboxValue,
   ColumnRendererType,
   ColumnDefinition,
   ExcelTableSchemaDefinition,

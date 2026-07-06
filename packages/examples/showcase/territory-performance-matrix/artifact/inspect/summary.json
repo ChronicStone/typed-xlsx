@@ -1,7 +1,11 @@
 {
   "id": "territory-performance-matrix",
   "title": "Territory Performance Matrix",
-  "tags": ["dynamic-columns", "matrix", "territory"],
+  "tags": [
+    "dynamic-columns",
+    "matrix",
+    "territory"
+  ],
   "features": [
     "typed context",
     "dynamic columns",
@@ -9,7 +13,9 @@
     "formula DSL",
     "excel-table mode"
   ],
-  "sheetNames": ["Territory Matrix"],
+  "sheetNames": [
+    "Territory Matrix"
+  ],
   "inspectFiles": [
     "content-types.xml",
     "workbook.xml",

@@ -67,10 +67,10 @@ const stats = [
     sub: "Commit-based exports stay flat enough for real large datasets",
   },
   {
-    value: "13",
+    value: "14",
     unit: "",
-    label: "Hard-case examples",
-    sub: "Real SheetJS-to-schema rewrites for formulas, summaries, theming, and more",
+    label: "Kitchen-sink tabs",
+    sub: "One playground workbook walks feature-by-feature through the library",
   },
   { value: "4", unit: "", label: "Output targets", sub: "File, Buffer, Node stream & Web stream" },
 ] as const;
@@ -151,6 +151,12 @@ const valueProps = [
     title: "Dynamic column groups",
     description:
       "Generate columns from runtime data with fully inferred context. Missing or mistyped group context is a compile-time error, not a runtime surprise.",
+  },
+  {
+    icon: "i-lucide-image",
+    title: "Renderer columns",
+    description:
+      "Turn typed values into badges, checkboxes, hyperlinks, sparklines, and media columns without dropping into low-level worksheet object code.",
   },
   {
     icon: "i-lucide-zap",
@@ -259,14 +265,14 @@ const routeCards = [
     title: "Explore the schema API",
     description:
       "Columns, formulas, groups, sub-rows, styling, and validation — the full schema surface explained.",
-    to: "/schema-builder/defining-columns",
+    to: "/columns/defining-columns",
     icon: "i-lucide-layers",
     cta: "Schema builder",
   },
   {
-    title: "Compare typed-xlsx / hucre / others",
+    title: "Compare typed-xlsx / others",
     description:
-      "See when typed-xlsx wins on advanced typed reporting, and when hucre's broader spreadsheet engine is the better fit.",
+      "See when typed-xlsx wins on advanced typed reporting, and when lower-level spreadsheet libraries are the better fit.",
     to: "/getting-started/comparison",
     icon: "i-lucide-git-compare-arrows",
     cta: "Library comparison",
@@ -576,8 +582,12 @@ useReveal(rootEl);
           <h2
             class="text-balance text-3xl font-bold tracking-tight text-highlighted sm:text-4xl lg:text-5xl"
           >
-            Real outputs from<br /><em class="not-italic text-primary">real schemas.</em>
+            A feature tour plus<br /><em class="not-italic text-primary">real workbook outputs.</em>
           </h2>
+          <p class="max-w-xl text-pretty text-base leading-7 text-toned">
+            Start with the kitchen sink to inspect each primitive one tab at a time, then jump into
+            real-world exports for product catalogs, board packs, renewals, quotes, and scale.
+          </p>
         </div>
         <div class="flex items-end">
           <UButton

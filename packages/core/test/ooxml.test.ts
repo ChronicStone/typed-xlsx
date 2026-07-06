@@ -492,6 +492,60 @@ describe("ooxml", () => {
     expect(worksheetRelsPart?.xml).toContain('Target="https://example.com/customers/c_1"');
   });
 
+  it("renders badge and checkbox renderer columns as styled cell values", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      approved: boolean;
+      status: string;
+    }>()
+      .column("status", {
+        type: "badge",
+        accessor: "status",
+        variants: {
+          live: {
+            label: "Live",
+            style: {
+              fill: { color: { rgb: "DCFCE7" } },
+              font: { color: { rgb: "166534" }, bold: true },
+            },
+          },
+          blocked: {
+            label: "Blocked",
+            style: {
+              fill: { color: { rgb: "FEE2E2" } },
+              font: { color: { rgb: "991B1B" }, bold: true },
+            },
+          },
+        },
+      })
+      .column("approved", {
+        type: "checkbox",
+        accessor: "approved",
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Renderers").table("renderers", {
+      schema,
+      rows: [
+        { approved: true, status: "live" },
+        { approved: false, status: "blocked" },
+      ],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
+    const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+
+    expect(sharedStringsPart?.xml).toContain("<t>Live</t>");
+    expect(sharedStringsPart?.xml).toContain("<t>Blocked</t>");
+    expect(sharedStringsPart?.xml).toContain("<t>☑</t>");
+    expect(sharedStringsPart?.xml).toContain("<t>☐</t>");
+    expect(stylesPart?.xml).toContain("FFDCFCE7");
+    expect(stylesPart?.xml).toContain("FF166534");
+    expect(stylesPart?.xml).toContain("FFFEE2E2");
+    expect(stylesPart?.xml).toContain("FF991B1B");
+  });
+
   it("applies default hyperlink styling only to linked body cells", () => {
     const schema = Internal.SchemaBuilder.create<{ customer: string; linked: boolean }>()
       .column("customer", {
