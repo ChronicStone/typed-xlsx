@@ -1,5 +1,19 @@
 # typed-xlsx
 
+## 3.1.0
+
+### Minor Changes
+
+- [#49](https://github.com/ChronicStone/typed-xlsx/pull/49) [`1c691d4`](https://github.com/ChronicStone/typed-xlsx/commit/1c691d4a753de0a79ce663540d3d141a28f05e9c) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Add renderer-style badge and checkbox columns.
+
+  Badge columns map status-like values to styled cell labels through `variants`, while checkbox columns render boolean values as portable checked and unchecked glyphs. Both renderers work in buffered and streaming exports and support report-mode sub-row expansion.
+
+  Checkbox columns store formula-friendly `1`/`0` values under their display format, so later formula columns can reference them directly.
+
+- [#49](https://github.com/ChronicStone/typed-xlsx/pull/49) [`de7cf71`](https://github.com/ChronicStone/typed-xlsx/commit/de7cf71c80c2fccb72cd0d37b8eaf54f76bae2de) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Add renderer-style columns for native sparklines, hyperlinks, and images.
+
+  Image columns support embedded PNG/JPEG bytes for portable workbooks and URL-backed Excel `IMAGE()` formulas for lightweight remote previews. Embedded media is written through worksheet drawings, deduplicated across the workbook when identical bytes are reused, and documented with portability and file-size guidance.
+
 ## 3.0.1
 
 ### Patch Changes
