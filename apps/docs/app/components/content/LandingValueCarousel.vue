@@ -244,7 +244,7 @@ for (const order of orders) {
     id: "badge-checkbox",
     eyebrow: "Badges & checkboxes",
     title: "Status colors and boolean glyphs live in the schema",
-    body: "Map values to styled badge variants and render booleans as checkbox glyphs — declared once on the column instead of re-implemented in every export loop.",
+    body: "Map values to styled badge variants and render booleans as checkbox glyphs without losing formula-friendly truthy/falsey cells.",
     docsPath: "/columns/badges-and-checkboxes",
     beforeCode:
       "// SheetJS: status styling is a lookup table + per-cell writes\n" +
@@ -285,7 +285,8 @@ for (const order of orders) {
 })
 .column("done", { type: "checkbox", accessor: "done" });
 
-// Value-to-style mapping declared once, typed against T.`,
+// Status mapping is declared once, typed against T.
+// Checkbox cells display glyphs but store 1/0 for formulas.`,
   },
   {
     id: "image-columns",

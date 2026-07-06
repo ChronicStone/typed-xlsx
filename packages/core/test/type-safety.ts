@@ -435,6 +435,16 @@ createExcelSchema<{ checks: boolean[] }>()
   })
   .build();
 
+createExcelSchema<{ approved: boolean }>()
+  .column("approved", {
+    type: "checkbox",
+    accessor: "approved",
+  })
+  .column("state", {
+    formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(1), "approved", "blocked"),
+  })
+  .build();
+
 createExcelSchema<{ approved: boolean }>().column("approved", {
   // @ts-expect-error checkbox renderer columns cannot also be formula columns
   type: "checkbox",

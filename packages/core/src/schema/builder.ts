@@ -905,15 +905,18 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
     const { checkedLabel, emptyLabel, style, uncheckedLabel, ...rest } =
       definition as ColumnDefinition<T, TContext, any, any, any, any, any> &
         CheckboxColumnDefinition;
+    const checkboxFormat = createCheckboxNumberFormat({
+      checkedLabel,
+      emptyLabel,
+      uncheckedLabel,
+    });
 
     return {
       ...rest,
       width: rest.width ?? 8,
-      style: normalizeCheckboxStyle(style),
+      style: normalizeCheckboxStyle(style, checkboxFormat),
       transform: normalizeCheckboxTransform({
-        checkedLabel,
         emptyLabel,
-        uncheckedLabel,
       }),
     };
   }
@@ -1008,30 +1011,45 @@ function normalizeBadgeStyle<T extends object, TContext extends SchemaContext>(
 }
 
 function normalizeCheckboxTransform<T extends object, TContext extends SchemaContext>(options: {
-  checkedLabel?: LazyText;
-  uncheckedLabel?: LazyText;
   emptyLabel?: LazyText;
 }): TransformFn<T, CheckboxSourceValue, TContext> {
-  const checkedLabel = resolveLazyText(options.checkedLabel) ?? DEFAULT_CHECKED_LABEL;
-  const uncheckedLabel = resolveLazyText(options.uncheckedLabel) ?? DEFAULT_UNCHECKED_LABEL;
-  const emptyLabel = resolveLazyText(options.emptyLabel) ?? DEFAULT_EMPTY_CHECKBOX_LABEL;
+  const hasEmptyLabel = options.emptyLabel !== undefined;
 
   return ({ value }) => {
     return mapRendererValue(value, (item) => {
       if (item === null || item === undefined) {
-        return emptyLabel;
+        return hasEmptyLabel ? "" : null;
       }
 
-      return item ? checkedLabel : uncheckedLabel;
+      return item ? 1 : 0;
     });
   };
 }
 
 function normalizeCheckboxStyle<T extends object, TContext extends SchemaContext>(
   style: CellStyle | StyleFn<T, TContext> | undefined,
+  numFmt: string,
 ): CellStyle | StyleFn<T, TContext> {
   return (context) =>
-    deepMerge<CellStyle>(DEFAULT_CHECKBOX_STYLE, resolveRendererStyle(style, context));
+    deepMerge<CellStyle>(DEFAULT_CHECKBOX_STYLE, resolveRendererStyle(style, context), { numFmt });
+}
+
+function createCheckboxNumberFormat(options: {
+  checkedLabel?: LazyText;
+  uncheckedLabel?: LazyText;
+  emptyLabel?: LazyText;
+}) {
+  const checkedLabel = resolveLazyText(options.checkedLabel) ?? DEFAULT_CHECKED_LABEL;
+  const uncheckedLabel = resolveLazyText(options.uncheckedLabel) ?? DEFAULT_UNCHECKED_LABEL;
+  const emptyLabel = resolveLazyText(options.emptyLabel) ?? DEFAULT_EMPTY_CHECKBOX_LABEL;
+
+  return `${quoteNumberFormatText(checkedLabel)};;${quoteNumberFormatText(
+    uncheckedLabel,
+  )};${quoteNumberFormatText(emptyLabel)}`;
+}
+
+function quoteNumberFormatText(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function resolveRendererStyle<T extends object, TContext extends SchemaContext>(

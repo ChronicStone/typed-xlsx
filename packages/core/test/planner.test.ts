@@ -142,14 +142,40 @@ describe("planner", () => {
 
     expect(result.rows).toHaveLength(2);
     expect(result.rows[0]?.cells[0]?.value).toBe("Active");
-    expect(result.rows[0]?.cells[1]?.value).toBe("☑");
-    expect(result.rows[0]?.cells[2]?.value).toBe("☑");
-    expect(result.rows[1]?.cells[2]?.value).toBe("☐");
+    expect(result.rows[0]?.cells[1]?.value).toBe(1);
+    expect(result.rows[0]?.cells[2]?.value).toBe(1);
+    expect(result.rows[1]?.cells[2]?.value).toBe(0);
     expect(result.merges).toContainEqual({
       startRow: 0,
       endRow: 1,
       startCol: 0,
       endCol: 0,
+    });
+  });
+
+  it("keeps checkbox renderer values usable by formula columns", () => {
+    const schema = Internal.SchemaBuilder.create<{ approved: boolean | null }>()
+      .column("approved", {
+        type: "checkbox",
+        accessor: "approved",
+      })
+      .column("state", {
+        formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(1), "Approved", "Blocked"),
+      })
+      .build();
+
+    const result = Internal.planRows(schema, [
+      { approved: true },
+      { approved: false },
+      { approved: null },
+    ]);
+
+    expect(result.rows[0]?.cells[0]?.value).toBe(1);
+    expect(result.rows[1]?.cells[0]?.value).toBe(0);
+    expect(result.rows[2]?.cells[0]?.value).toBeNull();
+    expect(result.rows[0]?.cells[1]?.value).toMatchObject({
+      kind: "formula",
+      formula: 'IF((A2=1),"Approved","Blocked")',
     });
   });
 

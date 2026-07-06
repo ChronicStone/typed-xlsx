@@ -492,7 +492,7 @@ describe("ooxml", () => {
     expect(worksheetRelsPart?.xml).toContain('Target="https://example.com/customers/c_1"');
   });
 
-  it("renders badge and checkbox renderer columns as styled cell values", () => {
+  it("renders badge and checkbox renderer columns as styled formula-friendly cell values", () => {
     const schema = Internal.SchemaBuilder.create<{
       approved: boolean;
       status: string;
@@ -534,16 +534,46 @@ describe("ooxml", () => {
 
     const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
 
     expect(sharedStringsPart?.xml).toContain("<t>Live</t>");
     expect(sharedStringsPart?.xml).toContain("<t>Blocked</t>");
-    expect(sharedStringsPart?.xml).toContain("<t>☑</t>");
-    expect(sharedStringsPart?.xml).toContain("<t>☐</t>");
+    expect(sharedStringsPart?.xml).not.toContain("<t>☑</t>");
+    expect(sharedStringsPart?.xml).not.toContain("<t>☐</t>");
+    expect(worksheetPart?.xml).toMatch(/<c r="B2" s="\d+"><v>1<\/v><\/c>/);
+    expect(worksheetPart?.xml).toMatch(/<c r="B3" s="\d+"><v>0<\/v><\/c>/);
+    expect(stylesPart?.xml).toContain('formatCode="&quot;☑&quot;;;&quot;☐&quot;;&quot;&quot;"');
     expect(stylesPart?.xml).toContain("FFDCFCE7");
     expect(stylesPart?.xml).toContain("FF166534");
     expect(stylesPart?.xml).toContain("FFFEE2E2");
     expect(stylesPart?.xml).toContain("FF991B1B");
+  });
+
+  it("serializes formulas that reference checkbox renderer columns", () => {
+    const schema = Internal.SchemaBuilder.create<{ approved: boolean }>()
+      .column("approved", {
+        type: "checkbox",
+        accessor: "approved",
+      })
+      .column("state", {
+        formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(1), "READY", "BLOCKED"),
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Approvals").table("approvals", {
+      schema,
+      rows: [{ approved: true }, { approved: false }],
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toMatch(/<c r="A2" s="\d+"><v>1<\/v><\/c>/);
+    expect(worksheetPart?.xml).toMatch(/<c r="A3" s="\d+"><v>0<\/v><\/c>/);
+    expect(worksheetPart?.xml).toContain("<f>IF((A2=1),&quot;READY&quot;,&quot;BLOCKED&quot;)</f>");
+    expect(worksheetPart?.xml).toContain("<f>IF((A3=1),&quot;READY&quot;,&quot;BLOCKED&quot;)</f>");
   });
 
   it("applies default hyperlink styling only to linked body cells", () => {
