@@ -11,6 +11,23 @@ export type {
 } from "./styles/theme";
 export { defineSpreadsheetTheme, spreadsheetThemes } from "./styles/theme";
 export type {
+  ResolvedSparklineDefinition,
+  SparklineAxisBound,
+  SparklineAxisType,
+  SparklineAxisStyle,
+  SparklineColorSet,
+  SparklineDefaults,
+  SparklineDefinition,
+  SparklineEmptyCells,
+  SparklineInput,
+  SparklineLineStyle,
+  SparklinePointStyle,
+  SparklineShowOptions,
+  SparklineSource,
+  SparklineStyleOptions,
+  SparklineType,
+} from "./sparkline/types";
+export type {
   ConditionalStyleBuilder,
   ConditionalStyleInput,
   ConditionalStyleRule,

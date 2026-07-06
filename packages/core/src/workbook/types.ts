@@ -11,6 +11,7 @@ import type { SummaryResolvedValue } from "../summary/runtime";
 import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { CellStyle } from "../styles/types";
 import type { WorksheetDataValidation } from "../validation/runtime";
+import type { SparklineDefaults } from "../sparkline/types";
 
 export interface WorksheetHyperlink {
   ref: string;
@@ -41,6 +42,7 @@ export interface TableStyleDefault {
 }
 
 export interface TableStyleDefaults {
+  rowHeight?: number;
   title?: CellStyle | TableStyleDefault;
   groupHeader?: CellStyle | TableStyleDefault;
   groupHeaderFiller?: CellStyle | TableStyleDefault;
@@ -53,6 +55,7 @@ export interface TableStyleDefaults {
     locked?: CellStyle | TableStyleDefault;
     hidden?: CellStyle | TableStyleDefault;
   };
+  sparkline?: SparklineDefaults;
 }
 
 export interface ReportTableRenderOptions {

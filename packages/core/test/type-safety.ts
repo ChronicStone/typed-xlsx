@@ -250,6 +250,83 @@ createExcelSchema<FlatRow>()
   })
   .build();
 
+// ── sparkline columns: source refs are typed like formula refs ───────────────
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("trend", {
+    sparkline: {
+      source: ["age"],
+      style: {
+        line: { color: "#2563EB", weight: 1.25 },
+        dots: false,
+        high: { color: "#22C55E" },
+        low: { visible: true, color: "#EF4444" },
+        axis: {
+          visible: true,
+          color: "#64748B",
+          min: { value: 0 },
+          max: "group",
+        },
+      },
+    },
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("trend", {
+    sparkline: {
+      // @ts-expect-error sparkline sources can only target previously declared column ids
+      source: ["future"],
+    },
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("trend", {
+    sparkline: {
+      // @ts-expect-error sparkline sources cannot target the current column id
+      source: ["trend"],
+    },
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .group("ages", (b) => {
+    b.column("age", { accessor: "age" });
+  })
+  .column("trend", {
+    sparkline: {
+      source: { group: "ages" },
+    },
+  })
+  .build();
+
+createExcelSchema<FlatRow>()
+  .column("age", { accessor: "age" })
+  .column("trend", {
+    sparkline: {
+      // @ts-expect-error sparkline group sources must reference declared groups
+      source: { group: "ages" },
+    },
+  })
+  .build();
+
+createExcelSchema<FlatRow, { months: string[] }>()
+  .dynamic("months", (b, { ctx }) => {
+    ctx.months.forEach((month) => {
+      b.column(month, { accessor: "age" });
+    });
+  })
+  .column("trend", {
+    sparkline: {
+      source: { dynamic: "months" },
+    },
+  })
+  .build();
+
 // ── conditionalStyle: mirrors formula ref/group typing plus row paths ─────────
 
 createExcelSchema<{

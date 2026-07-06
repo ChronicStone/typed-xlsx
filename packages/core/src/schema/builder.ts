@@ -13,6 +13,11 @@ import {
   type ResolvedValidationRule,
   type ValidationInput,
 } from "../validation/types";
+import {
+  normalizeSparklineInput,
+  type ResolvedSparklineDefinition,
+  type SparklineInput,
+} from "../sparkline/types";
 import { normalizeSummaryInput } from "../summary/builder";
 import type { SummaryInput } from "../summary/builder";
 import type {
@@ -191,6 +196,7 @@ export interface ColumnDefinition<
   hyperlink?: HyperlinkInput<T, TContext>;
   conditionalStyle?: ConditionalStyleInput<TReference, TGroupId | TDynamicId>;
   validation?: ValidationInput<TReference, TGroupId | TDynamicId>;
+  sparkline?: SparklineInput<TPrevColumnId, TGroupId, TDynamicId>;
   headerStyle?: CellStyle;
   width?: number;
   autoWidth?: boolean;
@@ -240,6 +246,22 @@ type FormulaColumnInput<
   formula: FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext>;
 };
 
+type SparklineColumnInput<
+  T extends object,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TContext extends SchemaContext,
+> = Omit<
+  ColumnDefinition<T, TContext, never, TPrevColumnId, TGroupId, TDynamicId, TPrevColumnId>,
+  "id" | "accessor" | "transform" | "formula"
+> & {
+  accessor?: never;
+  transform?: never;
+  formula?: never;
+  sparkline: SparklineInput<TPrevColumnId, TGroupId, TDynamicId>;
+};
+
 type ExcelTableAccessorColumnInput<
   T extends object,
   TAccessor extends Accessor<T, unknown, TContext> | Path<T>,
@@ -275,6 +297,24 @@ type ExcelTableFormulaColumnInput<
   defaultValue?: never;
   summary?: never;
   formula: FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext>;
+};
+
+type ExcelTableSparklineColumnInput<
+  T extends object,
+  TPrevColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TContext extends SchemaContext,
+> = Omit<
+  ColumnDefinition<T, TContext, never, TPrevColumnId, TGroupId, TDynamicId, TPrevColumnId>,
+  "id" | "accessor" | "transform" | "formula" | "summary" | "defaultValue"
+> & {
+  accessor?: never;
+  transform?: never;
+  formula?: never;
+  defaultValue?: never;
+  summary?: never;
+  sparkline: SparklineInput<TPrevColumnId, TGroupId, TDynamicId>;
 };
 
 export interface GroupDefinition<
@@ -393,6 +433,13 @@ function normalizeColumnDefinition<T extends object, TContext extends SchemaCont
             string,
             string
           >,
+        }
+      : {}),
+    ...(definition.sparkline
+      ? {
+          sparkline: normalizeSparklineInput(
+            definition.sparkline as SparklineInput<string, string, string>,
+          ) as ResolvedSparklineDefinition,
         }
       : {}),
   } as ColumnDefinition<T, TContext, any, any, any, any, any>;
@@ -629,11 +676,16 @@ export class SchemaBuilder<
       TSchemaContext
     >,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string>(
+    id: TId,
+    definition: SparklineColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
   column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext> | Path<T>>(
     id: TId,
     definition:
       | AccessorColumnInput<T, TAccessor, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | FormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
+      | FormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
+      | SparklineColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
   ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext> {
     this.ensureIdAvailable(id);
     this.addColumnNode(normalizeColumnDefinition(id, definition as any));
@@ -786,6 +838,10 @@ export class ExcelTableSchemaBuilder<
       TSchemaContext
     >,
   ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  column<TId extends string>(
+    id: TId,
+    definition: ExcelTableSparklineColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
+  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
   column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext> | Path<T>>(
     id: TId,
     definition:
@@ -798,7 +854,8 @@ export class ExcelTableSchemaBuilder<
           TDynamicId,
           TSchemaContext
         >
-      | ExcelTableFormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
+      | ExcelTableFormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
+      | ExcelTableSparklineColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
   ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext> {
     this.ensureIdAvailable(id);
     this.addColumnNode(normalizeColumnDefinition(id, definition as any));
