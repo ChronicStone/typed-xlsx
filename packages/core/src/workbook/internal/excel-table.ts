@@ -6,6 +6,10 @@ import {
   toExpr,
   type FormulaExpr,
 } from "../../formula/expr";
+import {
+  serializeExcelTableCurrentRowRange,
+  serializeExcelTableCurrentRowRef,
+} from "../../formula/structured-reference";
 import type { ExcelTableStyle, ResolvedExcelTableOptions } from "../types";
 
 const DEFAULT_EXCEL_TABLE_STYLE: ExcelTableStyle = "TableStyleMedium2";
@@ -25,8 +29,10 @@ export function resolveExcelTableOptions(params: {
     );
   }
 
+  const name = resolveExcelTableName(params.name, params.id);
+
   return {
-    name: resolveExcelTableName(params.name, params.id),
+    name,
     style: params.style ?? DEFAULT_EXCEL_TABLE_STYLE,
     autoFilter: params.autoFilter ?? true,
     totalsRow: params.totalsRow ?? false,
@@ -34,31 +40,11 @@ export function resolveExcelTableOptions(params: {
       id: column.id,
       headerLabel: column.headerLabel,
       formula: column.formula
-        ? serializeCalculatedColumnFormula(
-            column,
-            params.columns,
-            resolveExcelTableName(params.name, params.id),
-          )
+        ? serializeCalculatedColumnFormula(column, params.columns, name)
         : undefined,
       totalsRow: column.totalsRow,
     })),
   } satisfies ResolvedExcelTableOptions;
-}
-
-function escapeTableHeader(headerLabel: string) {
-  return headerLabel.replaceAll("]", "]]");
-}
-
-function serializeQualifiedCurrentRowRef(tableName: string, headerLabel: string) {
-  return `${tableName}[@[${escapeTableHeader(headerLabel)}]]`;
-}
-
-function serializeQualifiedCurrentRowRange(
-  tableName: string,
-  startHeaderLabel: string,
-  endHeaderLabel: string,
-) {
-  return `${tableName}[@[${escapeTableHeader(startHeaderLabel)}]:[${escapeTableHeader(endHeaderLabel)}]]`;
 }
 
 function resolveScopeColumns(columns: ResolvedColumn<any>[], scopeId: string) {
@@ -107,7 +93,7 @@ function serializeFormulaExpr(
       throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
     }
 
-    return serializeQualifiedCurrentRowRef(tableName, target.headerLabel);
+    return serializeExcelTableCurrentRowRef(tableName, target.headerLabel);
   }
 
   if (expr.kind === "scope-aggregate") {
@@ -125,7 +111,7 @@ function serializeFormulaExpr(
     });
 
     if (isContiguous) {
-      return `${expr.aggregate}(${serializeQualifiedCurrentRowRange(
+      return `${expr.aggregate}(${serializeExcelTableCurrentRowRange(
         tableName,
         scopeColumns[0]!.headerLabel,
         scopeColumns[scopeColumns.length - 1]!.headerLabel,
@@ -133,7 +119,7 @@ function serializeFormulaExpr(
     }
 
     return `${expr.aggregate}(${scopeColumns
-      .map((candidate) => serializeQualifiedCurrentRowRef(tableName, candidate.headerLabel))
+      .map((candidate) => serializeExcelTableCurrentRowRef(tableName, candidate.headerLabel))
       .join(",")})`;
   }
 
@@ -142,7 +128,9 @@ function serializeFormulaExpr(
   }
 
   if (expr.kind === "function") {
-    return `${expr.name}(${expr.args.map((arg) => serializeFormulaExpr(arg, columns, tableName)).join(",")})`;
+    return `${expr.name}(${expr.args
+      .map((arg) => serializeFormulaExpr(arg, columns, tableName))
+      .join(",")})`;
   }
 
   return `(${serializeFormulaExpr(expr.left, columns, tableName)}${expr.op}${serializeFormulaExpr(
@@ -152,7 +140,7 @@ function serializeFormulaExpr(
   )})`;
 }
 
-function resolveExcelTableName(name: string | undefined, id: string) {
+export function resolveExcelTableName(name: string | undefined, id: string) {
   const candidate = name ?? toExcelTableName(id);
 
   if (!isValidExcelTableName(candidate)) {

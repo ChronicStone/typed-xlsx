@@ -17,7 +17,7 @@ import {
 import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
 import { hashExcelProtectionPassword } from "../ooxml/protection";
 import { appendExpandedRowXml, expandCommittedRow, updateColumnWidthStats } from "../stream/rows";
-import type { SchemaDefinition } from "../schema/builder";
+import type { PrimitiveCellValue, SchemaDefinition } from "../schema/builder";
 import type {
   AnyStreamTableInput,
   PlannedSummaryCell,
@@ -75,6 +75,19 @@ import { buildPlannedSummaries, resolveSummaryValue } from "./internal/summaries
 import { resolveExcelTableOptions } from "./internal/excel-table";
 import { layoutTables, positionTableMerges, type PositionedTable } from "./internal/layout";
 import { buildReportChrome, shiftFormulaCellsInWorksheetXml } from "./internal/report-chrome";
+import {
+  createExcelTotalsRowStats,
+  finalizeExcelTotalsRowStats,
+  stepExcelTotalsRowStats,
+  type ExcelTotalsRowStats,
+} from "./internal/totals-row";
+import {
+  buildWorksheetSparklineGroups,
+  worksheetSparklineNamespaceAttributes,
+  writeWorksheetSparklines,
+} from "../sparkline/runtime";
+import type { ResolvedSparklineDefinition } from "../sparkline/types";
+import { getCellPrimitiveValue, type CellData } from "../cell-data";
 
 function normalizeColumnSummary(
   summary: ReturnType<typeof resolveColumns<any>>[number]["summary"],
@@ -104,6 +117,7 @@ interface StreamTableState<T extends object, TColumnId extends string> {
   spool: StreamSheetSpool;
   autoFilter: boolean;
   excelTable?: import("./types").ResolvedExcelTableOptions;
+  totalsRowStatsByColumnId: Map<string, ExcelTotalsRowStats>;
 }
 
 interface StreamTableFinalization {
@@ -117,6 +131,8 @@ interface StreamTableFinalization {
     id: string;
     headerLabel: string;
     groupPath: Array<{ id: string; headerLabel: string }>;
+    scopeIds: string[];
+    sparkline?: ResolvedSparklineDefinition;
     style?: CellStyle;
     totalsStyleIndex?: number;
     width: number;
@@ -139,6 +155,7 @@ interface StreamTableFinalization {
   view?: SheetViewOptions;
   autoFilter: boolean;
   excelTable?: import("./types").ResolvedExcelTableOptions;
+  totalsRowValuesByColumnId: Map<string, PrimitiveCellValue>;
   conditionalFormatting: import("../styles/conditional-runtime").WorksheetConditionalFormattingBlock[];
   dataValidations: import("../validation/runtime").WorksheetDataValidation[];
   planner: {
@@ -277,6 +294,9 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       spool,
       autoFilter: false,
       excelTable: resolvedExcelTable,
+      totalsRowStatsByColumnId: new Map(
+        columns.map((column) => [column.id, createExcelTotalsRowStats()]),
+      ),
     };
 
     this.state.autoFilter = resolveAutoFilter({
@@ -296,6 +316,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         this.state.committedLogicalRows,
         this.state.committedPhysicalRows,
         this.state.schema.kind,
+        this.state.excelTable?.name,
       );
       const startRow = this.state.committedPhysicalRows;
       const endRow = startRow + expanded.height - 1;
@@ -317,6 +338,11 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         columns: this.state.columns,
         expandedRow: expanded,
         widths: this.state.stats.columnWidths,
+      });
+      updateExcelTotalsRowStats({
+        columns: this.state.columns,
+        expandedRow: expanded,
+        statsByColumnId: this.state.totalsRowStatsByColumnId,
       });
 
       if (expanded.height > 1) {
@@ -352,6 +378,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
           this.styles,
           this.state.defaults,
         ),
+        rowHeight: this.state.defaults?.rowHeight,
       });
 
       await this.state.spool.append(encodeRowChunk(fragment));
@@ -393,6 +420,8 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         id: column.id,
         headerLabel: column.headerLabel,
         groupPath: column.groupPath,
+        scopeIds: column.scopeIds,
+        sparkline: column.sparkline as ResolvedSparklineDefinition | undefined,
         style: typeof column.style === "function" ? undefined : column.style,
         totalsStyleIndex: this.styles.addStyle(
           withTableDefaultSummaryStyle(
@@ -421,6 +450,10 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
       spool: this.state.spool,
       autoFilter: this.state.autoFilter,
       excelTable: this.state.excelTable,
+      totalsRowValuesByColumnId: finalizeExcelTotalsRowValuesByColumnId(
+        this.state.excelTable,
+        this.state.totalsRowStatsByColumnId,
+      ),
       conditionalFormatting: buildWorksheetConditionalFormatting({
         columns: this.state.columns,
         rowStart: 1,
@@ -452,6 +485,45 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
   async close() {
     await this.state.spool.close();
   }
+}
+
+function updateExcelTotalsRowStats<T extends object>(params: {
+  columns: ReturnType<typeof resolveColumns<T>>;
+  expandedRow: { valuesByColumn: CellData[][] };
+  statsByColumnId: Map<string, ExcelTotalsRowStats>;
+}) {
+  params.columns.forEach((column, columnIndex) => {
+    const stats = params.statsByColumnId.get(column.id);
+    if (!stats) {
+      return;
+    }
+
+    params.expandedRow.valuesByColumn[columnIndex]?.forEach((value) => {
+      stepExcelTotalsRowStats(stats, getCellPrimitiveValue(value));
+    });
+  });
+}
+
+function finalizeExcelTotalsRowValuesByColumnId(
+  excelTable: import("./types").ResolvedExcelTableOptions | undefined,
+  statsByColumnId: Map<string, ExcelTotalsRowStats>,
+) {
+  const values = new Map<string, PrimitiveCellValue>();
+  if (!excelTable?.totalsRow) {
+    return values;
+  }
+
+  excelTable.totalsRowColumns.forEach((column) => {
+    const totalsRow = column.totalsRow;
+    const stats = statsByColumnId.get(column.id);
+    if (!totalsRow || !totalsRow.function || !stats) {
+      return;
+    }
+
+    values.set(column.id, finalizeExcelTotalsRowStats(stats, totalsRow.function));
+  });
+
+  return values;
 }
 
 function isStreamExcelTableInput<T extends object, TColumnId extends string>(
@@ -628,14 +700,16 @@ export class StreamWorkbookBuilder {
         ),
       );
 
+      const worksheetName = worksheetNames[worksheetIndex - 1] ?? `Sheet ${worksheetIndex}`;
       workbookSheetDefs.push({
-        name: worksheetNames[worksheetIndex - 1] ?? `Sheet ${worksheetIndex}`,
+        name: worksheetName,
         id: worksheetIndex,
       });
       worksheetParts.push({
         path: `xl/worksheets/sheet${worksheetIndex}.xml`,
         source: streamWorksheetXml(
           sheet,
+          worksheetName,
           positionedTables,
           worksheetTableParts,
           conditionalFormatting,
@@ -751,6 +825,7 @@ function buildStreamWorksheetTableParts(
 
 async function* streamWorksheetXml(
   sheet: StreamSheetFinalization,
+  worksheetName: string,
   positionedTables: PositionedTable<StreamTableFinalization>[],
   tableParts: WorksheetTablePart[],
   conditionalFormatting: ReturnType<typeof buildPositionedConditionalFormatting>,
@@ -800,6 +875,7 @@ async function* streamWorksheetXml(
   );
   const lastCol = toWorksheetCol(lastColIndex);
   const rowMap = new Map<number, string[]>();
+  const rowHeights = new Map<number, number>();
   const dataValidations = positionedTables.flatMap((positioned) =>
     positioned.table.dataValidations.map((block) => ({
       ...block,
@@ -822,10 +898,24 @@ async function* streamWorksheetXml(
       })),
     ),
   );
+  const sparklineGroups = positionedTables.flatMap((positioned) =>
+    buildWorksheetSparklineGroups({
+      columns: positioned.table.columns,
+      rowStart: positioned.rowOffset + getStreamReportChrome(positioned.table).bodyRowOffset,
+      rowEnd:
+        positioned.rowOffset +
+        getStreamReportChrome(positioned.table).bodyRowOffset +
+        positioned.table.committedPhysicalRows -
+        1,
+      columnOffset: positioned.columnOffset,
+      sheetName: worksheetName,
+      defaults: positioned.table.defaults?.sparkline,
+    }),
+  );
 
   yield encodeXml(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-      `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+      `<worksheet${writeWorksheetRootAttributes(sparklineGroups.length > 0)}>` +
       `${xmlSelfClosing("dimension", { ref: `A1:${lastCol}${lastRow}` })}` +
       `${writeWorksheetViews(sheet.view)}` +
       `${xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() })}` +
@@ -836,14 +926,26 @@ async function* streamWorksheetXml(
   for (const positioned of positionedTables) {
     const chrome = getStreamReportChrome(positioned.table);
     if (positioned.table.title) {
-      appendCells(rowMap, positioned.rowOffset, [
-        serializeHeaderCellAt(
-          positioned.rowOffset,
-          positioned.columnOffset,
-          positioned.table.title,
-          positioned.table.titleStyleIndex,
+      appendCells(
+        rowMap,
+        positioned.rowOffset,
+        Array.from({ length: positioned.width }, (_, titleColumnIndex) =>
+          titleColumnIndex === 0
+            ? serializeHeaderCellAt(
+                positioned.rowOffset,
+                positioned.columnOffset,
+                positioned.table.title!,
+                positioned.table.titleStyleIndex,
+              )
+            : serializeCell(
+                positioned.rowOffset,
+                positioned.columnOffset + titleColumnIndex,
+                null,
+                tablelessSharedStrings,
+                positioned.table.titleStyleIndex,
+              ),
         ),
-      ]);
+      );
     }
 
     chrome.groupHeaderPlaceholders.forEach((cell) => {
@@ -884,6 +986,7 @@ async function* streamWorksheetXml(
     for await (const chunk of positioned.table.spool.read()) {
       appendShiftedWorksheetChunkRowsAndColumns(
         rowMap,
+        rowHeights,
         chunk,
         positioned.rowOffset + chrome.bodyRowOffset - 1,
         positioned.columnOffset,
@@ -983,6 +1086,7 @@ async function* streamWorksheetXml(
                       column.headerLabel,
                     totalsRow.function,
                   )!,
+                  value: positioned.table.totalsRowValuesByColumnId.get(column.id),
                 };
 
           return [
@@ -1002,15 +1106,25 @@ async function* streamWorksheetXml(
     yield encodeXml(
       xmlElement(
         "row",
-        { r: rowIndex + 1, ht: getDefaultRowHeight(), customHeight: 1 },
+        { r: rowIndex + 1, ht: rowHeights.get(rowIndex) ?? getDefaultRowHeight(), customHeight: 1 },
         sortWorksheetCells(rowMap.get(rowIndex) ?? []),
       ),
     );
   }
 
   yield encodeXml(
-    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetTableParts(tableParts)}</worksheet>`,
+    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetTableParts(tableParts)}${writeWorksheetSparklines(sparklineGroups)}</worksheet>`,
   );
+}
+
+function writeWorksheetRootAttributes(hasSparklines: boolean) {
+  return Object.entries({
+    xmlns: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+    "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    ...worksheetSparklineNamespaceAttributes(hasSparklines),
+  })
+    .map(([key, value]) => ` ${key}="${value}"`)
+    .join("");
 }
 
 function writeStreamWorksheetRelationshipsXml(
@@ -1196,6 +1310,11 @@ function writeStreamWorkbookXml(
           }),
         ),
       ),
+      xmlSelfClosing("calcPr", {
+        calcMode: "auto",
+        fullCalcOnLoad: 1,
+        forceFullCalc: 1,
+      }),
     ],
   );
 }
@@ -1218,6 +1337,7 @@ function writeStreamColumns(positionedTables: PositionedTable<StreamTableFinaliz
 
 function appendShiftedWorksheetChunkRowsAndColumns(
   rowMap: Map<number, string[]>,
+  rowHeights: Map<number, number>,
   chunk: Uint8Array,
   rowOffset: number,
   columnOffset: number,
@@ -1231,6 +1351,11 @@ function appendShiftedWorksheetChunkRowsAndColumns(
 
   rowMatches.forEach((match) => {
     const rowIndex = Number(match[1]) - 1 + rowOffset;
+    const heightMatch = match[0].match(/\bht="([^"]+)"/);
+    const rowHeight = heightMatch?.[1] ? Number(heightMatch[1]) : undefined;
+    if (rowHeight !== undefined && Number.isFinite(rowHeight)) {
+      rowHeights.set(rowIndex, Math.max(rowHeights.get(rowIndex) ?? 0, rowHeight));
+    }
     const cellNodes = (match[2] ?? "").match(/<c\b[^>]*\/>|<c\b[^>]*>.*?<\/c>/gs) ?? [];
     const cells = cellNodes.map((cellNode) => {
       const refMatch = cellNode.match(/\br="([A-Z]+)(\d+)"/);

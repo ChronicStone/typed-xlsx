@@ -28,6 +28,11 @@ import {
   toExpr,
   type FormulaExpr,
 } from "../formula/expr";
+import { evaluateFormulaExpr, type FormulaEvaluationContext } from "../formula/evaluate";
+import {
+  escapeStructuredReferenceHeader,
+  serializeExcelTableCurrentRowRef,
+} from "../formula/structured-reference";
 import { toCellRef } from "../ooxml/cells";
 
 export interface PlannedHyperlink {
@@ -64,6 +69,7 @@ function serializeFormulaScopeExpr<T extends object>(params: {
   columns: ResolvedColumn<T>[];
   scopeId: string;
   mode: "report" | "excel-table";
+  tableName?: string;
   rowIndex: number;
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
@@ -74,7 +80,11 @@ function serializeFormulaScopeExpr<T extends object>(params: {
   }
 
   if (params.mode === "excel-table") {
-    const refs = scopeColumns.map((column) => `[@[${column.headerLabel.replaceAll("]", "]]")}]]`);
+    const refs = scopeColumns.map((column) =>
+      params.tableName
+        ? serializeExcelTableCurrentRowRef(params.tableName, column.headerLabel)
+        : `[@[${escapeStructuredReferenceHeader(column.headerLabel)}]]`,
+    );
     return `${params.aggregate}(${refs.join(",")})`;
   }
 
@@ -321,33 +331,42 @@ function resolveCellHyperlink<T extends object>(params: {
 function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
+  expr?: FormulaExpr<string, string>;
   formulaMode: "report" | "excel-table";
+  tableName?: string;
   rowIndex: number;
   ctx?: SchemaContext;
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
+  value?: PrimitiveCellValue;
 }) {
   if (!params.column.formula) {
     return undefined;
   }
 
-  const expr = params.column.formula({
-    row: createFormulaRowContext<any, any>(),
-    refs: createFormulaRefs<any, any, any>(),
-    fx: createFormulaFunctionsContext<any, any>(),
-    ctx: params.ctx as never,
-  } as Parameters<NonNullable<typeof params.column.formula>>[0]);
+  const expr =
+    params.expr ??
+    toExpr(
+      params.column.formula({
+        row: createFormulaRowContext<any, any>(),
+        refs: createFormulaRefs<any, any, any>(),
+        fx: createFormulaFunctionsContext<any, any>(),
+        ctx: params.ctx as never,
+      } as Parameters<NonNullable<typeof params.column.formula>>[0]),
+    );
 
   return {
     kind: "formula" as const,
     formula: serializeFormulaExpr(
-      toExpr(expr),
+      expr,
       params.columns,
       params.rowIndex,
       params.formulaMode,
+      params.tableName,
       params.referenceRowsByColumnId,
       params.rowSeriesBoundsByColumnId,
     ),
+    ...(params.value !== undefined ? { value: params.value } : {}),
   };
 }
 
@@ -356,6 +375,7 @@ function serializeFormulaExpr<T extends object>(
   columns: ResolvedColumn<T>[],
   rowIndex: number,
   mode: "report" | "excel-table",
+  tableName?: string,
   referenceRowsByColumnId?: Map<string, number>,
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>,
 ): string {
@@ -383,7 +403,9 @@ function serializeFormulaExpr<T extends object>(
         throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
       }
 
-      return `[@[${headerLabel.replaceAll("]", "]]")}]]`;
+      return tableName
+        ? serializeExcelTableCurrentRowRef(tableName, headerLabel)
+        : `[@[${escapeStructuredReferenceHeader(headerLabel)}]]`;
     }
 
     const resolvedRowIndex = referenceRowsByColumnId?.get(expr.columnId) ?? rowIndex;
@@ -422,6 +444,7 @@ function serializeFormulaExpr<T extends object>(
       columns,
       scopeId: expr.scopeId,
       mode,
+      tableName,
       rowIndex,
       referenceRowsByColumnId,
       rowSeriesBoundsByColumnId,
@@ -436,6 +459,7 @@ function serializeFormulaExpr<T extends object>(
           columns,
           rowIndex,
           mode,
+          tableName,
           referenceRowsByColumnId,
           rowSeriesBoundsByColumnId,
         ),
@@ -443,7 +467,7 @@ function serializeFormulaExpr<T extends object>(
       .join(",")})`;
   }
 
-  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode, referenceRowsByColumnId, rowSeriesBoundsByColumnId)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode, referenceRowsByColumnId, rowSeriesBoundsByColumnId)})`;
+  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode, tableName, referenceRowsByColumnId, rowSeriesBoundsByColumnId)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode, tableName, referenceRowsByColumnId, rowSeriesBoundsByColumnId)})`;
 }
 
 function createRowSeriesBoundsByColumnId(
@@ -473,6 +497,37 @@ function createReferenceRowsByColumnId(
       mode === "expanded" ? rowStartIndex + subRowIndex : rowStartIndex,
     ]),
   );
+}
+
+function createFormulaEvaluationContext<T extends object>(params: {
+  columns: ResolvedColumn<T>[];
+  valuesByColumnId: Map<string, CellData[]>;
+  seriesModeByColumnId: Map<string, RowSeriesMode>;
+  subRowIndex: number;
+}): FormulaEvaluationContext {
+  const getColumnValue = (columnId: string): PrimitiveCellValue => {
+    const values = params.valuesByColumnId.get(columnId);
+    if (!values) {
+      return undefined;
+    }
+
+    const index = params.seriesModeByColumnId.get(columnId) === "expanded" ? params.subRowIndex : 0;
+    return getCellPrimitiveValue(values[index] ?? null);
+  };
+
+  return {
+    getColumnValue,
+    getColumnSeries(columnId) {
+      return (params.valuesByColumnId.get(columnId) ?? []).map((value) =>
+        getCellPrimitiveValue(value),
+      );
+    },
+    getScopeValues(scopeId) {
+      return resolveFormulaScopeColumns(params.columns, scopeId).map((column) =>
+        getColumnValue(column.id),
+      );
+    },
+  };
 }
 
 function formulaUsesExpandedRefs<T extends object>(
@@ -689,16 +744,25 @@ export function planRows<T extends object>(
   rows: T[],
 ): PlannerResult<T>;
 export function planRows<T extends object>(
-  schema: { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
+  schema: {
+    kind: "report" | "excel-table";
+    columns: ResolvedColumn<T>[];
+    excelTableName?: string;
+  },
   rows: T[],
 ): PlannerResult<T>;
 export function planRows<T extends object>(
   schema:
     | SchemaDefinition<T, any, any, any, any, any>
-    | { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
+    | {
+        kind: "report" | "excel-table";
+        columns: ResolvedColumn<T>[];
+        excelTableName?: string;
+      },
   rows: T[],
 ): PlannerResult<T> {
   const columns = isResolvedColumnsInput(schema) ? schema.columns : resolveColumns(schema);
+  const excelTableName = isResolvedColumnsInput(schema) ? schema.excelTableName : undefined;
   const stats = createPlannerStats(columns);
   const summaryBindings = createSummaryBindings(columns);
   const plannedRows: PlannedPhysicalRow<T>[] = [];
@@ -748,11 +812,13 @@ export function planRows<T extends object>(
 
     const rowStartIndex = physicalRowIndex;
     const seriesModeByColumnId = new Map<string, RowSeriesMode>();
+    const valuesByColumnId = new Map<string, CellData[]>();
     const expandedCells = columns.map((column, columnIndex) => {
       if (!column.formula) {
         const values = rawCells[columnIndex]!.values;
-        const seriesMode = values.length > 1 ? "expanded" : "scalar";
+        const seriesMode = values.length > 1 || column.sparkline ? "expanded" : "scalar";
         seriesModeByColumnId.set(column.id, seriesMode);
+        valuesByColumnId.set(column.id, values);
 
         return {
           columnId: column.id,
@@ -794,7 +860,9 @@ export function planRows<T extends object>(
               resolveFormulaCell({
                 column,
                 columns,
+                expr,
                 formulaMode: schema.kind,
+                tableName: excelTableName,
                 ctx: undefined,
                 rowIndex: rowStartIndex + subRowIndex,
                 referenceRowsByColumnId: createReferenceRowsByColumnId(
@@ -803,13 +871,27 @@ export function planRows<T extends object>(
                   subRowIndex,
                 ),
                 rowSeriesBoundsByColumnId,
+                value:
+                  schema.kind === "excel-table"
+                    ? evaluateFormulaExpr(
+                        expr,
+                        createFormulaEvaluationContext({
+                          columns,
+                          valuesByColumnId,
+                          seriesModeByColumnId,
+                          subRowIndex,
+                        }),
+                      )
+                    : undefined,
               }),
             )
           : [
               resolveFormulaCell({
                 column,
                 columns,
+                expr,
                 formulaMode: schema.kind,
+                tableName: excelTableName,
                 ctx: undefined,
                 rowIndex: rowStartIndex,
                 referenceRowsByColumnId: createReferenceRowsByColumnId(
@@ -818,8 +900,21 @@ export function planRows<T extends object>(
                   0,
                 ),
                 rowSeriesBoundsByColumnId,
+                value:
+                  schema.kind === "excel-table"
+                    ? evaluateFormulaExpr(
+                        expr,
+                        createFormulaEvaluationContext({
+                          columns,
+                          valuesByColumnId,
+                          seriesModeByColumnId,
+                          subRowIndex: 0,
+                        }),
+                      )
+                    : undefined,
               }),
             ];
+      valuesByColumnId.set(column.id, values);
 
       return {
         columnId: column.id,
@@ -903,7 +998,15 @@ export function planRows<T extends object>(
 function isResolvedColumnsInput<T extends object>(
   value:
     | SchemaDefinition<T, any, any, any, any, any>
-    | { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] },
-): value is { kind: "report" | "excel-table"; columns: ResolvedColumn<T>[] } {
+    | {
+        kind: "report" | "excel-table";
+        columns: ResolvedColumn<T>[];
+        excelTableName?: string;
+      },
+): value is {
+  kind: "report" | "excel-table";
+  columns: ResolvedColumn<T>[];
+  excelTableName?: string;
+} {
   return value.columns.length > 0 && "headerLabel" in value.columns[0]!;
 }

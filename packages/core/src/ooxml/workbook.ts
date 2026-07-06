@@ -33,8 +33,20 @@ function writeWorkbookXml(plan: BufferedWorkbookPlan) {
       xmlns: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     },
-    [writeWorkbookProtectionXml(plan.protection), xmlElement("sheets", undefined, sheets)],
+    [
+      writeWorkbookProtectionXml(plan.protection),
+      xmlElement("sheets", undefined, sheets),
+      writeWorkbookCalculationXml(),
+    ],
   );
+}
+
+function writeWorkbookCalculationXml() {
+  return xmlSelfClosing("calcPr", {
+    calcMode: "auto",
+    fullCalcOnLoad: 1,
+    forceFullCalc: 1,
+  });
 }
 
 function writeWorkbookProtectionXml(protection?: ResolvedWorkbookProtectionOptions) {
@@ -54,12 +66,19 @@ function writeWorkbookProtectionXml(protection?: ResolvedWorkbookProtectionOptio
 export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): BufferedWorkbookXml {
   const sharedStrings = createSharedStringsCollector();
   const styles = new StylesCollector();
+  const sheetNames = buildWorksheetNames(plan.sheets.map((sheet) => sheet.name));
   const worksheetParts: WorkbookXmlPart[] = [];
   const tableParts: WorkbookXmlPart[] = [];
   let tableIndex = 0;
 
   plan.sheets.forEach((sheet, sheetIndex) => {
-    const serialized = serializeWorksheet(sheet, sharedStrings, styles, tableIndex);
+    const serialized = serializeWorksheet(
+      sheet,
+      sharedStrings,
+      styles,
+      tableIndex,
+      sheetNames[sheetIndex],
+    );
     const partitionedHyperlinks = partitionWorksheetHyperlinks(serialized.hyperlinks ?? []);
     worksheetParts.push({
       path: `xl/worksheets/sheet${sheetIndex + 1}.xml`,

@@ -14,6 +14,11 @@ import {
   toExpr,
   type FormulaExpr,
 } from "../formula/expr";
+import { evaluateFormulaExpr, type FormulaEvaluationContext } from "../formula/evaluate";
+import {
+  escapeStructuredReferenceHeader,
+  serializeExcelTableCurrentRowRef,
+} from "../formula/structured-reference";
 import { toCellRef } from "../ooxml/cells";
 import type { PlannedHyperlink } from "../planner/rows";
 
@@ -81,32 +86,41 @@ function invokeRowHyperlink<T extends object>(params: {
 function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
+  expr?: FormulaExpr<string, string>;
   formulaMode: "report" | "excel-table";
+  tableName?: string;
   rowIndex: number;
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
+  value?: PrimitiveCellValue;
 }) {
   if (!params.column.formula) {
     return undefined;
   }
 
-  const expr = params.column.formula({
-    row: createFormulaRowContext<any, any>(),
-    refs: createFormulaRefs<any, any, any>(),
-    fx: createFormulaFunctionsContext<any, any>(),
-    ctx: undefined as never,
-  } as Parameters<NonNullable<typeof params.column.formula>>[0]);
+  const expr =
+    params.expr ??
+    toExpr(
+      params.column.formula({
+        row: createFormulaRowContext<any, any>(),
+        refs: createFormulaRefs<any, any, any>(),
+        fx: createFormulaFunctionsContext<any, any>(),
+        ctx: undefined as never,
+      } as Parameters<NonNullable<typeof params.column.formula>>[0]),
+    );
 
   return {
     kind: "formula" as const,
     formula: serializeFormulaExpr(
-      toExpr(expr),
+      expr,
       params.columns,
       params.rowIndex,
       params.formulaMode,
+      params.tableName,
       params.referenceRowsByColumnId,
       params.rowSeriesBoundsByColumnId,
     ),
+    ...(params.value !== undefined ? { value: params.value } : {}),
   };
 }
 
@@ -122,6 +136,7 @@ function serializeFormulaScopeExpr<T extends object>(params: {
   columns: ResolvedColumn<T>[];
   scopeId: string;
   mode: "report" | "excel-table";
+  tableName?: string;
   rowIndex: number;
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
@@ -132,7 +147,11 @@ function serializeFormulaScopeExpr<T extends object>(params: {
   }
 
   if (params.mode === "excel-table") {
-    const refs = scopeColumns.map((column) => `[@[${column.headerLabel.replaceAll("]", "]]")}]]`);
+    const refs = scopeColumns.map((column) =>
+      params.tableName
+        ? serializeExcelTableCurrentRowRef(params.tableName, column.headerLabel)
+        : `[@[${escapeStructuredReferenceHeader(column.headerLabel)}]]`,
+    );
     return `${params.aggregate}(${refs.join(",")})`;
   }
 
@@ -153,6 +172,7 @@ function serializeFormulaExpr<T extends object>(
   columns: ResolvedColumn<T>[],
   rowIndex: number,
   mode: "report" | "excel-table",
+  tableName?: string,
   referenceRowsByColumnId?: Map<string, number>,
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>,
 ): string {
@@ -180,7 +200,9 @@ function serializeFormulaExpr<T extends object>(
         throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
       }
 
-      return `[@[${headerLabel.replaceAll("]", "]]")}]]`;
+      return tableName
+        ? serializeExcelTableCurrentRowRef(tableName, headerLabel)
+        : `[@[${escapeStructuredReferenceHeader(headerLabel)}]]`;
     }
 
     const resolvedRowIndex = referenceRowsByColumnId?.get(expr.columnId) ?? rowIndex;
@@ -221,6 +243,7 @@ function serializeFormulaExpr<T extends object>(
       columns,
       scopeId: expr.scopeId,
       mode,
+      tableName,
       rowIndex,
       referenceRowsByColumnId,
       rowSeriesBoundsByColumnId,
@@ -235,6 +258,7 @@ function serializeFormulaExpr<T extends object>(
           columns,
           rowIndex,
           mode,
+          tableName,
           referenceRowsByColumnId,
           rowSeriesBoundsByColumnId,
         ),
@@ -242,7 +266,7 @@ function serializeFormulaExpr<T extends object>(
       .join(",")})`;
   }
 
-  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode, referenceRowsByColumnId, rowSeriesBoundsByColumnId)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode, referenceRowsByColumnId, rowSeriesBoundsByColumnId)})`;
+  return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode, tableName, referenceRowsByColumnId, rowSeriesBoundsByColumnId)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode, tableName, referenceRowsByColumnId, rowSeriesBoundsByColumnId)})`;
 }
 
 function createRowSeriesBoundsByColumnId(
@@ -272,6 +296,37 @@ function createReferenceRowsByColumnId(
       mode === "expanded" ? rowStartIndex + subRowIndex : rowStartIndex,
     ]),
   );
+}
+
+function createFormulaEvaluationContext<T extends object>(params: {
+  columns: ResolvedColumn<T>[];
+  valuesByColumnId: Map<string, CellData[]>;
+  seriesModeByColumnId: Map<string, RowSeriesMode>;
+  subRowIndex: number;
+}): FormulaEvaluationContext {
+  const getColumnValue = (columnId: string): PrimitiveCellValue => {
+    const values = params.valuesByColumnId.get(columnId);
+    if (!values) {
+      return undefined;
+    }
+
+    const index = params.seriesModeByColumnId.get(columnId) === "expanded" ? params.subRowIndex : 0;
+    return getCellPrimitiveValue(values[index] ?? null);
+  };
+
+  return {
+    getColumnValue,
+    getColumnSeries(columnId) {
+      return (params.valuesByColumnId.get(columnId) ?? []).map((value) =>
+        getCellPrimitiveValue(value),
+      );
+    },
+    getScopeValues(scopeId) {
+      return resolveFormulaScopeColumns(params.columns, scopeId).map((column) =>
+        getColumnValue(column.id),
+      );
+    },
+  };
 }
 
 function formulaUsesExpandedRefs<T extends object>(
@@ -341,6 +396,7 @@ export function expandCommittedRow<T extends object>(
   sourceRowIndex: number,
   startingPhysicalRowIndex: number,
   formulaMode: "report" | "excel-table" = "report",
+  excelTableName?: string,
 ) {
   let height = 1;
   const rawValuesByColumn = columns.map((column) => {
@@ -362,10 +418,15 @@ export function expandCommittedRow<T extends object>(
     return values;
   });
   const seriesModeByColumnId = new Map<string, RowSeriesMode>();
+  const valuesByColumnId = new Map<string, CellData[]>();
   const valuesByColumn = columns.map((column, columnIndex) => {
     if (!column.formula) {
       const values = rawValuesByColumn[columnIndex]!;
-      seriesModeByColumnId.set(column.id, values.length > 1 ? "expanded" : "scalar");
+      seriesModeByColumnId.set(
+        column.id,
+        values.length > 1 || column.sparkline ? "expanded" : "scalar",
+      );
+      valuesByColumnId.set(column.id, values);
       return values;
     }
 
@@ -395,35 +456,66 @@ export function expandCommittedRow<T extends object>(
       height,
     );
 
-    return seriesMode === "expanded"
-      ? Array.from({ length: height }, (_, subRowIndex) =>
-          resolveFormulaCell({
-            column,
-            columns,
-            formulaMode,
-            rowIndex: startingPhysicalRowIndex + subRowIndex,
-            referenceRowsByColumnId: createReferenceRowsByColumnId(
-              seriesModeByColumnId,
-              startingPhysicalRowIndex,
-              subRowIndex,
-            ),
-            rowSeriesBoundsByColumnId,
-          }),
-        )
-      : [
-          resolveFormulaCell({
-            column,
-            columns,
-            formulaMode,
-            rowIndex: startingPhysicalRowIndex,
-            referenceRowsByColumnId: createReferenceRowsByColumnId(
-              seriesModeByColumnId,
-              startingPhysicalRowIndex,
-              0,
-            ),
-            rowSeriesBoundsByColumnId,
-          }),
-        ];
+    const values =
+      seriesMode === "expanded"
+        ? Array.from({ length: height }, (_, subRowIndex) =>
+            resolveFormulaCell({
+              column,
+              columns,
+              expr,
+              formulaMode,
+              tableName: excelTableName,
+              rowIndex: startingPhysicalRowIndex + subRowIndex,
+              referenceRowsByColumnId: createReferenceRowsByColumnId(
+                seriesModeByColumnId,
+                startingPhysicalRowIndex,
+                subRowIndex,
+              ),
+              rowSeriesBoundsByColumnId,
+              value:
+                formulaMode === "excel-table"
+                  ? evaluateFormulaExpr(
+                      expr,
+                      createFormulaEvaluationContext({
+                        columns,
+                        valuesByColumnId,
+                        seriesModeByColumnId,
+                        subRowIndex,
+                      }),
+                    )
+                  : undefined,
+            }),
+          )
+        : [
+            resolveFormulaCell({
+              column,
+              columns,
+              expr,
+              formulaMode,
+              tableName: excelTableName,
+              rowIndex: startingPhysicalRowIndex,
+              referenceRowsByColumnId: createReferenceRowsByColumnId(
+                seriesModeByColumnId,
+                startingPhysicalRowIndex,
+                0,
+              ),
+              rowSeriesBoundsByColumnId,
+              value:
+                formulaMode === "excel-table"
+                  ? evaluateFormulaExpr(
+                      expr,
+                      createFormulaEvaluationContext({
+                        columns,
+                        valuesByColumnId,
+                        seriesModeByColumnId,
+                        subRowIndex: 0,
+                      }),
+                    )
+                  : undefined,
+            }),
+          ];
+    valuesByColumnId.set(column.id, values);
+    return values;
   });
   const hyperlinksByColumn = columns.map((column) =>
     Array.from({ length: height }, (_, subRowIndex) =>
@@ -458,6 +550,7 @@ export function appendExpandedRowXml<T extends object>(params: {
   sharedStrings: SharedStringsCollector;
   stringMode?: "inline" | "shared";
   styleIndexesByRow?: number[][];
+  rowHeight?: number;
 }) {
   const fragments: string[] = [];
 
@@ -475,7 +568,10 @@ export function appendExpandedRowXml<T extends object>(params: {
       ),
     );
 
-    const rowHeight = params.expandedRow.physicalRowHeights[subRowIndex];
+    const rowHeight = Math.max(
+      params.expandedRow.physicalRowHeights[subRowIndex] ?? 0,
+      params.rowHeight ?? 0,
+    );
     fragments.push(
       xmlElement(
         "row",

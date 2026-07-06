@@ -254,6 +254,7 @@ describe("stream builder", () => {
     expect(content).toContain('totalsRowFunction="sum"');
     expect(content).toContain("TOTAL");
     expect(content).toContain("SUBTOTAL(109,[Amount])");
+    expect(content).toContain("<f>SUBTOTAL(109,[Amount])</f><v>10</v>");
   });
 
   it("writes worksheet data validations in streamed workbooks", async () => {
@@ -371,7 +372,9 @@ describe("stream builder", () => {
     await workbook.finish();
 
     const content = Buffer.from(sink.toUint8Array()).toString("latin1");
-    expect(content).toContain("<f>([@[Qty]]*[@[Unit price]])</f>");
+    expect(content).toContain(
+      "<f>(orders[[#This Row],[Qty]]*orders[[#This Row],[Unit price]])</f><v>21</v>",
+    );
   });
 
   it("uses workbook-global native Excel table numbering across streamed sheets", async () => {
@@ -1150,5 +1153,53 @@ describe("stream builder", () => {
     expect(warn).toHaveBeenCalledWith(
       "[typed-xlsx] Disabled autoFilter for stream table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",
     );
+  });
+
+  it("writes native sparkline extension metadata in streamed worksheets", async () => {
+    const schema = Internal.SchemaBuilder.create<{
+      account: string;
+      jan: number;
+      feb: number;
+      mar: number;
+    }>()
+      .column("account", { accessor: "account" })
+      .column("jan", { accessor: "jan" })
+      .column("feb", { accessor: "feb" })
+      .column("mar", { accessor: "mar" })
+      .column("trend", {
+        sparkline: {
+          source: { from: "jan", to: "mar" },
+          type: "column",
+          style: {
+            series: "#0EA5E9",
+            negative: { color: "#EF4444" },
+          },
+        },
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Revenue FY").table("forecast", {
+      schema,
+    });
+
+    await table.commit({
+      rows: [{ account: "Acme", jan: 10, feb: 12, mar: 16 }],
+    });
+    await workbook.finish();
+
+    const entries = unzipWorkbookEntries(Buffer.from(sink.toUint8Array()));
+    const worksheetXml = entries.get("xl/worksheets/sheet1.xml");
+
+    expect(worksheetXml).toContain("<x14:sparklineGroups");
+    expect(worksheetXml).toContain(
+      '<x14:sparklineGroup type="column" displayEmptyCellsAs="gap" negative="1"',
+    );
+    expect(worksheetXml).toContain('<x14:colorSeries rgb="FF0EA5E9"/>');
+    expect(worksheetXml).toContain('<x14:colorNegative rgb="FFEF4444"/>');
+    expect(worksheetXml).toContain("<xm:f>'Revenue FY'!B2:D2</xm:f>");
+    expect(worksheetXml).toContain("<xm:sqref>E2</xm:sqref>");
   });
 });

@@ -956,6 +956,7 @@ describe("ooxml", () => {
     expect(worksheetPart?.xml).toContain('r="A4"');
     expect(sharedStringsPart?.xml).toContain("TOTAL");
     expect(worksheetPart?.xml).toContain("SUBTOTAL(109,[Amount])");
+    expect(worksheetPart?.xml).toContain("<f>SUBTOTAL(109,[Amount])</f><v>10</v>");
   });
 
   it("writes worksheet data validations for buffered worksheets", () => {
@@ -1043,9 +1044,68 @@ describe("ooxml", () => {
       (part) => part.path === "xl/tables/table1.xml",
     );
 
-    expect(worksheetPart?.xml).toContain("<f>([@[Qty]]*[@[Unit price]])</f>");
+    expect(worksheetPart?.xml).toContain(
+      "<f>(orders[[#This Row],[Qty]]*orders[[#This Row],[Unit price]])</f><v>21</v>",
+    );
     expect(tablePart?.xml).toContain(
-      "<calculatedColumnFormula>(orders[@[Qty]]*orders[@[Unit price]])</calculatedColumnFormula>",
+      "<calculatedColumnFormula>(orders[[#This Row],[Qty]]*orders[[#This Row],[Unit price]])</calculatedColumnFormula>",
+    );
+  });
+
+  it("caches dynamic scope formulas in native Excel table worksheets", () => {
+    type Region = "AMER" | "APAC";
+    type Row = { amount: number; region: Region };
+    type Context = { regions: readonly Region[] };
+
+    const schema = Internal.ExcelTableSchemaBuilder.create<Row, Context>()
+      .column("amount", {
+        accessor: "amount",
+        totalsRow: { function: "sum" },
+      })
+      .column("region", {
+        accessor: "region",
+      })
+      .dynamic("regions", (builder, { ctx }) => {
+        for (const region of ctx.regions) {
+          builder.column(`region:${region}`, {
+            header: `${region} Amount`,
+            formula: ({ refs, fx }) =>
+              fx.if(refs.column("region").eq(region), refs.column("amount"), 0),
+          });
+        }
+      })
+      .column("total", {
+        header: "Regional Total",
+        formula: ({ refs, fx }) => fx.sum(refs.dynamic("regions")),
+        totalsRow: { function: "sum" },
+      })
+      .build() as unknown as Internal.ExcelTableSchemaDefinition<Row, string, string, string>;
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    const rows: Row[] = [{ amount: 10, region: "AMER" }];
+    workbook.sheet("Orders").table("orders", {
+      rows,
+      schema,
+      context: { regions: ["AMER", "APAC"] },
+      totalsRow: true,
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+    const tablePart = xml.parts.find((part) => part.path === "xl/tables/table1.xml");
+
+    expect(worksheetPart?.xml).toContain(
+      "<f>IF((orders[[#This Row],[Region]]=&quot;AMER&quot;),orders[[#This Row],[Amount]],0)</f><v>10</v>",
+    );
+    expect(worksheetPart?.xml).toContain(
+      "<f>IF((orders[[#This Row],[Region]]=&quot;APAC&quot;),orders[[#This Row],[Amount]],0)</f><v>0</v>",
+    );
+    expect(worksheetPart?.xml).toContain(
+      "<f>SUM(orders[[#This Row],[AMER Amount]],orders[[#This Row],[APAC Amount]])</f><v>10</v>",
+    );
+    expect(worksheetPart?.xml).toContain("<f>SUBTOTAL(109,[Regional Total])</f><v>10</v>");
+    expect(tablePart?.xml).toContain(
+      "<calculatedColumnFormula>SUM(orders[[#This Row],[AMER Amount]:[APAC Amount]])</calculatedColumnFormula>",
     );
   });
 
@@ -1526,6 +1586,105 @@ describe("ooxml", () => {
 
     expect(workbookPart?.xml).toContain('name="Financial Report Full"');
     expect(workbookPart?.xml).not.toContain("|");
+  });
+
+  it("writes native sparkline extension metadata for sparkline columns", () => {
+    const theme = Internal.defineSpreadsheetTheme({
+      tokens: {
+        colors: {
+          sparklineSeries: "0EA5E9",
+          sparklineHigh: "22C55E",
+        },
+      },
+    });
+    const schema = Internal.SchemaBuilder.create<{
+      account: string;
+      jan: number;
+      feb: number;
+      mar: number;
+    }>()
+      .column("account", { accessor: "account" })
+      .column("jan", { accessor: "jan" })
+      .column("feb", { accessor: "feb" })
+      .column("mar", { accessor: "mar" })
+      .column("trend", {
+        header: "Trend",
+        width: 18,
+        sparkline: {
+          source: ["jan", "feb", "mar"],
+          type: "line",
+          emptyCells: "zero",
+          style: {
+            line: { color: "#2563EB", weight: 1.75 },
+            dots: { color: "#7C3AED" },
+            high: { color: "#22C55E" },
+            low: { color: "#EF4444" },
+            axis: {
+              visible: true,
+              color: "#64748B",
+              min: { value: 0 },
+              max: { type: "custom", value: 20 },
+            },
+            hidden: true,
+            rightToLeft: true,
+          },
+        },
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Revenue FY").table("forecast", {
+      schema,
+      rows: [{ account: "Acme", jan: 10, feb: 12, mar: 16 }],
+      theme,
+    });
+
+    const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
+    const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
+
+    expect(worksheetPart?.xml).toContain(
+      'xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"',
+    );
+    expect(worksheetPart?.xml).toContain("<x14:sparklineGroups");
+    expect(worksheetPart?.xml).toContain(
+      '<x14:sparklineGroup type="line" displayEmptyCellsAs="zero" markers="1" high="1" low="1" displayXAxis="1" displayHidden="1" rightToLeft="1" lineWeight="1.75" minAxisType="custom" maxAxisType="custom" manualMin="0" manualMax="20"',
+    );
+    expect(worksheetPart?.xml).toContain('<x14:colorSeries rgb="FF2563EB"/>');
+    expect(worksheetPart?.xml).toContain('<x14:colorMarkers rgb="FF7C3AED"/>');
+    expect(worksheetPart?.xml).toContain('<x14:colorHigh rgb="FF22C55E"/>');
+    expect(worksheetPart?.xml).toContain('<x14:colorLow rgb="FFEF4444"/>');
+    expect(worksheetPart?.xml).toContain('<x14:colorAxis rgb="FF64748B"/>');
+    expect(worksheetPart?.xml).toContain("<xm:f>'Revenue FY'!B2:D2</xm:f>");
+    expect(worksheetPart?.xml).toContain("<xm:sqref>E2</xm:sqref>");
+    expectWorkbookXmlToBeWellFormed(new Map(xml.parts.map((part) => [part.path, part.xml])));
+  });
+
+  it("throws when sparkline sources are excluded from the rendered table", () => {
+    const schema = Internal.SchemaBuilder.create<{
+      jan: number;
+      feb: number;
+      mar: number;
+    }>()
+      .column("jan", { accessor: "jan" })
+      .column("feb", { accessor: "feb" })
+      .column("mar", { accessor: "mar" })
+      .column("trend", {
+        sparkline: {
+          source: ["jan", "feb", "mar"],
+        },
+      })
+      .build();
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Revenue").table("forecast", {
+      schema,
+      rows: [{ jan: 10, feb: 12, mar: 16 }],
+      select: { exclude: ["feb"] },
+    });
+
+    expect(() => Internal.serializeBufferedWorkbookPlan(workbook.buildPlan())).toThrow(
+      "unknown or excluded source column 'feb'",
+    );
   });
 
   it("serializes formula cells with cached values", () => {

@@ -17,7 +17,7 @@ import { resolveSheetProtection as resolveProtection, resolveWorkbookProtection 
 import { applyColumnSelection } from "./internal/selection";
 import { computeSummaries } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
-import { resolveExcelTableOptions } from "./internal/excel-table";
+import { resolveExcelTableName, resolveExcelTableOptions } from "./internal/excel-table";
 import { toCellRef } from "../ooxml/cells";
 import { buildReportChrome } from "./internal/report-chrome";
 import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
@@ -42,7 +42,13 @@ function planTable<T extends object, TColumnId extends string>(
     resolveColumns(table.schema, context, table.select),
     table.select,
   );
-  const planner = planRows({ kind: table.schema.kind, columns: resolvedColumns }, table.rows);
+  const excelTableName = isBufferedExcelTableInput(table)
+    ? resolveExcelTableName(table.name, id)
+    : undefined;
+  const planner = planRows(
+    { kind: table.schema.kind, columns: resolvedColumns, excelTableName },
+    table.rows,
+  );
 
   if (isBufferedExcelTableInput(table)) {
     if (table.title) {

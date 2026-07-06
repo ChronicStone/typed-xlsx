@@ -278,9 +278,18 @@ describe("planner", () => {
 
     const result = Internal.planRows(schema, [{ amounts: [10, 20, 30] }]);
 
-    expect(result.rows[0]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
-    expect(result.rows[1]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
-    expect(result.rows[2]?.cells[1]?.value).toEqual({ kind: "formula", formula: "AVERAGE(A2:A4)" });
+    expect(result.rows[0]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
+    expect(result.rows[1]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
+    expect(result.rows[2]?.cells[1]?.value).toEqual({
+      kind: "formula",
+      formula: "AVERAGE(A2:A4)",
+    });
   });
 
   it("resolves grouped columns from context during planning", () => {
