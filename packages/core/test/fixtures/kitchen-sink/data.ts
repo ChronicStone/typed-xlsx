@@ -20,6 +20,22 @@ export interface KitchenSinkOrder {
   items: KitchenSinkLineItem[];
 }
 
+export interface KitchenSinkSparklineRow {
+  segment: string;
+  jan: number;
+  feb: number;
+  mar: number;
+  apr: number;
+  may: number;
+  jun: number;
+  deltaJan: number;
+  deltaFeb: number;
+  deltaMar: number;
+  deltaApr: number;
+  deltaMay: number;
+  deltaJun: number;
+}
+
 function computeSeededDate(day: number) {
   return new Date(Date.UTC(2025, 2, day, 9, 30, 0));
 }
@@ -137,6 +153,116 @@ export function createKitchenSinkOrders(): KitchenSinkOrder[] {
           fulfilled: true,
         },
       ],
+    },
+  ];
+}
+
+export function createKitchenSinkSparklineRows(): KitchenSinkSparklineRow[] {
+  return [
+    {
+      segment: "Enterprise",
+      jan: 82,
+      feb: 91,
+      mar: 88,
+      apr: 106,
+      may: 118,
+      jun: 132,
+      deltaJan: 4,
+      deltaFeb: 9,
+      deltaMar: -3,
+      deltaApr: 18,
+      deltaMay: 12,
+      deltaJun: 14,
+    },
+    {
+      segment: "Growth",
+      jan: 44,
+      feb: 47,
+      mar: 54,
+      apr: 52,
+      may: 63,
+      jun: 71,
+      deltaJan: -2,
+      deltaFeb: 3,
+      deltaMar: 7,
+      deltaApr: -2,
+      deltaMay: 11,
+      deltaJun: 8,
+    },
+    {
+      segment: "Starter",
+      jan: 22,
+      feb: 19,
+      mar: 24,
+      apr: 28,
+      may: 25,
+      jun: 31,
+      deltaJan: 1,
+      deltaFeb: -3,
+      deltaMar: 5,
+      deltaApr: 4,
+      deltaMay: -3,
+      deltaJun: 6,
+    },
+    {
+      segment: "Expansion",
+      jan: 18,
+      feb: 24,
+      mar: 37,
+      apr: 34,
+      may: 46,
+      jun: 58,
+      deltaJan: 2,
+      deltaFeb: 6,
+      deltaMar: 13,
+      deltaApr: -3,
+      deltaMay: 12,
+      deltaJun: 12,
+    },
+    {
+      segment: "Risk",
+      jan: 68,
+      feb: 62,
+      mar: 57,
+      apr: 49,
+      may: 44,
+      jun: 39,
+      deltaJan: -1,
+      deltaFeb: -6,
+      deltaMar: -5,
+      deltaApr: -8,
+      deltaMay: -5,
+      deltaJun: -5,
+    },
+    {
+      segment: "Seasonal",
+      jan: 36,
+      feb: 52,
+      mar: 49,
+      apr: 68,
+      may: 55,
+      jun: 73,
+      deltaJan: 5,
+      deltaFeb: 16,
+      deltaMar: -3,
+      deltaApr: 19,
+      deltaMay: -13,
+      deltaJun: 18,
+    },
+    {
+      segment: "Turnaround",
+      jan: 96,
+      feb: 74,
+      mar: 51,
+      apr: 48,
+      may: 67,
+      jun: 92,
+      deltaJan: -8,
+      deltaFeb: -22,
+      deltaMar: -23,
+      deltaApr: -3,
+      deltaMay: 19,
+      deltaJun: 25,
     },
   ];
 }

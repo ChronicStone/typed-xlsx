@@ -1,5 +1,5 @@
 import { createExcelSchema, createWorkbookStream } from "../../../src";
-import { createKitchenSinkOrders } from "./data";
+import { createKitchenSinkOrders, createKitchenSinkSparklineRows } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
@@ -7,7 +7,9 @@ import {
   kitchenSinkHyperlinkSchema,
   kitchenSinkProtectedInputSchema,
   kitchenSinkSchema,
+  kitchenSinkSparklineGallerySchema,
   kitchenSinkValidationSchema,
+  sparklineGalleryDefaults,
 } from "./schema";
 
 type KitchenSinkHyperlinkRow = {
@@ -105,6 +107,17 @@ export async function buildKitchenSinkStreamExample() {
   const allOrderBatches = repeatOrders(8);
   const allOrders = allOrderBatches.flat();
   const enterpriseOrders = allOrders.filter((order) => order.customer.tier === "enterprise");
+
+  const sparklineGalleryTable = await workbook
+    .sheet("Sparkline Gallery", {
+      freezePane: { rows: 3, columns: 1 },
+    })
+    .table("sparkline-gallery", {
+      title: "Sparkline Gallery",
+      schema: kitchenSinkSparklineGallerySchema,
+      defaults: sparklineGalleryDefaults,
+    });
+  await sparklineGalleryTable.commit({ rows: createKitchenSinkSparklineRows() });
 
   const gridSheet = workbook.sheet("Kitchen Sink Grid", {
     tablesPerRow: 2,
