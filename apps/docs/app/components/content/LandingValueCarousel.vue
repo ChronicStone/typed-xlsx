@@ -242,8 +242,8 @@ for (const order of orders) {
   {
     id: "badge-checkbox",
     eyebrow: "Badges & checkboxes",
-    title: "Status colors and boolean glyphs live in the schema",
-    body: "Map values to styled badge variants and render booleans as checkbox glyphs without losing formula-friendly truthy/falsey cells.",
+    title: "Status colors and native checkboxes live in the schema",
+    body: "Map values to styled badge variants and render booleans as native Excel checkbox cells that remain formula-friendly TRUE/FALSE values.",
     docsPath: "/columns/badges-and-checkboxes",
     beforeCode:
       "// SheetJS: status styling is a lookup table + per-cell writes\n" +
@@ -260,7 +260,7 @@ for (const order of orders) {
       '  ws[`D${i + 2}`] = { v: rows[i].done ? "☑" : "☐", t: "s" };\n' +
       "}\n\n" +
       "// Unknown status? Unstyled cell, no fallback.\n" +
-      "// Mapping logic copy-pasted into every export.",
+      "// Checkbox? Usually a display glyph, not a toggleable boolean.",
     afterCode: `.column("status", {
   type: "badge",
   accessor: "status",
@@ -285,7 +285,7 @@ for (const order of orders) {
 .column("done", { type: "checkbox", accessor: "done" });
 
 // Status mapping is declared once, typed against T.
-// Checkbox cells display glyphs but store 1/0 for formulas.`,
+// Checkbox cells are native Excel controls storing TRUE/FALSE.`,
   },
   {
     id: "image-columns",
