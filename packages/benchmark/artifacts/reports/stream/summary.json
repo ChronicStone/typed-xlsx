@@ -1,25 +1,25 @@
 {
-  "generatedAt": "2026-04-07T15:20:05.548Z",
+  "generatedAt": "2026-05-19T09:03:01.457Z",
   "cases": [
     {
       "logicalRows": 100000,
       "batchSize": 10000,
-      "totalMs": 15285.94,
-      "rowsPerSecond": 6542,
+      "totalMs": 12123.08,
+      "rowsPerSecond": 8249,
       "outputSizeMb": 61.2,
-      "peakRssMb": 594.27,
-      "peakHeapUsedMb": 147.9,
+      "peakRssMb": 589.08,
+      "peakHeapUsedMb": 154,
       "spoolSizeMb": 53.24,
       "reportPath": "reports/stream/files/stream-100000-rows.xlsx"
     },
     {
       "logicalRows": 500000,
       "batchSize": 10000,
-      "totalMs": 74326.49,
-      "rowsPerSecond": 6727,
+      "totalMs": 63888.93,
+      "rowsPerSecond": 7826,
       "outputSizeMb": 310.36,
-      "peakRssMb": 1868.36,
-      "peakHeapUsedMb": 708.03,
+      "peakRssMb": 2123.67,
+      "peakHeapUsedMb": 714.03,
       "spoolSizeMb": 271.62,
       "reportPath": "reports/stream/files/stream-500000-rows.xlsx"
     }
