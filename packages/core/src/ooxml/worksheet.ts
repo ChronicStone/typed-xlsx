@@ -5,6 +5,7 @@ import {
 } from "../workbook/types";
 import { resolveColumnCellStyle, type PlannedCell, type ResolvedColumn } from "../planner/rows";
 import type { CellStyle } from "../styles/types";
+import type { SchemaContext } from "../schema/builder";
 import { StylesCollector } from "../styles/collector";
 import { serializeCell, toCellRef } from "./cells";
 import type { SharedStringsCollector } from "./shared-strings";
@@ -384,12 +385,12 @@ function writeTableIntoRowMap(
             cell.hyperlink
               ? withTableDefaultHyperlinkBodyStyle(
                   table.defaults,
-                  resolveDataCellStyle(table.planner.columns[columnIndex], cell),
+                  resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
                   cell.hyperlink.style,
                 )
               : withTableDefaultBodyStyle(
                   table.defaults,
-                  resolveDataCellStyle(table.planner.columns[columnIndex], cell),
+                  resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
                 ),
           ),
           cell.hyperlink,
@@ -548,12 +549,13 @@ function isFormulaCellValue(
 function resolveDataCellStyle<T extends object>(
   column: ResolvedColumn<T> | undefined,
   cell: PlannedCell<T>,
+  ctx?: SchemaContext,
 ): CellStyle | undefined {
   if (!column) return undefined;
 
   return resolveColumnCellStyle({
     column,
-    ctx: undefined,
+    ctx,
     row: cell.sourceRow,
     rowIndex: cell.sourceRowIndex,
     subRowIndex: cell.subRowIndex,

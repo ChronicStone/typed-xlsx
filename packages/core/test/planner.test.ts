@@ -142,14 +142,83 @@ describe("planner", () => {
 
     expect(result.rows).toHaveLength(2);
     expect(result.rows[0]?.cells[0]?.value).toBe("Active");
-    expect(result.rows[0]?.cells[1]?.value).toBe(1);
-    expect(result.rows[0]?.cells[2]?.value).toBe(1);
-    expect(result.rows[1]?.cells[2]?.value).toBe(0);
+    expect(result.rows[0]?.cells[1]?.value).toBe(true);
+    expect(result.rows[0]?.cells[2]?.value).toBe(true);
+    expect(result.rows[1]?.cells[2]?.value).toBe(false);
     expect(result.merges).toContainEqual({
       startRow: 0,
       endRow: 1,
       startCol: 0,
       endCol: 0,
+    });
+  });
+
+  it("resolves badge variant label callbacks with row context", () => {
+    type Row = {
+      approved: boolean;
+      account: string;
+      status: "active" | "blocked";
+    };
+    type Context = {
+      labels: Record<Row["status"], string>;
+    };
+    type LabelContext = Internal.BadgeVariantLabelContext<Row, Row["status"], Context>;
+
+    const schema = Internal.SchemaBuilder.create<Row, Context>()
+      .column("status", {
+        type: "badge",
+        accessor: "status",
+        variants: {
+          active: {
+            label: ({ ctx, row, value }: LabelContext) => `${ctx.labels[value]}: ${row.account}`,
+          },
+          blocked: {
+            label: ({ ctx, value }: LabelContext) => ctx.labels[value],
+          },
+        },
+      })
+      .column("approved", {
+        type: "checkbox",
+        accessor: "approved",
+      })
+      .build();
+    const context: Context = {
+      labels: {
+        active: "Actif",
+        blocked: "Bloque",
+      },
+    };
+    const columns = Internal.resolveColumns(schema, context);
+
+    const result = Internal.planRows({ kind: schema.kind, columns, context }, [
+      { account: "Acme", approved: true, status: "active" },
+      { account: "Globex", approved: false, status: "blocked" },
+    ]);
+
+    expect(result.rows[0]?.cells[0]?.value).toBe("Actif: Acme");
+    expect(result.rows[1]?.cells[0]?.value).toBe("Bloque");
+  });
+
+  it("resolves lazy hyperlink object tooltips during row planning", () => {
+    const schema = Internal.SchemaBuilder.create<{ url: string }, { tooltip: string }>()
+      .column("url", {
+        accessor: "url",
+        hyperlink: ({ ctx, row }) => ({
+          target: row.url,
+          tooltip: () => ctx.tooltip,
+        }),
+      })
+      .build();
+    const context = { tooltip: "Open translated target" };
+    const columns = Internal.resolveColumns(schema, context);
+
+    const result = Internal.planRows({ kind: schema.kind, columns, context }, [
+      { url: "https://example.com" },
+    ]);
+
+    expect(result.rows[0]?.cells[0]?.hyperlink).toEqual({
+      target: "https://example.com",
+      tooltip: "Open translated target",
     });
   });
 
@@ -160,7 +229,7 @@ describe("planner", () => {
         accessor: "approved",
       })
       .column("state", {
-        formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(1), "Approved", "Blocked"),
+        formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(true), "Approved", "Blocked"),
       })
       .build();
 
@@ -170,12 +239,12 @@ describe("planner", () => {
       { approved: null },
     ]);
 
-    expect(result.rows[0]?.cells[0]?.value).toBe(1);
-    expect(result.rows[1]?.cells[0]?.value).toBe(0);
+    expect(result.rows[0]?.cells[0]?.value).toBe(true);
+    expect(result.rows[1]?.cells[0]?.value).toBe(false);
     expect(result.rows[2]?.cells[0]?.value).toBeNull();
     expect(result.rows[0]?.cells[1]?.value).toMatchObject({
       kind: "formula",
-      formula: 'IF((A2=1),"Approved","Blocked")',
+      formula: 'IF((A2=TRUE),"Approved","Blocked")',
     });
   });
 

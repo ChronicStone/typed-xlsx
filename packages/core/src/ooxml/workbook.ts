@@ -14,6 +14,7 @@ import {
   type WorksheetDrawingPart,
 } from "./drawing";
 import type { ImageMediaType } from "../image/types";
+import { FEATURE_PROPERTY_BAG_PATH, writeFeaturePropertyBagXml } from "./feature-property-bag";
 
 export interface WorkbookXmlPart {
   path: string;
@@ -145,6 +146,15 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
     tableIndex += serialized.tableParts.length;
   });
 
+  const featurePropertyBagParts: WorkbookXmlPart[] = styles.hasFeaturePropertyBag()
+    ? [
+        {
+          path: FEATURE_PROPERTY_BAG_PATH,
+          xml: writeFeaturePropertyBagXml(),
+        },
+      ]
+    : [];
+
   return {
     parts: [
       {
@@ -159,6 +169,7 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
         path: "xl/sharedStrings.xml",
         xml: writeSharedStringsXml(sharedStrings),
       },
+      ...featurePropertyBagParts,
       ...worksheetParts,
       ...tableParts,
       ...drawingParts,

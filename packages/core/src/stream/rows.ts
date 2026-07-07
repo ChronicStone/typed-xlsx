@@ -7,7 +7,7 @@ import {
   type PlannedImage,
   type ResolvedColumn,
 } from "../planner/rows";
-import type { PrimitiveCellValue } from "../schema/builder";
+import type { PrimitiveCellValue, SchemaContext } from "../schema/builder";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
 import { serializeCell, serializeInlineStringCell } from "../ooxml/cells";
 import { xmlElement } from "../ooxml/xml";
@@ -35,6 +35,7 @@ import {
 } from "../formula/structured-reference";
 import { toCellRef } from "../ooxml/cells";
 import type { PlannedHyperlink } from "../planner/rows";
+import { resolveLazyText } from "../text";
 
 interface ExpandedRow<T extends object> {
   row: T;
@@ -54,6 +55,7 @@ function invokeRowTransform<T extends object>(params: {
   value: unknown;
   row: T;
   rowIndex: number;
+  ctx?: SchemaContext;
 }) {
   if (params.transform.length >= 2) {
     return (
@@ -63,7 +65,7 @@ function invokeRowTransform<T extends object>(params: {
 
   return (params.transform as (context: unknown) => CellData | CellData[])({
     ...params.row,
-    ctx: undefined,
+    ctx: params.ctx,
     row: params.row,
     rowIndex: params.rowIndex,
     value: params.value,
@@ -75,6 +77,7 @@ function invokeRowHyperlink<T extends object>(params: {
   row: T;
   rowIndex: number;
   subRowIndex: number;
+  ctx?: SchemaContext;
 }) {
   if (params.hyperlink.length >= 2) {
     return (
@@ -88,7 +91,7 @@ function invokeRowHyperlink<T extends object>(params: {
 
   return (params.hyperlink as (context: unknown) => string | PlannedHyperlink | null | undefined)({
     ...params.row,
-    ctx: undefined,
+    ctx: params.ctx,
     row: params.row,
     rowIndex: params.rowIndex,
     subRowIndex: params.subRowIndex,
@@ -105,6 +108,7 @@ function resolveFormulaCell<T extends object>(params: {
   referenceRowsByColumnId?: Map<string, number>;
   rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
   value?: PrimitiveCellValue;
+  ctx?: SchemaContext;
 }) {
   if (!params.column.formula) {
     return undefined;
@@ -117,7 +121,7 @@ function resolveFormulaCell<T extends object>(params: {
         row: createFormulaRowContext<any, any>(),
         refs: createFormulaRefs<any, any, any>(),
         fx: createFormulaFunctionsContext<any, any>(),
-        ctx: undefined as never,
+        ctx: params.ctx as never,
       } as Parameters<NonNullable<typeof params.column.formula>>[0]),
     );
 
@@ -409,13 +413,14 @@ export function expandCommittedRow<T extends object>(
   startingPhysicalRowIndex: number,
   formulaMode: "report" | "excel-table" = "report",
   excelTableName?: string,
+  ctx?: SchemaContext,
 ) {
   let height = 1;
   const resolvedCellsByColumn = columns.map((column) => {
     const rawValue = column.formula
       ? undefined
       : column.accessor
-        ? resolveAccessor(row, column.accessor, undefined)
+        ? resolveAccessor(row, column.accessor, ctx)
         : undefined;
     const transformed = column.transform
       ? invokeRowTransform({
@@ -423,6 +428,7 @@ export function expandCommittedRow<T extends object>(
           rowIndex: sourceRowIndex,
           transform: column.transform,
           value: rawValue,
+          ctx,
         })
       : ((rawValue ?? column.defaultValue ?? null) as PrimitiveCellValue | PrimitiveCellValue[]);
     const image = resolveColumnImage({
@@ -431,7 +437,7 @@ export function expandCommittedRow<T extends object>(
       rowIndex: sourceRowIndex,
       subRowIndex: 0,
       sourceValue: rawValue,
-      ctx: undefined,
+      ctx,
     });
     const imageUrl = resolveColumnImageUrl({
       column,
@@ -439,7 +445,7 @@ export function expandCommittedRow<T extends object>(
       rowIndex: sourceRowIndex,
       subRowIndex: 0,
       sourceValue: rawValue,
-      ctx: undefined,
+      ctx,
     });
     const values = resolveColumnCellValues({
       column,
@@ -467,7 +473,7 @@ export function expandCommittedRow<T extends object>(
         row: createFormulaRowContext<any, any>(),
         refs: createFormulaRefs<any, any, any>(),
         fx: createFormulaFunctionsContext<any, any>(),
-        ctx: undefined as never,
+        ctx: ctx as never,
       } as Parameters<NonNullable<typeof column.formula>>[0]),
     );
     const inferredSeriesMode: RowSeriesMode = formulaUsesSeriesAggregate(expr)
@@ -497,6 +503,7 @@ export function expandCommittedRow<T extends object>(
               expr,
               formulaMode,
               tableName: excelTableName,
+              ctx,
               rowIndex: startingPhysicalRowIndex + subRowIndex,
               referenceRowsByColumnId: createReferenceRowsByColumnId(
                 seriesModeByColumnId,
@@ -525,6 +532,7 @@ export function expandCommittedRow<T extends object>(
               expr,
               formulaMode,
               tableName: excelTableName,
+              ctx,
               rowIndex: startingPhysicalRowIndex,
               referenceRowsByColumnId: createReferenceRowsByColumnId(
                 seriesModeByColumnId,
@@ -551,7 +559,7 @@ export function expandCommittedRow<T extends object>(
   });
   const hyperlinksByColumn = columns.map((column) =>
     Array.from({ length: height }, (_, subRowIndex) =>
-      resolveCellHyperlink(column, row, sourceRowIndex, subRowIndex),
+      resolveCellHyperlink(column, row, sourceRowIndex, subRowIndex, ctx),
     ),
   );
   const imagesByColumn = columns.map((_column, columnIndex) =>
@@ -569,7 +577,7 @@ export function expandCommittedRow<T extends object>(
       getCellPrimitiveValue(values[subRowIndex] ?? null),
     );
     const rowStyles = columns.map((column) =>
-      resolveColumnStyle(column, row, sourceRowIndex, subRowIndex),
+      resolveColumnStyle(column, row, sourceRowIndex, subRowIndex, ctx),
     );
     const imageHeight = Math.max(
       ...imagesByColumn.map((images) =>
@@ -662,6 +670,7 @@ function resolveCellHyperlink<T extends object>(
   row: T,
   rowIndex: number,
   subRowIndex: number,
+  ctx?: SchemaContext,
 ): PlannedHyperlink | undefined {
   const hyperlink = column.hyperlink;
   if (!hyperlink) {
@@ -670,7 +679,7 @@ function resolveCellHyperlink<T extends object>(
 
   const resolved =
     typeof hyperlink === "function"
-      ? invokeRowHyperlink({ hyperlink, row, rowIndex, subRowIndex })
+      ? invokeRowHyperlink({ ctx, hyperlink, row, rowIndex, subRowIndex })
       : hyperlink;
 
   if (!resolved) {
@@ -681,7 +690,10 @@ function resolveCellHyperlink<T extends object>(
     return { target: resolved };
   }
 
-  return resolved;
+  return {
+    ...resolved,
+    tooltip: resolveLazyText(resolved.tooltip),
+  };
 }
 
 export function updateColumnWidthStats<T extends object>(params: {
@@ -719,10 +731,11 @@ function resolveColumnStyle<T extends object>(
   row: T,
   rowIndex: number,
   subRowIndex: number,
+  ctx?: SchemaContext,
 ): CellStyle | undefined {
   return resolveColumnCellStyle({
     column,
-    ctx: undefined,
+    ctx,
     row,
     rowIndex,
     subRowIndex,

@@ -65,6 +65,8 @@ export type {
   ConditionalStyleRule,
   CellValue,
   BadgeColumnDefinition,
+  BadgeVariantLabel,
+  BadgeVariantLabelContext,
   BadgeSourceValue,
   BadgeVariantDefinition,
   BadgeVariantOptions,

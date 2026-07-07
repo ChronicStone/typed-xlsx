@@ -125,5 +125,14 @@ describe("core", () => {
         ? Internal.finalizeSummaryRuntime(summaryBinding.definition, summaryBinding.runtime)
         : undefined,
     ).toBe("TOTAL");
+
+    const workbook = Internal.BufferedWorkbookBuilder.create();
+    workbook.sheet("Reports").table("localized", {
+      title: () => "Localized report",
+      schema: reportSchema,
+      rows: [{ amount: 1 }],
+    });
+
+    expect(workbook.buildPlan().sheets[0]?.tables[0]?.title).toBe("Localized report");
   });
 });

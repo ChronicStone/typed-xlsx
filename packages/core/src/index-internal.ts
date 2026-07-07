@@ -49,6 +49,8 @@ export type {
 export { conditionalStyle } from "./styles/conditional-types";
 export type {
   BadgeColumnDefinition,
+  BadgeVariantLabel,
+  BadgeVariantLabelContext,
   BadgeVariantDefinition,
   BadgeVariantOptions,
   BadgeVariants,

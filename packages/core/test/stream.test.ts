@@ -64,6 +64,54 @@ describe("stream builder", () => {
     expect(sink.closed).toBe(true);
   });
 
+  it("resolves lazy badge labels and table titles with context while streaming", async () => {
+    type Row = {
+      status: "active" | "blocked";
+    };
+    type Context = {
+      labels: Record<Row["status"], string>;
+    };
+    type LabelContext = Internal.BadgeVariantLabelContext<Row, Row["status"], Context>;
+
+    const schema = Internal.SchemaBuilder.create<Row, Context>()
+      .column("status", {
+        type: "badge",
+        accessor: "status",
+        variants: {
+          active: { label: ({ ctx, value }: LabelContext) => ctx.labels[value] },
+          blocked: { label: ({ ctx, value }: LabelContext) => ctx.labels[value] },
+        },
+      })
+      .build();
+
+    const sink = new MemoryWorkbookSink();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+    const table = await workbook.sheet("Statuses").table("statuses", {
+      context: {
+        labels: {
+          active: "Active label",
+          blocked: "Blocked label",
+        },
+      },
+      schema,
+      title: () => "Localized statuses",
+    });
+
+    await table.commit({
+      rows: [{ status: "active" }, { status: "blocked" }],
+    });
+    await workbook.finish();
+
+    const entries = await unzipWorkbookEntries(sink.toUint8Array());
+    const worksheet = entries.get("xl/worksheets/sheet1.xml") ?? "";
+    const sharedStrings = entries.get("xl/sharedStrings.xml") ?? "";
+
+    expect(worksheet).toContain("<t>Localized statuses</t>");
+    expect(sharedStrings).toContain("<t>Active label</t>");
+    expect(sharedStrings).toContain("<t>Blocked label</t>");
+  });
+
   it("supports file-backed spooling for bounded-memory streaming", async () => {
     const schema = Internal.SchemaBuilder.create<{ value: string }>()
       .column("value", {

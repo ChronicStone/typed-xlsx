@@ -51,6 +51,7 @@ import {
   serializeExcelTableCurrentRowRef,
 } from "../formula/structured-reference";
 import { toCellRef } from "../ooxml/cells";
+import { resolveLazyText } from "../text";
 
 export interface PlannedHyperlink {
   target: string;
@@ -156,6 +157,13 @@ export interface PlannerResult<T extends object> {
   rows: PlannedPhysicalRow<T>[];
   merges: PlannedMergeRange[];
   stats: PlannerStats;
+}
+
+interface ResolvedColumnsPlannerInput<T extends object> {
+  kind: "report" | "excel-table";
+  columns: ResolvedColumn<T>[];
+  excelTableName?: string;
+  context?: SchemaContext;
 }
 
 interface SummaryBinding<T extends object> {
@@ -346,7 +354,10 @@ function resolveCellHyperlink<T extends object>(params: {
     return { target: resolved };
   }
 
-  return resolved;
+  return {
+    ...resolved,
+    tooltip: resolveLazyText(resolved.tooltip),
+  };
 }
 
 function invokeRowImageValue<T extends object>(params: {
@@ -919,21 +930,17 @@ export function planRows<T extends object>(
     kind: "report" | "excel-table";
     columns: ResolvedColumn<T>[];
     excelTableName?: string;
+    context?: SchemaContext;
   },
   rows: T[],
 ): PlannerResult<T>;
 export function planRows<T extends object>(
-  schema:
-    | SchemaDefinition<T, any, any, any, any, any>
-    | {
-        kind: "report" | "excel-table";
-        columns: ResolvedColumn<T>[];
-        excelTableName?: string;
-      },
+  schema: SchemaDefinition<T, any, any, any, any, any> | ResolvedColumnsPlannerInput<T>,
   rows: T[],
 ): PlannerResult<T> {
   const columns = isResolvedColumnsInput(schema) ? schema.columns : resolveColumns(schema);
   const excelTableName = isResolvedColumnsInput(schema) ? schema.excelTableName : undefined;
+  const context = isResolvedColumnsInput(schema) ? schema.context : undefined;
   const stats = createPlannerStats(columns);
   const summaryBindings = createSummaryBindings(columns);
   const plannedRows: PlannedPhysicalRow<T>[] = [];
@@ -947,11 +954,11 @@ export function planRows<T extends object>(
       const rawValue = column.formula
         ? undefined
         : column.accessor
-          ? resolveAccessor(row, column.accessor as any, undefined)
+          ? resolveAccessor(row, column.accessor as any, context)
           : undefined;
       const transformed = column.transform
         ? invokeRowTransform({
-            ctx: undefined,
+            ctx: context,
             row,
             rowIndex: logicalRowIndex,
             transform: column.transform,
@@ -964,7 +971,7 @@ export function planRows<T extends object>(
         rowIndex: logicalRowIndex,
         subRowIndex: 0,
         sourceValue: rawValue,
-        ctx: undefined,
+        ctx: context,
       });
       const imageUrl = resolveColumnImageUrl({
         column,
@@ -972,7 +979,7 @@ export function planRows<T extends object>(
         rowIndex: logicalRowIndex,
         subRowIndex: 0,
         sourceValue: rawValue,
-        ctx: undefined,
+        ctx: context,
       });
       const values = resolveColumnCellValues({
         column,
@@ -1030,7 +1037,7 @@ export function planRows<T extends object>(
           row: createFormulaRowContext<any, any>(),
           refs: createFormulaRefs<any, any, any>(),
           fx: createFormulaFunctionsContext<any, any>(),
-          ctx: undefined as never,
+          ctx: context as never,
         } as Parameters<NonNullable<typeof column.formula>>[0]),
       );
       const inferredSeriesMode: RowSeriesMode = formulaUsesSeriesAggregate(expr)
@@ -1060,7 +1067,7 @@ export function planRows<T extends object>(
                 expr,
                 formulaMode: schema.kind,
                 tableName: excelTableName,
-                ctx: undefined,
+                ctx: context,
                 rowIndex: rowStartIndex + subRowIndex,
                 referenceRowsByColumnId: createReferenceRowsByColumnId(
                   seriesModeByColumnId,
@@ -1089,7 +1096,7 @@ export function planRows<T extends object>(
                 expr,
                 formulaMode: schema.kind,
                 tableName: excelTableName,
-                ctx: undefined,
+                ctx: context,
                 rowIndex: rowStartIndex,
                 referenceRowsByColumnId: createReferenceRowsByColumnId(
                   seriesModeByColumnId,
@@ -1131,7 +1138,7 @@ export function planRows<T extends object>(
       const rowStyles: Array<CellStyle | undefined> = expandedCells.map((cell) =>
         resolveColumnCellStyle({
           column: cell.column,
-          ctx: undefined,
+          ctx: context,
           row,
           rowIndex: logicalRowIndex,
           subRowIndex,
@@ -1165,7 +1172,7 @@ export function planRows<T extends object>(
             row,
             rowIndex: logicalRowIndex,
             subRowIndex,
-            ctx: undefined,
+            ctx: context,
           }),
           image: cell.images[subRowIndex],
           sourceRow: row,
@@ -1205,17 +1212,7 @@ export function planRows<T extends object>(
 }
 
 function isResolvedColumnsInput<T extends object>(
-  value:
-    | SchemaDefinition<T, any, any, any, any, any>
-    | {
-        kind: "report" | "excel-table";
-        columns: ResolvedColumn<T>[];
-        excelTableName?: string;
-      },
-): value is {
-  kind: "report" | "excel-table";
-  columns: ResolvedColumn<T>[];
-  excelTableName?: string;
-} {
+  value: SchemaDefinition<T, any, any, any, any, any> | ResolvedColumnsPlannerInput<T>,
+): value is ResolvedColumnsPlannerInput<T> {
   return value.columns.length > 0 && "headerLabel" in value.columns[0]!;
 }

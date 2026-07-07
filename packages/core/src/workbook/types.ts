@@ -13,6 +13,7 @@ import type { CellStyle } from "../styles/types";
 import type { WorksheetDataValidation } from "../validation/runtime";
 import type { SparklineDefaults } from "../sparkline/types";
 import type { ImageMediaType, ImageSize } from "../image/types";
+import type { LazyText } from "../text";
 
 export interface WorksheetHyperlink {
   ref: string;
@@ -186,7 +187,7 @@ export interface BufferedReportTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > {
-  title?: string;
+  title?: LazyText;
   schema: ReportSchemaDefinition<T, string, string, string, TSchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
@@ -202,7 +203,7 @@ export interface BufferedExcelTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > {
-  title?: string;
+  title?: LazyText;
   schema: ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
@@ -368,6 +369,7 @@ export interface PlannedSummaryCell {
 export interface BufferedTablePlan<T extends object> {
   id: string;
   title?: string;
+  context?: SchemaContext;
   render?: ReportTableRenderOptions;
   rowCount: number;
   planner: PlannerResult<T>;
@@ -443,7 +445,7 @@ export interface StreamReportTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > extends StreamTableInput<T, TSelectableId> {
-  title?: string;
+  title?: LazyText;
   schema: ReportSchemaDefinition<T, string, string, string, TSchemaContext>;
   context?: TSchemaContext;
   theme?: SpreadsheetTheme;
@@ -461,7 +463,7 @@ export interface StreamExcelTableInput<
   TSelectableId,
   ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>
 > {
-  title?: string;
+  title?: LazyText;
   schema: ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>;
   context?: TSchemaContext;
   theme?: SpreadsheetTheme;

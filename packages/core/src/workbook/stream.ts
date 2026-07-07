@@ -17,7 +17,8 @@ import {
 import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
 import { hashExcelProtectionPassword } from "../ooxml/protection";
 import { appendExpandedRowXml, expandCommittedRow, updateColumnWidthStats } from "../stream/rows";
-import type { PrimitiveCellValue, SchemaDefinition } from "../schema/builder";
+import type { PrimitiveCellValue, SchemaContext, SchemaDefinition } from "../schema/builder";
+import { resolveLazyText, type LazyText } from "../text";
 import type {
   AnyStreamTableInput,
   PlannedSummaryCell,
@@ -94,6 +95,10 @@ import {
   writeWorksheetDrawingRelationship,
   type WorksheetDrawingPart,
 } from "../ooxml/drawing";
+import {
+  FEATURE_PROPERTY_BAG_PATH,
+  writeFeaturePropertyBagXml,
+} from "../ooxml/feature-property-bag";
 import type { ImageMediaType } from "../image/types";
 import { getCellPrimitiveValue, type CellData } from "../cell-data";
 
@@ -106,6 +111,7 @@ function normalizeColumnSummary(
 interface StreamTableState<T extends object, TColumnId extends string> {
   tableId: string;
   title?: string;
+  context?: SchemaContext;
   render?: import("./types").ReportTableRenderOptions;
   schema: SchemaDefinition<T, any, any, any, any, any>;
   selection?: TableSelection<TColumnId>;
@@ -242,14 +248,14 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
     private readonly stringMode: "inline" | "shared",
-    context?: Record<string, unknown>,
+    context?: SchemaContext,
     selection?: TableSelection<TColumnId>,
     options?: {
       autoFilter?: boolean;
       defaults?: import("./types").TableStyleDefaults;
       theme?: import("../styles/theme").SpreadsheetTheme;
       reportAutoFilter?: boolean | TableAutoFilterOptions;
-      title?: string;
+      title?: LazyText;
       render?: import("./types").ReportTableRenderOptions;
       name?: string;
       style?: import("./types").ExcelTableStyle;
@@ -257,6 +263,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     },
   ) {
     const columns = applySelection(resolveColumns(schema, context, selection), selection);
+    const title = resolveLazyText(options?.title);
     const defaults = resolveTableStyleDefaultsWithTheme({
       schemaTheme: schema.theme,
       tableTheme: options?.theme,
@@ -275,7 +282,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
           })
         : undefined;
     if (resolvedExcelTable) {
-      if (options?.title) {
+      if (title) {
         throw new Error(
           "Excel-table mode does not support rendered title rows. Use report mode for table chrome.",
         );
@@ -288,7 +295,8 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     }
     this.state = {
       tableId,
-      title: options?.title,
+      title,
+      context,
       render: options?.render,
       schema,
       selection,
@@ -328,6 +336,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
         this.state.committedPhysicalRows,
         this.state.schema.kind,
         this.state.excelTable?.name,
+        this.state.context,
       );
       const startRow = this.state.committedPhysicalRows;
       const endRow = startRow + expanded.height - 1;
@@ -388,6 +397,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
           expanded,
           this.styles,
           this.state.defaults,
+          this.state.context,
         ),
         rowHeight: this.state.defaults?.rowHeight,
       });
@@ -552,9 +562,13 @@ function finalizeExcelTotalsRowValuesByColumnId(
   return values;
 }
 
-function isStreamExcelTableInput<T extends object, TColumnId extends string>(
-  params: AnyStreamTableInput<T, TColumnId>,
-): params is StreamExcelTableInput<T, TColumnId> {
+function isStreamExcelTableInput<
+  T extends object,
+  TColumnId extends string,
+  TSchemaContext extends SchemaContext,
+>(
+  params: AnyStreamTableInput<T, TColumnId, TSchemaContext>,
+): params is StreamExcelTableInput<T, TColumnId, TSchemaContext> {
   return params.schema.kind === "excel-table";
 }
 
@@ -572,10 +586,11 @@ class StreamSheetBuilder {
     private readonly protection?: ResolvedSheetProtectionOptions,
   ) {}
 
-  async table<T extends object, TColumnId extends string>(
-    id: string,
-    params: AnyStreamTableInput<T, TColumnId>,
-  ) {
+  async table<
+    T extends object,
+    TColumnId extends string,
+    TSchemaContext extends SchemaContext = SchemaContext,
+  >(id: string, params: AnyStreamTableInput<T, TColumnId, TSchemaContext>) {
     const spool = await this.spoolFactory.create(`${this.name}:${id}`);
     const builder = new StreamTableBuilder<T, TColumnId>(
       id,
@@ -584,7 +599,7 @@ class StreamSheetBuilder {
       this.sharedStrings,
       this.styles,
       this.stringMode,
-      ("context" in params ? params.context : undefined) as Record<string, unknown> | undefined,
+      ("context" in params ? params.context : undefined) as SchemaContext | undefined,
       params.select,
       isStreamExcelTableInput(params)
         ? {
@@ -813,6 +828,7 @@ export class StreamWorkbookBuilder {
       tableIndex += worksheetTableParts.length;
     }
 
+    const hasFeaturePropertyBag = this.styles.hasFeaturePropertyBag();
     const parts = [
       {
         path: "xl/workbook.xml",
@@ -830,6 +846,14 @@ export class StreamWorkbookBuilder {
             },
           ]
         : []),
+      ...(hasFeaturePropertyBag
+        ? [
+            {
+              path: FEATURE_PROPERTY_BAG_PATH,
+              source: writeFeaturePropertyBagXml(),
+            },
+          ]
+        : []),
       ...worksheetParts,
       ...worksheetRelationshipParts,
       ...tableParts,
@@ -844,6 +868,7 @@ export class StreamWorkbookBuilder {
         hasSharedStrings: this.sharedStrings.count() > 0,
         tableCount: tableIndex,
         drawingCount: drawingIndex,
+        hasFeaturePropertyBag,
         mediaTypes: mediaParts.map((part) => part.mediaType),
       },
       targetSink,
@@ -1541,6 +1566,7 @@ function buildStyleIndexesByRow<T extends object>(
   expandedRow: ReturnType<typeof expandCommittedRow<T>>,
   styles: StylesCollector,
   defaults?: import("./types").TableStyleDefaults,
+  context?: SchemaContext,
 ) {
   return Array.from({ length: expandedRow.height }, (_, subRowIndex) =>
     columns.map((column, columnIndex) =>
@@ -1548,12 +1574,24 @@ function buildStyleIndexesByRow<T extends object>(
         expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]
           ? withTableDefaultHyperlinkBodyStyle(
               defaults,
-              resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
+              resolveColumnStyle(
+                column,
+                expandedRow.row,
+                expandedRow.sourceRowIndex,
+                subRowIndex,
+                context,
+              ),
               expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]?.style,
             )
           : withTableDefaultBodyStyle(
               defaults,
-              resolveColumnStyle(column, expandedRow.row, expandedRow.sourceRowIndex, subRowIndex),
+              resolveColumnStyle(
+                column,
+                expandedRow.row,
+                expandedRow.sourceRowIndex,
+                subRowIndex,
+                context,
+              ),
             ),
       ),
     ),
@@ -1565,10 +1603,11 @@ function resolveColumnStyle<T extends object>(
   row: T,
   rowIndex: number,
   subRowIndex: number,
+  ctx?: SchemaContext,
 ): CellStyle | undefined {
   return resolveColumnCellStyle({
     column,
-    ctx: undefined,
+    ctx,
     row,
     rowIndex,
     subRowIndex,

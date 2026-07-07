@@ -9,6 +9,11 @@ import { serializeBufferedWorkbookPlan } from "./workbook";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import type { ImageMediaType } from "../image/types";
 import type { WorkbookBinaryPart, WorkbookXmlPart } from "./workbook";
+import {
+  FEATURE_PROPERTY_BAG_CONTENT_TYPE,
+  FEATURE_PROPERTY_BAG_PATH,
+  FEATURE_PROPERTY_BAG_RELATIONSHIP_TYPE,
+} from "./feature-property-bag";
 
 export interface WorkbookPackagePartSource {
   path: string;
@@ -21,6 +26,7 @@ export function writeContentTypesXml(
   tableCount: number,
   drawingCount = 0,
   mediaTypes: ImageMediaType[] = [],
+  hasFeaturePropertyBag = false,
 ) {
   const uniqueMediaTypes = [...new Set(mediaTypes)];
   const overrides = [
@@ -38,6 +44,14 @@ export function writeContentTypesXml(
       PartName: "/xl/styles.xml",
       ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml",
     }),
+    ...(hasFeaturePropertyBag
+      ? [
+          xmlSelfClosing("Override", {
+            PartName: `/${FEATURE_PROPERTY_BAG_PATH}`,
+            ContentType: FEATURE_PROPERTY_BAG_CONTENT_TYPE,
+          }),
+        ]
+      : []),
     ...(hasSharedStrings
       ? [
           xmlSelfClosing("Override", {
@@ -100,7 +114,11 @@ export function writeRootRelationshipsXml() {
   );
 }
 
-export function writeWorkbookRelationshipsXml(sheetCount: number, hasSharedStrings: boolean) {
+export function writeWorkbookRelationshipsXml(
+  sheetCount: number,
+  hasSharedStrings: boolean,
+  hasFeaturePropertyBag = false,
+) {
   const relationships = [
     ...Array.from({ length: sheetCount }, (_, index) =>
       xmlSelfClosing("Relationship", {
@@ -114,16 +132,29 @@ export function writeWorkbookRelationshipsXml(sheetCount: number, hasSharedStrin
       Type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
       Target: "styles.xml",
     }),
-    ...(hasSharedStrings
-      ? [
-          xmlSelfClosing("Relationship", {
-            Id: `rId${sheetCount + 2}`,
-            Type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings",
-            Target: "sharedStrings.xml",
-          }),
-        ]
-      : []),
   ];
+  let nextRelationshipId = sheetCount + 2;
+
+  if (hasSharedStrings) {
+    relationships.push(
+      xmlSelfClosing("Relationship", {
+        Id: `rId${nextRelationshipId}`,
+        Type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings",
+        Target: "sharedStrings.xml",
+      }),
+    );
+    nextRelationshipId += 1;
+  }
+
+  if (hasFeaturePropertyBag) {
+    relationships.push(
+      xmlSelfClosing("Relationship", {
+        Id: `rId${nextRelationshipId}`,
+        Type: FEATURE_PROPERTY_BAG_RELATIONSHIP_TYPE,
+        Target: "featurePropertyBag/featurePropertyBag.xml",
+      }),
+    );
+  }
 
   return xmlDocument(
     "Relationships",
@@ -174,11 +205,13 @@ export function buildBufferedWorkbookXlsx(plan: BufferedWorkbookPlan) {
   const drawingCount = xml.parts.filter((part) =>
     part.path.startsWith("xl/drawings/drawing"),
   ).length;
+  const hasFeaturePropertyBag = xml.parts.some((part) => part.path === FEATURE_PROPERTY_BAG_PATH);
   return buildXlsxPackage(xml.parts, {
     worksheetCount,
     hasSharedStrings,
     tableCount,
     drawingCount,
+    hasFeaturePropertyBag,
     mediaTypes: xml.binaryParts.flatMap((part) => (part.mediaType ? [part.mediaType] : [])),
     binaryParts: xml.binaryParts,
   });
@@ -191,6 +224,7 @@ export function buildXlsxPackage(
     hasSharedStrings: boolean;
     tableCount: number;
     drawingCount?: number;
+    hasFeaturePropertyBag?: boolean;
     mediaTypes?: ImageMediaType[];
     binaryParts?: WorkbookBinaryPart[];
   },
@@ -198,6 +232,8 @@ export function buildXlsxPackage(
   const zip = new ZipBuilder();
   const encoder = new TextEncoder();
   const hasStyles = parts.some((part) => part.path === "xl/styles.xml");
+  const hasFeaturePropertyBag =
+    options.hasFeaturePropertyBag ?? parts.some((part) => part.path === FEATURE_PROPERTY_BAG_PATH);
 
   zip.add(
     "[Content_Types].xml",
@@ -208,13 +244,20 @@ export function buildXlsxPackage(
         options.tableCount,
         options.drawingCount ?? 0,
         options.mediaTypes ?? [],
+        hasFeaturePropertyBag,
       ),
     ),
   );
   zip.add("_rels/.rels", encoder.encode(writeRootRelationshipsXml()));
   zip.add(
     "xl/_rels/workbook.xml.rels",
-    encoder.encode(writeWorkbookRelationshipsXml(options.worksheetCount, options.hasSharedStrings)),
+    encoder.encode(
+      writeWorkbookRelationshipsXml(
+        options.worksheetCount,
+        options.hasSharedStrings,
+        hasFeaturePropertyBag,
+      ),
+    ),
   );
   if (!hasStyles) {
     zip.add("xl/styles.xml", encoder.encode(writeMinimalStylesXml()));
@@ -237,12 +280,15 @@ export async function writeXlsxPackageToSink(
     hasSharedStrings: boolean;
     tableCount: number;
     drawingCount?: number;
+    hasFeaturePropertyBag?: boolean;
     mediaTypes?: ImageMediaType[];
   },
   sink: ZipChunkSink,
 ) {
   const zip = new ZipStreamWriter(sink);
   const hasStyles = parts.some((part) => part.path === "xl/styles.xml");
+  const hasFeaturePropertyBag =
+    options.hasFeaturePropertyBag ?? parts.some((part) => part.path === FEATURE_PROPERTY_BAG_PATH);
 
   await zip.add(
     "[Content_Types].xml",
@@ -252,12 +298,17 @@ export async function writeXlsxPackageToSink(
       options.tableCount,
       options.drawingCount ?? 0,
       options.mediaTypes ?? [],
+      hasFeaturePropertyBag,
     ),
   );
   await zip.add("_rels/.rels", writeRootRelationshipsXml());
   await zip.add(
     "xl/_rels/workbook.xml.rels",
-    writeWorkbookRelationshipsXml(options.worksheetCount, options.hasSharedStrings),
+    writeWorkbookRelationshipsXml(
+      options.worksheetCount,
+      options.hasSharedStrings,
+      hasFeaturePropertyBag,
+    ),
   );
   if (!hasStyles) {
     await zip.add("xl/styles.xml", writeMinimalStylesXml());

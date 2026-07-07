@@ -7,7 +7,14 @@
  * annotates compiles cleanly (meaning a regression fixed the error).
  */
 
-import type { ImageUrlValue, ImageValue, Path, SchemaColumnId, SchemaGroupContext } from "../src";
+import type {
+  BadgeVariantLabelContext,
+  ImageUrlValue,
+  ImageValue,
+  Path,
+  SchemaColumnId,
+  SchemaGroupContext,
+} from "../src";
 import { createExcelSchema, createWorkbook } from "../src";
 
 // ── Path<T> ──────────────────────────────────────────────────────────────────
@@ -434,6 +441,31 @@ createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
   })
   .build();
 
+type BadgeI18nRow = { account: string; status: "active" | "blocked" };
+type BadgeI18nContext = {
+  t: (value: BadgeI18nRow["status"], account: string) => string;
+};
+type BadgeI18nLabelContext = BadgeVariantLabelContext<
+  BadgeI18nRow,
+  BadgeI18nRow["status"],
+  BadgeI18nContext
+>;
+
+createExcelSchema<BadgeI18nRow, BadgeI18nContext>()
+  .column("status", {
+    type: "badge",
+    accessor: "status",
+    variants: {
+      active: {
+        label: ({ ctx, row, value }: BadgeI18nLabelContext) => ctx.t(value, row.account),
+      },
+      blocked: {
+        label: ({ ctx, row, value }: BadgeI18nLabelContext) => ctx.t(value, row.account),
+      },
+    },
+  })
+  .build();
+
 createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
   .column("status", {
     type: "badge",
@@ -496,7 +528,23 @@ createExcelSchema<{ approved: boolean }>()
     accessor: "approved",
   })
   .column("state", {
-    formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(1), "approved", "blocked"),
+    formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(true), "approved", "blocked"),
+  })
+  .build();
+
+createExcelSchema<{ approved: boolean }>()
+  .column("approved", {
+    type: "checkbox",
+    accessor: "approved",
+  })
+  .column("state", {
+    formula: ({ refs, fx }) =>
+      fx.if(
+        // @ts-expect-error checkbox references compare against booleans, not numeric sentinels
+        refs.column("approved").eq(1),
+        "approved",
+        "blocked",
+      ),
   })
   .build();
 

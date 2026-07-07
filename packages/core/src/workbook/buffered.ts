@@ -23,6 +23,7 @@ import { resolveExcelTableName, resolveExcelTableOptions } from "./internal/exce
 import { toCellRef } from "../ooxml/cells";
 import { buildReportChrome } from "./internal/report-chrome";
 import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
+import { resolveLazyText } from "../text";
 
 function isBufferedExcelTableInput<T extends object, TColumnId extends string>(
   table: BufferedTableInput<T, TColumnId>,
@@ -88,12 +89,12 @@ function planTable<T extends object, TColumnId extends string>(
     ? resolveExcelTableName(table.name, id)
     : undefined;
   const planner = planRows(
-    { kind: table.schema.kind, columns: resolvedColumns, excelTableName },
+    { kind: table.schema.kind, columns: resolvedColumns, context, excelTableName },
     table.rows,
   );
 
   if (isBufferedExcelTableInput(table)) {
-    if (table.title) {
+    if (resolveLazyText(table.title)) {
       throw new Error(
         "Excel-table mode does not support rendered title rows. Use report mode for table chrome.",
       );
@@ -116,6 +117,7 @@ function planTable<T extends object, TColumnId extends string>(
 
     return {
       id,
+      context,
       rowCount: table.rows.length,
       planner,
       defaults,
@@ -142,16 +144,18 @@ function planTable<T extends object, TColumnId extends string>(
   }
 
   const reportTable = table;
+  const title = resolveLazyText(reportTable.title);
   const summaries = computeSummaries(resolvedColumns, table.rows);
   const reportChrome = buildReportChrome({
     columns: resolvedColumns,
-    title: reportTable.title,
+    title,
     render: reportTable.render,
   });
 
   return {
     id,
-    title: reportTable.title,
+    title,
+    context,
     render: reportTable.render,
     rowCount: table.rows.length,
     planner,

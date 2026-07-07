@@ -492,7 +492,7 @@ describe("ooxml", () => {
     expect(worksheetRelsPart?.xml).toContain('Target="https://example.com/customers/c_1"');
   });
 
-  it("renders badge and checkbox renderer columns as styled formula-friendly cell values", () => {
+  it("renders badge columns and native checkbox cells", () => {
     const schema = Internal.SchemaBuilder.create<{
       approved: boolean;
       status: string;
@@ -536,18 +536,34 @@ describe("ooxml", () => {
     const sharedStringsPart = xml.parts.find((part) => part.path === "xl/sharedStrings.xml");
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
     const stylesPart = xml.parts.find((part) => part.path === "xl/styles.xml");
+    const featurePropertyBagPart = xml.parts.find(
+      (part) => part.path === "xl/featurePropertyBag/featurePropertyBag.xml",
+    );
 
     expect(sharedStringsPart?.xml).toContain("<t>Live</t>");
     expect(sharedStringsPart?.xml).toContain("<t>Blocked</t>");
     expect(sharedStringsPart?.xml).not.toContain("<t>☑</t>");
     expect(sharedStringsPart?.xml).not.toContain("<t>☐</t>");
-    expect(worksheetPart?.xml).toMatch(/<c r="B2" s="\d+"><v>1<\/v><\/c>/);
-    expect(worksheetPart?.xml).toMatch(/<c r="B3" s="\d+"><v>0<\/v><\/c>/);
-    expect(stylesPart?.xml).toContain('formatCode="&quot;☑&quot;;;&quot;☐&quot;;&quot;&quot;"');
+    expect(worksheetPart?.xml).toMatch(/<c r="B2" s="\d+" t="b"><v>1<\/v><\/c>/);
+    expect(worksheetPart?.xml).toMatch(/<c r="B3" s="\d+" t="b"><v>0<\/v><\/c>/);
+    expect(stylesPart?.xml).toContain("{C7286773-470A-42A8-94C5-96B5CB345126}");
+    expect(stylesPart?.xml).toContain("xfpb:xfComplement");
+    expect(stylesPart?.xml).not.toContain("☑");
     expect(stylesPart?.xml).toContain("FFDCFCE7");
     expect(stylesPart?.xml).toContain("FF166534");
     expect(stylesPart?.xml).toContain("FFFEE2E2");
     expect(stylesPart?.xml).toContain("FF991B1B");
+    expect(featurePropertyBagPart?.xml).toContain('<bag type="Checkbox"/>');
+
+    const entries = unzipWorkbookEntries(workbook.buildXlsx());
+    expect(entries.get("[Content_Types].xml")).toContain(
+      "/xl/featurePropertyBag/featurePropertyBag.xml",
+    );
+    expect(entries.get("xl/_rels/workbook.xml.rels")).toContain("FeaturePropertyBag");
+    expect(entries.get("xl/featurePropertyBag/featurePropertyBag.xml")).toContain(
+      '<bag type="Checkbox"/>',
+    );
+    expectWorkbookXmlToBeWellFormed(entries);
   });
 
   it("serializes formulas that reference checkbox renderer columns", () => {
@@ -557,7 +573,7 @@ describe("ooxml", () => {
         accessor: "approved",
       })
       .column("state", {
-        formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(1), "READY", "BLOCKED"),
+        formula: ({ refs, fx }) => fx.if(refs.column("approved").eq(true), "READY", "BLOCKED"),
       })
       .build();
 
@@ -570,10 +586,14 @@ describe("ooxml", () => {
     const xml = Internal.serializeBufferedWorkbookPlan(workbook.buildPlan());
     const worksheetPart = xml.parts.find((part) => part.path === "xl/worksheets/sheet1.xml");
 
-    expect(worksheetPart?.xml).toMatch(/<c r="A2" s="\d+"><v>1<\/v><\/c>/);
-    expect(worksheetPart?.xml).toMatch(/<c r="A3" s="\d+"><v>0<\/v><\/c>/);
-    expect(worksheetPart?.xml).toContain("<f>IF((A2=1),&quot;READY&quot;,&quot;BLOCKED&quot;)</f>");
-    expect(worksheetPart?.xml).toContain("<f>IF((A3=1),&quot;READY&quot;,&quot;BLOCKED&quot;)</f>");
+    expect(worksheetPart?.xml).toMatch(/<c r="A2" s="\d+" t="b"><v>1<\/v><\/c>/);
+    expect(worksheetPart?.xml).toMatch(/<c r="A3" s="\d+" t="b"><v>0<\/v><\/c>/);
+    expect(worksheetPart?.xml).toContain(
+      "<f>IF((A2=TRUE),&quot;READY&quot;,&quot;BLOCKED&quot;)</f>",
+    );
+    expect(worksheetPart?.xml).toContain(
+      "<f>IF((A3=TRUE),&quot;READY&quot;,&quot;BLOCKED&quot;)</f>",
+    );
   });
 
   it("applies default hyperlink styling only to linked body cells", () => {

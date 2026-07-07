@@ -67,6 +67,7 @@ export interface FormulaSeriesContext<
 export interface FormulaOperand<
   TColumnId extends string = string,
   TScopeId extends string = string,
+  TValue = unknown,
 > {
   add(right: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
   sub(right: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
@@ -74,12 +75,24 @@ export interface FormulaOperand<
   div(right: FormulaValue<TColumnId, TScopeId>): FormulaOperand<TColumnId, TScopeId>;
   abs(): FormulaOperand<TColumnId, TScopeId>;
   round(decimals?: number): FormulaOperand<TColumnId, TScopeId>;
-  eq(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
-  neq(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
-  gt(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
-  gte(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
-  lt(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
-  lte(right: FormulaValue<TColumnId, TScopeId>): FormulaCondition<TColumnId, TScopeId>;
+  eq(
+    right: FormulaComparisonValue<TColumnId, TScopeId, TValue>,
+  ): FormulaCondition<TColumnId, TScopeId>;
+  neq(
+    right: FormulaComparisonValue<TColumnId, TScopeId, TValue>,
+  ): FormulaCondition<TColumnId, TScopeId>;
+  gt(
+    right: FormulaOrderedComparisonValue<TColumnId, TScopeId, TValue>,
+  ): FormulaCondition<TColumnId, TScopeId>;
+  gte(
+    right: FormulaOrderedComparisonValue<TColumnId, TScopeId, TValue>,
+  ): FormulaCondition<TColumnId, TScopeId>;
+  lt(
+    right: FormulaOrderedComparisonValue<TColumnId, TScopeId, TValue>,
+  ): FormulaCondition<TColumnId, TScopeId>;
+  lte(
+    right: FormulaOrderedComparisonValue<TColumnId, TScopeId, TValue>,
+  ): FormulaCondition<TColumnId, TScopeId>;
   toExpr(): FormulaExpr<TColumnId, TScopeId>;
 }
 
@@ -115,8 +128,15 @@ export interface FormulaRefs<
   TColumnId extends string = string,
   TGroupId extends string = never,
   TDynamicId extends string = never,
+  TBooleanColumnId extends TColumnId = never,
 > {
-  column(columnId: TColumnId): FormulaOperand<TColumnId, TGroupId | TDynamicId>;
+  column<TId extends TColumnId>(
+    columnId: TId,
+  ): FormulaOperand<
+    TColumnId,
+    TGroupId | TDynamicId,
+    TId extends TBooleanColumnId ? boolean : unknown
+  >;
   group(groupId: TGroupId): FormulaScopeRef<TGroupId>;
   dynamic(dynamicId: TDynamicId): FormulaScopeRef<TDynamicId>;
 }
@@ -124,8 +144,11 @@ export interface FormulaRefs<
 export interface FormulaColumnRefs<
   TColumnId extends string = string,
   TScopeId extends string = never,
+  TBooleanColumnId extends TColumnId = never,
 > {
-  column(columnId: TColumnId): FormulaOperand<TColumnId, TScopeId>;
+  column<TId extends TColumnId>(
+    columnId: TId,
+  ): FormulaOperand<TColumnId, TScopeId, TId extends TBooleanColumnId ? boolean : unknown>;
 }
 
 export interface FormulaFunctions<
@@ -186,7 +209,25 @@ export type FormulaValue<TColumnId extends string = string, TScopeId extends str
   | number
   | boolean
   | FormulaExpr<TColumnId, TScopeId>
-  | FormulaOperand<TColumnId, TScopeId>;
+  | FormulaOperand<TColumnId, TScopeId, any>;
+
+type FormulaLiteralFor<TValue> = unknown extends TValue
+  ? string | number | boolean
+  : Extract<NonNullable<TValue>, string | number | boolean> extends infer TLiteral
+    ? [TLiteral] extends [never]
+      ? string | number | boolean
+      : TLiteral
+    : string | number | boolean;
+
+type FormulaComparisonValue<TColumnId extends string, TScopeId extends string, TValue> =
+  | FormulaLiteralFor<TValue>
+  | FormulaExpr<TColumnId, TScopeId>
+  | FormulaOperand<TColumnId, TScopeId, any>;
+
+type FormulaOrderedComparisonValue<TColumnId extends string, TScopeId extends string, TValue> =
+  | Exclude<FormulaLiteralFor<TValue>, boolean>
+  | FormulaExpr<TColumnId, TScopeId>
+  | FormulaOperand<TColumnId, TScopeId, any>;
 
 export type FormulaConditionValue<
   TColumnId extends string = string,
@@ -408,10 +449,14 @@ export function createFormulaRowContext<
 export function createFormulaColumnRefs<
   TColumnId extends string,
   TScopeId extends string,
->(): FormulaColumnRefs<TColumnId, TScopeId> {
+  TBooleanColumnId extends TColumnId = never,
+>(): FormulaColumnRefs<TColumnId, TScopeId, TBooleanColumnId> {
   return {
-    column(columnId) {
-      return wrapExpr({ kind: "ref", columnId });
+    column<TId extends TColumnId>(columnId: TId) {
+      return wrapExpr<TColumnId, TScopeId>({
+        kind: "ref",
+        columnId: columnId as TColumnId,
+      }) as FormulaOperand<TColumnId, TScopeId, TId extends TBooleanColumnId ? boolean : unknown>;
     },
   };
 }
@@ -420,10 +465,18 @@ export function createFormulaRefs<
   TColumnId extends string,
   TGroupId extends string,
   TDynamicId extends string,
->(): FormulaRefs<TColumnId, TGroupId, TDynamicId> {
+  TBooleanColumnId extends TColumnId = never,
+>(): FormulaRefs<TColumnId, TGroupId, TDynamicId, TBooleanColumnId> {
   return {
-    column(columnId) {
-      return wrapExpr({ kind: "ref", columnId });
+    column<TId extends TColumnId>(columnId: TId) {
+      return wrapExpr<TColumnId, TGroupId | TDynamicId>({
+        kind: "ref",
+        columnId: columnId as TColumnId,
+      }) as FormulaOperand<
+        TColumnId,
+        TGroupId | TDynamicId,
+        TId extends TBooleanColumnId ? boolean : unknown
+      >;
     },
     group(groupId) {
       return { kind: "scope-ref", scopeId: groupId };

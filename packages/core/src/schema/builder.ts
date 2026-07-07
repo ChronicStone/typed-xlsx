@@ -12,6 +12,7 @@ import {
 } from "../styles/conditional-types";
 import type { SpreadsheetTheme } from "../styles/theme";
 import type { CellStyle } from "../styles/types";
+import { withCellControl } from "../styles/internal";
 import { deepMerge } from "../styles/merge";
 import { resolveLazyText, type LazyText } from "../text";
 import {
@@ -138,10 +139,11 @@ export type FormulaFn<
   TGroupId extends string = never,
   TDynamicId extends string = never,
   TContext extends SchemaContext = SchemaContext,
+  TBooleanColumnId extends TPrevColumnId = never,
 > = (context: {
   row: FormulaRowContext<TPrevColumnId, TGroupId | TDynamicId>;
-  refs: FormulaColumnRefs<TPrevColumnId, TGroupId | TDynamicId> &
-    FormulaRefs<TPrevColumnId, TGroupId, TDynamicId>;
+  refs: FormulaColumnRefs<TPrevColumnId, TGroupId | TDynamicId, TBooleanColumnId> &
+    FormulaRefs<TPrevColumnId, TGroupId, TDynamicId, TBooleanColumnId>;
   fx: FormulaFunctions<TPrevColumnId, TGroupId | TDynamicId>;
   ctx: TContext;
 }) => FormulaValue<TPrevColumnId, TGroupId | TDynamicId>;
@@ -166,7 +168,7 @@ type FormulaLikeReference<TCurrentColumnId extends string, TColumnId extends str
 
 export interface HyperlinkDefinition {
   target: string;
-  tooltip?: string;
+  tooltip?: LazyText;
   style?: CellStyle;
 }
 
@@ -181,6 +183,18 @@ export type HyperlinkInput<T extends object, TContext extends SchemaContext = Sc
 export type BadgeSourceValue = PrimitiveCellValue | PrimitiveCellValue[];
 export type CheckboxValue = boolean | null | undefined;
 export type CheckboxSourceValue = CheckboxValue | CheckboxValue[];
+
+export type BadgeVariantLabelContext<
+  T extends object,
+  TValue = unknown,
+  TContext extends SchemaContext = SchemaContext,
+> = BoundRowTransformContext<T, TValue, TContext>;
+
+export type BadgeVariantLabel<
+  T extends object,
+  TValue = unknown,
+  TContext extends SchemaContext = SchemaContext,
+> = string | ((context: BadgeVariantLabelContext<T, TValue, TContext>) => string | undefined);
 
 export type ImageMediaTypeInput<T extends object, TContext extends SchemaContext = SchemaContext> =
   | ImageMediaType
@@ -203,12 +217,25 @@ export interface ImageColumnDefinition<
   padding?: number | ImagePadding;
 }
 
-export interface BadgeVariantOptions {
-  label?: LazyText;
+export interface BadgeVariantOptions<
+  T extends object = any,
+  TValue = unknown,
+  TContext extends SchemaContext = SchemaContext,
+> {
+  label?: BadgeVariantLabel<T, TValue, TContext>;
   style?: CellStyle;
 }
 
-export type BadgeVariantDefinition = CellStyle | BadgeVariantOptions;
+type BadgeVariantStyleDefinition = CellStyle & {
+  label?: never;
+  style?: never;
+};
+
+export type BadgeVariantDefinition<
+  T extends object = any,
+  TValue = unknown,
+  TContext extends SchemaContext = SchemaContext,
+> = BadgeVariantOptions<T, TValue, TContext> | BadgeVariantStyleDefinition;
 type BadgeVariantItemValue<TValue> = TValue extends readonly (infer TItem)[]
   ? TItem
   : TValue extends (infer TItem)[]
@@ -236,26 +263,30 @@ type BadgeVariantKey<TValue> = TValue extends Date
 type BadgeVariantKeys<TValue> = [BadgeVariantKey<BadgeVariantItemValue<TValue>>] extends [never]
   ? string
   : BadgeVariantKey<BadgeVariantItemValue<TValue>>;
-export type BadgeVariants<TValue = BadgeSourceValue> = Record<
+export type BadgeVariants<
+  TValue = BadgeSourceValue,
+  T extends object = any,
+  TContext extends SchemaContext = SchemaContext,
+> = Record<
   BadgeVariantKeys<TValue>,
-  BadgeVariantDefinition
+  BadgeVariantDefinition<T, BadgeVariantItemValue<TValue>, TContext>
 >;
 
-export type BadgeColumnDefinition<TValue = BadgeSourceValue> =
+export type BadgeColumnDefinition<
+  TValue = BadgeSourceValue,
+  T extends object = any,
+  TContext extends SchemaContext = SchemaContext,
+> =
   | {
-      variants: BadgeVariants<TValue>;
+      variants: BadgeVariants<TValue, T, TContext>;
       defaultVariant?: never;
     }
   | {
-      variants?: Partial<BadgeVariants<TValue>>;
-      defaultVariant: BadgeVariantDefinition;
+      variants?: Partial<BadgeVariants<TValue, T, TContext>>;
+      defaultVariant: BadgeVariantDefinition<T, BadgeVariantItemValue<TValue>, TContext>;
     };
 
-export interface CheckboxColumnDefinition {
-  checkedLabel?: LazyText;
-  uncheckedLabel?: LazyText;
-  emptyLabel?: LazyText;
-}
+export interface CheckboxColumnDefinition {}
 
 export type ColumnRendererType = "badge" | "checkbox" | "hyperlink" | "image" | "sparkline";
 
@@ -348,6 +379,7 @@ type FormulaColumnInput<
   TPrevColumnId extends string,
   TGroupId extends string,
   TDynamicId extends string,
+  TBooleanColumnId extends TPrevColumnId,
   TContext extends SchemaContext,
 > = Omit<
   ColumnDefinition<T, TContext, never, TPrevColumnId, TGroupId, TDynamicId, TReference>,
@@ -355,7 +387,7 @@ type FormulaColumnInput<
 > & {
   accessor?: never;
   transform?: never;
-  formula: FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext>;
+  formula: FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext, TBooleanColumnId>;
 };
 
 type SparklineRendererColumnInput<
@@ -388,7 +420,7 @@ type BadgeRendererColumnInput<
   AccessorColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
   "type" | "transform"
 > &
-  BadgeColumnDefinition<AccessorValue<T, TAccessor>> & {
+  BadgeColumnDefinition<AccessorValue<T, TAccessor>, T, TContext> & {
     type: "badge";
     transform?: never;
   };
@@ -555,6 +587,7 @@ type ExcelTableFormulaColumnInput<
   TPrevColumnId extends string,
   TGroupId extends string,
   TDynamicId extends string,
+  TBooleanColumnId extends TPrevColumnId,
   TContext extends SchemaContext,
 > = Omit<
   ColumnDefinition<T, TContext, never, TPrevColumnId, TGroupId, TDynamicId, TReference>,
@@ -564,7 +597,7 @@ type ExcelTableFormulaColumnInput<
   transform?: never;
   defaultValue?: never;
   summary?: never;
-  formula: FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext>;
+  formula: FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext, TBooleanColumnId>;
 };
 
 type ExcelTableSparklineRendererColumnInput<
@@ -615,7 +648,7 @@ type ExcelTableBadgeRendererColumnInput<
   >,
   "transform" | "type"
 > &
-  BadgeColumnDefinition<AccessorValue<T, TAccessor>> & {
+  BadgeColumnDefinition<AccessorValue<T, TAccessor>, T, TContext> & {
     type: "badge";
     transform?: never;
   };
@@ -788,10 +821,6 @@ const DEFAULT_CHECKBOX_STYLE: CellStyle = {
   font: { bold: true, color: { rgb: "0F172A" } },
 };
 
-const DEFAULT_CHECKED_LABEL = "☑";
-const DEFAULT_UNCHECKED_LABEL = "☐";
-const DEFAULT_EMPTY_CHECKBOX_LABEL = "";
-
 function normalizeColumnDefinition<T extends object, TContext extends SchemaContext>(
   id: string,
   definition: ColumnDefinition<T, TContext, any, any, any, any, any>,
@@ -896,7 +925,7 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
       any,
       any
     > &
-      BadgeColumnDefinition;
+      BadgeColumnDefinition<BadgeSourceValue, T, TContext>;
 
     return {
       ...rest,
@@ -906,22 +935,22 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
   }
 
   if (definition.type === "checkbox") {
-    const { checkedLabel, emptyLabel, style, uncheckedLabel, ...rest } =
-      definition as ColumnDefinition<T, TContext, any, any, any, any, any> &
-        CheckboxColumnDefinition;
-    const checkboxFormat = createCheckboxNumberFormat({
-      checkedLabel,
-      emptyLabel,
-      uncheckedLabel,
-    });
+    const { style, ...rest } = definition as ColumnDefinition<
+      T,
+      TContext,
+      any,
+      any,
+      any,
+      any,
+      any
+    > &
+      CheckboxColumnDefinition;
 
     return {
       ...rest,
       width: rest.width ?? 8,
-      style: normalizeCheckboxStyle(style, checkboxFormat),
-      transform: normalizeCheckboxTransform({
-        emptyLabel,
-      }),
+      style: normalizeCheckboxStyle(style),
+      transform: normalizeCheckboxTransform(),
     };
   }
 
@@ -981,13 +1010,13 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
 }
 
 function normalizeBadgeTransform<T extends object, TContext extends SchemaContext>(
-  variants?: Partial<BadgeVariants>,
-  defaultVariant?: BadgeVariantDefinition,
+  variants?: Partial<Record<string, BadgeVariantDefinition<T, any, TContext>>>,
+  defaultVariant?: BadgeVariantDefinition<T, any, TContext>,
 ): TransformFn<T, unknown, TContext> {
   return (context) => {
     return mapRendererValue(context.value, (value) => {
       const variant = resolveBadgeVariant(value, variants, defaultVariant);
-      const label = resolveBadgeVariantLabel(variant);
+      const label = resolveBadgeVariantLabel(variant, context, value);
 
       return label ?? toBadgeCellValue(value);
     });
@@ -997,8 +1026,8 @@ function normalizeBadgeTransform<T extends object, TContext extends SchemaContex
 function normalizeBadgeStyle<T extends object, TContext extends SchemaContext>(
   accessor: Accessor<T, unknown, TContext> | Path<T> | undefined,
   style: CellStyle | StyleFn<T, TContext> | undefined,
-  variants?: Partial<BadgeVariants>,
-  defaultVariant?: BadgeVariantDefinition,
+  variants?: Partial<Record<string, BadgeVariantDefinition<T, any, TContext>>>,
+  defaultVariant?: BadgeVariantDefinition<T, any, TContext>,
 ): CellStyle | StyleFn<T, TContext> {
   return (context) => {
     const value = accessor
@@ -1014,46 +1043,29 @@ function normalizeBadgeStyle<T extends object, TContext extends SchemaContext>(
   };
 }
 
-function normalizeCheckboxTransform<T extends object, TContext extends SchemaContext>(options: {
-  emptyLabel?: LazyText;
-}): TransformFn<T, CheckboxSourceValue, TContext> {
-  const hasEmptyLabel = options.emptyLabel !== undefined;
-
+function normalizeCheckboxTransform<
+  T extends object,
+  TContext extends SchemaContext,
+>(): TransformFn<T, CheckboxSourceValue, TContext> {
   return ({ value }) => {
     return mapRendererValue(value, (item) => {
       if (item === null || item === undefined) {
-        return hasEmptyLabel ? "" : null;
+        return null;
       }
 
-      return item ? 1 : 0;
+      return item === true;
     });
   };
 }
 
 function normalizeCheckboxStyle<T extends object, TContext extends SchemaContext>(
   style: CellStyle | StyleFn<T, TContext> | undefined,
-  numFmt: string,
 ): CellStyle | StyleFn<T, TContext> {
   return (context) =>
-    deepMerge<CellStyle>(DEFAULT_CHECKBOX_STYLE, resolveRendererStyle(style, context), { numFmt });
-}
-
-function createCheckboxNumberFormat(options: {
-  checkedLabel?: LazyText;
-  uncheckedLabel?: LazyText;
-  emptyLabel?: LazyText;
-}) {
-  const checkedLabel = resolveLazyText(options.checkedLabel) ?? DEFAULT_CHECKED_LABEL;
-  const uncheckedLabel = resolveLazyText(options.uncheckedLabel) ?? DEFAULT_UNCHECKED_LABEL;
-  const emptyLabel = resolveLazyText(options.emptyLabel) ?? DEFAULT_EMPTY_CHECKBOX_LABEL;
-
-  return `${quoteNumberFormatText(checkedLabel)};;${quoteNumberFormatText(
-    uncheckedLabel,
-  )};${quoteNumberFormatText(emptyLabel)}`;
-}
-
-function quoteNumberFormatText(value: string) {
-  return `"${value.replaceAll('"', '""')}"`;
+    withCellControl(
+      deepMerge<CellStyle>(DEFAULT_CHECKBOX_STYLE, resolveRendererStyle(style, context)),
+      "checkbox",
+    );
 }
 
 function resolveRendererStyle<T extends object, TContext extends SchemaContext>(
@@ -1077,22 +1089,34 @@ function resolveRendererStyle<T extends object, TContext extends SchemaContext>(
 
 function resolveBadgeVariant(
   value: unknown,
-  variants?: Partial<BadgeVariants>,
-  defaultVariant?: BadgeVariantDefinition,
+  variants?: Partial<Record<string, BadgeVariantDefinition<any, any, any>>>,
+  defaultVariant?: BadgeVariantDefinition<any, any, any>,
 ) {
   const variant = variants?.[toBadgeKey(value)];
   return variant ?? defaultVariant;
 }
 
-function resolveBadgeVariantLabel(variant?: BadgeVariantDefinition) {
+function resolveBadgeVariantLabel<T extends object, TContext extends SchemaContext>(
+  variant: BadgeVariantDefinition<T, any, TContext> | undefined,
+  context: BoundRowTransformContext<T, unknown, TContext>,
+  value: unknown,
+) {
   if (!variant || !isBadgeVariantOptions(variant)) {
     return undefined;
   }
 
-  return resolveLazyText(variant.label);
+  const label = variant.label;
+  if (typeof label !== "function") {
+    return label;
+  }
+
+  return label({
+    ...context,
+    value,
+  });
 }
 
-function resolveBadgeVariantStyle(variant?: BadgeVariantDefinition) {
+function resolveBadgeVariantStyle(variant?: BadgeVariantDefinition<any, any, any>) {
   if (!variant) {
     return undefined;
   }
@@ -1100,7 +1124,9 @@ function resolveBadgeVariantStyle(variant?: BadgeVariantDefinition) {
   return isBadgeVariantOptions(variant) ? variant.style : variant;
 }
 
-function isBadgeVariantOptions(variant: BadgeVariantDefinition): variant is BadgeVariantOptions {
+function isBadgeVariantOptions(
+  variant: BadgeVariantDefinition<any, any, any>,
+): variant is BadgeVariantOptions<any, any, any> {
   return "label" in variant || "style" in variant;
 }
 
@@ -1203,6 +1229,7 @@ abstract class BaseSchemaBuilder<
   TGroupId extends string,
   TDynamicId extends string,
   TSchemaContext extends SchemaContext,
+  TBooleanColumnId extends TColumnId = never,
 > {
   protected readonly columns: SchemaNode<T, TSchemaContext>[] = [];
   protected readonly ids = new Set<string>();
@@ -1273,12 +1300,13 @@ abstract class BaseSchemaBuilder<
     TColumnId | Exclude<ChildColumnIds<TResult>, TColumnId>,
     TGroupId | TId | Exclude<ChildGroupIds<TResult>, TGroupId>,
     TDynamicId | Exclude<ChildDynamicIds<TResult>, TDynamicId>,
-    TSchemaContext
+    TSchemaContext,
+    TBooleanColumnId | Exclude<ChildBooleanColumnIds<TResult>, TBooleanColumnId>
   >;
   group<const TId extends string>(
     id: TId,
     build: (builder: this) => void,
-  ): BaseSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext>;
+  ): BaseSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   group<const TId extends string, TResult>(
     id: TId,
     options: GroupOptions<TSchemaContext>,
@@ -1288,51 +1316,54 @@ abstract class BaseSchemaBuilder<
     TColumnId | Exclude<ChildColumnIds<TResult>, TColumnId>,
     TGroupId | TId | Exclude<ChildGroupIds<TResult>, TGroupId>,
     TDynamicId | Exclude<ChildDynamicIds<TResult>, TDynamicId>,
-    TSchemaContext
+    TSchemaContext,
+    TBooleanColumnId | Exclude<ChildBooleanColumnIds<TResult>, TBooleanColumnId>
   >;
   group<const TId extends string>(
     id: TId,
     options: GroupOptions<TSchemaContext>,
     build: (builder: this) => void,
-  ): BaseSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext>;
+  ): BaseSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   group<const TId extends string>(
     id: TId,
     optionsOrBuild: GroupOptions<TSchemaContext> | ((builder: this) => unknown),
     maybeBuild?: (builder: this) => unknown,
-  ): BaseSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext> {
+  ): BaseSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext, TBooleanColumnId> {
     this.groupImpl(id, optionsOrBuild, maybeBuild);
     return this as unknown as BaseSchemaBuilder<
       T,
       TColumnId,
       TGroupId | TId,
       TDynamicId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId
     >;
   }
 
   dynamic<const TId extends string>(
     id: TId,
     build: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext>;
+  ): BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext, TBooleanColumnId>;
   dynamic<const TId extends string>(
     id: TId,
     options: DynamicOptions<TSchemaContext>,
     build: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext>;
+  ): BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext, TBooleanColumnId>;
   dynamic<const TId extends string>(
     id: TId,
     optionsOrBuild:
       | DynamicOptions<TSchemaContext>
       | ((builder: this, args: { ctx: TSchemaContext }) => void),
     maybeBuild?: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext> {
+  ): BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext, TBooleanColumnId> {
     this.dynamicImpl(id, optionsOrBuild, maybeBuild);
     return this as unknown as BaseSchemaBuilder<
       T,
       TColumnId,
       TGroupId,
       TDynamicId | TId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId
     >;
   }
 
@@ -1347,7 +1378,8 @@ export class SchemaBuilder<
   TGroupId extends string = never,
   TDynamicId extends string = never,
   TSchemaContext extends SchemaContext = unknown,
-> extends BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId, TSchemaContext> {
+  TBooleanColumnId extends TColumnId = never,
+> extends BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId> {
   protected readonly schemaKind = "report" as const;
 
   static create<T extends object, TContext extends SchemaContext = unknown>() {
@@ -1355,7 +1387,14 @@ export class SchemaBuilder<
   }
 
   protected createChildBuilder(): this {
-    return new SchemaBuilder<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>() as this;
+    return new SchemaBuilder<
+      T,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TSchemaContext,
+      TBooleanColumnId
+    >() as this;
   }
 
   protected buildSchema() {
@@ -1377,7 +1416,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext>>(
     id: TId,
     definition: AccessorColumnInput<
@@ -1389,7 +1428,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string>(
     id: TId,
     definition: FormulaColumnInput<
@@ -1398,13 +1437,14 @@ export class SchemaBuilder<
       TColumnId,
       TGroupId,
       TDynamicId,
+      TBooleanColumnId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string>(
     id: TId,
     definition: SparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: BadgeRendererColumnInput<
@@ -1416,7 +1456,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TAccessor extends Accessor<T, BadgeSourceValue, TSchemaContext>>(
     id: TId,
     definition: BadgeRendererColumnInput<
@@ -1428,7 +1468,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: CheckboxRendererColumnInput<
@@ -1440,7 +1480,14 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId | TId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, CheckboxSourceValue, TSchemaContext>>(
     id: TId,
     definition: CheckboxRendererColumnInput<
@@ -1452,7 +1499,14 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId | TId
+  >;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: ImageColumnInput<
@@ -1464,7 +1518,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TAccessor extends Accessor<T, ImageSourceValue, TSchemaContext>>(
     id: TId,
     definition: ImageColumnInput<
@@ -1476,7 +1530,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TAccessor extends Accessor<T, ImageUrlSourceValue, TSchemaContext>>(
     id: TId,
     definition: ImageColumnInput<
@@ -1488,7 +1542,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: HyperlinkRendererColumnInput<
@@ -1500,7 +1554,7 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext>>(
     id: TId,
     definition: HyperlinkRendererColumnInput<
@@ -1512,12 +1566,20 @@ export class SchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext> | Path<T>>(
     id: TId,
     definition:
       | AccessorColumnInput<T, TAccessor, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | FormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
+      | FormulaColumnInput<
+          T,
+          string,
+          TColumnId,
+          TGroupId,
+          TDynamicId,
+          TBooleanColumnId,
+          TSchemaContext
+        >
       | SparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | BadgeRendererColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | CheckboxRendererColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
@@ -1531,7 +1593,14 @@ export class SchemaBuilder<
           TDynamicId,
           TSchemaContext
         >,
-  ): SchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext> {
+  ): SchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId | TId
+  > {
     this.ensureIdAvailable(id);
     this.addColumnNode(normalizeColumnDefinition(id, definition as any));
     return this as unknown as SchemaBuilder<
@@ -1539,7 +1608,8 @@ export class SchemaBuilder<
       TColumnId | TId,
       TGroupId,
       TDynamicId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId | TId
     >;
   }
 
@@ -1551,12 +1621,13 @@ export class SchemaBuilder<
     TColumnId | Exclude<ChildColumnIds<TResult>, TColumnId>,
     TGroupId | TId | Exclude<ChildGroupIds<TResult>, TGroupId>,
     TDynamicId | Exclude<ChildDynamicIds<TResult>, TDynamicId>,
-    TSchemaContext
+    TSchemaContext,
+    TBooleanColumnId | Exclude<ChildBooleanColumnIds<TResult>, TBooleanColumnId>
   >;
   override group<const TId extends string>(
     id: TId,
     build: (builder: this) => void,
-  ): SchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   override group<const TId extends string, TResult>(
     id: TId,
     options: GroupOptions<TSchemaContext>,
@@ -1566,13 +1637,14 @@ export class SchemaBuilder<
     TColumnId | Exclude<ChildColumnIds<TResult>, TColumnId>,
     TGroupId | TId | Exclude<ChildGroupIds<TResult>, TGroupId>,
     TDynamicId | Exclude<ChildDynamicIds<TResult>, TDynamicId>,
-    TSchemaContext
+    TSchemaContext,
+    TBooleanColumnId | Exclude<ChildBooleanColumnIds<TResult>, TBooleanColumnId>
   >;
   override group<const TId extends string>(
     id: TId,
     options: GroupOptions<TSchemaContext>,
     build: (builder: this) => void,
-  ): SchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext, TBooleanColumnId>;
   override group<const TId extends string>(
     id: TId,
     optionsOrBuild: GroupOptions<TSchemaContext> | ((builder: this) => unknown),
@@ -1584,33 +1656,35 @@ export class SchemaBuilder<
       TColumnId,
       TGroupId | TId,
       TDynamicId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId
     >;
   }
 
   override dynamic<const TId extends string>(
     id: TId,
     build: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): SchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext, TBooleanColumnId>;
   override dynamic<const TId extends string>(
     id: TId,
     options: DynamicOptions<TSchemaContext>,
     build: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): SchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext>;
+  ): SchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext, TBooleanColumnId>;
   override dynamic<const TId extends string>(
     id: TId,
     optionsOrBuild:
       | DynamicOptions<TSchemaContext>
       | ((builder: this, args: { ctx: TSchemaContext }) => void),
     maybeBuild?: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): SchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext> {
+  ): SchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext, TBooleanColumnId> {
     this.dynamicImpl(id, optionsOrBuild, maybeBuild);
     return this as unknown as SchemaBuilder<
       T,
       TColumnId,
       TGroupId,
       TDynamicId | TId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId
     >;
   }
 }
@@ -1621,7 +1695,8 @@ export class ExcelTableSchemaBuilder<
   TGroupId extends string = never,
   TDynamicId extends string = never,
   TSchemaContext extends SchemaContext = unknown,
-> extends BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId, TSchemaContext> {
+  TBooleanColumnId extends TColumnId = never,
+> extends BaseSchemaBuilder<T, TColumnId, TGroupId, TDynamicId, TSchemaContext, TBooleanColumnId> {
   protected readonly schemaKind = "excel-table" as const;
 
   static create<T extends object, TContext extends SchemaContext = unknown>() {
@@ -1634,7 +1709,8 @@ export class ExcelTableSchemaBuilder<
       TColumnId,
       TGroupId,
       TDynamicId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId
     >() as this;
   }
 
@@ -1659,7 +1735,14 @@ export class ExcelTableSchemaBuilder<
           TSchemaContext
         >
       : never,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, BadgeSourceValue, TSchemaContext>>(
     id: TId,
     definition: ExcelTableAccessorColumnInput<
@@ -1671,7 +1754,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string>(
     id: TId,
     definition: ExcelTableFormulaColumnInput<
@@ -1680,9 +1770,17 @@ export class ExcelTableSchemaBuilder<
       TColumnId,
       TGroupId,
       TDynamicId,
+      TBooleanColumnId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string>(
     id: TId,
     definition: ExcelTableSparklineRendererColumnInput<
@@ -1692,7 +1790,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: ExcelTableBadgeRendererColumnInput<
@@ -1704,7 +1809,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, PrimitiveCellValue, TSchemaContext>>(
     id: TId,
     definition: ExcelTableBadgeRendererColumnInput<
@@ -1716,7 +1828,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: ExcelTableCheckboxRendererColumnInput<
@@ -1728,7 +1847,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId | TId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, CheckboxSourceValue, TSchemaContext>>(
     id: TId,
     definition: ExcelTableCheckboxRendererColumnInput<
@@ -1740,7 +1866,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId | TId
+  >;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: ExcelTableImageColumnInput<
@@ -1752,7 +1885,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, ImageSourceValue, TSchemaContext>>(
     id: TId,
     definition: ExcelTableImageColumnInput<
@@ -1764,7 +1904,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, ImageUrlSourceValue, TSchemaContext>>(
     id: TId,
     definition: ExcelTableImageColumnInput<
@@ -1776,7 +1923,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TPath extends Path<T>>(
     id: TId,
     definition: ExcelTableHyperlinkRendererColumnInput<
@@ -1788,7 +1942,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, PrimitiveCellValue, TSchemaContext>>(
     id: TId,
     definition: ExcelTableHyperlinkRendererColumnInput<
@@ -1800,7 +1961,14 @@ export class ExcelTableSchemaBuilder<
       TDynamicId,
       TSchemaContext
     >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext> | Path<T>>(
     id: TId,
     definition:
@@ -1813,7 +1981,15 @@ export class ExcelTableSchemaBuilder<
           TDynamicId,
           TSchemaContext
         >
-      | ExcelTableFormulaColumnInput<T, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
+      | ExcelTableFormulaColumnInput<
+          T,
+          string,
+          TColumnId,
+          TGroupId,
+          TDynamicId,
+          TBooleanColumnId,
+          TSchemaContext
+        >
       | ExcelTableSparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
       | ExcelTableBadgeRendererColumnInput<
           T,
@@ -1843,7 +2019,14 @@ export class ExcelTableSchemaBuilder<
           TDynamicId,
           TSchemaContext
         >,
-  ): ExcelTableSchemaBuilder<T, TColumnId | TId, TGroupId, TDynamicId, TSchemaContext> {
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId | TId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId | TId
+  > {
     this.ensureIdAvailable(id);
     this.addColumnNode(normalizeColumnDefinition(id, definition as any));
     return this as unknown as ExcelTableSchemaBuilder<
@@ -1851,7 +2034,8 @@ export class ExcelTableSchemaBuilder<
       TColumnId | TId,
       TGroupId,
       TDynamicId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId | TId
     >;
   }
 
@@ -1863,12 +2047,20 @@ export class ExcelTableSchemaBuilder<
     TColumnId | Exclude<ChildColumnIds<TResult>, TColumnId>,
     TGroupId | TId | Exclude<ChildGroupIds<TResult>, TGroupId>,
     TDynamicId | Exclude<ChildDynamicIds<TResult>, TDynamicId>,
-    TSchemaContext
+    TSchemaContext,
+    TBooleanColumnId | Exclude<ChildBooleanColumnIds<TResult>, TBooleanColumnId>
   >;
   override group<const TId extends string>(
     id: TId,
     build: (builder: this) => void,
-  ): ExcelTableSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId | TId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   override group<const TId extends string, TResult>(
     id: TId,
     options: GroupOptions<TSchemaContext>,
@@ -1878,13 +2070,21 @@ export class ExcelTableSchemaBuilder<
     TColumnId | Exclude<ChildColumnIds<TResult>, TColumnId>,
     TGroupId | TId | Exclude<ChildGroupIds<TResult>, TGroupId>,
     TDynamicId | Exclude<ChildDynamicIds<TResult>, TDynamicId>,
-    TSchemaContext
+    TSchemaContext,
+    TBooleanColumnId | Exclude<ChildBooleanColumnIds<TResult>, TBooleanColumnId>
   >;
   override group<const TId extends string>(
     id: TId,
     options: GroupOptions<TSchemaContext>,
     build: (builder: this) => void,
-  ): ExcelTableSchemaBuilder<T, TColumnId, TGroupId | TId, TDynamicId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId | TId,
+    TDynamicId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   override group<const TId extends string>(
     id: TId,
     optionsOrBuild: GroupOptions<TSchemaContext> | ((builder: this) => unknown),
@@ -1896,33 +2096,56 @@ export class ExcelTableSchemaBuilder<
       TColumnId,
       TGroupId | TId,
       TDynamicId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId
     >;
   }
 
   override dynamic<const TId extends string>(
     id: TId,
     build: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): ExcelTableSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId,
+    TDynamicId | TId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   override dynamic<const TId extends string>(
     id: TId,
     options: DynamicOptions<TSchemaContext>,
     build: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): ExcelTableSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext>;
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId,
+    TDynamicId | TId,
+    TSchemaContext,
+    TBooleanColumnId
+  >;
   override dynamic<const TId extends string>(
     id: TId,
     optionsOrBuild:
       | DynamicOptions<TSchemaContext>
       | ((builder: this, args: { ctx: TSchemaContext }) => void),
     maybeBuild?: (builder: this, args: { ctx: TSchemaContext }) => void,
-  ): ExcelTableSchemaBuilder<T, TColumnId, TGroupId, TDynamicId | TId, TSchemaContext> {
+  ): ExcelTableSchemaBuilder<
+    T,
+    TColumnId,
+    TGroupId,
+    TDynamicId | TId,
+    TSchemaContext,
+    TBooleanColumnId
+  > {
     this.dynamicImpl(id, optionsOrBuild, maybeBuild);
     return this as unknown as ExcelTableSchemaBuilder<
       T,
       TColumnId,
       TGroupId,
       TDynamicId | TId,
-      TSchemaContext
+      TSchemaContext,
+      TBooleanColumnId
     >;
   }
 }
@@ -1930,10 +2153,17 @@ export class ExcelTableSchemaBuilder<
 export type TypedPath<T extends object> = Path<T>;
 
 type ChildColumnIds<TBuilder> =
-  TBuilder extends BaseSchemaBuilder<any, infer TColumnId, any, any, any> ? TColumnId : never;
+  TBuilder extends BaseSchemaBuilder<any, infer TColumnId, any, any, any, any> ? TColumnId : never;
 
 type ChildGroupIds<TBuilder> =
-  TBuilder extends BaseSchemaBuilder<any, any, infer TGroupId, any, any> ? TGroupId : never;
+  TBuilder extends BaseSchemaBuilder<any, any, infer TGroupId, any, any, any> ? TGroupId : never;
 
 type ChildDynamicIds<TBuilder> =
-  TBuilder extends BaseSchemaBuilder<any, any, any, infer TDynamicId, any> ? TDynamicId : never;
+  TBuilder extends BaseSchemaBuilder<any, any, any, infer TDynamicId, any, any>
+    ? TDynamicId
+    : never;
+
+type ChildBooleanColumnIds<TBuilder> =
+  TBuilder extends BaseSchemaBuilder<any, any, any, any, any, infer TBooleanColumnId>
+    ? TBooleanColumnId
+    : never;

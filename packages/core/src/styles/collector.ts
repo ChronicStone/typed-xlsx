@@ -1,4 +1,5 @@
 import type { BorderStyle, CellStyle, FillStyle, FontStyle } from "./types";
+import { getCellControl } from "./internal";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
 
 interface FontEntry {
@@ -139,6 +140,25 @@ function serializeProtection(style: CellStyle) {
   });
 }
 
+function serializeCellControlExtension(style: CellStyle) {
+  if (getCellControl(style) !== "checkbox") {
+    return "";
+  }
+
+  return xmlElement(
+    "extLst",
+    undefined,
+    xmlElement(
+      "ext",
+      {
+        uri: "{C7286773-470A-42A8-94C5-96B5CB345126}",
+        "xmlns:xfpb": "http://schemas.microsoft.com/office/spreadsheetml/2022/featurepropertybag",
+      },
+      xmlSelfClosing("xfpb:xfComplement", { i: 0 }),
+    ),
+  );
+}
+
 export class StylesCollector {
   private readonly fonts: FontEntry[] = [{ key: "", value: { name: "Calibri", size: 11 } }];
   private readonly fills: FillEntry[] = [
@@ -173,6 +193,7 @@ export class StylesCollector {
       fillId,
       borderId,
       numFmt,
+      cellControl: getCellControl(style),
       alignment: style.alignment,
       protection: style.protection,
     });
@@ -246,6 +267,10 @@ export class StylesCollector {
     return id;
   }
 
+  hasFeaturePropertyBag() {
+    return this.xfs.some((xf) => getCellControl(xf.style) !== undefined);
+  }
+
   toXml() {
     for (const xf of this.xfs) {
       if (xf.numFmt) {
@@ -306,6 +331,7 @@ export class StylesCollector {
               [
                 xf.style.alignment ? serializeAlignment(xf.style) : "",
                 xf.style.protection ? serializeProtection(xf.style) : "",
+                serializeCellControlExtension(xf.style),
               ],
             ),
           ),
