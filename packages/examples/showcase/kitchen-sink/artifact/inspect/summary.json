@@ -1,11 +1,7 @@
 {
   "id": "kitchen-sink",
   "title": "Kitchen Sink Feature Tour",
-  "tags": [
-    "kitchen-sink",
-    "feature-tour",
-    "playground"
-  ],
+  "tags": ["kitchen-sink", "feature-tour", "playground"],
   "features": [
     "typed accessors",
     "sub-row expansion",
@@ -42,6 +38,7 @@
     "content-types.xml",
     "workbook.xml",
     "styles.xml",
+    "feature-property-bag.xml",
     "sheet1.xml",
     "sheet10.xml",
     "sheet11.xml",

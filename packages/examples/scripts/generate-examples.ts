@@ -84,10 +84,17 @@ function writeInspectArtifacts(
   const drawingRelationshipEntries = [...entries.keys()]
     .filter((entry) => /^xl\/drawings\/_rels\/drawing\d+\.xml\.rels$/.test(entry))
     .sort();
+  const featurePropertyBagEntries = [...entries.keys()]
+    .filter((entry) => entry === "xl/featurePropertyBag/featurePropertyBag.xml")
+    .sort();
   const inspectEntries = [
     { source: "[Content_Types].xml", file: "content-types.xml" },
     { source: "xl/workbook.xml", file: "workbook.xml" },
     { source: "xl/styles.xml", file: "styles.xml" },
+    ...featurePropertyBagEntries.map((entry) => ({
+      source: entry,
+      file: "feature-property-bag.xml",
+    })),
     ...sheetEntries.map((entry) => ({ source: entry, file: path.basename(entry) })),
     ...worksheetRelationshipEntries.map((entry) => ({
       source: entry,

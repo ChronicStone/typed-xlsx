@@ -519,6 +519,7 @@ export const badgeCheckboxSchema = createExcelSchema<BadgeCheckboxRow>()
         },
       },
       Launch: {
+        label: () => "Launching",
         style: {
           fill: { color: { rgb: "DBEAFE" } },
           font: { color: { rgb: "1D4ED8" }, bold: true },
@@ -559,14 +560,63 @@ export const badgeCheckboxSchema = createExcelSchema<BadgeCheckboxRow>()
     header: "Launch",
     accessor: "launchReady",
     width: 10,
+    style: ({ row }) =>
+      row.canEditLaunch
+        ? { protection: { locked: false } }
+        : {
+            fill: { color: { rgb: "E2E8F0" } },
+            font: { color: { rgb: "64748B" } },
+            protection: { locked: true },
+          },
     headerStyle,
   })
   .column("billingOk", {
     type: "checkbox",
     header: "Billing",
     accessor: "billingOk",
-    emptyLabel: "N/A",
     width: 10,
+    style: {
+      fill: { color: { rgb: "F8FAFC" } },
+      font: { color: { rgb: "475569" } },
+      protection: { locked: true },
+    },
+    headerStyle,
+  })
+  .column("launchDecision", {
+    header: "Live Decision",
+    formula: ({ refs, fx }) =>
+      fx.if(
+        fx.and(refs.column("launchReady").eq(true), refs.column("billingOk").eq(true)),
+        "Ready",
+        fx.if(refs.column("launchReady").eq(true), "Billing hold", "Waiting"),
+      ),
+    minWidth: 18,
+    style: {
+      alignment: { horizontal: "center" },
+      font: { bold: true },
+    },
+    conditionalStyle: (conditional) =>
+      conditional
+        .when(
+          ({ refs, fx }) =>
+            fx.and(refs.column("launchReady").eq(true), refs.column("billingOk").eq(true)),
+          {
+            fill: { color: { rgb: "DCFCE7" } },
+            font: { color: { rgb: "166534" }, bold: true },
+          },
+        )
+        .when(
+          ({ refs, fx }) =>
+            fx.and(refs.column("launchReady").eq(true), refs.column("billingOk").neq(true)),
+          {
+            fill: { color: { rgb: "FEF3C7" } },
+            font: { color: { rgb: "92400E" }, bold: true },
+          },
+        )
+        .when(({ refs }) => refs.column("launchReady").neq(true), {
+          fill: { color: { rgb: "F1F5F9" } },
+          font: { color: { rgb: "475569" }, bold: true },
+        }),
     headerStyle,
   })
   .build();

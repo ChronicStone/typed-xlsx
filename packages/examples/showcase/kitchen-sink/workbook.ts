@@ -128,10 +128,14 @@ export function buildKitchenSinkWorkbook() {
 
   workbook
     .sheet("06 Badges Checkboxes", {
-      freezePane: { rows: 2, columns: 2 },
+      freezePane: { rows: 1, columns: 2 },
+      protection: {
+        password: "kitchen-sink",
+        selectLockedCells: false,
+        selectUnlockedCells: true,
+      },
     })
     .table("badges-checkboxes", {
-      title: "Badge and Checkbox Renderers",
       rows: createBadgeCheckboxRows(),
       schema: badgeCheckboxSchema,
       defaults: reportDefaults,

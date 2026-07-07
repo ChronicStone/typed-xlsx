@@ -72,6 +72,7 @@ export type TerritoryRow = {
 export type BadgeCheckboxRow = {
   account: string;
   billingOk: boolean | null;
+  canEditLaunch: boolean;
   launchReady: boolean;
   priority: "High" | "Medium" | "Low";
   status: "Live" | "At risk" | "Launch";
@@ -201,9 +202,10 @@ export function createFeatureMapRows(): FeatureMapRow[] {
       track: "Schema",
     },
     {
-      apiSurface: "type: badge, type: checkbox",
+      apiSurface: "type: badge, type: checkbox, refs.column(), conditionalStyle, protection.locked",
       buffered: true,
-      demonstrates: "Status labels and boolean checks are ordinary styled cells.",
+      demonstrates:
+        "Checkbox toggles feed live formulas and conditional styles; locked checkbox cells stay disabled on the protected sheet.",
       feature: "Badges and checkboxes",
       sheet: "06 Badges Checkboxes",
       streaming: true,
@@ -471,6 +473,7 @@ export function createBadgeCheckboxRows(): BadgeCheckboxRow[] {
     {
       account: "Acme Manufacturing",
       billingOk: true,
+      canEditLaunch: true,
       launchReady: true,
       priority: "High",
       status: "Live",
@@ -478,6 +481,7 @@ export function createBadgeCheckboxRows(): BadgeCheckboxRow[] {
     {
       account: "Bluebird Health",
       billingOk: null,
+      canEditLaunch: true,
       launchReady: false,
       priority: "Medium",
       status: "Launch",
@@ -485,6 +489,7 @@ export function createBadgeCheckboxRows(): BadgeCheckboxRow[] {
     {
       account: "Delta Retail Group",
       billingOk: false,
+      canEditLaunch: false,
       launchReady: false,
       priority: "High",
       status: "At risk",
