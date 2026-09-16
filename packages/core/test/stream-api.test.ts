@@ -2,13 +2,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   createExcelSchema,
   createWorkbookStream,
   type TableSelection,
   type WorkbookStreamResolvedTableOptions,
 } from "../src";
+import { StreamWorkbookBuilder } from "../src/workbook/stream";
+import { WebWritableWorkbookSink } from "../src/workbook/internal/stream-sinks";
 
 describe("public stream api", () => {
   it("infers stream selection ids from the schema", async () => {
@@ -329,6 +331,50 @@ describe("public stream api", () => {
     const bytes = Buffer.concat(chunks);
     expect(bytes[0]).toBe(0x50);
     expect(bytes[1]).toBe(0x4b);
+  });
+
+  it("disposes a committed stream before output starts", async () => {
+    const schema = createExcelSchema<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Cancelled").table("rows", { schema });
+
+    await table.commit({ rows: [{ value: "committed" }] });
+
+    await workbook.dispose();
+    await workbook.dispose();
+
+    await expect(workbook.pipeToNode(new PassThrough())).rejects.toThrow(
+      "Stream workbook has been disposed.",
+    );
+  });
+
+  it("disposes committed stream data when output fails", async () => {
+    const schema = createExcelSchema<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const table = await workbook.sheet("Failed output").table("rows", { schema });
+
+    await table.commit({ rows: [{ value: "committed" }] });
+
+    const outputError = new Error("output failed");
+    const dispose = vi.spyOn(StreamWorkbookBuilder.prototype, "dispose");
+    const close = vi.spyOn(WebWritableWorkbookSink.prototype, "close");
+    const sink = new WritableStream<Uint8Array>({
+      write() {
+        throw outputError;
+      },
+    });
+
+    await expect(workbook.pipeTo(sink)).rejects.toBe(outputError);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it("can write a workbook directly to a file path", async () => {
