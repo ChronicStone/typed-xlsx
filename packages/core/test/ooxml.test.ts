@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Internal from "../src/index-internal";
-import { serializeCell } from "../src/ooxml/cells";
+import { serializeCell, serializeInlineStringCell } from "../src/ooxml/cells";
 import { hashExcelProtectionPassword } from "../src/ooxml/protection";
 import { createSharedStringsCollector } from "../src/ooxml/shared-strings";
 import { expectWorkbookXmlToBeWellFormed, unzipWorkbookEntries } from "./support/xlsx";
@@ -2066,5 +2066,27 @@ describe("ooxml", () => {
 
     expect(xml).toContain("H2&lt;0.5");
     expect(xml).not.toContain("H2<0.5");
+  });
+
+  it("xml-escapes inline strings and cached string formula values", () => {
+    const value = `SAVOIR & <EXPERIENCE> "quoted" 'apostrophe'`;
+
+    const inlineXml = serializeInlineStringCell(1, 1, value);
+    const formulaXml = serializeCell(
+      1,
+      2,
+      {
+        kind: "formula",
+        formula: 'A2 & " suffix"',
+        value,
+      },
+      createSharedStringsCollector(),
+    );
+
+    const escaped = "SAVOIR &amp; &lt;EXPERIENCE&gt; &quot;quoted&quot; &apos;apostrophe&apos;";
+    expect(inlineXml).toContain(`<t>${escaped}</t>`);
+    expect(formulaXml).toContain(`<v>${escaped}</v>`);
+    expect(inlineXml).not.toContain(value);
+    expect(formulaXml).not.toContain(value);
   });
 });

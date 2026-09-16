@@ -230,6 +230,7 @@ export interface WorkbookSheetStream {
 
 export interface WorkbookStream {
   sheet(name: string, options?: WorkbookStreamSheetOptions): WorkbookSheetStream;
+  dispose(): Promise<void>;
   writeToFile(filePath: string): Promise<void>;
   pipeTo(stream: WritableStream<Uint8Array>): Promise<void>;
   pipeToNode(stream: NodeJS.WritableStream): Promise<void>;
@@ -430,6 +431,10 @@ class PublicWorkbookStream implements WorkbookStream {
     return new WorkbookSheetStreamAdapter(this.workbook.sheet(name, options));
   }
 
+  async dispose() {
+    await this.workbook.dispose();
+  }
+
   async writeToFile(filePath: string) {
     await this.finalizeWith(new LazyFileWorkbookSink(filePath));
   }
@@ -477,7 +482,12 @@ class PublicWorkbookStream implements WorkbookStream {
     }
 
     this.outputStarted = true;
-    await this.workbook.finish(sink);
+    try {
+      await this.workbook.finish(sink);
+    } catch (error) {
+      await Promise.allSettled([this.workbook.dispose(), sink.close()]);
+      throw error;
+    }
   }
 }
 

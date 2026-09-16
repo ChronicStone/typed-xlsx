@@ -142,6 +142,54 @@ describe("stream builder", () => {
     expect(spoolContent).toContain("<v>1</v>");
   });
 
+  it("disposes committed file-backed table spools without finalizing the workbook", async () => {
+    const schema = Internal.SchemaBuilder.create<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-dispose-"));
+    const spools: Array<{ closeCalls: number; file: Internal.FileSheetSpool }> = [];
+    const spoolFactory: Internal.StreamSpoolFactory = {
+      async create() {
+        const file = new Internal.FileSheetSpool(
+          path.join(directory, `table-${spools.length}.spool`),
+        );
+        const tracked = { closeCalls: 0, file };
+        spools.push(tracked);
+        return {
+          append: (chunk: Uint8Array) => file.append(chunk),
+          read: () => file.read(),
+          close: async () => {
+            tracked.closeCalls += 1;
+            await file.close();
+          },
+        };
+      },
+    };
+    const sink = new MemoryWorkbookSink();
+    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
+
+    try {
+      const sheet = workbook.sheet("Cancelled");
+      const first = await sheet.table("first", { schema });
+      const second = await sheet.table("second", { schema });
+      await first.commit({ rows: [{ value: "first committed" }] });
+      await second.commit({ rows: [{ value: "second committed" }] });
+
+      await workbook.dispose();
+      await workbook.dispose();
+
+      expect(spools.map(({ closeCalls }) => closeCalls)).toEqual([1, 1]);
+      expect(fs.readFileSync(spools[0]!.file.filePath, "utf8")).toContain('<row r="2"');
+      expect(sink.closed).toBe(false);
+      expect(sink.chunks).toHaveLength(0);
+      await expect(workbook.finish()).rejects.toThrow("Stream workbook has been disposed.");
+    } finally {
+      fs.rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it("tracks stream column widths and merge ranges in finalized worksheet xml", async () => {
     const schema = Internal.SchemaBuilder.create<{ name: string; tags: string[] }>()
       .column("name", {

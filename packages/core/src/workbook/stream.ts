@@ -574,6 +574,7 @@ function isStreamExcelTableInput<
 
 class StreamSheetBuilder {
   private readonly tables: StreamTableBuilder<any, string>[] = [];
+  private disposed = false;
 
   constructor(
     private readonly name: string,
@@ -591,6 +592,10 @@ class StreamSheetBuilder {
     TColumnId extends string,
     TSchemaContext extends SchemaContext = SchemaContext,
   >(id: string, params: AnyStreamTableInput<T, TColumnId, TSchemaContext>) {
+    if (this.disposed) {
+      throw new Error("Stream sheet has been disposed.");
+    }
+
     const spool = await this.spoolFactory.create(`${this.name}:${id}`);
     const builder = new StreamTableBuilder<T, TColumnId>(
       id,
@@ -642,6 +647,20 @@ class StreamSheetBuilder {
       tables,
     };
   }
+
+  async dispose() {
+    if (this.disposed) {
+      return;
+    }
+
+    this.disposed = true;
+    const results = await Promise.allSettled(this.tables.map((table) => table.close()));
+    for (const result of results) {
+      if (result.status === "rejected") {
+        throw result.reason;
+      }
+    }
+  }
 }
 
 export class StreamWorkbookBuilder {
@@ -650,6 +669,8 @@ export class StreamWorkbookBuilder {
   private readonly styles = new StylesCollector();
   private sink: StreamWorkbookSink | undefined;
   private finished = false;
+  private disposed = false;
+  private disposePromise: Promise<void> | undefined;
   private readonly stringMode: "inline" | "shared";
   private readonly protection: StreamWorkbookProtection | undefined;
 
@@ -684,6 +705,10 @@ export class StreamWorkbookBuilder {
     name: string,
     options?: SheetLayoutOptions & SheetViewOptions & { protection?: SheetProtectionInput },
   ) {
+    if (this.disposed) {
+      throw new Error("Stream workbook has been disposed.");
+    }
+
     const { tablesPerRow, tableColumnGap, tableRowGap, protection, ...view } = options ?? {};
     const builder = new StreamSheetBuilder(
       name,
@@ -704,6 +729,10 @@ export class StreamWorkbookBuilder {
   }
 
   async finish(sink?: StreamWorkbookSink) {
+    if (this.disposed) {
+      throw new Error("Stream workbook has been disposed.");
+    }
+
     if (this.finished) {
       throw new Error("Stream workbook has already been finalized.");
     }
@@ -874,6 +903,23 @@ export class StreamWorkbookBuilder {
       targetSink,
     );
     await targetSink.close();
+  }
+
+  async dispose() {
+    if (!this.disposePromise) {
+      this.disposed = true;
+      this.disposePromise = Promise.allSettled(this.sheets.map((sheet) => sheet.dispose())).then(
+        (results) => {
+          for (const result of results) {
+            if (result.status === "rejected") {
+              throw result.reason;
+            }
+          }
+        },
+      );
+    }
+
+    await this.disposePromise;
   }
 }
 

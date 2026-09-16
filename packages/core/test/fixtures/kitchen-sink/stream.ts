@@ -366,12 +366,16 @@ export async function buildKitchenSinkStreamExample() {
     });
   }
 
-  const readable = workbook.toNodeReadable();
-  const chunks: Buffer[] = [];
+  try {
+    const readable = workbook.toNodeReadable();
+    const chunks: Buffer[] = [];
 
-  for await (const chunk of readable) {
-    chunks.push(Buffer.from(chunk));
+    for await (const chunk of readable) {
+      chunks.push(Buffer.from(chunk));
+    }
+
+    return Buffer.concat(chunks);
+  } finally {
+    await workbook.dispose();
   }
-
-  return Buffer.concat(chunks);
 }

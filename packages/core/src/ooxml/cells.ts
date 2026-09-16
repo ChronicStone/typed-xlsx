@@ -83,7 +83,7 @@ function serializeFormulaCell(
 
   if (typeof value === "string") {
     formulaAttributes.t = "str";
-    children.push(xmlElement("v", undefined, value));
+    children.push(xmlElement("v", undefined, xmlEscape(value)));
     return xmlElement("c", formulaAttributes, children);
   }
 
@@ -118,6 +118,6 @@ export function serializeInlineStringCell(
       t: "inlineStr",
       s: styleIndex && styleIndex > 0 ? styleIndex : undefined,
     },
-    xmlElement("is", undefined, xmlElement("t", undefined, value)),
+    xmlElement("is", undefined, xmlElement("t", undefined, xmlEscape(value))),
   );
 }
