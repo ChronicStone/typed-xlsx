@@ -8,6 +8,7 @@ import {
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
+  kitchenSinkGroupedFormulaContext,
   kitchenSinkHyperlinkSchema,
   kitchenSinkProductImageSchema,
   kitchenSinkProtectedInputSchema,
@@ -324,7 +325,7 @@ export function buildKitchenSinkBufferedExample() {
         region: order.region,
       })),
       schema: kitchenSinkGroupedFormulaSchema,
-      context: { regions: ["AMER", "APAC", "EMEA"] as const },
+      context: kitchenSinkGroupedFormulaContext,
       style: "TableStyleLight9",
       totalsRow: true,
     });

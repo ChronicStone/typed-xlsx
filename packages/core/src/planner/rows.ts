@@ -11,7 +11,11 @@ import type {
 } from "../schema/builder";
 import { ExcelTableSchemaBuilder, SchemaBuilder } from "../schema/builder";
 import type { SummaryDefinition, SummaryRuntime } from "../summary/runtime";
-import type { ResolvedValidationRule } from "../validation/types";
+import {
+  normalizeValidationInput,
+  resolveValidationRule,
+  type ResolvedValidationRule,
+} from "../validation/types";
 import {
   createSummaryRuntime,
   finalizeSummaryRuntime,
@@ -356,7 +360,13 @@ function resolveCellHyperlink<T extends object>(params: {
 
   return {
     ...resolved,
-    tooltip: resolveLazyText(resolved.tooltip),
+    tooltip: resolveLazyText(resolved.tooltip, {
+      ...params.row,
+      ctx: params.ctx,
+      row: params.row,
+      rowIndex: params.rowIndex,
+      subRowIndex: params.subRowIndex,
+    }),
   };
 }
 
@@ -836,13 +846,22 @@ export function resolveColumns<T extends object>(
           continue;
         }
 
+        const textContext = { ctx: context as never };
+        const validation = normalizeValidationInput(node.validation);
+        const totalsRow =
+          node.totalsRow && "label" in node.totalsRow
+            ? { label: resolveLazyText(node.totalsRow.label, textContext) ?? "" }
+            : node.totalsRow;
+
         columns.push({
           ...node,
           dynamicPath: [...dynamicPath],
           groupId: groupPath[groupPath.length - 1]?.id,
           groupPath: [...groupPath],
-          headerLabel: node.header ?? defaultColumnHeader(node.id),
+          headerLabel: resolveLazyText(node.header, textContext) ?? defaultColumnHeader(node.id),
           scopeIds: [...groupPath.map((group) => group.id), ...dynamicPath],
+          ...(totalsRow ? { totalsRow } : {}),
+          ...(validation ? { validation: resolveValidationRule(validation, textContext) } : {}),
         } as ResolvedColumn<T>);
         continue;
       }
@@ -856,7 +875,12 @@ export function resolveColumns<T extends object>(
           node.children,
           [
             ...groupPath,
-            { id: node.id, headerLabel: String(node.header ?? defaultColumnHeader(node.id)) },
+            {
+              id: node.id,
+              headerLabel:
+                resolveLazyText(node.header, { ctx: context as never }) ??
+                defaultColumnHeader(node.id),
+            },
           ],
           dynamicPath,
         );
@@ -1200,7 +1224,7 @@ export function planRows<T extends object>(
   });
 
   for (const binding of summaryBindings) {
-    void finalizeSummaryRuntime(binding.definition, binding.runtime);
+    void finalizeSummaryRuntime(binding.definition, binding.runtime, { ctx: context });
   }
 
   return {

@@ -17,7 +17,12 @@ import {
 import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
 import { hashExcelProtectionPassword } from "../ooxml/protection";
 import { appendExpandedRowXml, expandCommittedRow, updateColumnWidthStats } from "../stream/rows";
-import type { PrimitiveCellValue, SchemaContext, SchemaDefinition } from "../schema/builder";
+import type {
+  PrimitiveCellValue,
+  SchemaContext,
+  SchemaDefinition,
+  SchemaTextContext,
+} from "../schema/builder";
 import { resolveLazyText, type LazyText } from "../text";
 import type {
   AnyStreamTableInput,
@@ -108,12 +113,16 @@ function normalizeColumnSummary(
   return Array.isArray(summary) ? summary : undefined;
 }
 
-interface StreamTableState<T extends object, TColumnId extends string> {
+interface StreamTableState<
+  T extends object,
+  TColumnId extends string,
+  TSchemaContext extends SchemaContext,
+> {
   tableId: string;
   title?: string;
-  context?: SchemaContext;
+  context?: TSchemaContext;
   render?: import("./types").ReportTableRenderOptions;
-  schema: SchemaDefinition<T, any, any, any, any, any>;
+  schema: SchemaDefinition<T, any, any, any, TSchemaContext, any>;
   selection?: TableSelection<TColumnId>;
   columns: ReturnType<typeof resolveColumns<T>>;
   stats: ReturnType<typeof createPlannerStats>;
@@ -238,24 +247,28 @@ function applySelection<T extends object, TColumnId extends string>(
   return applyColumnSelection(columns, selection);
 }
 
-class StreamTableBuilder<T extends object, TColumnId extends string> {
-  private readonly state: StreamTableState<T, TColumnId>;
+class StreamTableBuilder<
+  T extends object,
+  TColumnId extends string,
+  TSchemaContext extends SchemaContext,
+> {
+  private readonly state: StreamTableState<T, TColumnId, TSchemaContext>;
 
   constructor(
     tableId: string,
-    schema: SchemaDefinition<T, any, any, any, any, any>,
+    schema: SchemaDefinition<T, any, any, any, TSchemaContext, any>,
     spool: StreamSheetSpool,
     private readonly sharedStrings: SharedStringsCollector,
     private readonly styles: StylesCollector,
     private readonly stringMode: "inline" | "shared",
-    context?: SchemaContext,
+    context?: TSchemaContext,
     selection?: TableSelection<TColumnId>,
     options?: {
       autoFilter?: boolean;
       defaults?: import("./types").TableStyleDefaults;
       theme?: import("../styles/theme").SpreadsheetTheme;
       reportAutoFilter?: boolean | TableAutoFilterOptions;
-      title?: LazyText;
+      title?: LazyText<SchemaTextContext<TSchemaContext>>;
       render?: import("./types").ReportTableRenderOptions;
       name?: string;
       style?: import("./types").ExcelTableStyle;
@@ -263,7 +276,7 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
     },
   ) {
     const columns = applySelection(resolveColumns(schema, context, selection), selection);
-    const title = resolveLazyText(options?.title);
+    const title = resolveLazyText(options?.title, { ctx: context as TSchemaContext });
     const defaults = resolveTableStyleDefaultsWithTheme({
       schemaTheme: schema.theme,
       tableTheme: options?.theme,
@@ -433,7 +446,11 @@ class StreamTableBuilder<T extends object, TColumnId extends string> {
   }
 
   finalizeSummaries(): PlannedSummaryCell[] {
-    return buildPlannedSummaries(this.state.summaryBindings, this.state.columns);
+    return buildPlannedSummaries(
+      this.state.summaryBindings,
+      this.state.columns,
+      this.state.context,
+    );
   }
 
   getFinalization(): StreamTableFinalization {
@@ -573,7 +590,7 @@ function isStreamExcelTableInput<
 }
 
 class StreamSheetBuilder {
-  private readonly tables: StreamTableBuilder<any, string>[] = [];
+  private readonly tables: StreamTableBuilder<any, string, any>[] = [];
   private disposed = false;
 
   constructor(
@@ -597,14 +614,14 @@ class StreamSheetBuilder {
     }
 
     const spool = await this.spoolFactory.create(`${this.name}:${id}`);
-    const builder = new StreamTableBuilder<T, TColumnId>(
+    const builder = new StreamTableBuilder<T, TColumnId, TSchemaContext>(
       id,
       params.schema,
       spool,
       this.sharedStrings,
       this.styles,
       this.stringMode,
-      ("context" in params ? params.context : undefined) as SchemaContext | undefined,
+      "context" in params ? params.context : undefined,
       params.select,
       isStreamExcelTableInput(params)
         ? {

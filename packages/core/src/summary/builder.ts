@@ -7,34 +7,45 @@ import type {
 import type { FormulaValue } from "../formula/expr";
 import { resolveLazyText, type LazyText } from "../text";
 
-export interface SummaryBuilder<T> {
-  cell<TAcc>(definition: SummaryDefinition<T, TAcc>): SummaryDefinition<T, TAcc>;
+export interface SummaryBuilder<T, TContext = unknown> {
+  cell<TAcc>(
+    definition: SummaryDefinition<T, TAcc, TContext>,
+  ): SummaryDefinition<T, TAcc, TContext>;
   formula(
     formula:
       | SummaryFormulaFunction
       | ((
           context: SummaryFormulaBuilderContext,
         ) => FormulaValue<string, never> | SummaryRowAggregateExpr),
-    options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
-  ): SummaryDefinition<T, undefined>;
+    options?: Pick<
+      SummaryDefinition<T, unknown, TContext>,
+      "format" | "style" | "conditionalStyle"
+    >,
+  ): SummaryDefinition<T, undefined, TContext>;
   label(
-    label: LazyText,
-    options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
-  ): SummaryDefinition<T, undefined>;
-  spacer(): SummaryDefinition<T, undefined>;
+    label: LazyText<{ ctx: TContext }>,
+    options?: Pick<
+      SummaryDefinition<T, unknown, TContext>,
+      "format" | "style" | "conditionalStyle"
+    >,
+  ): SummaryDefinition<T, undefined, TContext>;
+  spacer(): SummaryDefinition<T, undefined, TContext>;
   empty(
-    options?: Pick<SummaryDefinition<T>, "format" | "style" | "conditionalStyle">,
-  ): SummaryDefinition<T, undefined>;
+    options?: Pick<
+      SummaryDefinition<T, unknown, TContext>,
+      "format" | "style" | "conditionalStyle"
+    >,
+  ): SummaryDefinition<T, undefined, TContext>;
 }
 
-export type SummaryInput<T> =
-  | SummaryDefinition<T, any>
-  | SummaryDefinition<T, any>[]
-  | ((summary: SummaryBuilder<T>) => SummaryDefinition<T, any>[]);
+export type SummaryInput<T, TContext = unknown> =
+  | SummaryDefinition<T, any, TContext>
+  | SummaryDefinition<T, any, TContext>[]
+  | ((summary: SummaryBuilder<T, TContext>) => SummaryDefinition<T, any, TContext>[]);
 
-export function createSummaryBuilder<T>(): SummaryBuilder<T> {
+export function createSummaryBuilder<T, TContext = unknown>(): SummaryBuilder<T, TContext> {
   return {
-    cell<TAcc>(definition: SummaryDefinition<T, TAcc>) {
+    cell<TAcc>(definition: SummaryDefinition<T, TAcc, TContext>) {
       return definition;
     },
     formula(formula, options) {
@@ -54,7 +65,7 @@ export function createSummaryBuilder<T>(): SummaryBuilder<T> {
       return {
         init: () => undefined,
         step: (accumulator) => accumulator,
-        finalize: () => resolveLazyText(label),
+        finalize: (_accumulator, context) => resolveLazyText(label, context),
         ...options,
       };
     },
@@ -79,15 +90,15 @@ export function createSummaryBuilder<T>(): SummaryBuilder<T> {
   };
 }
 
-export function normalizeSummaryInput<T>(
-  summary?: SummaryInput<T>,
-): SummaryDefinition<T, any>[] | undefined {
+export function normalizeSummaryInput<T, TContext = unknown>(
+  summary?: SummaryInput<T, TContext>,
+): SummaryDefinition<T, any, TContext>[] | undefined {
   if (!summary) {
     return undefined;
   }
 
   if (typeof summary === "function") {
-    return summary(createSummaryBuilder<T>());
+    return summary(createSummaryBuilder<T, TContext>());
   }
 
   return Array.isArray(summary) ? summary : [summary];

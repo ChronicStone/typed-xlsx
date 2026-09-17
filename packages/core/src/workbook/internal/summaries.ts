@@ -65,6 +65,7 @@ export function groupSummaryRows(summaries: PlannedSummaryCell[]) {
 export function computeSummaries<T extends object>(
   columns: ResolvedColumn<T>[],
   rows: T[],
+  context?: unknown,
 ): PlannedSummaryCell[] {
   const summaryBindings = createSummaryBindings(columns);
 
@@ -78,15 +79,16 @@ export function computeSummaries<T extends object>(
     }
   }
 
-  return buildPlannedSummaries(summaryBindings, columns);
+  return buildPlannedSummaries(summaryBindings, columns, context);
 }
 
 export function buildPlannedSummaries<T extends object>(
   summaryBindings: Array<SummaryBinding<T>>,
   columns: ResolvedColumn<T>[],
+  context?: unknown,
 ): PlannedSummaryCell[] {
   return summaryBindings.map((binding) => {
-    const value = finalizeSummaryRuntime(binding.definition, binding.runtime);
+    const value = finalizeSummaryRuntime(binding.definition, binding.runtime, { ctx: context });
     const column = columns.find((candidate) => candidate.id === binding.columnId);
 
     return {

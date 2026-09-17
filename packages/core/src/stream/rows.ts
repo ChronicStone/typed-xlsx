@@ -692,7 +692,13 @@ function resolveCellHyperlink<T extends object>(
 
   return {
     ...resolved,
-    tooltip: resolveLazyText(resolved.tooltip),
+    tooltip: resolveLazyText(resolved.tooltip, {
+      ...row,
+      ctx,
+      row,
+      rowIndex,
+      subRowIndex,
+    }),
   };
 }
 

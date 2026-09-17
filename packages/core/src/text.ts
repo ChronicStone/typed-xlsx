@@ -1,8 +1,8 @@
-export type LazyText = string | (() => string);
+export type LazyText<TContext = void> = string | ((context: TContext) => string);
 
-export interface ValidationMessage {
-  title?: LazyText;
-  message: LazyText;
+export interface ValidationMessage<TContext = void> {
+  title?: LazyText<TContext>;
+  message: LazyText<TContext>;
 }
 
 export interface ResolvedValidationMessage {
@@ -10,16 +10,20 @@ export interface ResolvedValidationMessage {
   message: string;
 }
 
-export function resolveLazyText(value?: LazyText) {
+export function resolveLazyText<TContext>(
+  value: LazyText<TContext> | undefined,
+  context: TContext,
+) {
   if (typeof value === "function") {
-    return value();
+    return value(context);
   }
 
   return value;
 }
 
-export function resolveValidationMessage(
-  message?: string | ValidationMessage,
+export function resolveValidationMessage<TContext>(
+  message: string | ValidationMessage<TContext> | undefined,
+  context: TContext,
 ): ResolvedValidationMessage | undefined {
   if (!message) {
     return undefined;
@@ -29,13 +33,13 @@ export function resolveValidationMessage(
     return { message };
   }
 
-  const resolvedMessage = resolveLazyText(message.message);
+  const resolvedMessage = resolveLazyText(message.message, context);
   if (!resolvedMessage) {
     return undefined;
   }
 
   return {
-    title: resolveLazyText(message.title),
+    title: resolveLazyText(message.title, context),
     message: resolvedMessage,
   };
 }

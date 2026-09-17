@@ -754,23 +754,33 @@ export const kitchenSinkGroupedFormulaSchema = createExcelSchema<
     customerName: string;
     region: "AMER" | "APAC" | "EMEA";
   },
-  { regions: Array<"AMER" | "APAC" | "EMEA"> }
+  {
+    labels: {
+      amount: string;
+      average: string;
+      customer: string;
+      region: string;
+      regionalAverage: string;
+      regionalTotal: string;
+    };
+    regions: Array<"AMER" | "APAC" | "EMEA">;
+  }
 >({ mode: "excel-table" })
   .column("customerName", {
-    header: "Customer",
+    header: ({ ctx }) => ctx.labels.customer,
     accessor: "customerName",
     minWidth: 18,
-    totalsRow: { label: "AVERAGE" },
+    totalsRow: { label: ({ ctx }) => ctx.labels.average },
   })
   .column("amount", {
-    header: "Amount",
+    header: ({ ctx }) => ctx.labels.amount,
     accessor: "amount",
     minWidth: 12,
     style: currencyStyle,
     totalsRow: { function: "average" },
   })
   .column("region", {
-    header: "Region",
+    header: ({ ctx }) => ctx.labels.region,
     accessor: "region",
     minWidth: 10,
   })
@@ -786,17 +796,29 @@ export const kitchenSinkGroupedFormulaSchema = createExcelSchema<
     }
   })
   .column("regionalTotal", {
-    header: "Regional Total",
+    header: ({ ctx }) => ctx.labels.regionalTotal,
     formula: ({ refs, fx }) => fx.sum(refs.dynamic("regions")),
     minWidth: 14,
     style: currencyStyle,
     totalsRow: { function: "sum" },
   })
   .column("regionalAverage", {
-    header: "Regional Avg",
+    header: ({ ctx }) => ctx.labels.regionalAverage,
     formula: ({ refs, fx }) => fx.round(fx.average(refs.dynamic("regions")), 2),
     minWidth: 14,
     style: currencyStyle,
     totalsRow: { function: "average" },
   })
   .build();
+
+export const kitchenSinkGroupedFormulaContext = {
+  labels: {
+    amount: "Amount",
+    average: "AVERAGE",
+    customer: "Customer",
+    region: "Region",
+    regionalAverage: "Regional Avg",
+    regionalTotal: "Regional Total",
+  },
+  regions: ["AMER", "APAC", "EMEA"] as Array<"AMER" | "APAC" | "EMEA">,
+};

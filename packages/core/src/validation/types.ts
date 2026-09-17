@@ -29,6 +29,7 @@ export type ValidationOperator =
 export interface ValidationRule<
   TColumnId extends string = string,
   TGroupId extends string = string,
+  TTextContext = void,
 > {
   type: ValidationType;
   operator?: ValidationOperator;
@@ -37,8 +38,8 @@ export interface ValidationRule<
   source?: Array<string | number>;
   allowBlank?: boolean;
   showDropDown?: boolean;
-  prompt?: ValidationMessage | string;
-  error?: ValidationMessage | string;
+  prompt?: ValidationMessage<TTextContext> | string;
+  error?: ValidationMessage<TTextContext> | string;
 }
 
 export interface ResolvedValidationRule<
@@ -52,49 +53,61 @@ export interface ResolvedValidationRule<
 export interface ValidationBuilder<
   TColumnId extends string = string,
   TGroupId extends string = string,
+  TTextContext = void,
 > {
-  list(values: Array<string | number>): ValidationBuilder<TColumnId, TGroupId>;
-  integer(): ValidationBuilder<TColumnId, TGroupId>;
-  decimal(): ValidationBuilder<TColumnId, TGroupId>;
-  date(): ValidationBuilder<TColumnId, TGroupId>;
-  textLength(): ValidationBuilder<TColumnId, TGroupId>;
+  list(values: Array<string | number>): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  integer(): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  decimal(): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  date(): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  textLength(): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
   custom(
     condition: (context: {
       row: FormulaRowContext<TColumnId, TGroupId>;
       refs: FormulaRefs<TColumnId, TGroupId, never>;
       fx: FormulaFunctions<TColumnId, TGroupId>;
     }) => FormulaConditionValue<TColumnId, TGroupId>,
-  ): ValidationBuilder<TColumnId, TGroupId>;
+  ): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
   between(
     min: string | number | Date,
     max: string | number | Date,
-  ): ValidationBuilder<TColumnId, TGroupId>;
+  ): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
   notBetween(
     min: string | number | Date,
     max: string | number | Date,
-  ): ValidationBuilder<TColumnId, TGroupId>;
-  eq(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId>;
-  neq(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId>;
-  gt(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId>;
-  gte(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId>;
-  lt(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId>;
-  lte(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId>;
-  allowBlank(value?: boolean): ValidationBuilder<TColumnId, TGroupId>;
-  showDropDown(value?: boolean): ValidationBuilder<TColumnId, TGroupId>;
-  prompt(message: string | ValidationMessage): ValidationBuilder<TColumnId, TGroupId>;
-  error(message: string | ValidationMessage): ValidationBuilder<TColumnId, TGroupId>;
-  done(): ValidationRule<TColumnId, TGroupId>;
+  ): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  eq(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  neq(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  gt(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  gte(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  lt(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  lte(value: string | number | Date): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  allowBlank(value?: boolean): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  showDropDown(value?: boolean): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  prompt(
+    message: string | ValidationMessage<TTextContext>,
+  ): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  error(
+    message: string | ValidationMessage<TTextContext>,
+  ): ValidationBuilder<TColumnId, TGroupId, TTextContext>;
+  done(): ValidationRule<TColumnId, TGroupId, TTextContext>;
 }
 
-export type ValidationInput<TColumnId extends string = string, TGroupId extends string = string> =
-  | ValidationRule<TColumnId, TGroupId>
-  | ((builder: ValidationBuilder<TColumnId, TGroupId>) => ValidationBuilder<TColumnId, TGroupId>);
+export type ValidationInput<
+  TColumnId extends string = string,
+  TGroupId extends string = string,
+  TTextContext = void,
+> =
+  | ValidationRule<TColumnId, TGroupId, TTextContext>
+  | ((
+      builder: ValidationBuilder<TColumnId, TGroupId, TTextContext>,
+    ) => ValidationBuilder<TColumnId, TGroupId, TTextContext>);
 
 class ValidationBuilderImpl<
   TColumnId extends string = string,
   TGroupId extends string = string,
-> implements ValidationBuilder<TColumnId, TGroupId> {
-  private rule: ValidationRule<TColumnId, TGroupId> = { type: "custom" };
+  TTextContext = void,
+> implements ValidationBuilder<TColumnId, TGroupId, TTextContext> {
+  private rule: ValidationRule<TColumnId, TGroupId, TTextContext> = { type: "custom" };
 
   list(values: Array<string | number>) {
     this.rule.type = "list";
@@ -199,13 +212,13 @@ class ValidationBuilderImpl<
     return this;
   }
 
-  prompt(message: string | ValidationMessage) {
-    this.rule.prompt = resolveValidationMessage(message);
+  prompt(message: string | ValidationMessage<TTextContext>) {
+    this.rule.prompt = message;
     return this;
   }
 
-  error(message: string | ValidationMessage) {
-    this.rule.error = resolveValidationMessage(message);
+  error(message: string | ValidationMessage<TTextContext>) {
+    this.rule.error = message;
     return this;
   }
 
@@ -214,27 +227,45 @@ class ValidationBuilderImpl<
   }
 }
 
-export function validation<TColumnId extends string = string, TGroupId extends string = string>() {
-  return new ValidationBuilderImpl<TColumnId, TGroupId>();
+export function validation<
+  TColumnId extends string = string,
+  TGroupId extends string = string,
+  TTextContext = void,
+>() {
+  return new ValidationBuilderImpl<TColumnId, TGroupId, TTextContext>();
 }
 
 export function normalizeValidationInput<
   TColumnId extends string = string,
   TGroupId extends string = string,
+  TTextContext = void,
 >(
-  input?: ValidationInput<TColumnId, TGroupId>,
-): ResolvedValidationRule<TColumnId, TGroupId> | undefined {
+  input?: ValidationInput<TColumnId, TGroupId, TTextContext>,
+): ValidationRule<TColumnId, TGroupId, TTextContext> | undefined {
   if (!input) {
     return undefined;
   }
 
   const rule =
-    typeof input === "function" ? input(validation<TColumnId, TGroupId>()).done() : input;
+    typeof input === "function"
+      ? input(validation<TColumnId, TGroupId, TTextContext>()).done()
+      : input;
 
+  return { ...rule };
+}
+
+export function resolveValidationRule<
+  TColumnId extends string = string,
+  TGroupId extends string = string,
+  TTextContext = void,
+>(
+  rule: ValidationRule<TColumnId, TGroupId, TTextContext>,
+  context: TTextContext,
+): ResolvedValidationRule<TColumnId, TGroupId> {
   return {
     ...rule,
-    prompt: resolveValidationMessage(rule.prompt),
-    error: resolveValidationMessage(rule.error),
+    prompt: resolveValidationMessage(rule.prompt, context),
+    error: resolveValidationMessage(rule.error, context),
   };
 }
 

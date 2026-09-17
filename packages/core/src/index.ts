@@ -92,6 +92,7 @@ export type {
   SchemaGroupId,
   SchemaKind,
   SchemaKindOf,
+  SchemaTextContext,
   StructureConditionDefinition,
   TypedPath,
 } from "./index-internal";

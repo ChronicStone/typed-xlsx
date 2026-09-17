@@ -4,6 +4,7 @@ import type {
   ResolvedExcelTableTotalsRowDefinition,
   SchemaContext,
   SchemaDefinition,
+  SchemaTextContext,
 } from "../schema/builder";
 import type { PlannerResult } from "../planner/rows";
 import type { SpreadsheetTheme } from "../styles/theme";
@@ -187,7 +188,7 @@ export interface BufferedReportTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > {
-  title?: LazyText;
+  title?: LazyText<SchemaTextContext<TSchemaContext>>;
   schema: ReportSchemaDefinition<T, string, string, string, TSchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
@@ -203,7 +204,7 @@ export interface BufferedExcelTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > {
-  title?: LazyText;
+  title?: LazyText<SchemaTextContext<TSchemaContext>>;
   schema: ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>;
   rows: T[];
   select?: TableSelection<TSelectableId>;
@@ -445,7 +446,7 @@ export interface StreamReportTableInput<
   TSelectableId extends string = string,
   TSchemaContext extends SchemaContext = SchemaContext,
 > extends StreamTableInput<T, TSelectableId> {
-  title?: LazyText;
+  title?: LazyText<SchemaTextContext<TSchemaContext>>;
   schema: ReportSchemaDefinition<T, string, string, string, TSchemaContext>;
   context?: TSchemaContext;
   theme?: SpreadsheetTheme;
@@ -463,7 +464,7 @@ export interface StreamExcelTableInput<
   TSelectableId,
   ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>
 > {
-  title?: LazyText;
+  title?: LazyText<SchemaTextContext<TSchemaContext>>;
   schema: ExcelTableSchemaDefinition<T, string, string, string, TSchemaContext>;
   context?: TSchemaContext;
   theme?: SpreadsheetTheme;

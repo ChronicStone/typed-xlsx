@@ -69,12 +69,15 @@ describe("stream builder", () => {
       status: "active" | "blocked";
     };
     type Context = {
+      header: string;
       labels: Record<Row["status"], string>;
+      title: string;
     };
     type LabelContext = Internal.BadgeVariantLabelContext<Row, Row["status"], Context>;
 
     const schema = Internal.SchemaBuilder.create<Row, Context>()
       .column("status", {
+        header: ({ ctx }) => ctx.header,
         type: "badge",
         accessor: "status",
         variants: {
@@ -89,13 +92,15 @@ describe("stream builder", () => {
     const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
     const table = await workbook.sheet("Statuses").table("statuses", {
       context: {
+        header: "Translated status",
         labels: {
           active: "Active label",
           blocked: "Blocked label",
         },
+        title: "Localized statuses",
       },
       schema,
-      title: () => "Localized statuses",
+      title: ({ ctx }) => ctx.title,
     });
 
     await table.commit({
@@ -108,6 +113,7 @@ describe("stream builder", () => {
     const sharedStrings = entries.get("xl/sharedStrings.xml") ?? "";
 
     expect(worksheet).toContain("<t>Localized statuses</t>");
+    expect(worksheet).toContain("<t>Translated status</t>");
     expect(sharedStrings).toContain("<t>Active label</t>");
     expect(sharedStrings).toContain("<t>Blocked label</t>");
   });
