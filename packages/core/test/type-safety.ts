@@ -824,6 +824,42 @@ createWorkbook()
     context: { orgIds: [1, 2, 3] },
   });
 
+type TextContext = {
+  t(key: string): string;
+};
+
+const contextTextSchema = createExcelSchema<FlatRow, TextContext>({ mode: "excel-table" })
+  .column("name", {
+    accessor: "name",
+    header: ({ ctx }) => ctx.t("columns.name"),
+    totalsRow: { label: ({ ctx }) => ctx.t("totals.label") },
+    validation: (v) =>
+      v.textLength().error({
+        title: ({ ctx }) => ctx.t("validation.title"),
+        message: ({ ctx }) => ctx.t("validation.message"),
+      }),
+    hyperlink: ({ row }) => ({
+      target: `https://example.com/${row.name}`,
+      tooltip: ({ ctx }) => ctx.t("links.open"),
+    }),
+  })
+  .build();
+
+createWorkbook()
+  .sheet("S")
+  .table("context-text", {
+    context: { t: (key) => key },
+    rows: [],
+    schema: contextTextSchema,
+    title: ({ ctx }) => ctx.t("reports.title"),
+  });
+
+createExcelSchema<FlatRow, TextContext>().column("invalid-context-text", {
+  accessor: "name",
+  // @ts-expect-error — lazy schema text receives the declared schema context
+  header: ({ ctx }) => ctx.missing("columns.name"),
+});
+
 // ── SchemaGroupContext: shape matches the group generic ──────────────────────
 
 type GroupCtx = SchemaGroupContext<typeof groupSchema>;

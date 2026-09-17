@@ -203,9 +203,9 @@ describe("planner", () => {
     const schema = Internal.SchemaBuilder.create<{ url: string }, { tooltip: string }>()
       .column("url", {
         accessor: "url",
-        hyperlink: ({ ctx, row }) => ({
+        hyperlink: ({ row }) => ({
           target: row.url,
-          tooltip: () => ctx.tooltip,
+          tooltip: ({ ctx }) => ctx.tooltip,
         }),
       })
       .build();

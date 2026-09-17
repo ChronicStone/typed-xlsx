@@ -78,6 +78,7 @@ export type {
   SchemaGroupId,
   SchemaKind,
   SchemaKindOf,
+  SchemaTextContext,
   StructureConditionDefinition,
   TypedPath,
 } from "./schema/builder";
@@ -111,7 +112,7 @@ export type {
   ValidationRule,
   ValidationType,
 } from "./validation/types";
-export { normalizeValidationInput, validation } from "./validation/types";
+export { normalizeValidationInput, resolveValidationRule, validation } from "./validation/types";
 export type { LazyText, ValidationMessage } from "./text";
 export {
   createSummaryRuntime,

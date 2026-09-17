@@ -14,12 +14,8 @@ import type { SpreadsheetTheme } from "../styles/theme";
 import type { CellStyle } from "../styles/types";
 import { withCellControl } from "../styles/internal";
 import { deepMerge } from "../styles/merge";
-import { resolveLazyText, type LazyText } from "../text";
-import {
-  normalizeValidationInput,
-  type ResolvedValidationRule,
-  type ValidationInput,
-} from "../validation/types";
+import type { LazyText } from "../text";
+import type { ValidationInput } from "../validation/types";
 import {
   normalizeSparklineInput,
   type ResolvedSparklineDefinition,
@@ -51,6 +47,9 @@ export type CellValue = PrimitiveCellValue | PrimitiveCellValue[];
 export type SchemaContext = unknown;
 export type SchemaKind = "report" | "excel-table";
 export type ColumnExpansion = "auto" | "single" | "expand";
+export type SchemaTextContext<TContext extends SchemaContext = SchemaContext> = {
+  ctx: TContext;
+};
 
 type RowBoundContext<T extends object, TExtra extends object> = T & TExtra;
 
@@ -166,19 +165,19 @@ type FormulaLikeReference<TCurrentColumnId extends string, TColumnId extends str
   | TColumnId
   | TCurrentColumnId;
 
-export interface HyperlinkDefinition {
+export interface HyperlinkDefinition<TContext = void> {
   target: string;
-  tooltip?: LazyText;
+  tooltip?: LazyText<TContext>;
   style?: CellStyle;
 }
 
 export type HyperlinkInput<T extends object, TContext extends SchemaContext = SchemaContext> =
   | string
-  | HyperlinkDefinition
+  | HyperlinkDefinition<BoundRowHyperlinkContext<T, TContext>>
   | null
   | ((
       context: BoundRowHyperlinkContext<T, TContext>,
-    ) => string | HyperlinkDefinition | null | undefined);
+    ) => string | HyperlinkDefinition<BoundRowHyperlinkContext<T, TContext>> | null | undefined);
 
 export type BadgeSourceValue = PrimitiveCellValue | PrimitiveCellValue[];
 export type CheckboxValue = boolean | null | undefined;
@@ -300,8 +299,8 @@ export type ExcelTableTotalsRowFunction =
   | "stdDev"
   | "var";
 
-export type ExcelTableTotalsRowDefinition =
-  | { label: LazyText; function?: never }
+export type ExcelTableTotalsRowDefinition<TContext extends SchemaContext = SchemaContext> =
+  | { label: LazyText<SchemaTextContext<TContext>>; function?: never }
   | { function: ExcelTableTotalsRowFunction; label?: never };
 
 export type ResolvedExcelTableTotalsRowDefinition =
@@ -313,7 +312,7 @@ export interface BaseSchemaNodeDefinition<
   TContext extends SchemaContext = SchemaContext,
 > {
   id: string;
-  header?: LazyText;
+  header?: LazyText<SchemaTextContext<TContext>>;
   condition?: StructureConditionDefinition<TContext>;
 }
 
@@ -338,17 +337,17 @@ export interface ColumnDefinition<
   hyperlink?: HyperlinkInput<T, TContext>;
   image?: ImageColumnDefinition<T, TContext>;
   conditionalStyle?: ConditionalStyleInput<TReference, TGroupId | TDynamicId>;
-  validation?: ValidationInput<TReference, TGroupId | TDynamicId>;
+  validation?: ValidationInput<TReference, TGroupId | TDynamicId, SchemaTextContext<TContext>>;
   sparkline?: SparklineInput<TPrevColumnId, TGroupId, TDynamicId>;
   headerStyle?: CellStyle;
   width?: number;
   autoWidth?: boolean;
   minWidth?: number;
   maxWidth?: number;
-  summary?: SummaryInput<T>;
+  summary?: SummaryInput<T, TContext>;
   formula?: FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext>;
   expansion?: ColumnExpansion;
-  totalsRow?: ExcelTableTotalsRowDefinition;
+  totalsRow?: ExcelTableTotalsRowDefinition<TContext>;
 }
 
 type ScalarTransformFn<
@@ -557,7 +556,7 @@ type HyperlinkRendererColumnInput<
 > & {
   type: "hyperlink";
   target: HyperlinkInput<T, TContext>;
-  tooltip?: LazyText;
+  tooltip?: LazyText<BoundRowHyperlinkContext<T, TContext>>;
   linkStyle?: CellStyle;
   hyperlink?: never;
 };
@@ -719,7 +718,7 @@ type ExcelTableHyperlinkRendererColumnInput<
 > & {
   type: "hyperlink";
   target: HyperlinkInput<T, TContext>;
-  tooltip?: LazyText;
+  tooltip?: LazyText<BoundRowHyperlinkContext<T, TContext>>;
   linkStyle?: CellStyle;
   hyperlink?: never;
 };
@@ -798,7 +797,7 @@ export type SchemaKindOf<TSchema> =
   TSchema extends SchemaDefinition<any, any, any, any, any, infer TKind> ? TKind : never;
 
 interface GroupOptions<TContext extends SchemaContext> {
-  header?: LazyText;
+  header?: LazyText<SchemaTextContext<TContext>>;
   condition?: StructureConditionDefinition<TContext>;
 }
 
@@ -840,31 +839,14 @@ function normalizeColumnDefinition<T extends object, TContext extends SchemaCont
     kind: "column" as const,
     ...definitionWithoutSparkline,
     id,
-    ...(normalizedDefinition.header
-      ? { header: resolveLazyText(normalizedDefinition.header) }
-      : {}),
-    ...(normalizedDefinition.totalsRow && "label" in normalizedDefinition.totalsRow
-      ? {
-          totalsRow: {
-            label: resolveLazyText(normalizedDefinition.totalsRow.label),
-          },
-        }
-      : {}),
     ...(normalizedDefinition.summary
-      ? { summary: normalizeSummaryInput(normalizedDefinition.summary) }
+      ? { summary: normalizeSummaryInput<T, TContext>(normalizedDefinition.summary) }
       : {}),
     ...(normalizedDefinition.conditionalStyle
       ? {
           conditionalStyle: normalizeConditionalStyleInput(
             normalizedDefinition.conditionalStyle,
           ) as ConditionalStyleRule<string, string>[],
-        }
-      : {}),
-    ...(normalizedDefinition.validation
-      ? {
-          validation: normalizeValidationInput(
-            normalizedDefinition.validation,
-          ) as ResolvedValidationRule<string, string>,
         }
       : {}),
     ...(normalizedDefinition.type === "sparkline" && sparkline ? { sparkline } : {}),
@@ -997,7 +979,7 @@ function normalizeRendererColumnDefinition<T extends object, TContext extends Sc
     > & {
       linkStyle?: CellStyle;
       target: HyperlinkInput<T, TContext>;
-      tooltip?: LazyText;
+      tooltip?: LazyText<BoundRowHyperlinkContext<T, TContext>>;
     };
 
     return {
@@ -1166,11 +1148,10 @@ function toBadgeKey(value: unknown) {
 
 function normalizeHyperlinkRendererTarget<T extends object, TContext extends SchemaContext>(
   target: HyperlinkInput<T, TContext>,
-  tooltip?: LazyText,
+  tooltip?: LazyText<BoundRowHyperlinkContext<T, TContext>>,
   linkStyle?: CellStyle,
 ): HyperlinkInput<T, TContext> {
-  const resolvedTooltip = resolveLazyText(tooltip);
-  if (!resolvedTooltip && !linkStyle) {
+  if (!tooltip && !linkStyle) {
     return target;
   }
 
@@ -1183,14 +1164,14 @@ function normalizeHyperlinkRendererTarget<T extends object, TContext extends Sch
     if (typeof resolved === "string") {
       return {
         target: resolved,
-        tooltip: resolvedTooltip,
+        tooltip,
         style: linkStyle,
       };
     }
 
     return {
       ...resolved,
-      tooltip: resolved.tooltip ?? resolvedTooltip,
+      tooltip: resolved.tooltip ?? tooltip,
       style: resolved.style ?? linkStyle,
     };
   };
@@ -1204,7 +1185,7 @@ function normalizeGroupNode<T extends object, TContext extends SchemaContext>(
   return {
     id,
     kind: "group",
-    ...(options?.header ? { header: resolveLazyText(options.header) } : {}),
+    ...(options?.header ? { header: options.header } : {}),
     ...(options?.condition ? { condition: options.condition } : {}),
     children: [...childBuilder.build().columns] as SchemaNode<T, TContext>[],
   };

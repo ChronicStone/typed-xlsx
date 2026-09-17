@@ -24,10 +24,15 @@ import { toCellRef } from "../ooxml/cells";
 import { buildReportChrome } from "./internal/report-chrome";
 import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
 import { resolveLazyText } from "../text";
+import type { SchemaContext } from "../schema/builder";
 
-function isBufferedExcelTableInput<T extends object, TColumnId extends string>(
-  table: BufferedTableInput<T, TColumnId>,
-): table is import("./types").BufferedExcelTableInput<T, TColumnId> {
+function isBufferedExcelTableInput<
+  T extends object,
+  TColumnId extends string,
+  TSchemaContext extends SchemaContext,
+>(
+  table: BufferedTableInput<T, TColumnId, TSchemaContext>,
+): table is import("./types").BufferedExcelTableInput<T, TColumnId, TSchemaContext> {
   return table.schema.kind === "excel-table";
 }
 
@@ -71,10 +76,11 @@ function collectPlannerImages<T extends object>(
   );
 }
 
-function planTable<T extends object, TColumnId extends string>(
-  id: string,
-  table: BufferedTableInput<T, TColumnId>,
-): BufferedTablePlan<T> {
+function planTable<
+  T extends object,
+  TColumnId extends string,
+  TSchemaContext extends SchemaContext,
+>(id: string, table: BufferedTableInput<T, TColumnId, TSchemaContext>): BufferedTablePlan<T> {
   const context = "context" in table ? table.context : undefined;
   const defaults = resolveTableStyleDefaultsWithTheme({
     schemaTheme: table.schema.theme,
@@ -94,7 +100,7 @@ function planTable<T extends object, TColumnId extends string>(
   );
 
   if (isBufferedExcelTableInput(table)) {
-    if (resolveLazyText(table.title)) {
+    if (resolveLazyText(table.title, { ctx: context as never })) {
       throw new Error(
         "Excel-table mode does not support rendered title rows. Use report mode for table chrome.",
       );
@@ -144,8 +150,8 @@ function planTable<T extends object, TColumnId extends string>(
   }
 
   const reportTable = table;
-  const title = resolveLazyText(reportTable.title);
-  const summaries = computeSummaries(resolvedColumns, table.rows);
+  const title = resolveLazyText(reportTable.title, { ctx: context as never });
+  const summaries = computeSummaries(resolvedColumns, table.rows, context);
   const reportChrome = buildReportChrome({
     columns: resolvedColumns,
     title,
@@ -187,7 +193,7 @@ function planTable<T extends object, TColumnId extends string>(
 }
 
 class BufferedSheetBuilder {
-  private readonly tables: Array<{ id: string; input: BufferedTableInput<any, string> }> = [];
+  private readonly tables: Array<{ id: string; input: BufferedTableInput<any, string, any> }> = [];
   private layout: SheetLayoutOptions | undefined;
   private view: SheetViewOptions | undefined;
   private protection: ReturnType<typeof resolveProtection> | undefined;
@@ -206,9 +212,9 @@ class BufferedSheetBuilder {
     return this;
   }
 
-  table<T extends object, TColumnId extends string>(
+  table<T extends object, TColumnId extends string, TSchemaContext extends SchemaContext>(
     id: string,
-    input: BufferedTableInput<T, TColumnId>,
+    input: BufferedTableInput<T, TColumnId, TSchemaContext>,
   ) {
     this.tables.push({ id, input });
     return this;

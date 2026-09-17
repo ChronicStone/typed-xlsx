@@ -67,34 +67,81 @@ describe("core", () => {
     ).toBeGreaterThan(Internal.getDefaultRowHeight());
   });
 
-  it("resolves lazy headers, summary labels, totals row labels, and validation messages during schema build", () => {
-    const tableSchema = Internal.ExcelTableSchemaBuilder.create<{
-      amount: number;
-      status: string;
-    }>()
+  it("resolves schema text callbacks from each table context", () => {
+    type Context = {
+      labels: Record<
+        | "amount"
+        | "errorMessage"
+        | "errorTitle"
+        | "group"
+        | "promptMessage"
+        | "promptTitle"
+        | "status"
+        | "summary"
+        | "title"
+        | "total",
+        string
+      >;
+    };
+    const english: Context = {
+      labels: {
+        amount: "Amount",
+        errorMessage: "Only draft, active, or archived are allowed",
+        errorTitle: "Invalid status",
+        group: "Financials",
+        promptMessage: "Use one of the allowed values",
+        promptTitle: "Pick a status",
+        status: "Status",
+        summary: "TOTAL",
+        title: "Localized report",
+        total: "TOTAL",
+      },
+    };
+    const french: Context = {
+      labels: {
+        amount: "Montant",
+        errorMessage: "Utilisez brouillon, actif ou archive",
+        errorTitle: "Statut invalide",
+        group: "Finances",
+        promptMessage: "Utilisez une valeur autorisee",
+        promptTitle: "Choisissez un statut",
+        status: "Statut",
+        summary: "TOTAL FR",
+        title: "Rapport localise",
+        total: "TOTAL FR",
+      },
+    };
+    const tableSchema = Internal.ExcelTableSchemaBuilder.create<
+      {
+        amount: number;
+        status: string;
+      },
+      Context
+    >()
       .column("status", {
-        header: () => "Status",
+        header: ({ ctx }) => ctx.labels.status,
         accessor: "status",
-        totalsRow: { label: () => "TOTAL" },
+        totalsRow: { label: ({ ctx }) => ctx.labels.total },
         validation: (v) =>
           v
             .list(["draft", "active", "archived"])
             .prompt({
-              title: () => "Pick a status",
-              message: () => "Use one of the allowed values",
+              title: ({ ctx }) => ctx.labels.promptTitle,
+              message: ({ ctx }) => ctx.labels.promptMessage,
             })
             .error({
-              title: () => "Invalid status",
-              message: () => "Only draft, active, or archived are allowed",
+              title: ({ ctx }) => ctx.labels.errorTitle,
+              message: ({ ctx }) => ctx.labels.errorMessage,
             }),
       })
       .column("amount", {
-        header: () => "Amount",
+        header: ({ ctx }) => ctx.labels.amount,
         accessor: "amount",
       })
       .build();
 
-    const columns = Internal.resolveColumns(tableSchema);
+    const columns = Internal.resolveColumns(tableSchema, english);
+    const frenchColumns = Internal.resolveColumns(tableSchema, french);
 
     expect(columns[0]?.headerLabel).toBe("Status");
     expect(columns[0]?.totalsRow).toEqual({ label: "TOTAL" });
@@ -107,32 +154,45 @@ describe("core", () => {
       },
     });
     expect(columns[1]?.headerLabel).toBe("Amount");
+    expect(frenchColumns[0]?.headerLabel).toBe("Statut");
+    expect(frenchColumns[0]?.totalsRow).toEqual({ label: "TOTAL FR" });
+    expect(frenchColumns[0]?.validation).toMatchObject({
+      prompt: { title: "Choisissez un statut", message: "Utilisez une valeur autorisee" },
+      error: { title: "Statut invalide", message: "Utilisez brouillon, actif ou archive" },
+    });
+    expect(frenchColumns[1]?.headerLabel).toBe("Montant");
 
-    const reportSchema = Internal.SchemaBuilder.create<{ amount: number }>()
-      .column("amount", {
-        header: () => "Amount",
-        accessor: "amount",
-        summary: (summary) => [summary.label(() => "TOTAL")],
-      })
+    const reportSchema = Internal.SchemaBuilder.create<{ amount: number }, Context>()
+      .group("financials", { header: ({ ctx }) => ctx.labels.group }, (group) =>
+        group.column("amount", {
+          header: ({ ctx }) => ctx.labels.amount,
+          accessor: "amount",
+          summary: (summary) => [summary.label(({ ctx }) => ctx.labels.summary)],
+        }),
+      )
       .build();
 
-    const reportColumns = Internal.resolveColumns(reportSchema);
+    const reportColumns = Internal.resolveColumns(reportSchema, french);
+    expect(reportColumns[0]?.groupPath[0]?.headerLabel).toBe("Finances");
     const summaryBinding = Internal.createSummaryBindings(reportColumns)[0];
 
     expect(summaryBinding).toBeDefined();
     expect(
       summaryBinding
-        ? Internal.finalizeSummaryRuntime(summaryBinding.definition, summaryBinding.runtime)
+        ? Internal.finalizeSummaryRuntime(summaryBinding.definition, summaryBinding.runtime, {
+            ctx: french,
+          })
         : undefined,
-    ).toBe("TOTAL");
+    ).toBe("TOTAL FR");
 
     const workbook = Internal.BufferedWorkbookBuilder.create();
     workbook.sheet("Reports").table("localized", {
-      title: () => "Localized report",
+      title: ({ ctx }) => ctx.labels.title,
       schema: reportSchema,
       rows: [{ amount: 1 }],
+      context: french,
     });
 
-    expect(workbook.buildPlan().sheets[0]?.tables[0]?.title).toBe("Localized report");
+    expect(workbook.buildPlan().sheets[0]?.tables[0]?.title).toBe("Rapport localise");
   });
 });

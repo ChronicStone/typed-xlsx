@@ -110,11 +110,11 @@ export type SummaryConditionalStyleInput =
 
 export type SummaryResolvedValue = SummaryCellValue | FormulaCell;
 
-export interface SummaryDefinition<T, TAcc = unknown> {
+export interface SummaryDefinition<T, TAcc = unknown, TContext = unknown> {
   label?: string;
   init: () => TAcc;
   step: (accumulator: TAcc, row: T, rowIndex: number) => TAcc;
-  finalize: (accumulator: TAcc) => SummaryCellValue;
+  finalize: (accumulator: TAcc, context: { ctx: TContext }) => SummaryCellValue;
   formula?: SummaryFormulaDefinition;
   spacer?: SummarySpacerDefinition;
   format?: string | ((value: SummaryResolvedValue) => string | undefined);
@@ -126,16 +126,16 @@ export interface SummaryRuntime<TAcc = unknown> {
   accumulator: TAcc;
 }
 
-export function createSummaryRuntime<T, TAcc>(
-  definition: SummaryDefinition<T, TAcc>,
+export function createSummaryRuntime<T, TAcc, TContext>(
+  definition: SummaryDefinition<T, TAcc, TContext>,
 ): SummaryRuntime<TAcc> {
   return {
     accumulator: definition.init(),
   };
 }
 
-export function stepSummaryRuntime<T, TAcc>(
-  definition: SummaryDefinition<T, TAcc>,
+export function stepSummaryRuntime<T, TAcc, TContext>(
+  definition: SummaryDefinition<T, TAcc, TContext>,
   runtime: SummaryRuntime<TAcc>,
   row: T,
   rowIndex: number,
@@ -143,11 +143,12 @@ export function stepSummaryRuntime<T, TAcc>(
   runtime.accumulator = definition.step(runtime.accumulator, row, rowIndex);
 }
 
-export function finalizeSummaryRuntime<T, TAcc>(
-  definition: SummaryDefinition<T, TAcc>,
+export function finalizeSummaryRuntime<T, TAcc, TContext>(
+  definition: SummaryDefinition<T, TAcc, TContext>,
   runtime: SummaryRuntime<TAcc>,
+  context: { ctx: TContext },
 ): SummaryCellValue {
-  return definition.finalize(runtime.accumulator);
+  return definition.finalize(runtime.accumulator, context);
 }
 
 export function createSummaryConditionalStyleBuilder(): SummaryConditionalStyleBuilder {
