@@ -1,5 +1,15 @@
 # typed-xlsx
 
+## 4.1.0
+
+### Minor Changes
+
+- [`790d454`](https://github.com/ChronicStone/typed-xlsx/commit/790d454764fc42e76b8bfb5201b35f9fc8aea4b3) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Resolve schema-owned lazy text from the table context at render time, including titles, headers, group headers, summary labels, totals-row labels, validation messages, and hyperlink tooltips.
+
+### Patch Changes
+
+- [`5d09221`](https://github.com/ChronicStone/typed-xlsx/commit/5d092216829923634e5fe7ffc0edff244cca1249) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Escape XML-reserved characters in inline string cells and cached string formula values so generated workbooks remain valid OOXML.
+
 ## 4.0.0
 
 ### Major Changes
