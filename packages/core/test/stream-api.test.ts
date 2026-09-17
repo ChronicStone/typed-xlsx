@@ -11,6 +11,7 @@ import {
 } from "../src";
 import { StreamWorkbookBuilder } from "../src/workbook/stream";
 import { WebWritableWorkbookSink } from "../src/workbook/internal/stream-sinks";
+import { unzipWorkbookEntries } from "./support/xlsx";
 
 describe("public stream api", () => {
   it("infers stream selection ids from the schema", async () => {
@@ -401,6 +402,41 @@ describe("public stream api", () => {
     const bytes = fs.readFileSync(filePath);
     expect(bytes[0]).toBe(0x50);
     expect(bytes[1]).toBe(0x4b);
+  });
+
+  it("preserves rows split across file spool read boundaries", async () => {
+    const schema = createExcelSchema<{ value: string }>()
+      .column("value", {
+        accessor: "value",
+      })
+      .build();
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-boundaries-"));
+    const filePath = path.join(directory, "report.xlsx");
+    const rows = Array.from({ length: 120 }, (_, index) => ({
+      value: `row-${index}-${"x".repeat(2_048)}`,
+    }));
+
+    try {
+      const workbook = createWorkbookStream({
+        tempStorage: "file",
+        tempDirectory: directory,
+        memoryProfile: "low-memory",
+      });
+      const table = await workbook.sheet("Rows").table("rows", { schema });
+
+      await table.commit({ rows });
+      await workbook.writeToFile(filePath);
+
+      const entries = await unzipWorkbookEntries(fs.readFileSync(filePath));
+      const worksheet = entries.get("xl/worksheets/sheet1.xml") ?? "";
+
+      expect(worksheet.match(/<row\b/g)).toHaveLength(rows.length + 1);
+      rows.forEach(({ value }) => {
+        expect(worksheet).toContain(`<t>${value}</t>`);
+      });
+    } finally {
+      fs.rmSync(directory, { force: true, recursive: true });
+    }
   });
 
   it("supports stream sheet view options and low-memory string mode", async () => {
