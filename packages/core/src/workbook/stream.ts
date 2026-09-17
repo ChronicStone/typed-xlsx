@@ -1145,14 +1145,31 @@ async function* streamWorksheetXml(
       ),
     );
 
+    const decoder = new TextDecoder();
+    let pendingRows = "";
+
     for await (const chunk of positioned.table.spool.read()) {
-      appendShiftedWorksheetChunkRowsAndColumns(
+      pendingRows += decoder.decode(chunk, { stream: true });
+      pendingRows = appendShiftedWorksheetChunkRowsAndColumns(
         rowMap,
         rowHeights,
-        chunk,
+        pendingRows,
         positioned.rowOffset + chrome.bodyRowOffset - 1,
         positioned.columnOffset,
       );
+    }
+
+    pendingRows += decoder.decode();
+    pendingRows = appendShiftedWorksheetChunkRowsAndColumns(
+      rowMap,
+      rowHeights,
+      pendingRows,
+      positioned.rowOffset + chrome.bodyRowOffset - 1,
+      positioned.columnOffset,
+    );
+
+    if (pendingRows.length > 0) {
+      throw new Error("Stream spool ended with an incomplete worksheet row.");
     }
 
     const summaryRows = groupSummaryRows(positioned.table.summaries);
@@ -1509,16 +1526,19 @@ function writeStreamColumns(positionedTables: PositionedTable<StreamTableFinaliz
 function appendShiftedWorksheetChunkRowsAndColumns(
   rowMap: Map<number, string[]>,
   rowHeights: Map<number, number>,
-  chunk: Uint8Array,
+  content: string,
   rowOffset: number,
   columnOffset: number,
 ) {
-  const content = shiftFormulaCellsInWorksheetXml(
-    new TextDecoder().decode(chunk),
-    rowOffset,
-    columnOffset,
-  );
-  const rowMatches = [...content.matchAll(/<row\s+[^>]*r="(\d+)"[^>]*>(.*?)<\/row>/g)];
+  const lastCompleteRowEnd = content.lastIndexOf("</row>");
+  if (lastCompleteRowEnd === -1) {
+    return content;
+  }
+
+  const completeContent = content.slice(0, lastCompleteRowEnd + "</row>".length);
+  const remainder = content.slice(completeContent.length);
+  const shiftedContent = shiftFormulaCellsInWorksheetXml(completeContent, rowOffset, columnOffset);
+  const rowMatches = [...shiftedContent.matchAll(/<row\s+[^>]*r="(\d+)"[^>]*>(.*?)<\/row>/gs)];
 
   rowMatches.forEach((match) => {
     const rowIndex = Number(match[1]) - 1 + rowOffset;
@@ -1548,6 +1568,8 @@ function appendShiftedWorksheetChunkRowsAndColumns(
 
     appendCells(rowMap, rowIndex, cells);
   });
+
+  return remainder;
 }
 
 function fromWorksheetCol(column: string) {
