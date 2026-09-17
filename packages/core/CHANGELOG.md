@@ -1,5 +1,11 @@
 # typed-xlsx
 
+## 4.1.1
+
+### Patch Changes
+
+- [#52](https://github.com/ChronicStone/typed-xlsx/pull/52) [`3071ef5`](https://github.com/ChronicStone/typed-xlsx/commit/3071ef576ecaa4becb9615893d5762eb76f762ca) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Preserve streamed worksheet rows when file-backed spool reads split row XML across chunks.
+
 ## 4.1.0
 
 ### Minor Changes
