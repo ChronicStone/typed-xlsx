@@ -1,6 +1,6 @@
 {
   "name": "typed-xlsx",
-  "version": "4.1.1",
+  "version": "4.2.0",
   "description": "Type-safe, schema-driven Excel reporting for TypeScript with native Excel tables and streaming exports.",
   "keywords": [
     "excel",
