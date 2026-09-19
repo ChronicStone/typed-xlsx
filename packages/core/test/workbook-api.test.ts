@@ -10,6 +10,7 @@ import {
   type ExcelTableSchemaDefinition,
   type TableSelection,
 } from "../src";
+import { workbookArchiveText } from "./support/xlsx";
 
 describe("public buffered api", () => {
   it("infers selection ids from the schema and preserves transform value types", () => {
@@ -172,7 +173,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<f>(A3*2)</f>");
     expect(content).toContain("<f>(B3+A3)</f>");
   });
@@ -197,7 +198,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<f>(orders[[#This Row],[Amount]]*2)</f><v>6</v>");
     expect(content).toContain(
       "<f>(orders[[#This Row],[Double amount]]+orders[[#This Row],[Amount]])</f><v>9</v>",
@@ -233,7 +234,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<f>SUM(B3,C3)</f>");
     expect(content).toContain("<f>MAX(B3,C3)</f>");
     expect(content).toContain("<f>COUNT(B3,C3)</f>");
@@ -256,7 +257,7 @@ describe("public buffered api", () => {
       render: { groupHeaders: false },
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<f>(A2*2)</f>");
     expect(content).not.toContain("Derived");
   });
@@ -287,7 +288,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain(
       "<f>SUM(orders[[#This Row],[Double amount]],orders[[#This Row],[Triple amount]])</f><v>15</v>",
     );
@@ -357,7 +358,7 @@ describe("public buffered api", () => {
       },
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("Account name");
     expect(content).toContain("Arr");
     expect(content).toContain("Projected arr");
@@ -428,7 +429,7 @@ describe("public buffered api", () => {
       },
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("FF333333");
     expect(content).not.toContain("FF111111");
   });
@@ -523,7 +524,7 @@ describe("public buffered api", () => {
       },
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("Core");
     expect(content).toContain("Finance");
     expect(content).toContain("Labs");
@@ -543,7 +544,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain('<autoFilter ref="A1:A2"/>');
   });
 
@@ -621,7 +622,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain(
       "<f>(orders[[#This Row],[Qty]]*orders[[#This Row],[Unit price]])</f><v>21</v>",
     );
@@ -673,7 +674,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<f>SUM(B2:B3)</f>");
   });
 
@@ -700,7 +701,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<f>ROUND(SUM(B2:B3),2)</f>");
   });
 
@@ -723,7 +724,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<f>(A2*B2)</f>");
   });
 
@@ -756,7 +757,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<dataValidations");
     expect(content).toContain('type="whole"');
     expect(content).toContain('promptTitle="Allowed values"');
@@ -792,7 +793,7 @@ describe("public buffered api", () => {
         schema,
       });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<sheetProtection");
     expect(content).toContain('applyProtection="1"');
     expect(content).toContain('<protection locked="0"/>');
@@ -827,7 +828,7 @@ describe("public buffered api", () => {
         schema,
       });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<workbookProtection");
     expect(content).toContain('lockStructure="1"');
     expect(content).toContain('workbookPassword="');
@@ -859,7 +860,7 @@ describe("public buffered api", () => {
       schema,
     });
 
-    const content = Buffer.from(workbook.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(workbook.toUint8Array());
     expect(content).toContain("<hyperlinks>");
     expect(content).toContain('Target="https://example.com/customers/c_1"');
     expect(content).not.toContain('Target="https://example.com/customers/c_2"');

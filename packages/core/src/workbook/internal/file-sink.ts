@@ -3,21 +3,25 @@ import path from "node:path";
 import type { StreamWorkbookSink } from "../types";
 
 export class FileWorkbookSink implements StreamWorkbookSink {
-  private initialized = false;
+  private handlePromise: Promise<fsp.FileHandle> | undefined;
 
   constructor(readonly filePath: string) {}
 
-  async write(chunk: Uint8Array) {
-    await fsp.mkdir(path.dirname(this.filePath), { recursive: true });
-
-    if (!this.initialized) {
-      await fsp.writeFile(this.filePath, chunk);
-      this.initialized = true;
-      return;
-    }
-
-    await fsp.appendFile(this.filePath, chunk);
+  private async handle() {
+    this.handlePromise ??= (async () => {
+      await fsp.mkdir(path.dirname(this.filePath), { recursive: true });
+      return await fsp.open(this.filePath, "w");
+    })();
+    return await this.handlePromise;
   }
 
-  async close() {}
+  async write(chunk: Uint8Array) {
+    const handle = await this.handle();
+    await handle.write(chunk, 0, chunk.length, null);
+  }
+
+  async close() {
+    const handle = await this.handle();
+    await handle.close();
+  }
 }

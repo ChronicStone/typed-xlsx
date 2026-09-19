@@ -3,7 +3,11 @@ import * as Internal from "../src/index-internal";
 import { serializeCell, serializeInlineStringCell } from "../src/ooxml/cells";
 import { hashExcelProtectionPassword } from "../src/ooxml/protection";
 import { createSharedStringsCollector } from "../src/ooxml/shared-strings";
-import { expectWorkbookXmlToBeWellFormed, unzipWorkbookEntries } from "./support/xlsx";
+import {
+  expectWorkbookXmlToBeWellFormed,
+  unzipWorkbookEntries,
+  workbookArchiveText,
+} from "./support/xlsx";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -1214,7 +1218,7 @@ describe("ooxml", () => {
     );
     const tablePart = xml.parts.find((part) => part.path === "xl/tables/table1.xml");
     const workbookBytes = workbook.buildXlsx();
-    const workbookContent = Buffer.from(workbookBytes).toString("latin1");
+    const workbookContent = workbookArchiveText(workbookBytes);
 
     expect(worksheetPart?.xml).toContain('<tableParts count="1">');
     expect(worksheetPart?.xml).toContain('<tablePart r:id="rIdTable1"/>');

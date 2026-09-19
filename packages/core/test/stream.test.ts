@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Internal from "../src/index-internal";
 import { appendExpandedRowXml } from "../src/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
-import { unzipWorkbookEntries } from "./support/xlsx";
+import { unzipWorkbookEntries, workbookArchiveText } from "./support/xlsx";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -218,7 +218,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<cols>");
     expect(content).toContain('customWidth="1"');
     expect(content).toContain("<mergeCells");
@@ -247,7 +247,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('customHeight="1"');
     expect(content).toContain(' ht="');
   });
@@ -319,7 +319,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('Target="../tables/table1.xml"');
     expect(content).toContain('<tableParts count="1">');
     expect(content).toContain('displayName="OrdersTable"');
@@ -355,7 +355,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('ref="A1:B4"');
     expect(content).toContain('totalsRowCount="1"');
     expect(content).not.toContain('totalsRowShown="1"');
@@ -410,7 +410,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('<dataValidations count="3">');
     expect(content).toContain('sqref="A2:A2"');
     expect(content).toContain('type="list"');
@@ -480,7 +480,7 @@ describe("stream builder", () => {
     await table.commit({ rows: [{ qty: 3, unitPrice: 7 }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain(
       "<f>(orders[[#This Row],[Qty]]*orders[[#This Row],[Unit price]])</f><v>21</v>",
     );
@@ -507,7 +507,7 @@ describe("stream builder", () => {
     await right.commit({ rows: [{ value: "B" }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("xl/tables/table1.xml");
     expect(content).toContain("xl/tables/table2.xml");
     expect(content).toContain('Target="../tables/table1.xml"');
@@ -532,7 +532,7 @@ describe("stream builder", () => {
     await right.commit({ rows: [{ value: "B" }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("xl/worksheets/sheet1.xml");
     expect(content).not.toContain("xl/worksheets/sheet2.xml");
     expect(content).toContain('r="A1"');
@@ -563,7 +563,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("xl/styles.xml");
     expect(content).toContain("<borders");
     expect(content).toContain('applyBorder="1"');
@@ -608,7 +608,7 @@ describe("stream builder", () => {
     await table.commit({ rows: [{ input: 5, formulaValue: 10, status: "Open" }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("FFFEF3C7");
     expect(content).toContain("FFF8FAFC");
     expect(content).toContain("FFF1F5F9");
@@ -642,7 +642,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('rightToLeft="1"');
     expect(content).toContain('state="frozen"');
     expect(content).toContain('t="inlineStr"');
@@ -688,7 +688,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('<row r="3" ht="30" customHeight="1">');
     expect(content).toContain('r="B3"');
     expect(content).not.toContain('r="A3" s="');
@@ -731,7 +731,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('<row r="3" ht="30" customHeight="1">');
     expect(content).toContain('<row r="4" ht="30" customHeight="1">');
     expect(content).toContain('r="A3"');
@@ -763,7 +763,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('name="Financial Report Full"');
     expect(content).not.toContain("Financial Report | Full-financial-report");
   });
@@ -861,7 +861,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('<autoFilter ref="A1:B3"/>');
     expect(content.indexOf("<sheetData>")).toBeLessThan(
       content.indexOf('<autoFilter ref="A1:B3"/>'),
@@ -892,7 +892,7 @@ describe("stream builder", () => {
     await table.commit({ rows: [{ account: "Acme", arr: 100, nrr: 1.1 }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("Portfolio Snapshot");
     expect(content).toContain("Financials");
     expect(content).toContain('<mergeCell ref="A1:C1"/>');
@@ -922,7 +922,7 @@ describe("stream builder", () => {
     await table.commit({ rows: [{ account: "Acme", arr: 100, nrr: 1.1 }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('<autoFilter ref="A3:C4"/>');
   });
 
@@ -949,7 +949,7 @@ describe("stream builder", () => {
     await table.commit({ rows: [{ account: "Acme", arr: 100, nrr: 1.1 }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('r="A2"');
     expect(content).toContain('<mergeCell ref="B2:C2"/>');
     expect(content).toContain('r="A3"');
@@ -981,7 +981,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>(A2*B2)</f>");
     expect(content).toContain("<f>(A3*B3)</f>");
   });
@@ -1022,7 +1022,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>((B2*C2)*(1-A2))</f>");
     expect(content).toContain("<f>((B3*C3)*(1-A2))</f>");
   });
@@ -1049,7 +1049,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>SUM(AVERAGE(A2:A4),AVERAGE(A5:A6))</f>");
   });
 
@@ -1072,7 +1072,7 @@ describe("stream builder", () => {
     await table.commit({ rows: [{ amounts: [10, 20, 30] }] });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>AVERAGE(A2:A4)</f>");
   });
 
@@ -1103,7 +1103,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>SUM(B2:B3)</f>");
   });
 
@@ -1136,7 +1136,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>ROUND(SUM(B2:B3),2)</f>");
   });
 
@@ -1167,7 +1167,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain('<c r="A5"/>');
   });
 
@@ -1196,7 +1196,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>(A2*B2)</f>");
   });
 
@@ -1228,7 +1228,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).toContain("<f>ROUND((A2*B2),2)</f>");
     expect(content).toContain("IF((A2&gt;10),&quot;HIGH&quot;,&quot;NORMAL&quot;)");
   });
@@ -1257,7 +1257,7 @@ describe("stream builder", () => {
     });
     await workbook.finish();
 
-    const content = Buffer.from(sink.toUint8Array()).toString("latin1");
+    const content = workbookArchiveText(sink.toUint8Array());
     expect(content).not.toContain("<autoFilter");
     expect(warn).toHaveBeenCalledWith(
       "[typed-xlsx] Disabled autoFilter for stream table 'orders' because the rendered report contains vertically merged body cells from sub-row expansion. Worksheet auto-filters operate on flat physical rows; use a flat report table or native Excel tables for filtered views.",

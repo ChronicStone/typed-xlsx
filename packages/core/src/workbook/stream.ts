@@ -237,7 +237,7 @@ function registerConditionalFormattingDifferentialStyles(
 const encoder = new TextEncoder();
 
 function encodeRowChunk(value: string) {
-  return new TextEncoder().encode(value);
+  return encoder.encode(value);
 }
 
 function applySelection<T extends object, TColumnId extends string>(
@@ -1038,6 +1038,15 @@ async function* streamWorksheetXml(
   const lastCol = toWorksheetCol(lastColIndex);
   const rowMap = new Map<number, string[]>();
   const rowHeights = new Map<number, number>();
+  const orderedTables = [...positionedTables].sort(
+    (left, right) => left.rowOffset - right.rowOffset,
+  );
+  const streamRows = orderedTables.every(
+    (positioned, index) =>
+      index === 0 ||
+      orderedTables[index - 1]!.rowOffset + orderedTables[index - 1]!.height <=
+        positioned.rowOffset,
+  );
   const dataValidations = positionedTables.flatMap((positioned) =>
     positioned.table.dataValidations.map((block) => ({
       ...block,
@@ -1085,7 +1094,7 @@ async function* streamWorksheetXml(
       `<sheetData>`,
   );
 
-  for (const positioned of positionedTables) {
+  for (const positioned of streamRows ? orderedTables : positionedTables) {
     const chrome = getStreamReportChrome(positioned.table);
     if (positioned.table.title) {
       appendCells(
@@ -1145,28 +1154,37 @@ async function* streamWorksheetXml(
       ),
     );
 
+    if (streamRows) {
+      yield* flushWorksheetRows(rowMap, rowHeights);
+    }
+
     const decoder = new TextDecoder();
+    const bodyRowOffset = positioned.rowOffset + chrome.bodyRowOffset - 1;
     let pendingRows = "";
 
     for await (const chunk of positioned.table.spool.read()) {
       pendingRows += decoder.decode(chunk, { stream: true });
-      pendingRows = appendShiftedWorksheetChunkRowsAndColumns(
-        rowMap,
-        rowHeights,
-        pendingRows,
-        positioned.rowOffset + chrome.bodyRowOffset - 1,
-        positioned.columnOffset,
-      );
+      pendingRows = streamRows
+        ? yield* emitShiftedWorksheetChunkRows(pendingRows, bodyRowOffset, positioned.columnOffset)
+        : appendShiftedWorksheetChunkRowsAndColumns(
+            rowMap,
+            rowHeights,
+            pendingRows,
+            bodyRowOffset,
+            positioned.columnOffset,
+          );
     }
 
     pendingRows += decoder.decode();
-    pendingRows = appendShiftedWorksheetChunkRowsAndColumns(
-      rowMap,
-      rowHeights,
-      pendingRows,
-      positioned.rowOffset + chrome.bodyRowOffset - 1,
-      positioned.columnOffset,
-    );
+    pendingRows = streamRows
+      ? yield* emitShiftedWorksheetChunkRows(pendingRows, bodyRowOffset, positioned.columnOffset)
+      : appendShiftedWorksheetChunkRowsAndColumns(
+          rowMap,
+          rowHeights,
+          pendingRows,
+          bodyRowOffset,
+          positioned.columnOffset,
+        );
 
     if (pendingRows.length > 0) {
       throw new Error("Stream spool ended with an incomplete worksheet row.");
@@ -1279,17 +1297,13 @@ async function* streamWorksheetXml(
         }),
       );
     }
+
+    if (streamRows) {
+      yield* flushWorksheetRows(rowMap, rowHeights);
+    }
   }
 
-  for (const rowIndex of [...rowMap.keys()].sort((left, right) => left - right)) {
-    yield encodeXml(
-      xmlElement(
-        "row",
-        { r: rowIndex + 1, ht: rowHeights.get(rowIndex) ?? getDefaultRowHeight(), customHeight: 1 },
-        sortWorksheetCells(rowMap.get(rowIndex) ?? []),
-      ),
-    );
-  }
+  yield* flushWorksheetRows(rowMap, rowHeights);
 
   yield encodeXml(
     `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetTableParts(tableParts)}${writeWorksheetDrawing(drawingRelId)}${writeWorksheetSparklines(sparklineGroups)}</worksheet>`,
@@ -1523,30 +1537,40 @@ function writeStreamColumns(positionedTables: PositionedTable<StreamTableFinaliz
   );
 }
 
-function appendShiftedWorksheetChunkRowsAndColumns(
-  rowMap: Map<number, string[]>,
-  rowHeights: Map<number, number>,
-  content: string,
-  rowOffset: number,
-  columnOffset: number,
-) {
+function* flushWorksheetRows(rowMap: Map<number, string[]>, rowHeights: Map<number, number>) {
+  for (const rowIndex of [...rowMap.keys()].sort((left, right) => left - right)) {
+    yield encodeXml(
+      xmlElement(
+        "row",
+        { r: rowIndex + 1, ht: rowHeights.get(rowIndex) ?? getDefaultRowHeight(), customHeight: 1 },
+        sortWorksheetCells(rowMap.get(rowIndex) ?? []),
+      ),
+    );
+  }
+
+  rowMap.clear();
+  rowHeights.clear();
+}
+
+function splitCompleteWorksheetRows(content: string) {
   const lastCompleteRowEnd = content.lastIndexOf("</row>");
   if (lastCompleteRowEnd === -1) {
-    return content;
+    return undefined;
   }
 
   const completeContent = content.slice(0, lastCompleteRowEnd + "</row>".length);
-  const remainder = content.slice(completeContent.length);
-  const shiftedContent = shiftFormulaCellsInWorksheetXml(completeContent, rowOffset, columnOffset);
-  const rowMatches = [...shiftedContent.matchAll(/<row\s+[^>]*r="(\d+)"[^>]*>(.*?)<\/row>/gs)];
+  return { completeContent, remainder: content.slice(completeContent.length) };
+}
 
-  rowMatches.forEach((match) => {
+function* shiftedWorksheetRows(completeContent: string, rowOffset: number, columnOffset: number) {
+  const shiftedContent = shiftFormulaCellsInWorksheetXml(completeContent, rowOffset, columnOffset);
+
+  for (const match of shiftedContent.matchAll(/<row\s+[^>]*r="(\d+)"[^>]*>(.*?)<\/row>/gs)) {
     const rowIndex = Number(match[1]) - 1 + rowOffset;
     const heightMatch = match[0].match(/\bht="([^"]+)"/);
-    const rowHeight = heightMatch?.[1] ? Number(heightMatch[1]) : undefined;
-    if (rowHeight !== undefined && Number.isFinite(rowHeight)) {
-      rowHeights.set(rowIndex, Math.max(rowHeights.get(rowIndex) ?? 0, rowHeight));
-    }
+    const parsedHeight = heightMatch?.[1] ? Number(heightMatch[1]) : undefined;
+    const rowHeight =
+      parsedHeight !== undefined && Number.isFinite(parsedHeight) ? parsedHeight : undefined;
     const cellNodes = (match[2] ?? "").match(/<c\b[^>]*\/>|<c\b[^>]*>.*?<\/c>/gs) ?? [];
     const cells = cellNodes.map((cellNode) => {
       const refMatch = cellNode.match(/\br="([A-Z]+)(\d+)"/);
@@ -1566,10 +1590,62 @@ function appendShiftedWorksheetChunkRowsAndColumns(
       );
     });
 
-    appendCells(rowMap, rowIndex, cells);
-  });
+    yield { rowIndex, rowHeight, cells };
+  }
+}
 
-  return remainder;
+function* emitShiftedWorksheetChunkRows(
+  content: string,
+  rowOffset: number,
+  columnOffset: number,
+): Generator<Uint8Array, string> {
+  const split = splitCompleteWorksheetRows(content);
+  if (!split) {
+    return content;
+  }
+
+  if (rowOffset === 0 && columnOffset === 0) {
+    yield encodeXml(split.completeContent);
+    return split.remainder;
+  }
+
+  const rows: string[] = [];
+
+  for (const row of shiftedWorksheetRows(split.completeContent, rowOffset, columnOffset)) {
+    rows.push(
+      xmlElement(
+        "row",
+        { r: row.rowIndex + 1, ht: row.rowHeight ?? getDefaultRowHeight(), customHeight: 1 },
+        sortWorksheetCells(row.cells),
+      ),
+    );
+  }
+
+  yield encodeXml(rows.join(""));
+  return split.remainder;
+}
+
+function appendShiftedWorksheetChunkRowsAndColumns(
+  rowMap: Map<number, string[]>,
+  rowHeights: Map<number, number>,
+  content: string,
+  rowOffset: number,
+  columnOffset: number,
+) {
+  const split = splitCompleteWorksheetRows(content);
+  if (!split) {
+    return content;
+  }
+
+  for (const row of shiftedWorksheetRows(split.completeContent, rowOffset, columnOffset)) {
+    if (row.rowHeight !== undefined) {
+      rowHeights.set(row.rowIndex, Math.max(rowHeights.get(row.rowIndex) ?? 0, row.rowHeight));
+    }
+
+    appendCells(rowMap, row.rowIndex, row.cells);
+  }
+
+  return split.remainder;
 }
 
 function fromWorksheetCol(column: string) {
