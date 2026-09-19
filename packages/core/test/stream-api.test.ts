@@ -11,7 +11,7 @@ import {
 } from "../src";
 import { StreamWorkbookBuilder } from "../src/workbook/stream";
 import { WebWritableWorkbookSink } from "../src/workbook/internal/stream-sinks";
-import { unzipWorkbookEntries } from "./support/xlsx";
+import { unzipWorkbookEntries, workbookArchiveText } from "./support/xlsx";
 
 describe("public stream api", () => {
   it("infers stream selection ids from the schema", async () => {
@@ -147,7 +147,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("<f>(A3*2)</f>");
     expect(content).toContain("<f>(B3+A3)</f>");
   });
@@ -182,7 +182,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("<f>(orders[[#This Row],[Amount]]*2)</f><v>6</v>");
     expect(content).toContain(
       "<f>(orders[[#This Row],[Double amount]]+orders[[#This Row],[Amount]])</f><v>9</v>",
@@ -225,7 +225,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("<f>SUM(B3,C3)</f>");
     expect(content).toContain("<f>MIN(B3,C3)</f>");
   });
@@ -266,7 +266,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain(
       "<f>SUM(orders[[#This Row],[Double amount]],orders[[#This Row],[Triple amount]])</f><v>15</v>",
     );
@@ -474,7 +474,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain('rightToLeft="1"');
     expect(content).toContain('state="frozen"');
     expect(content).toContain('t="inlineStr"');
@@ -534,7 +534,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("Core");
     expect(content).toContain("Finance");
   });
@@ -569,7 +569,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain('<autoFilter ref="A1:A2"/>');
   });
 
@@ -608,7 +608,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("xl/tables/table1.xml");
     expect(content).toContain("sheet1.xml.rels");
     expect(content).toContain('<tableParts count="1">');
@@ -654,7 +654,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("<dataValidations");
     expect(content).toContain('type="whole"');
     expect(content).toContain('promptTitle="Allowed values"');
@@ -699,7 +699,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("<sheetProtection");
     expect(content).toContain('applyProtection="1"');
     expect(content).toContain('<protection locked="0"/>');
@@ -744,7 +744,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("<workbookProtection");
     expect(content).toContain('lockStructure="1"');
     expect(content).toContain('workbookPassword="');
@@ -787,7 +787,7 @@ describe("public stream api", () => {
       stream.on("error", reject);
     });
 
-    const content = Buffer.concat(chunks).toString("latin1");
+    const content = workbookArchiveText(Buffer.concat(chunks));
     expect(content).toContain("<hyperlinks>");
     expect(content).toContain('Target="https://example.com/customers/c_1"');
     expect(content).not.toContain('Target="https://example.com/customers/c_2"');

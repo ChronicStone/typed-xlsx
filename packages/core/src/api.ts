@@ -323,25 +323,27 @@ class LazyFileSpoolFactory implements StreamSpoolFactory {
 }
 
 class LazyFileWorkbookSink implements StreamWorkbookSink {
-  private initialized = false;
+  private handlePromise: Promise<import("node:fs/promises").FileHandle> | undefined;
 
   constructor(private readonly filePath: string) {}
 
+  private async handle() {
+    this.handlePromise ??= (async () => {
+      const [fsp, path] = await Promise.all([importNodeFsPromises(), importNodePath()]);
+      await fsp.mkdir(path.dirname(this.filePath), { recursive: true });
+      return await fsp.open(this.filePath, "w");
+    })();
+    return await this.handlePromise;
+  }
+
   async write(chunk: Uint8Array) {
-    const [fsp, path] = await Promise.all([importNodeFsPromises(), importNodePath()]);
-    await fsp.mkdir(path.dirname(this.filePath), { recursive: true });
-
-    if (!this.initialized) {
-      await fsp.writeFile(this.filePath, chunk);
-      this.initialized = true;
-      return;
-    }
-
-    await fsp.appendFile(this.filePath, chunk);
+    const handle = await this.handle();
+    await handle.write(chunk, 0, chunk.length, null);
   }
 
   async close() {
-    // The filesystem writes complete during write().
+    const handle = await this.handle();
+    await handle.close();
   }
 }
 

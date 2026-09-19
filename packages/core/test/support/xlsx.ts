@@ -12,6 +12,14 @@ export function unzipWorkbookEntries(bytes: Uint8Array | Buffer) {
   );
 }
 
+export function workbookArchiveText(bytes: Uint8Array | Buffer) {
+  const archive = unzipSync(Buffer.from(bytes));
+
+  return Object.entries(archive)
+    .map(([entry, content]) => `${entry}\n${Buffer.from(content).toString("latin1")}`)
+    .join("\n");
+}
+
 export function expectWorkbookXmlToBeWellFormed(entries: Map<string, string>) {
   for (const [entry, xml] of entries) {
     if (!entry.endsWith(".xml") && !entry.endsWith(".rels")) {
