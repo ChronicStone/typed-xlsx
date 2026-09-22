@@ -10,6 +10,7 @@ const { values } = parseArgs({
     rows: { type: "string", default: "200000" },
     batchSize: { type: "string", default: "5000" },
     layout: { type: "string", default: "flat" },
+    strings: { type: "string", default: "shared" },
     output: { type: "string" },
   },
 });
@@ -24,12 +25,19 @@ if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
 if (values.layout !== "flat" && values.layout !== "stacked") {
   throw new Error("layout must be flat or stacked");
 }
+if (values.strings !== "shared" && values.strings !== "inline") {
+  throw new Error("strings must be shared or inline");
+}
 
 const directory = values.output ?? (await fs.mkdtemp(path.join(os.tmpdir(), "xlsx-throughput-")));
 await fs.mkdir(directory, { recursive: true });
 const outputPath = path.join(directory, "export.xlsx");
 const spoolDirectory = await fs.mkdtemp(path.join(directory, "spool-"));
-const workbook = createWorkbookStream({ tempStorage: "file", tempDirectory: spoolDirectory });
+const workbook = createWorkbookStream({
+  tempStorage: "file",
+  tempDirectory: spoolDirectory,
+  strings: values.strings,
+});
 const table = await workbook.sheet("Orders").table("orders", {
   schema: createStreamBenchmarkSchema(),
 });
@@ -73,6 +81,7 @@ try {
   const result = {
     runtime: process.version,
     layout: values.layout,
+    strings: values.strings,
     logicalRows,
     batchSize,
     generateMs,
