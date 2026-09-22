@@ -28,6 +28,7 @@ import type {
   WorkbookProtectionInput,
 } from "./workbook/types";
 import { MemorySpoolFactory } from "./workbook/internal/memory";
+import { writeFileChunk } from "./workbook/internal/file-write";
 import {
   NodeWritableWorkbookSink,
   WebWritableWorkbookSink,
@@ -237,8 +238,6 @@ export interface WorkbookStream {
   toReadableStream(): ReadableStream<Uint8Array>;
   toNodeReadable(): NodeJS.ReadableStream;
 }
-
-import { writeFileChunk } from "./workbook/internal/file-write";
 
 const nodeProtocol = "node:";
 
