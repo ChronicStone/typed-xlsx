@@ -19,6 +19,36 @@ const onePixelPng = Uint8Array.from(
 );
 
 describe("stream builder", () => {
+  it.each([
+    ["sum", 12],
+    ["average", 4],
+    ["count", 3],
+    ["countNums", 3],
+    ["min", 2],
+    ["max", 6],
+    ["stdDev", 2],
+    ["var", 4],
+  ] as const)(
+    "preserves the cached %s totals value across batches",
+    async (functionName, expected) => {
+      const schema = Internal.ExcelTableSchemaBuilder.create<{ amount: number | null }>()
+        .column("amount", { accessor: "amount", totalsRow: { function: functionName } })
+        .build();
+      const sink = new MemoryWorkbookSink();
+      const workbook = Internal.StreamWorkbookBuilder.create({
+        sink,
+        spoolFactory: new MemorySpoolFactory(),
+      });
+      const table = await workbook.sheet("Totals").table("totals", { schema, totalsRow: true });
+      await table.commit({ rows: [{ amount: 2 }, { amount: 4 }] });
+      await table.commit({ rows: [{ amount: null }, { amount: 6 }] });
+      await workbook.finish();
+      expect(unzipWorkbookEntries(sink.toUint8Array()).get("xl/worksheets/sheet1.xml")).toContain(
+        `,[Amount])</f><v>${expected}</v>`,
+      );
+    },
+  );
+
   it("uses one style resolution per physical cell for both height and output", async () => {
     const style = vi.fn(({ subRowIndex }: { subRowIndex: number }) => ({
       font: { size: subRowIndex === 0 ? 30 : 40 },

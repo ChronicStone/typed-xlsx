@@ -1,21 +1,27 @@
 import type { ExcelTableTotalsRowFunction, PrimitiveCellValue } from "../../schema/builder";
 
-export interface ExcelTotalsRowStats {
-  values: number[];
+export type ExcelTotalsRowStats = {
   nonEmptyCount: number;
   numericCount: number;
   sum: number;
   min?: number;
   max?: number;
-}
+} & (
+  | { functionName: "stdDev" | "var"; values: number[] }
+  | { functionName: Exclude<ExcelTableTotalsRowFunction, "stdDev" | "var">; values?: never }
+);
 
-export function createExcelTotalsRowStats(): ExcelTotalsRowStats {
-  return {
-    values: [],
+export function createExcelTotalsRowStats(
+  functionName: ExcelTableTotalsRowFunction,
+): ExcelTotalsRowStats {
+  const stats = {
     nonEmptyCount: 0,
     numericCount: 0,
     sum: 0,
   };
+  return functionName === "stdDev" || functionName === "var"
+    ? { ...stats, functionName, values: [] }
+    : { ...stats, functionName };
 }
 
 export function stepExcelTotalsRowStats(stats: ExcelTotalsRowStats, value: PrimitiveCellValue) {
@@ -28,7 +34,7 @@ export function stepExcelTotalsRowStats(stats: ExcelTotalsRowStats, value: Primi
     return;
   }
 
-  stats.values.push(number);
+  stats.values?.push(number);
   stats.numericCount += 1;
   stats.sum += number;
   stats.min = stats.min === undefined ? number : Math.min(stats.min, number);
@@ -39,52 +45,34 @@ export function summarizeExcelTotalsRowValues(
   values: PrimitiveCellValue[],
   functionName: ExcelTableTotalsRowFunction,
 ): PrimitiveCellValue {
-  const stats = createExcelTotalsRowStats();
+  const stats = createExcelTotalsRowStats(functionName);
   values.forEach((value) => stepExcelTotalsRowStats(stats, value));
-  return finalizeExcelTotalsRowStats(stats, functionName);
+  return finalizeExcelTotalsRowStats(stats);
 }
 
-export function finalizeExcelTotalsRowStats(
-  stats: ExcelTotalsRowStats,
-  functionName: ExcelTableTotalsRowFunction,
-): PrimitiveCellValue {
-  if (functionName === "count") {
-    return stats.nonEmptyCount;
+export function finalizeExcelTotalsRowStats(stats: ExcelTotalsRowStats): PrimitiveCellValue {
+  switch (stats.functionName) {
+    case "count":
+      return stats.nonEmptyCount;
+    case "countNums":
+      return stats.numericCount;
+    case "sum":
+      return stats.sum;
+    case "average":
+      return stats.numericCount > 0 ? stats.sum / stats.numericCount : undefined;
+    case "min":
+      return stats.min;
+    case "max":
+      return stats.max;
+    case "stdDev":
+    case "var": {
+      if (stats.numericCount < 2) return undefined;
+      const mean = stats.sum / stats.numericCount;
+      const squaredDiffs = stats.values.reduce((sum, value) => sum + (value - mean) ** 2, 0);
+      const sampleVariance = squaredDiffs / (stats.numericCount - 1);
+      return stats.functionName === "stdDev" ? Math.sqrt(sampleVariance) : sampleVariance;
+    }
   }
-
-  if (functionName === "countNums") {
-    return stats.numericCount;
-  }
-
-  if (functionName === "sum") {
-    return stats.sum;
-  }
-
-  if (stats.numericCount === 0) {
-    return undefined;
-  }
-
-  if (functionName === "average") {
-    return stats.sum / stats.numericCount;
-  }
-
-  if (functionName === "min") {
-    return stats.min;
-  }
-
-  if (functionName === "max") {
-    return stats.max;
-  }
-
-  if (stats.numericCount < 2) {
-    return undefined;
-  }
-
-  const mean = stats.sum / stats.numericCount;
-  const squaredDiffs = stats.values.reduce((sum, value) => sum + (value - mean) ** 2, 0);
-  const sampleVariance = squaredDiffs / (stats.numericCount - 1);
-
-  return functionName === "stdDev" ? Math.sqrt(sampleVariance) : sampleVariance;
 }
 
 function toNumericCellValue(value: PrimitiveCellValue) {

@@ -710,6 +710,10 @@ export function updateColumnWidthStats<T extends object>(params: {
   widths: Map<string, number>;
 }) {
   params.columns.forEach((column, columnIndex) => {
+    if (typeof column.width === "number") {
+      params.widths.set(column.id, column.width);
+      return;
+    }
     const measured = Math.max(
       ...(params.expandedRow.valuesByColumn[columnIndex] ?? []).map((value) =>
         measurePrimitiveValue(getCellPrimitiveValue(value)),

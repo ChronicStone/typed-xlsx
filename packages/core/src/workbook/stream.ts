@@ -124,7 +124,7 @@ interface StreamTableState<
   defaults?: import("./types").TableStyleDefaults;
   committedLogicalRows: number;
   committedPhysicalRows: number;
-  logicalRowBounds: Array<{
+  logicalRowBounds?: Array<{
     logicalRowHeight: number;
     logicalRowIndex: number;
     logicalRowStartIndex: number;
@@ -303,6 +303,7 @@ class StreamTableBuilder<
         );
       }
     }
+    const summaryBindings = createSummaryBindings(columns);
     this.state = {
       tableId,
       title,
@@ -312,11 +313,13 @@ class StreamTableBuilder<
       selection,
       columns,
       stats: createPlannerStats(columns),
-      summaryBindings: createSummaryBindings(columns),
+      summaryBindings,
       defaults,
       committedLogicalRows: 0,
       committedPhysicalRows: 0,
-      logicalRowBounds: [],
+      logicalRowBounds: summaryBindings.some((binding) => binding.definition.formula)
+        ? []
+        : undefined,
       merges: [],
       hyperlinks: [],
       images: [],
@@ -324,7 +327,13 @@ class StreamTableBuilder<
       autoFilter: false,
       excelTable: resolvedExcelTable,
       totalsRowStatsByColumnId: new Map(
-        columns.map((column) => [column.id, createExcelTotalsRowStats()]),
+        resolvedExcelTable?.totalsRow
+          ? columns.flatMap((column) =>
+              column.totalsRow?.function
+                ? [[column.id, createExcelTotalsRowStats(column.totalsRow.function)] as const]
+                : [],
+            )
+          : [],
       ),
     };
 
@@ -359,7 +368,7 @@ class StreamTableBuilder<
         );
         const startRow = this.state.committedPhysicalRows;
         const endRow = startRow + expanded.height - 1;
-        this.state.logicalRowBounds.push({
+        this.state.logicalRowBounds?.push({
           logicalRowHeight: expanded.height,
           logicalRowIndex: this.state.committedLogicalRows,
           logicalRowStartIndex: startRow,
@@ -378,11 +387,12 @@ class StreamTableBuilder<
           expandedRow: expanded,
           widths: this.state.stats.columnWidths,
         });
-        updateExcelTotalsRowStats({
-          columns: this.state.columns,
-          expandedRow: expanded,
-          statsByColumnId: this.state.totalsRowStatsByColumnId,
-        });
+        if (this.state.totalsRowStatsByColumnId.size > 0)
+          updateExcelTotalsRowStats({
+            columns: this.state.columns,
+            expandedRow: expanded,
+            statsByColumnId: this.state.totalsRowStatsByColumnId,
+          });
 
         if (expanded.height > 1) {
           expanded.valuesByColumn.forEach((values, columnIndex) => {
@@ -499,7 +509,7 @@ class StreamTableBuilder<
       })),
       committedLogicalRows: this.state.committedLogicalRows,
       committedPhysicalRows: this.state.committedPhysicalRows,
-      logicalRowBounds: [...this.state.logicalRowBounds],
+      logicalRowBounds: this.state.logicalRowBounds ? [...this.state.logicalRowBounds] : [],
       merges: [...this.state.merges],
       summaries,
       hyperlinks: [...this.state.hyperlinks],
@@ -586,7 +596,7 @@ function finalizeExcelTotalsRowValuesByColumnId(
       return;
     }
 
-    values.set(column.id, finalizeExcelTotalsRowStats(stats, totalsRow.function));
+    values.set(column.id, finalizeExcelTotalsRowStats(stats));
   });
 
   return values;
