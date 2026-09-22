@@ -19,6 +19,59 @@ const onePixelPng = Uint8Array.from(
 );
 
 describe("stream builder", () => {
+  it("flushes bounded XML chunks before each commit returns", async () => {
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
+      .column("name", { accessor: "name" })
+      .build();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({
+      sink: new MemoryWorkbookSink(),
+      spoolFactory,
+      stringMode: "inline",
+    });
+    const table = await workbook.sheet("Rows").table("rows", { schema });
+    const rows = Array.from({ length: 2000 }, (_, index) => ({
+      name: `${index}: café & <review> "quoted" O'Brien 🚀`,
+    }));
+    await table.commit({ rows });
+    const spool = spoolFactory.spools.get("Rows:rows")!;
+    expect(spool.chunks.length).toBeGreaterThan(1);
+    expect(spool.chunks.length).toBeLessThan(20);
+    expect(Math.max(...spool.chunks.map((chunk) => chunk.length))).toBeLessThan(128 * 1024);
+    expect(spool.toString().match(/<row /g)).toHaveLength(2000);
+    expect(spool.toString()).toContain('r="A2001"');
+    expect(spool.toString()).toContain(
+      "café &amp; &lt;review&gt; &quot;quoted&quot; O&apos;Brien 🚀",
+    );
+    await table.commit({ rows: [{ name: "last" }] });
+    expect(spool.toString()).toContain('<c r="A2002" t="inlineStr"');
+    expect(spool.toString()).toContain("<t>last</t>");
+    await workbook.dispose();
+  });
+
+  it("preserves already processed rows when a later row fails", async () => {
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
+      .column("name", {
+        accessor: (row) => {
+          if (row.name === "invalid") throw new Error("Invalid row");
+          return row.name;
+        },
+      })
+      .build();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({
+      sink: new MemoryWorkbookSink(),
+      spoolFactory,
+      stringMode: "inline",
+    });
+    const table = await workbook.sheet("Rows").table("rows", { schema });
+    await expect(table.commit({ rows: [{ name: "first" }, { name: "invalid" }] })).rejects.toThrow(
+      "Invalid row",
+    );
+    expect(spoolFactory.spools.get("Rows:rows")!.toString()).toContain("<t>first</t>");
+    await workbook.dispose();
+  });
+
   it("commits batches, updates summaries, and writes a final manifest report to the sink", async () => {
     const schema = Internal.SchemaBuilder.create<{ amount: number; name: string }>()
       .column("name", {

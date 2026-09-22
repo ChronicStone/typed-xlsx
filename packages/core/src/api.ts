@@ -238,6 +238,8 @@ export interface WorkbookStream {
   toNodeReadable(): NodeJS.ReadableStream;
 }
 
+import { writeFileChunk } from "./workbook/internal/file-write";
+
 const nodeProtocol = "node:";
 
 function importNodeFs() {
@@ -267,14 +269,13 @@ class LazyFileSheetSpool implements StreamSheetSpool {
   constructor(private readonly filePath: string) {}
 
   private async handle() {
-    const fsp = await importNodeFsPromises();
-    this.handlePromise ??= fsp.open(this.filePath, "a+");
+    this.handlePromise ??= importNodeFsPromises().then((fsp) => fsp.open(this.filePath, "a+"));
     return await this.handlePromise;
   }
 
   async append(chunk: Uint8Array) {
     const handle = await this.handle();
-    await handle.write(chunk, 0, chunk.length, null);
+    await writeFileChunk(handle, chunk);
   }
 
   async *read(): AsyncIterable<Uint8Array> {
@@ -338,7 +339,7 @@ class LazyFileWorkbookSink implements StreamWorkbookSink {
 
   async write(chunk: Uint8Array) {
     const handle = await this.handle();
-    await handle.write(chunk, 0, chunk.length, null);
+    await writeFileChunk(handle, chunk);
   }
 
   async close() {
