@@ -1,9 +1,4 @@
-import {
-  createPlannerStats,
-  createSummaryBindings,
-  resolveColumnCellStyle,
-  resolveColumns,
-} from "../planner/rows";
+import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
 import { buildWorksheetConditionalFormatting } from "../styles/conditional-runtime";
 import { buildWorksheetDataValidations } from "../validation/runtime";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
@@ -61,12 +56,11 @@ import {
   writeWorksheetViews,
 } from "../ooxml/worksheet-parts";
 import { StylesCollector } from "../styles/collector";
+import { TableBodyStyles } from "../styles/body";
 import {
-  withTableDefaultBodyStyle,
   withTableDefaultGroupHeaderFillerStyle,
   withTableDefaultGroupHeaderStyle,
   withTableDefaultHeaderStyle,
-  withTableDefaultHyperlinkBodyStyle,
   withTableDefaultTitleStyle,
   withTableDefaultSummaryStyle,
   resolveTableStyleDefaultsWithTheme,
@@ -130,7 +124,7 @@ interface StreamTableState<
   defaults?: import("./types").TableStyleDefaults;
   committedLogicalRows: number;
   committedPhysicalRows: number;
-  logicalRowBounds: Array<{
+  logicalRowBounds?: Array<{
     logicalRowHeight: number;
     logicalRowIndex: number;
     logicalRowStartIndex: number;
@@ -235,6 +229,7 @@ function registerConditionalFormattingDifferentialStyles(
 }
 
 const encoder = new TextEncoder();
+const ROW_CHUNK_CHARACTERS = 64 * 1024;
 
 function encodeRowChunk(value: string) {
   return encoder.encode(value);
@@ -253,6 +248,7 @@ class StreamTableBuilder<
   TSchemaContext extends SchemaContext,
 > {
   private readonly state: StreamTableState<T, TColumnId, TSchemaContext>;
+  private readonly bodyStyles: TableBodyStyles;
 
   constructor(
     tableId: string,
@@ -282,6 +278,7 @@ class StreamTableBuilder<
       tableTheme: options?.theme,
       defaults: options?.defaults,
     });
+    this.bodyStyles = new TableBodyStyles(styles, defaults);
     const resolvedExcelTable =
       (schema as SchemaDefinition<T, any, any, any, any, any>).kind === "excel-table"
         ? resolveExcelTableOptions({
@@ -306,6 +303,7 @@ class StreamTableBuilder<
         );
       }
     }
+    const summaryBindings = createSummaryBindings(columns);
     this.state = {
       tableId,
       title,
@@ -315,11 +313,13 @@ class StreamTableBuilder<
       selection,
       columns,
       stats: createPlannerStats(columns),
-      summaryBindings: createSummaryBindings(columns),
+      summaryBindings,
       defaults,
       committedLogicalRows: 0,
       committedPhysicalRows: 0,
-      logicalRowBounds: [],
+      logicalRowBounds: summaryBindings.some((binding) => binding.definition.formula)
+        ? []
+        : undefined,
       merges: [],
       hyperlinks: [],
       images: [],
@@ -327,7 +327,13 @@ class StreamTableBuilder<
       autoFilter: false,
       excelTable: resolvedExcelTable,
       totalsRowStatsByColumnId: new Map(
-        columns.map((column) => [column.id, createExcelTotalsRowStats()]),
+        resolvedExcelTable?.totalsRow
+          ? columns.flatMap((column) =>
+              column.totalsRow?.function
+                ? [[column.id, createExcelTotalsRowStats(column.totalsRow.function)] as const]
+                : [],
+            )
+          : [],
       ),
     };
 
@@ -341,107 +347,124 @@ class StreamTableBuilder<
   }
 
   async commit(batch: StreamTableCommit<T>) {
-    for (const row of batch.rows) {
-      const expanded = expandCommittedRow(
-        this.state.columns,
-        row,
-        this.state.committedLogicalRows,
-        this.state.committedPhysicalRows,
-        this.state.schema.kind,
-        this.state.excelTable?.name,
-        this.state.context,
-      );
-      const startRow = this.state.committedPhysicalRows;
-      const endRow = startRow + expanded.height - 1;
-      this.state.logicalRowBounds.push({
-        logicalRowHeight: expanded.height,
-        logicalRowIndex: this.state.committedLogicalRows,
-        logicalRowStartIndex: startRow,
-      });
+    let pendingXml = "";
+    const flush = async () => {
+      if (!pendingXml) return;
+      const chunk = encodeRowChunk(pendingXml);
+      pendingXml = "";
+      await this.state.spool.append(chunk);
+    };
 
-      for (const binding of this.state.summaryBindings) {
-        binding.runtime.accumulator = binding.definition.step(
-          binding.runtime.accumulator,
+    try {
+      for (const row of batch.rows) {
+        const expanded = expandCommittedRow(
+          this.state.columns,
           row,
           this.state.committedLogicalRows,
+          this.state.committedPhysicalRows,
+          this.state.schema.kind,
+          this.state.excelTable?.name,
+          this.state.context,
         );
-      }
-
-      updateColumnWidthStats({
-        columns: this.state.columns,
-        expandedRow: expanded,
-        widths: this.state.stats.columnWidths,
-      });
-      updateExcelTotalsRowStats({
-        columns: this.state.columns,
-        expandedRow: expanded,
-        statsByColumnId: this.state.totalsRowStatsByColumnId,
-      });
-
-      if (expanded.height > 1) {
-        expanded.valuesByColumn.forEach((values, columnIndex) => {
-          if (values.length !== 1) return;
-          this.state.merges.push({
-            startRow,
-            endRow,
-            startCol: columnIndex,
-            endCol: columnIndex,
-          });
+        const startRow = this.state.committedPhysicalRows;
+        const endRow = startRow + expanded.height - 1;
+        this.state.logicalRowBounds?.push({
+          logicalRowHeight: expanded.height,
+          logicalRowIndex: this.state.committedLogicalRows,
+          logicalRowStartIndex: startRow,
         });
 
-        if (this.state.autoFilter) {
-          this.state.autoFilter = resolveAutoFilter({
-            autoFilter: true,
-            merges: this.state.merges,
-            tableId: this.state.tableId,
-            mode: "stream",
+        for (const binding of this.state.summaryBindings) {
+          binding.runtime.accumulator = binding.definition.step(
+            binding.runtime.accumulator,
+            row,
+            this.state.committedLogicalRows,
+          );
+        }
+
+        updateColumnWidthStats({
+          columns: this.state.columns,
+          expandedRow: expanded,
+          widths: this.state.stats.columnWidths,
+        });
+        if (this.state.totalsRowStatsByColumnId.size > 0)
+          updateExcelTotalsRowStats({
+            columns: this.state.columns,
+            expandedRow: expanded,
+            statsByColumnId: this.state.totalsRowStatsByColumnId,
           });
+
+        if (expanded.height > 1) {
+          expanded.valuesByColumn.forEach((values, columnIndex) => {
+            if (values.length !== 1) return;
+            this.state.merges.push({
+              startRow,
+              endRow,
+              startCol: columnIndex,
+              endCol: columnIndex,
+            });
+          });
+
+          if (this.state.autoFilter) {
+            this.state.autoFilter = resolveAutoFilter({
+              autoFilter: true,
+              merges: this.state.merges,
+              tableId: this.state.tableId,
+              mode: "stream",
+            });
+          }
+        }
+
+        const fragment = appendExpandedRowXml({
+          columns: this.state.columns,
+          expandedRow: expanded,
+          startingRowIndex: 1 + this.state.committedPhysicalRows,
+          sharedStrings: this.sharedStrings,
+          stringMode: this.stringMode,
+          styleIndexesByRow: expanded.stylesByRow.map((rowStyles, subRowIndex) =>
+            rowStyles.map((style, columnIndex) =>
+              this.bodyStyles.resolve(columnIndex, {
+                style,
+                hyperlink: expanded.hyperlinksByColumn[columnIndex]?.[subRowIndex],
+              }),
+            ),
+          ),
+          rowHeight: this.state.defaults?.rowHeight,
+        });
+
+        pendingXml += fragment;
+        expanded.hyperlinksByColumn.forEach((links, columnIndex) => {
+          links.forEach((hyperlink, subRowIndex) => {
+            if (!hyperlink) return;
+            this.state.hyperlinks.push({
+              ref: toCellRef(1 + this.state.committedPhysicalRows + subRowIndex, columnIndex),
+              target: hyperlink.target,
+              tooltip: hyperlink.tooltip,
+            });
+          });
+        });
+        expanded.imagesByColumn?.forEach((images, columnIndex) => {
+          images.forEach((image, subRowIndex) => {
+            if (!image) return;
+            this.state.images.push({
+              row: 1 + this.state.committedPhysicalRows + subRowIndex,
+              column: columnIndex,
+              data: image.data,
+              mediaType: image.mediaType,
+              alt: image.alt,
+              size: image.size,
+              padding: image.padding,
+            });
+          });
+        });
+        this.state.committedLogicalRows += 1;
+        this.state.committedPhysicalRows += expanded.height;
+        if (pendingXml.length >= ROW_CHUNK_CHARACTERS) {
+          await flush();
         }
       }
-
-      const fragment = appendExpandedRowXml({
-        columns: this.state.columns,
-        expandedRow: expanded,
-        startingRowIndex: 1 + this.state.committedPhysicalRows,
-        sharedStrings: this.sharedStrings,
-        stringMode: this.stringMode,
-        styleIndexesByRow: buildStyleIndexesByRow(
-          this.state.columns,
-          expanded,
-          this.styles,
-          this.state.defaults,
-          this.state.context,
-        ),
-        rowHeight: this.state.defaults?.rowHeight,
-      });
-
-      await this.state.spool.append(encodeRowChunk(fragment));
-      expanded.hyperlinksByColumn.forEach((links, columnIndex) => {
-        links.forEach((hyperlink, subRowIndex) => {
-          if (!hyperlink) return;
-          this.state.hyperlinks.push({
-            ref: toCellRef(1 + this.state.committedPhysicalRows + subRowIndex, columnIndex),
-            target: hyperlink.target,
-            tooltip: hyperlink.tooltip,
-          });
-        });
-      });
-      expanded.imagesByColumn?.forEach((images, columnIndex) => {
-        images.forEach((image, subRowIndex) => {
-          if (!image) return;
-          this.state.images.push({
-            row: 1 + this.state.committedPhysicalRows + subRowIndex,
-            column: columnIndex,
-            data: image.data,
-            mediaType: image.mediaType,
-            alt: image.alt,
-            size: image.size,
-            padding: image.padding,
-          });
-        });
-      });
-      this.state.committedLogicalRows += 1;
-      this.state.committedPhysicalRows += expanded.height;
+    } finally {
+      await flush();
     }
   }
 
@@ -486,7 +509,7 @@ class StreamTableBuilder<
       })),
       committedLogicalRows: this.state.committedLogicalRows,
       committedPhysicalRows: this.state.committedPhysicalRows,
-      logicalRowBounds: [...this.state.logicalRowBounds],
+      logicalRowBounds: this.state.logicalRowBounds ? [...this.state.logicalRowBounds] : [],
       merges: [...this.state.merges],
       summaries,
       hyperlinks: [...this.state.hyperlinks],
@@ -573,7 +596,7 @@ function finalizeExcelTotalsRowValuesByColumnId(
       return;
     }
 
-    values.set(column.id, finalizeExcelTotalsRowStats(stats, totalsRow.function));
+    values.set(column.id, finalizeExcelTotalsRowStats(stats));
   });
 
   return values;
@@ -1720,59 +1743,6 @@ function getWorksheetCellRef(cellXml: string) {
   }
 
   return `${refMatch[1] ?? ""}${refMatch[2] ?? ""}` || undefined;
-}
-
-function buildStyleIndexesByRow<T extends object>(
-  columns: ReturnType<typeof resolveColumns<T>>,
-  expandedRow: ReturnType<typeof expandCommittedRow<T>>,
-  styles: StylesCollector,
-  defaults?: import("./types").TableStyleDefaults,
-  context?: SchemaContext,
-) {
-  return Array.from({ length: expandedRow.height }, (_, subRowIndex) =>
-    columns.map((column, columnIndex) =>
-      styles.addStyle(
-        expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]
-          ? withTableDefaultHyperlinkBodyStyle(
-              defaults,
-              resolveColumnStyle(
-                column,
-                expandedRow.row,
-                expandedRow.sourceRowIndex,
-                subRowIndex,
-                context,
-              ),
-              expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]?.style,
-            )
-          : withTableDefaultBodyStyle(
-              defaults,
-              resolveColumnStyle(
-                column,
-                expandedRow.row,
-                expandedRow.sourceRowIndex,
-                subRowIndex,
-                context,
-              ),
-            ),
-      ),
-    ),
-  );
-}
-
-function resolveColumnStyle<T extends object>(
-  column: ReturnType<typeof resolveColumns<T>>[number],
-  row: T,
-  rowIndex: number,
-  subRowIndex: number,
-  ctx?: SchemaContext,
-): CellStyle | undefined {
-  return resolveColumnCellStyle({
-    column,
-    ctx,
-    row,
-    rowIndex,
-    subRowIndex,
-  });
 }
 
 function toWorksheetCol(column: number) {

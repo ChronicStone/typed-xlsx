@@ -3,6 +3,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { StreamSheetSpool, StreamSpoolFactory } from "../types";
+import { writeFileChunk } from "./file-write";
 
 function sanitizeName(value: string) {
   return value.replaceAll(/[^a-zA-Z0-9._-]/g, "_");
@@ -18,7 +19,7 @@ export class FileSheetSpool implements StreamSheetSpool {
 
   async append(chunk: Uint8Array) {
     const handle = await this.handlePromise;
-    await handle.write(chunk, 0, chunk.length, null);
+    await writeFileChunk(handle, chunk);
   }
 
   async *read(): AsyncIterable<Uint8Array> {

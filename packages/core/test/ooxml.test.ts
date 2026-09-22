@@ -21,6 +21,27 @@ const onePixelPng = Uint8Array.from(
 );
 
 describe("ooxml", () => {
+  it.each([
+    [null, '<c r="AA3" s="7"/>'],
+    [undefined, '<c r="AA3" s="7"/>'],
+    [42.5, '<c r="AA3" s="7"><v>42.5</v></c>'],
+    [true, '<c r="AA3" s="7" t="b"><v>1</v></c>'],
+    [false, '<c r="AA3" s="7" t="b"><v>0</v></c>'],
+    [new Date(Date.UTC(2025, 0, 1, 12)), '<c r="AA3" s="7"><v>45658.5</v></c>'],
+    ["text", '<c r="AA3" s="7" t="s"><v>0</v></c>'],
+  ] as const)("preserves primitive cell XML for %s", (value, expected) => {
+    expect(serializeCell(2, 26, value, createSharedStringsCollector(), 7)).toBe(expected);
+  });
+
+  it("omits the default style and preserves Unicode and pre-escaped text", () => {
+    expect(serializeCell(0, 0, 0, createSharedStringsCollector(), 0)).toBe(
+      '<c r="A1"><v>0</v></c>',
+    );
+    expect(serializeInlineStringCell(0, 16383, "café 🚀 &amp; <> \"'\n", 0)).toBe(
+      '<c r="XFD1" t="inlineStr"><is><t>café 🚀 &amp;amp; &lt;&gt; &quot;&apos;\n</t></is></c>',
+    );
+  });
+
   it("serializes a buffered workbook plan into workbook and worksheet xml parts", () => {
     const schema = Internal.SchemaBuilder.create<{ name: string; amount: number }>()
       .column("name", {

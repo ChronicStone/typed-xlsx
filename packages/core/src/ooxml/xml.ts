@@ -1,4 +1,5 @@
 function escapeText(value: string) {
+  if (!/[&<>"']/.test(value)) return value;
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")

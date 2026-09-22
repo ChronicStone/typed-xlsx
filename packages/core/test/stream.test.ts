@@ -19,6 +19,116 @@ const onePixelPng = Uint8Array.from(
 );
 
 describe("stream builder", () => {
+  it.each([
+    ["sum", 12],
+    ["average", 4],
+    ["count", 3],
+    ["countNums", 3],
+    ["min", 2],
+    ["max", 6],
+    ["stdDev", 2],
+    ["var", 4],
+  ] as const)(
+    "preserves the cached %s totals value across batches",
+    async (functionName, expected) => {
+      const schema = Internal.ExcelTableSchemaBuilder.create<{ amount: number | null }>()
+        .column("amount", { accessor: "amount", totalsRow: { function: functionName } })
+        .build();
+      const sink = new MemoryWorkbookSink();
+      const workbook = Internal.StreamWorkbookBuilder.create({
+        sink,
+        spoolFactory: new MemorySpoolFactory(),
+      });
+      const table = await workbook.sheet("Totals").table("totals", { schema, totalsRow: true });
+      await table.commit({ rows: [{ amount: 2 }, { amount: 4 }] });
+      await table.commit({ rows: [{ amount: null }, { amount: 6 }] });
+      await workbook.finish();
+      expect(unzipWorkbookEntries(sink.toUint8Array()).get("xl/worksheets/sheet1.xml")).toContain(
+        `,[Amount])</f><v>${expected}</v>`,
+      );
+    },
+  );
+
+  it("uses one style resolution per physical cell for both height and output", async () => {
+    const style = vi.fn(({ subRowIndex }: { subRowIndex: number }) => ({
+      font: { size: subRowIndex === 0 ? 30 : 40 },
+    }));
+    const schema = Internal.SchemaBuilder.create<{ name: string[] }>()
+      .column("name", { accessor: "name", style })
+      .build();
+    const sink = new MemoryWorkbookSink();
+    const workbook = Internal.StreamWorkbookBuilder.create({
+      sink,
+      spoolFactory: new MemorySpoolFactory(),
+    });
+    const table = await workbook.sheet("Rows").table("rows", { schema });
+    await table.commit({ rows: [{ name: ["first", "second"] }] });
+    await workbook.finish();
+    const entries = unzipWorkbookEntries(sink.toUint8Array());
+    expect(style).toHaveBeenCalledTimes(2);
+    expect(entries.get("xl/worksheets/sheet1.xml")).toContain(
+      '<row r="2" ht="42" customHeight="1">',
+    );
+    expect(entries.get("xl/worksheets/sheet1.xml")).toContain(
+      '<row r="3" ht="56" customHeight="1">',
+    );
+    expect(entries.get("xl/styles.xml")).toContain('<sz val="30"/>');
+    expect(entries.get("xl/styles.xml")).toContain('<sz val="40"/>');
+  });
+
+  it("flushes bounded XML chunks before each commit returns", async () => {
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
+      .column("name", { accessor: "name" })
+      .build();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({
+      sink: new MemoryWorkbookSink(),
+      spoolFactory,
+      stringMode: "inline",
+    });
+    const table = await workbook.sheet("Rows").table("rows", { schema });
+    const rows = Array.from({ length: 2000 }, (_, index) => ({
+      name: `${index}: café & <review> "quoted" O'Brien 🚀`,
+    }));
+    await table.commit({ rows });
+    const spool = spoolFactory.spools.get("Rows:rows")!;
+    expect(spool.chunks.length).toBeGreaterThan(1);
+    expect(spool.chunks.length).toBeLessThan(20);
+    expect(Math.max(...spool.chunks.map((chunk) => chunk.length))).toBeLessThan(128 * 1024);
+    expect(spool.toString().match(/<row /g)).toHaveLength(2000);
+    expect(spool.toString()).toContain('r="A2001"');
+    expect(spool.toString()).toContain(
+      "café &amp; &lt;review&gt; &quot;quoted&quot; O&apos;Brien 🚀",
+    );
+    await table.commit({ rows: [{ name: "last" }] });
+    expect(spool.toString()).toContain('<c r="A2002" t="inlineStr"');
+    expect(spool.toString()).toContain("<t>last</t>");
+    await workbook.dispose();
+  });
+
+  it("preserves already processed rows when a later row fails", async () => {
+    const schema = Internal.SchemaBuilder.create<{ name: string }>()
+      .column("name", {
+        accessor: (row) => {
+          if (row.name === "invalid") throw new Error("Invalid row");
+          return row.name;
+        },
+      })
+      .build();
+    const spoolFactory = new MemorySpoolFactory();
+    const workbook = Internal.StreamWorkbookBuilder.create({
+      sink: new MemoryWorkbookSink(),
+      spoolFactory,
+      stringMode: "inline",
+    });
+    const table = await workbook.sheet("Rows").table("rows", { schema });
+    await expect(table.commit({ rows: [{ name: "first" }, { name: "invalid" }] })).rejects.toThrow(
+      "Invalid row",
+    );
+    expect(spoolFactory.spools.get("Rows:rows")!.toString()).toContain("<t>first</t>");
+    await workbook.dispose();
+  });
+
   it("commits batches, updates summaries, and writes a final manifest report to the sink", async () => {
     const schema = Internal.SchemaBuilder.create<{ amount: number; name: string }>()
       .column("name", {
@@ -820,6 +930,7 @@ describe("stream builder", () => {
         hyperlinksByColumn: [[undefined]],
         height: 1,
         physicalRowHeights: [Internal.getDefaultRowHeight()],
+        stylesByRow: [[undefined]],
       },
       startingRowIndex: 1,
       sharedStrings: {

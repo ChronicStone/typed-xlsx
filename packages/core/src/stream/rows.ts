@@ -46,6 +46,7 @@ interface ExpandedRow<T extends object> {
   imageUrlsByColumn?: Array<Array<PlannedImageUrl | undefined>>;
   height: number;
   physicalRowHeights: number[];
+  stylesByRow: Array<Array<CellStyle | undefined>>;
 }
 
 type RowSeriesMode = "scalar" | "expanded";
@@ -572,12 +573,12 @@ export function expandCommittedRow<T extends object>(
       subRowIndex === 0 ? resolvedCellsByColumn[columnIndex]!.imageUrl : undefined,
     ),
   );
+  const stylesByRow = Array.from({ length: height }, (_, subRowIndex) =>
+    columns.map((column) => resolveColumnStyle(column, row, sourceRowIndex, subRowIndex, ctx)),
+  );
   const physicalRowHeights = Array.from({ length: height }, (_, subRowIndex) => {
     const rowValues = valuesByColumn.map((values) =>
       getCellPrimitiveValue(values[subRowIndex] ?? null),
-    );
-    const rowStyles = columns.map((column) =>
-      resolveColumnStyle(column, row, sourceRowIndex, subRowIndex, ctx),
     );
     const imageHeight = Math.max(
       ...imagesByColumn.map((images) =>
@@ -588,7 +589,7 @@ export function expandCommittedRow<T extends object>(
       ),
       0,
     );
-    return Math.max(estimateRowHeight(rowValues, rowStyles), imageHeight);
+    return Math.max(estimateRowHeight(rowValues, stylesByRow[subRowIndex]!), imageHeight);
   });
 
   return {
@@ -600,6 +601,7 @@ export function expandCommittedRow<T extends object>(
     imageUrlsByColumn,
     height,
     physicalRowHeights,
+    stylesByRow,
   } satisfies ExpandedRow<T>;
 }
 
@@ -708,6 +710,10 @@ export function updateColumnWidthStats<T extends object>(params: {
   widths: Map<string, number>;
 }) {
   params.columns.forEach((column, columnIndex) => {
+    if (typeof column.width === "number") {
+      params.widths.set(column.id, column.width);
+      return;
+    }
     const measured = Math.max(
       ...(params.expandedRow.valuesByColumn[columnIndex] ?? []).map((value) =>
         measurePrimitiveValue(getCellPrimitiveValue(value)),
