@@ -1,5 +1,11 @@
 # typed-xlsx
 
+## 4.2.1
+
+### Patch Changes
+
+- [#56](https://github.com/ChronicStone/typed-xlsx/pull/56) [`1414c54`](https://github.com/ChronicStone/typed-xlsx/commit/1414c54a0099ef5eef10d8c46fa88ce708060e2f) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Speed up chunked exports with bounded spool batching, reusable cell styles, leaner totals statistics and specialized primitive-cell XML serialization. Complete partial file writes safely while preserving workbook output and the existing streaming API.
+
 ## 4.2.0
 
 ### Minor Changes
