@@ -1,4 +1,4 @@
-import { xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
+import { xmlElement, xmlEscape } from "./xml";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "./shared-strings";
 import { isFormulaCell, type CellData } from "../cell-data";
@@ -28,45 +28,39 @@ export function serializeCell(
   _hyperlink?: import("../planner/rows").PlannedHyperlink,
 ) {
   const ref = toCellRef(row, column);
-  const attributes = {
-    r: ref,
-    s: styleIndex && styleIndex > 0 ? styleIndex : undefined,
-  };
+  const style = styleIndex && styleIndex > 0 ? ` s="${styleIndex}"` : "";
+  const opening = `<c r="${ref}"${style}`;
 
   if (value === null || value === undefined) {
-    return xmlSelfClosing("c", attributes);
+    return `${opening}/>`;
   }
 
   if (isFormulaCell(value)) {
-    return serializeFormulaCell(attributes, value.formula, value.value);
+    return serializeFormulaCell(
+      { r: ref, s: styleIndex && styleIndex > 0 ? styleIndex : undefined },
+      value.formula,
+      value.value,
+    );
   }
 
   if (typeof value === "string") {
     const index = sharedStrings.add(value);
-    return xmlElement("c", { ...attributes, t: "s" }, xmlElement("v", undefined, String(index)));
+    return `${opening} t="s"><v>${index}</v></c>`;
   }
 
   if (typeof value === "number") {
-    return xmlElement("c", attributes, xmlElement("v", undefined, String(value)));
+    return `${opening}><v>${value}</v></c>`;
   }
 
   if (typeof value === "boolean") {
-    return xmlElement(
-      "c",
-      { ...attributes, t: "b" },
-      xmlElement("v", undefined, value ? "1" : "0"),
-    );
+    return `${opening} t="b"><v>${value ? "1" : "0"}</v></c>`;
   }
 
   if (value instanceof Date) {
-    return xmlElement(
-      "c",
-      attributes,
-      xmlElement("v", undefined, String(toExcelSerialDate(value))),
-    );
+    return `${opening}><v>${toExcelSerialDate(value)}</v></c>`;
   }
 
-  return xmlSelfClosing("c", attributes);
+  return `${opening}/>`;
 }
 
 function serializeFormulaCell(
@@ -111,13 +105,6 @@ export function serializeInlineStringCell(
 ) {
   const ref = toCellRef(row, column);
 
-  return xmlElement(
-    "c",
-    {
-      r: ref,
-      t: "inlineStr",
-      s: styleIndex && styleIndex > 0 ? styleIndex : undefined,
-    },
-    xmlElement("is", undefined, xmlElement("t", undefined, xmlEscape(value))),
-  );
+  const style = styleIndex && styleIndex > 0 ? ` s="${styleIndex}"` : "";
+  return `<c r="${ref}" t="inlineStr"${style}><is><t>${xmlEscape(value)}</t></is></c>`;
 }
