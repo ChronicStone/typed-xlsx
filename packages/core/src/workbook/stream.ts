@@ -1,9 +1,4 @@
-import {
-  createPlannerStats,
-  createSummaryBindings,
-  resolveColumnCellStyle,
-  resolveColumns,
-} from "../planner/rows";
+import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
 import { buildWorksheetConditionalFormatting } from "../styles/conditional-runtime";
 import { buildWorksheetDataValidations } from "../validation/runtime";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
@@ -61,12 +56,11 @@ import {
   writeWorksheetViews,
 } from "../ooxml/worksheet-parts";
 import { StylesCollector } from "../styles/collector";
+import { TableBodyStyles } from "../styles/body";
 import {
-  withTableDefaultBodyStyle,
   withTableDefaultGroupHeaderFillerStyle,
   withTableDefaultGroupHeaderStyle,
   withTableDefaultHeaderStyle,
-  withTableDefaultHyperlinkBodyStyle,
   withTableDefaultTitleStyle,
   withTableDefaultSummaryStyle,
   resolveTableStyleDefaultsWithTheme,
@@ -254,6 +248,7 @@ class StreamTableBuilder<
   TSchemaContext extends SchemaContext,
 > {
   private readonly state: StreamTableState<T, TColumnId, TSchemaContext>;
+  private readonly bodyStyles: TableBodyStyles;
 
   constructor(
     tableId: string,
@@ -283,6 +278,7 @@ class StreamTableBuilder<
       tableTheme: options?.theme,
       defaults: options?.defaults,
     });
+    this.bodyStyles = new TableBodyStyles(styles, defaults);
     const resolvedExcelTable =
       (schema as SchemaDefinition<T, any, any, any, any, any>).kind === "excel-table"
         ? resolveExcelTableOptions({
@@ -415,12 +411,13 @@ class StreamTableBuilder<
           startingRowIndex: 1 + this.state.committedPhysicalRows,
           sharedStrings: this.sharedStrings,
           stringMode: this.stringMode,
-          styleIndexesByRow: buildStyleIndexesByRow(
-            this.state.columns,
-            expanded,
-            this.styles,
-            this.state.defaults,
-            this.state.context,
+          styleIndexesByRow: expanded.stylesByRow.map((rowStyles, subRowIndex) =>
+            rowStyles.map((style, columnIndex) =>
+              this.bodyStyles.resolve(columnIndex, {
+                style,
+                hyperlink: expanded.hyperlinksByColumn[columnIndex]?.[subRowIndex],
+              }),
+            ),
           ),
           rowHeight: this.state.defaults?.rowHeight,
         });
@@ -1736,59 +1733,6 @@ function getWorksheetCellRef(cellXml: string) {
   }
 
   return `${refMatch[1] ?? ""}${refMatch[2] ?? ""}` || undefined;
-}
-
-function buildStyleIndexesByRow<T extends object>(
-  columns: ReturnType<typeof resolveColumns<T>>,
-  expandedRow: ReturnType<typeof expandCommittedRow<T>>,
-  styles: StylesCollector,
-  defaults?: import("./types").TableStyleDefaults,
-  context?: SchemaContext,
-) {
-  return Array.from({ length: expandedRow.height }, (_, subRowIndex) =>
-    columns.map((column, columnIndex) =>
-      styles.addStyle(
-        expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]
-          ? withTableDefaultHyperlinkBodyStyle(
-              defaults,
-              resolveColumnStyle(
-                column,
-                expandedRow.row,
-                expandedRow.sourceRowIndex,
-                subRowIndex,
-                context,
-              ),
-              expandedRow.hyperlinksByColumn[columnIndex]?.[subRowIndex]?.style,
-            )
-          : withTableDefaultBodyStyle(
-              defaults,
-              resolveColumnStyle(
-                column,
-                expandedRow.row,
-                expandedRow.sourceRowIndex,
-                subRowIndex,
-                context,
-              ),
-            ),
-      ),
-    ),
-  );
-}
-
-function resolveColumnStyle<T extends object>(
-  column: ReturnType<typeof resolveColumns<T>>[number],
-  row: T,
-  rowIndex: number,
-  subRowIndex: number,
-  ctx?: SchemaContext,
-): CellStyle | undefined {
-  return resolveColumnCellStyle({
-    column,
-    ctx,
-    row,
-    rowIndex,
-    subRowIndex,
-  });
 }
 
 function toWorksheetCol(column: number) {

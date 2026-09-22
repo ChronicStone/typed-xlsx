@@ -19,6 +19,33 @@ const onePixelPng = Uint8Array.from(
 );
 
 describe("stream builder", () => {
+  it("uses one style resolution per physical cell for both height and output", async () => {
+    const style = vi.fn(({ subRowIndex }: { subRowIndex: number }) => ({
+      font: { size: subRowIndex === 0 ? 30 : 40 },
+    }));
+    const schema = Internal.SchemaBuilder.create<{ name: string[] }>()
+      .column("name", { accessor: "name", style })
+      .build();
+    const sink = new MemoryWorkbookSink();
+    const workbook = Internal.StreamWorkbookBuilder.create({
+      sink,
+      spoolFactory: new MemorySpoolFactory(),
+    });
+    const table = await workbook.sheet("Rows").table("rows", { schema });
+    await table.commit({ rows: [{ name: ["first", "second"] }] });
+    await workbook.finish();
+    const entries = unzipWorkbookEntries(sink.toUint8Array());
+    expect(style).toHaveBeenCalledTimes(2);
+    expect(entries.get("xl/worksheets/sheet1.xml")).toContain(
+      '<row r="2" ht="42" customHeight="1">',
+    );
+    expect(entries.get("xl/worksheets/sheet1.xml")).toContain(
+      '<row r="3" ht="56" customHeight="1">',
+    );
+    expect(entries.get("xl/styles.xml")).toContain('<sz val="30"/>');
+    expect(entries.get("xl/styles.xml")).toContain('<sz val="40"/>');
+  });
+
   it("flushes bounded XML chunks before each commit returns", async () => {
     const schema = Internal.SchemaBuilder.create<{ name: string }>()
       .column("name", { accessor: "name" })
@@ -873,6 +900,7 @@ describe("stream builder", () => {
         hyperlinksByColumn: [[undefined]],
         height: 1,
         physicalRowHeights: [Internal.getDefaultRowHeight()],
+        stylesByRow: [[undefined]],
       },
       startingRowIndex: 1,
       sharedStrings: {
