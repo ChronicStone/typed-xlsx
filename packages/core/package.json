@@ -43,19 +43,18 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vp test run",
     "report:kitchen-sink": "bun run ./scripts/generate-kitchen-sink-report.ts",
     "build": "vp pack",
     "prepack": "vp pack",
     "pack:check": "npm pack --dry-run",
-    "check": "tsc --noEmit && vitest run && vp pack && npm pack --dry-run"
+    "check": "tsc --noEmit && vp test run && vp pack && npm pack --dry-run"
   },
   "dependencies": {},
   "devDependencies": {
     "@faker-js/faker": "10.4.0",
     "@types/node": "25.5.0",
     "@xmldom/xmldom": "0.9.9",
-    "fflate": "0.8.2",
-    "vitest": "4.1.2"
+    "fflate": "0.8.2"
   }
 }
