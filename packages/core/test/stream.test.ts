@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import * as Internal from "../src/index-internal";
 import { appendExpandedRowXml } from "../src/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
