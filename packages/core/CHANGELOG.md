@@ -1,5 +1,11 @@
 # typed-xlsx
 
+## 4.2.2
+
+### Patch Changes
+
+- [#59](https://github.com/ChronicStone/typed-xlsx/pull/59) [`c774f72`](https://github.com/ChronicStone/typed-xlsx/commit/c774f72619dd5440521756c06a4af89f7fc80e36) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Anchor conditional formats and data validations on the table's real position. Tables below a title, stacked under another table, or placed side by side now get ranges that cover their data rows and formulas that reference their own cells, in both buffered and streamed workbooks.
+
 ## 4.2.1
 
 ### Patch Changes
