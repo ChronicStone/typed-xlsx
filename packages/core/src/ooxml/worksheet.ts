@@ -1,3 +1,4 @@
+import { resolveRelativeRefs } from "./relative-refs";
 import {
   serializeExcelTotalsRowFormula,
   type BufferedSheetPlan,
@@ -585,10 +586,17 @@ function buildPositionedConditionalFormatting(
     return [];
   }
 
-  return blocks.map((block) => ({
-    ...block,
-    ref: shiftWorksheetRange(block.ref, rowOffset, columnOffset),
-  }));
+  return blocks.map((block) => {
+    const ref = shiftWorksheetRange(block.ref, rowOffset, columnOffset);
+    return {
+      ...block,
+      ref,
+      rules: block.rules.map((rule) => ({
+        ...rule,
+        formula: resolveRelativeRefs(rule.formula, ref, columnOffset),
+      })),
+    };
+  });
 }
 
 function buildPositionedDataValidations(
@@ -600,10 +608,15 @@ function buildPositionedDataValidations(
     return [];
   }
 
-  return blocks.map((block) => ({
-    ...block,
-    ref: shiftWorksheetRange(block.ref, rowOffset, columnOffset),
-  }));
+  return blocks.map((block) => {
+    const ref = shiftWorksheetRange(block.ref, rowOffset, columnOffset);
+    return {
+      ...block,
+      ref,
+      formula1: resolveRelativeRefs(block.formula1, ref, columnOffset),
+      formula2: resolveRelativeRefs(block.formula2, ref, columnOffset),
+    };
+  });
 }
 
 function materializeSummaryConditionalFormatting(

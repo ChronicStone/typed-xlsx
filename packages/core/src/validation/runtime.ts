@@ -1,6 +1,7 @@
 import type { FormulaExpr } from "../formula/expr";
 import type { ResolvedColumn } from "../planner/rows";
 import { toCellRef } from "../ooxml/cells";
+import { relativeColumnRef } from "../ooxml/relative-refs";
 import type { ResolvedValidationMessage } from "../text";
 import type { ResolvedValidationRule, ValidationOperator, ValidationType } from "./types";
 
@@ -46,6 +47,7 @@ export function buildWorksheetDataValidations<T extends object>(params: {
           params.columns,
           columnIndex,
           params.mode,
+          params.columnOffset,
           validation.type,
         ),
         formula2: serializeValidationFormula(
@@ -53,6 +55,7 @@ export function buildWorksheetDataValidations<T extends object>(params: {
           params.columns,
           columnIndex,
           params.mode,
+          params.columnOffset,
           validation.type,
         ),
         allowBlank: validation.allowBlank,
@@ -69,6 +72,7 @@ function serializeValidationFormula<T extends object>(
   columns: ResolvedColumn<T>[],
   targetColumnIndex: number,
   mode: "report" | "excel-table",
+  columnOffset: number,
   validationType?: ValidationType,
 ) {
   if (value === undefined) {
@@ -95,7 +99,7 @@ function serializeValidationFormula<T extends object>(
     return String(value);
   }
 
-  return serializeValidationExpr(value, columns, targetColumnIndex, mode);
+  return serializeValidationExpr(value, columns, targetColumnIndex, mode, columnOffset);
 }
 
 function serializeValidationExpr<T extends object>(
@@ -103,6 +107,7 @@ function serializeValidationExpr<T extends object>(
   columns: ResolvedColumn<T>[],
   targetColumnIndex: number,
   mode: "report" | "excel-table",
+  columnOffset: number,
 ): string {
   if (expr.kind === "literal") {
     if (typeof expr.value === "string") {
@@ -124,7 +129,7 @@ function serializeValidationExpr<T extends object>(
       return `INDIRECT("RC[${columnIndex - targetColumnIndex}]",FALSE)`;
     }
 
-    return toValidationColumnRef(columnIndex, targetColumnIndex);
+    return relativeColumnRef(columnOffset + columnIndex, columnIndex === targetColumnIndex);
   }
 
   if (expr.kind === "scope-aggregate") {
@@ -136,31 +141,14 @@ function serializeValidationExpr<T extends object>(
   }
 
   if (expr.kind === "function") {
-    return `${expr.name}(${expr.args.map((arg) => serializeValidationExpr(arg, columns, targetColumnIndex, mode)).join(",")})`;
+    return `${expr.name}(${expr.args.map((arg) => serializeValidationExpr(arg, columns, targetColumnIndex, mode, columnOffset)).join(",")})`;
   }
 
   if (expr.kind !== "binary") {
     throw new Error("Unsupported validation expression kind.");
   }
 
-  return `(${serializeValidationExpr(expr.left, columns, targetColumnIndex, mode)}${expr.op}${serializeValidationExpr(expr.right, columns, targetColumnIndex, mode)})`;
-}
-
-function toValidationColumnRef(columnIndex: number, targetColumnIndex: number) {
-  const absolute = toAbsoluteColumnRef(columnIndex);
-  return columnIndex === targetColumnIndex
-    ? `${absolute.replace(/\$$/, "")}2`
-    : `${absolute.replaceAll("$", "")}2`;
-}
-
-function toAbsoluteColumnRef(column: number) {
-  let result = "";
-  let current = column;
-
-  do {
-    result = String.fromCharCode(65 + (current % 26)) + result;
-    current = Math.floor(current / 26) - 1;
-  } while (current >= 0);
-
-  return `$${result}$`;
+  const left = serializeValidationExpr(expr.left, columns, targetColumnIndex, mode, columnOffset);
+  const right = serializeValidationExpr(expr.right, columns, targetColumnIndex, mode, columnOffset);
+  return `(${left}${expr.op}${right})`;
 }

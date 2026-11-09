@@ -1,3 +1,4 @@
+import { resolveRelativeRefs } from "../ooxml/relative-refs";
 import { createPlannerStats, createSummaryBindings, resolveColumns } from "../planner/rows";
 import { buildWorksheetConditionalFormatting } from "../styles/conditional-runtime";
 import { buildWorksheetDataValidations } from "../validation/runtime";
@@ -210,10 +211,21 @@ function buildPositionedConditionalFormatting(
   positionedTables: PositionedTable<StreamTableFinalization>[],
 ) {
   return positionedTables.flatMap((positioned) =>
-    positioned.table.conditionalFormatting.map((block) => ({
-      ...block,
-      ref: shiftWorksheetRange(block.ref, positioned.rowOffset, positioned.columnOffset),
-    })),
+    positioned.table.conditionalFormatting.map((block) => {
+      const ref = shiftWorksheetRange(
+        block.ref,
+        positioned.rowOffset + getStreamReportChrome(positioned.table).bodyRowOffset - 1,
+        positioned.columnOffset,
+      );
+      return {
+        ...block,
+        ref,
+        rules: block.rules.map((rule) => ({
+          ...rule,
+          formula: resolveRelativeRefs(rule.formula, ref, positioned.columnOffset),
+        })),
+      };
+    }),
   );
 }
 
@@ -1071,14 +1083,19 @@ async function* streamWorksheetXml(
         positioned.rowOffset,
   );
   const dataValidations = positionedTables.flatMap((positioned) =>
-    positioned.table.dataValidations.map((block) => ({
-      ...block,
-      ref: shiftWorksheetRange(
+    positioned.table.dataValidations.map((block) => {
+      const ref = shiftWorksheetRange(
         block.ref,
         positioned.rowOffset + getStreamReportChrome(positioned.table).bodyRowOffset - 1,
         positioned.columnOffset,
-      ),
-    })),
+      );
+      return {
+        ...block,
+        ref,
+        formula1: resolveRelativeRefs(block.formula1, ref, positioned.columnOffset),
+        formula2: resolveRelativeRefs(block.formula2, ref, positioned.columnOffset),
+      };
+    }),
   );
   const hyperlinks = partitionWorksheetHyperlinks(
     positionedTables.flatMap((positioned) =>

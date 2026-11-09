@@ -1,5 +1,6 @@
 import { normalizeConditionalStyleInput } from "./conditional-types";
 import { toCellRef } from "../ooxml/cells";
+import { relativeColumnRef } from "../ooxml/relative-refs";
 import type { ConditionalCellStyle } from "./conditional-types";
 import type { FormulaExpr } from "../formula/expr";
 import type { ResolvedColumn } from "../planner/rows";
@@ -44,6 +45,7 @@ export function buildWorksheetConditionalFormatting<T extends object>(params: {
             params.columns,
             columnIndex,
             params.mode,
+            params.columnOffset,
           ),
           priority: ruleIndex + 1,
           style: rule.style,
@@ -58,6 +60,7 @@ function serializeConditionalFormulaExpr<T extends object>(
   columns: ResolvedColumn<T>[],
   targetColumnIndex: number,
   mode: "report" | "excel-table",
+  columnOffset: number,
 ): string {
   if (expr.kind === "literal") {
     if (typeof expr.value === "string") {
@@ -86,7 +89,7 @@ function serializeConditionalFormulaExpr<T extends object>(
       return `INDIRECT("RC[${columnIndex - targetColumnIndex}]",FALSE)`;
     }
 
-    return `${toConditionalColumnRef(columnIndex, targetColumnIndex)}2`;
+    return relativeColumnRef(columnOffset + columnIndex, columnIndex === targetColumnIndex);
   }
 
   if (expr.kind === "scope-aggregate") {
@@ -105,7 +108,7 @@ function serializeConditionalFormulaExpr<T extends object>(
         return `INDIRECT("RC[${columnIndex - targetColumnIndex}]",FALSE)`;
       }
 
-      return `${toConditionalColumnRef(columnIndex, targetColumnIndex)}2`;
+      return relativeColumnRef(columnOffset + columnIndex, columnIndex === targetColumnIndex);
     });
 
     return `${expr.aggregate}(${refs.join(",")})`;
@@ -117,30 +120,25 @@ function serializeConditionalFormulaExpr<T extends object>(
 
   if (expr.kind === "function") {
     return `${expr.name}(${expr.args
-      .map((arg) => serializeConditionalFormulaExpr(arg, columns, targetColumnIndex, mode))
+      .map((arg) =>
+        serializeConditionalFormulaExpr(arg, columns, targetColumnIndex, mode, columnOffset),
+      )
       .join(",")})`;
   }
 
-  return `(${serializeConditionalFormulaExpr(expr.left, columns, targetColumnIndex, mode)}${expr.op}${serializeConditionalFormulaExpr(expr.right, columns, targetColumnIndex, mode)})`;
-}
-
-function toConditionalColumnRef(column: number, targetColumnIndex: number) {
-  const absolute = toAbsoluteColumnRef(column);
-  if (column === targetColumnIndex) {
-    return absolute.replace(/\$$/, "");
-  }
-
-  return absolute.replaceAll("$", "");
-}
-
-function toAbsoluteColumnRef(column: number) {
-  let result = "";
-  let current = column;
-
-  do {
-    result = String.fromCharCode(65 + (current % 26)) + result;
-    current = Math.floor(current / 26) - 1;
-  } while (current >= 0);
-
-  return `$${result}$`;
+  const left = serializeConditionalFormulaExpr(
+    expr.left,
+    columns,
+    targetColumnIndex,
+    mode,
+    columnOffset,
+  );
+  const right = serializeConditionalFormulaExpr(
+    expr.right,
+    columns,
+    targetColumnIndex,
+    mode,
+    columnOffset,
+  );
+  return `(${left}${expr.op}${right})`;
 }

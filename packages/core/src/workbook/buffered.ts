@@ -21,7 +21,6 @@ import { computeSummaries } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
 import { resolveExcelTableName, resolveExcelTableOptions } from "./internal/excel-table";
 import { toCellRef } from "../ooxml/cells";
-import { buildReportChrome } from "./internal/report-chrome";
 import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
 import { resolveLazyText } from "../text";
 import type { SchemaContext } from "../schema/builder";
@@ -152,12 +151,6 @@ function planTable<
   const reportTable = table;
   const title = resolveLazyText(reportTable.title, { ctx: context as never });
   const summaries = computeSummaries(resolvedColumns, table.rows, context);
-  const reportChrome = buildReportChrome({
-    columns: resolvedColumns,
-    title,
-    render: reportTable.render,
-  });
-
   return {
     id,
     title,
@@ -171,15 +164,15 @@ function planTable<
     images: collectPlannerImages(planner),
     conditionalFormatting: buildWorksheetConditionalFormatting({
       columns: resolvedColumns,
-      rowStart: reportChrome.bodyRowOffset,
-      rowEnd: reportChrome.bodyRowOffset + planner.rows.length - 1,
+      rowStart: 1,
+      rowEnd: planner.rows.length,
       columnOffset: 0,
       mode: table.schema.kind,
     }),
     dataValidations: buildWorksheetDataValidations({
       columns: resolvedColumns,
-      rowStart: reportChrome.bodyRowOffset,
-      rowEnd: reportChrome.bodyRowOffset + planner.rows.length - 1,
+      rowStart: 1,
+      rowEnd: planner.rows.length,
       columnOffset: 0,
       mode: table.schema.kind,
     }),
