@@ -984,5 +984,6 @@ describe("pivots that Excel would repair", () => {
         .toUint8Array(),
     );
     expect(text("xl/pivotCache/pivotCacheDefinition1.xml")).toContain('maxValue="149999"');
-  });
+    // The overflow needs about this many keys; CI runners write them in several seconds.
+  }, 30_000);
 });
