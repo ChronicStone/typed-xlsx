@@ -18,7 +18,8 @@ export function buildRevenueReview() {
       })
       .chart("trend", ({ refs }) => ({
         title: "Revenue vs plan",
-        at: "H2",
+        at: "H3",
+        size: { width: 520, height: 330 },
         marks: [
           refs.table("months").bar({ x: "month", y: "revenue", name: "Revenue", color: "#1E3A8A" }),
           refs.table("months").line({

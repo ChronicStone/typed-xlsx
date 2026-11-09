@@ -840,3 +840,185 @@
 .bp-land .nx2 .mcode .ct .r {
   margin-left: auto;
 }
+
+/* ── Real workbooks: one Excel window, a tab per example report ── */
+.bp-land .wb {
+  margin-top: 48px;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--r);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.bp-land .wb-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line-ghost);
+  font: 500 12.5px/1 var(--mono);
+  color: var(--ink-2);
+}
+.bp-land .wb-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.bp-land .wb-file .ic {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+}
+.bp-land .wb-sheet {
+  color: var(--ink-3);
+}
+.bp-land .wb-sheet::before {
+  content: "›";
+  margin-right: 10px;
+  color: var(--ink-3);
+}
+.bp-land .wb-open {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.bp-land .wb-open .ic {
+  width: 14px;
+  height: 14px;
+}
+.bp-land .wb-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 264px;
+  height: 540px;
+}
+.bp-land .wb-grid {
+  position: relative;
+  overflow: auto;
+  background: #fff;
+  overscroll-behavior: contain;
+}
+.bp-land .wb-grid.busy {
+  opacity: 0.6;
+}
+.bp-land .wb-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font: 500 12px/1 var(--mono);
+  color: #7d9186;
+}
+.bp-land .wb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 20px;
+  border-left: 1px solid var(--line-ghost);
+}
+.bp-land .wb-side h3 {
+  font: 700 19px/1.2 var(--display);
+  color: var(--ink);
+}
+.bp-land .wb-side p {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.bp-land .wb-side ul {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px;
+  padding-left: 16px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.bp-land .wb-side li::marker {
+  color: var(--accent);
+}
+.bp-land .wb-cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.bp-land .wb-cta .ic {
+  width: 15px;
+  height: 15px;
+}
+.bp-land .wb-tabs {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  border-top: 1px solid var(--line-ghost);
+  background: var(--panel-2);
+  scrollbar-width: none;
+}
+.bp-land .wb-tabs::-webkit-scrollbar {
+  display: none;
+}
+.bp-land .wb-tabs button {
+  flex: none;
+  padding: 11px 18px;
+  border-right: 1px solid var(--line-ghost);
+  font: 500 13px/1 var(--cellfont);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+.bp-land .wb-tabs button:hover {
+  color: var(--ink);
+  background: var(--panel);
+}
+.bp-land .wb-tabs button.on {
+  background: #fff;
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.bp-land .wb-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.bp-land .wb-all {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  font: 500 12.5px/1 var(--mono);
+  color: var(--ink-3);
+}
+.bp-land .wb-all:hover {
+  color: var(--accent);
+}
+@media (max-width: 900px) {
+  .bp-land .wb-body {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .bp-land .wb-grid {
+    height: 420px;
+  }
+  .bp-land .wb-side {
+    border-left: 0;
+    border-top: 1px solid var(--line-ghost);
+  }
+  .bp-land .wb-open {
+    display: none;
+  }
+}
+.bp-land .nx-note a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

@@ -677,10 +677,10 @@ defineExpose({ parseCellRef });
   z-index: 3;
   pointer-events: none;
 }
-/* above the cells, below frozen rows and columns, as charts scroll under panes in Excel */
+/* above cells and frozen panes, below the row and column headers */
 .xs-chart {
   position: absolute;
-  z-index: 1;
+  z-index: 5;
 }
 .xs-gap {
   display: grid;

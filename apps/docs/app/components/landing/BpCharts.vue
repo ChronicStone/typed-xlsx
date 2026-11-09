@@ -3,8 +3,8 @@ import { ref } from "vue";
 import { hl, icon, prefersReducedMotion, revealOnScroll, useWidget } from "./bp";
 
 /**
- * "Rows in. Pivots and charts out." Preview of the next release: a typed chain from a table to a
- * pivot table to a pivot chart. The stage is drawn at a fixed 760x470 and scaled to fit; narrow
+ * "Rows in. Pivots and charts out." A typed chain from a table to a pivot table to a pivot
+ * chart. The stage is drawn at a fixed 760x470 and scaled to fit; narrow
  * screens see half of it at a readable size, with a camera that pans from the table to the pivot.
  */
 const root = ref<HTMLElement | null>(null);
@@ -445,7 +445,7 @@ useWidget(root, (s) => {
 <template>
   <section id="charts" ref="root" class="sec">
     <div class="wrap">
-      <div class="nx-eyebrow reveal"><span class="nx-dot" />In development · next release</div>
+      <div class="nx-eyebrow reveal"><span class="nx-dot" />New in 4.3</div>
       <h2 class="h2 reveal">
         Rows in. Pivots and charts out.<br /><span class="accent">One typed chain.</span>
       </h2>
@@ -456,7 +456,7 @@ useWidget(root, (s) => {
       </p>
       <div class="nx2">
         <div class="mcode">
-          <div class="ct"><span>workbook.ts</span><span class="r">next release</span></div>
+          <div class="ct"><span>workbook.ts</span><span class="r">typed-xlsx 4.3</span></div>
           <pre
             class="nx2-code"
           ><template v-for="l in LINES" :key="l.i"><span v-if="l.html !== undefined" class="l" v-html="l.html" /><span v-else class="l"><span v-html="l.pre" /><span class="tok nx2-tok">revenue</span><span class="caret nx2-caret" style="display: none" /><span v-html="l.post" /></span></template></pre>
@@ -476,7 +476,10 @@ useWidget(root, (s) => {
       <div class="nx-points reveal">
         <span v-for="p in POINTS" :key="p.t"><UIcon :name="p.ic" class="ic" />{{ p.t }}</span>
       </div>
-      <p class="nx-note reveal">A preview of the next release. The API may still change.</p>
+      <p class="nx-note reveal">
+        <NuxtLink to="/charts/overview">Read the charts guide</NuxtLink> or open the
+        <NuxtLink to="/playground/revenue-review">revenue review</NuxtLink>, built with both.
+      </p>
     </div>
   </section>
 </template>

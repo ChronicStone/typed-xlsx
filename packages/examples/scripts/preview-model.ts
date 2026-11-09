@@ -375,9 +375,16 @@ export function formatNumber(n: number, code?: string): string {
   const scientific = /E[+-]/i.test(bare);
   const m = section.match(/[0#?][0#?,]*(\.[0#?]*)?|\.[0#?]+/);
   if (!m) return sign + unquote(section);
-  const pattern = m[0];
+  // Commas right after the last digit placeholder scale by a thousand each: "#,##0," shows 182000 as 182.
+  let pattern = m[0];
+  let scale = pattern.match(/,+$/)?.[0].length ?? 0;
+  pattern = pattern.slice(0, pattern.length - scale);
+  const rest = section.slice((m.index ?? 0) + m[0].length);
+  const lead = rest.match(/^,+/)?.[0].length ?? 0;
+  scale += lead;
+  value /= 1000 ** scale;
   const prefix = unquote(section.slice(0, m.index));
-  const suffix = unquote(section.slice((m.index ?? 0) + pattern.length));
+  const suffix = unquote(rest.slice(lead));
   if (scientific)
     return (
       sign +
