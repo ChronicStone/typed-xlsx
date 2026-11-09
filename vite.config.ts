@@ -10,6 +10,26 @@ export default defineConfig({
       correctness: "error",
       suspicious: "error",
     },
+    overrides: [
+      {
+        files: ["packages/core/test/type-safety.ts", "packages/core/test/stream-api.test.ts"],
+        rules: {
+          // Type assertions use underscores for intentionally unused bindings.
+          "no-underscore-dangle": "off",
+        },
+      },
+      {
+        files: [
+          "apps/docs/app/app.vue",
+          "apps/docs/layer/app/app.vue",
+          "apps/docs/layer/app/error.vue",
+        ],
+        rules: {
+          // The active locale selects a Nuxt UI translation at runtime.
+          "import/namespace": ["error", { allowComputed: true }],
+        },
+      },
+    ],
     env: {
       builtin: true,
     },

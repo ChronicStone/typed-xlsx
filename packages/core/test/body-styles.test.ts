@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { TableBodyStyles } from "../src/styles/body";
 import { StylesCollector } from "../src/styles/collector";
 import { withCellControl } from "../src/styles/internal";

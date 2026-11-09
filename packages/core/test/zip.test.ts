@@ -1,6 +1,6 @@
 import { crc32 as zlibCrc32, inflateRawSync } from "node:zlib";
 import { unzipSync } from "fflate";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { crc32, ZipBuilder, ZipStreamWriter } from "../src/archive/zip";
 
 const METHOD_STORED = 0;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import * as Internal from "../src/index-internal";
 import { serializeCell, serializeInlineStringCell } from "../src/ooxml/cells";
 import { hashExcelProtectionPassword } from "../src/ooxml/protection";
