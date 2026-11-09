@@ -9,21 +9,8 @@ if (!existsSync(fallbackPath)) {
   throw new Error(`Missing fallback file: ${fallbackPath}`);
 }
 
-const routes = [
-  "/",
-  "/getting-started/introduction",
-  "/getting-started/installation",
-  "/schema-builder/create-schema",
-  "/schema-builder/columns",
-  "/schema-builder/dynamic-columns",
-  "/schema-builder/reusable-transformers",
-  "/schema-builder/reusable-formatters",
-  "/schema-builder/build-schema",
-  "/file-builder/create-file-builder",
-  "/file-builder/define-sheets",
-  "/file-builder/define-tables",
-  "/file-builder/build-excel-file",
-];
+// Old URLs are not copied here: vercel.json redirects them with a real 301 instead.
+const routes = ["/", "/getting-started/introduction", "/getting-started/installation"];
 
 for (const route of routes) {
   const targetPath =

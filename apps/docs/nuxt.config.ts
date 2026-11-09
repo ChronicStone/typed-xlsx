@@ -7,7 +7,8 @@ export default defineNuxtConfig({
     name: "typed-xlsx",
     url: "https://typed-xlsx.vercel.app",
   },
-  // pages moved or removed over the docs restructures keep their old URLs (and search rankings) working
+  // pages moved or removed over the docs restructures keep their old URLs (and search rankings) working.
+  // Keep in sync with the `redirects` in the root vercel.json, which serves them as real 301s in production.
   routeRules: {
     "/formulas/row-model": { redirect: { to: "/core-concepts/row-model", statusCode: 301 } },
     "/formulas/summary-formulas": { redirect: { to: "/columns/summary-rows", statusCode: 301 } },
