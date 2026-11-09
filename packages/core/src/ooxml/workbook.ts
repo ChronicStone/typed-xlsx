@@ -15,6 +15,8 @@ import {
 } from "./drawing";
 import type { ImageMediaType } from "../image/types";
 import { FEATURE_PROPERTY_BAG_PATH, writeFeaturePropertyBagXml } from "./feature-property-bag";
+import { resolveBufferedWorkbookObjects } from "../workbook/internal/charts";
+import { writeChartXml } from "./chart";
 
 export interface WorkbookXmlPart {
   path: string;
@@ -85,7 +87,11 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
   const worksheetParts: WorkbookXmlPart[] = [];
   const tableParts: WorkbookXmlPart[] = [];
   const drawingParts: WorkbookXmlPart[] = [];
+  const chartParts: WorkbookXmlPart[] = [];
   const binaryParts: WorkbookBinaryPart[] = [];
+  const objects = resolveBufferedWorkbookObjects(plan.sheets, sheetNames);
+  const chartsBySheet = objects.charts;
+  let chartIndex = 0;
   const mediaRegistry = createWorksheetMediaRegistry();
   let tableIndex = 0;
   let drawingIndex = 0;
@@ -100,13 +106,20 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
       sheetNames[sheetIndex],
     );
     const partitionedHyperlinks = partitionWorksheetHyperlinks(serialized.hyperlinks ?? []);
+    const sheetCharts = (chartsBySheet[sheetIndex] ?? []).map((chart) => {
+      chartIndex += 1;
+      const chartPath = `xl/charts/chart${chartIndex}.xml`;
+      chartParts.push({ path: chartPath, xml: writeChartXml(chart) });
+      return { name: `Chart ${chartIndex}`, chartPath, anchor: chart.anchor };
+    });
     const drawing =
-      serialized.images.length > 0
+      serialized.images.length > 0 || sheetCharts.length > 0
         ? createWorksheetDrawingPart({
             drawingIndex: drawingIndex + 1,
             imageStartIndex: pictureIndex + 1,
             images: serialized.images,
             mediaRegistry,
+            charts: sheetCharts,
           })
         : undefined;
     worksheetParts.push({
@@ -173,6 +186,7 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
       ...worksheetParts,
       ...tableParts,
       ...drawingParts,
+      ...chartParts,
     ],
     binaryParts,
   };

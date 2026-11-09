@@ -24,6 +24,8 @@ import { toCellRef } from "../ooxml/cells";
 import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
 import { resolveLazyText } from "../text";
 import type { SchemaContext } from "../schema/builder";
+import { createChartRefs } from "../chart/refs";
+import type { ChartPlan, ChartRefs, ChartSpec } from "../chart/types";
 
 function isBufferedExcelTableInput<
   T extends object,
@@ -187,6 +189,7 @@ function planTable<
 
 class BufferedSheetBuilder {
   private readonly tables: Array<{ id: string; input: BufferedTableInput<any, string, any> }> = [];
+  private readonly charts: ChartPlan[] = [];
   private layout: SheetLayoutOptions | undefined;
   private view: SheetViewOptions | undefined;
   private protection: ReturnType<typeof resolveProtection> | undefined;
@@ -213,6 +216,11 @@ class BufferedSheetBuilder {
     return this;
   }
 
+  chart(id: string, build: (args: { refs: ChartRefs<any, string> }) => ChartSpec) {
+    this.charts.push({ id, spec: build({ refs: createChartRefs(this.name) }) });
+    return this;
+  }
+
   build(): BufferedSheetPlan {
     return {
       name: this.name,
@@ -220,6 +228,7 @@ class BufferedSheetBuilder {
       view: this.view,
       protection: this.protection,
       tables: this.tables.map((table) => planTable(table.id, table.input)),
+      ...(this.charts.length > 0 ? { charts: [...this.charts] } : {}),
     };
   }
 }

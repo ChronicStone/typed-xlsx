@@ -4,6 +4,9 @@ import { buildWorksheetConditionalFormatting } from "../styles/conditional-runti
 import { buildWorksheetDataValidations } from "../validation/runtime";
 import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/shared-strings";
 import { writeXlsxPackageToSink } from "../ooxml/package";
+import { writeChartXml } from "../ooxml/chart";
+import type { ChartPlan, ChartSpec } from "../chart/types";
+import { resolveStreamWorkbookObjects } from "./internal/charts";
 import {
   writeExcelTableXml,
   writeWorksheetRelationshipsXml,
@@ -203,6 +206,7 @@ interface StreamSheetFinalization {
   layout?: SheetLayoutOptions;
   name: string;
   tables: StreamTableFinalization[];
+  charts: ChartPlan[];
   protection?: ResolvedSheetProtectionOptions;
   view?: SheetViewOptions;
 }
@@ -634,6 +638,7 @@ function isStreamExcelTableInput<
 
 class StreamSheetBuilder {
   private readonly tables: StreamTableBuilder<any, string, any>[] = [];
+  private readonly charts: ChartPlan[] = [];
   private disposed = false;
 
   constructor(
@@ -689,6 +694,18 @@ class StreamSheetBuilder {
     return builder;
   }
 
+  get sheetName() {
+    return this.name;
+  }
+
+  chart(id: string, spec: ChartSpec) {
+    if (this.disposed) {
+      throw new Error("Stream sheet has been disposed.");
+    }
+    this.charts.push({ id, spec });
+    return this;
+  }
+
   async finalize() {
     const tables = this.tables.map((table) => ({
       ...table.getFinalization(),
@@ -705,6 +722,7 @@ class StreamSheetBuilder {
       protection: this.protection,
       view: this.view,
       tables,
+      charts: [...this.charts],
     };
   }
 
@@ -811,10 +829,14 @@ export class StreamWorkbookBuilder {
     const worksheetRelationshipParts: StreamWorksheetPart[] = [];
     const tableParts: StreamWorksheetPart[] = [];
     const drawingParts: StreamWorksheetPart[] = [];
+    const chartParts: StreamWorksheetPart[] = [];
     const mediaParts: Array<StreamWorksheetPart & { mediaType: ImageMediaType }> = [];
     const mediaRegistry = createWorksheetMediaRegistry();
     const rawSheetNames = finalizedSheets.map((sheet) => sheet.name);
     const worksheetNames = buildWorksheetNames(rawSheetNames);
+    const objects = resolveStreamWorkbookObjects(finalizedSheets, worksheetNames);
+    const chartsBySheet = objects.charts;
+    let chartIndex = 0;
     let worksheetIndex = 0;
     let tableIndex = 0;
     let drawingIndex = 0;
@@ -849,13 +871,20 @@ export class StreamWorkbookBuilder {
           column: image.column + positioned.columnOffset,
         })),
       );
+      const sheetCharts = (chartsBySheet[worksheetIndex - 1] ?? []).map((chart) => {
+        chartIndex += 1;
+        const chartPath = `xl/charts/chart${chartIndex}.xml`;
+        chartParts.push({ path: chartPath, source: writeChartXml(chart) });
+        return { name: `Chart ${chartIndex}`, chartPath, anchor: chart.anchor };
+      });
       const drawing =
-        worksheetImages.length > 0
+        worksheetImages.length > 0 || sheetCharts.length > 0
           ? createWorksheetDrawingPart({
               drawingIndex: drawingIndex + 1,
               imageStartIndex: pictureIndex + 1,
               images: worksheetImages,
               mediaRegistry,
+              charts: sheetCharts,
             })
           : undefined;
 
@@ -951,6 +980,7 @@ export class StreamWorkbookBuilder {
       ...worksheetRelationshipParts,
       ...tableParts,
       ...drawingParts,
+      ...chartParts,
       ...mediaParts,
     ];
 
@@ -961,6 +991,7 @@ export class StreamWorkbookBuilder {
         hasSharedStrings: this.sharedStrings.count() > 0,
         tableCount: tableIndex,
         drawingCount: drawingIndex,
+        chartCount: chartIndex,
         hasFeaturePropertyBag,
         mediaTypes: mediaParts.map((part) => part.mediaType),
       },

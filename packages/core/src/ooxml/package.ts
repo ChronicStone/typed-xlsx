@@ -8,6 +8,7 @@ import {
 import { serializeBufferedWorkbookPlan } from "./workbook";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import type { ImageMediaType } from "../image/types";
+import { CHART_CONTENT_TYPE } from "./chart";
 import type { WorkbookBinaryPart, WorkbookXmlPart } from "./workbook";
 import {
   FEATURE_PROPERTY_BAG_CONTENT_TYPE,
@@ -27,6 +28,7 @@ export function writeContentTypesXml(
   drawingCount = 0,
   mediaTypes: ImageMediaType[] = [],
   hasFeaturePropertyBag = false,
+  chartCount = 0,
 ) {
   const uniqueMediaTypes = [...new Set(mediaTypes)];
   const overrides = [
@@ -71,6 +73,12 @@ export function writeContentTypesXml(
       xmlSelfClosing("Override", {
         PartName: `/xl/drawings/drawing${index + 1}.xml`,
         ContentType: "application/vnd.openxmlformats-officedocument.drawing+xml",
+      }),
+    ),
+    ...Array.from({ length: chartCount }, (_, index) =>
+      xmlSelfClosing("Override", {
+        PartName: `/xl/charts/chart${index + 1}.xml`,
+        ContentType: CHART_CONTENT_TYPE,
       }),
     ),
   ];
@@ -205,12 +213,14 @@ export function buildBufferedWorkbookXlsx(plan: BufferedWorkbookPlan) {
   const drawingCount = xml.parts.filter((part) =>
     part.path.startsWith("xl/drawings/drawing"),
   ).length;
+  const chartCount = xml.parts.filter((part) => part.path.startsWith("xl/charts/chart")).length;
   const hasFeaturePropertyBag = xml.parts.some((part) => part.path === FEATURE_PROPERTY_BAG_PATH);
   return buildXlsxPackage(xml.parts, {
     worksheetCount,
     hasSharedStrings,
     tableCount,
     drawingCount,
+    chartCount,
     hasFeaturePropertyBag,
     mediaTypes: xml.binaryParts.flatMap((part) => (part.mediaType ? [part.mediaType] : [])),
     binaryParts: xml.binaryParts,
@@ -224,6 +234,7 @@ export function buildXlsxPackage(
     hasSharedStrings: boolean;
     tableCount: number;
     drawingCount?: number;
+    chartCount?: number;
     hasFeaturePropertyBag?: boolean;
     mediaTypes?: ImageMediaType[];
     binaryParts?: WorkbookBinaryPart[];
@@ -245,6 +256,7 @@ export function buildXlsxPackage(
         options.drawingCount ?? 0,
         options.mediaTypes ?? [],
         hasFeaturePropertyBag,
+        options.chartCount ?? 0,
       ),
     ),
   );
@@ -280,6 +292,7 @@ export async function writeXlsxPackageToSink(
     hasSharedStrings: boolean;
     tableCount: number;
     drawingCount?: number;
+    chartCount?: number;
     hasFeaturePropertyBag?: boolean;
     mediaTypes?: ImageMediaType[];
   },
@@ -299,6 +312,7 @@ export async function writeXlsxPackageToSink(
       options.drawingCount ?? 0,
       options.mediaTypes ?? [],
       hasFeaturePropertyBag,
+      options.chartCount ?? 0,
     ),
   );
   await zip.add("_rels/.rels", writeRootRelationshipsXml());

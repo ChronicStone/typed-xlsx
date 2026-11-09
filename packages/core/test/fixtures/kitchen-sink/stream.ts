@@ -3,6 +3,7 @@ import {
   createKitchenSinkOrders,
   createKitchenSinkProductImageRows,
   createKitchenSinkSparklineRows,
+  createKitchenSinkRegionSummaryRows,
 } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
@@ -16,6 +17,7 @@ import {
   kitchenSinkSparklineGallerySchema,
   kitchenSinkValidationSchema,
   sparklineGalleryDefaults,
+  kitchenSinkRegionSummarySchema,
 } from "./schema";
 
 type KitchenSinkHyperlinkRow = {
@@ -366,6 +368,23 @@ export async function buildKitchenSinkStreamExample() {
       })),
     });
   }
+
+  const chartsSheet = workbook.sheet("Charts");
+  const regionSummary = await chartsSheet.table("region-summary", {
+    title: "Revenue by Region",
+    schema: kitchenSinkRegionSummarySchema,
+  });
+  await regionSummary.commit({
+    rows: createKitchenSinkRegionSummaryRows(allOrderBatches.flat()),
+  });
+  chartsSheet.chart("region-performance", {
+    title: "Revenue and average order by region",
+    marks: [
+      regionSummary.bar({ x: "region", y: "revenue", color: "#2563EB" }),
+      regionSummary.line({ x: "region", y: "averageOrder", axis: "y2" }),
+    ],
+    axes: { y: { title: "Revenue", min: 0 }, y2: { title: "Avg order" } },
+  });
 
   try {
     const readable = workbook.toNodeReadable();

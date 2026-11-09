@@ -172,7 +172,9 @@ export function serializeWorksheet(
         writeWorksheetDataValidations(dataValidations),
         writeWorksheetHyperlinks(partitionedHyperlinks.worksheetHyperlinks),
         writeWorksheetTableParts(tableParts),
-        writeWorksheetDrawing(images.length > 0 ? "rIdDrawing1" : undefined),
+        writeWorksheetDrawing(
+          images.length > 0 || (sheet.charts?.length ?? 0) > 0 ? "rIdDrawing1" : undefined,
+        ),
         writeWorksheetSparklines(sparklineGroups),
       ],
     ),

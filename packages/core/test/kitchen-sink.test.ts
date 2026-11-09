@@ -80,6 +80,10 @@ describe("kitchen sink examples", () => {
     expect(bufferedImagesSheet).toContain("<drawing");
     expect(bufferedImagesRels).toContain("relationships/drawing");
     expect(bufferedDrawing).toContain("<xdr:oneCellAnchor>");
+    expect(readWorksheetByName(bufferedEntries, "Charts")).toContain("<drawing");
+    expect([...bufferedEntries.keys()].some((path) => path.startsWith("xl/charts/chart"))).toBe(
+      true,
+    );
     expect(bufferedEntries.has("xl/media/image1.png")).toBe(true);
     expect(bufferedEntries.has("xl/media/image2.png")).toBe(true);
     expect(bufferedEntries.has("xl/media/image3.png")).toBe(true);

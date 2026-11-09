@@ -2,6 +2,8 @@ import type { WorksheetImage } from "../workbook/types";
 import { imageExtension } from "../image/runtime";
 import { crc32 } from "../archive/zip";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
+import { CHART_RELATIONSHIP, writeChartAnchor } from "./chart";
+import type { ResolvedChartAnchor } from "../chart/resolve";
 
 const EMUS_PER_PIXEL = 9525;
 const DRAWING_RELATIONSHIP =
@@ -14,6 +16,17 @@ export interface WorksheetDrawingImage extends WorksheetImage {
   name: string;
   relId: string;
   mediaPath: string;
+}
+
+export interface WorksheetDrawingChart {
+  name: string;
+  chartPath: string;
+  anchor: ResolvedChartAnchor;
+}
+
+interface PreparedDrawingChart extends WorksheetDrawingChart {
+  id: number;
+  relId: string;
 }
 
 export interface WorksheetMediaPart {
@@ -66,6 +79,7 @@ export function createWorksheetDrawingPart(params: {
   imageStartIndex: number;
   images: WorksheetImage[];
   mediaRegistry?: WorksheetMediaRegistry;
+  charts?: WorksheetDrawingChart[];
 }): WorksheetDrawingPart {
   const relId = "rIdDrawing1";
   const path = `xl/drawings/drawing${params.drawingIndex}.xml`;
@@ -84,12 +98,18 @@ export function createWorksheetDrawingPart(params: {
     };
   });
 
+  const preparedCharts: PreparedDrawingChart[] = (params.charts ?? []).map((chart, index) => ({
+    ...chart,
+    id: preparedImages.length + index + 1,
+    relId: `rIdChart${index + 1}`,
+  }));
+
   return {
     path,
     relsPath: `xl/drawings/_rels/drawing${params.drawingIndex}.xml.rels`,
     relId,
-    xml: writeDrawingXml(preparedImages),
-    relationshipsXml: writeDrawingRelationshipsXml(preparedImages),
+    xml: writeDrawingXml(preparedImages, preparedCharts),
+    relationshipsXml: writeDrawingRelationshipsXml(preparedImages, preparedCharts),
     mediaParts: mediaRegistry.mediaParts.slice(existingMediaCount),
   };
 }
@@ -106,7 +126,7 @@ export function writeWorksheetDrawingRelationship(params: { relId: string; drawi
   });
 }
 
-function writeDrawingXml(images: WorksheetDrawingImage[]) {
+function writeDrawingXml(images: WorksheetDrawingImage[], charts: PreparedDrawingChart[] = []) {
   return xmlDocument(
     "xdr:wsDr",
     {
@@ -114,7 +134,17 @@ function writeDrawingXml(images: WorksheetDrawingImage[]) {
       "xmlns:a": "http://schemas.openxmlformats.org/drawingml/2006/main",
       "xmlns:r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     },
-    images.map(writeImageAnchor),
+    [
+      ...images.map(writeImageAnchor),
+      ...charts.map((chart) =>
+        writeChartAnchor({
+          id: chart.id,
+          name: chart.name,
+          relId: chart.relId,
+          anchor: chart.anchor,
+        }),
+      ),
+    ],
   );
 }
 
@@ -161,19 +191,31 @@ function writeImageAnchor(image: WorksheetDrawingImage) {
   ]);
 }
 
-function writeDrawingRelationshipsXml(images: WorksheetDrawingImage[]) {
+function writeDrawingRelationshipsXml(
+  images: WorksheetDrawingImage[],
+  charts: PreparedDrawingChart[] = [],
+) {
   return xmlDocument(
     "Relationships",
     {
       xmlns: "http://schemas.openxmlformats.org/package/2006/relationships",
     },
-    images.map((image) =>
-      xmlSelfClosing("Relationship", {
-        Id: image.relId,
-        Type: IMAGE_RELATIONSHIP,
-        Target: `../media/${image.mediaPath.split("/").pop()}`,
-      }),
-    ),
+    [
+      ...images.map((image) =>
+        xmlSelfClosing("Relationship", {
+          Id: image.relId,
+          Type: IMAGE_RELATIONSHIP,
+          Target: `../media/${image.mediaPath.split("/").pop()}`,
+        }),
+      ),
+      ...charts.map((chart) =>
+        xmlSelfClosing("Relationship", {
+          Id: chart.relId,
+          Type: CHART_RELATIONSHIP,
+          Target: `../charts/${chart.chartPath.split("/").pop()}`,
+        }),
+      ),
+    ],
   );
 }
 

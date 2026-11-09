@@ -822,3 +822,21 @@ export const kitchenSinkGroupedFormulaContext = {
   },
   regions: ["AMER", "APAC", "EMEA"] as Array<"AMER" | "APAC" | "EMEA">,
 };
+
+export type KitchenSinkRegionSummaryRow = {
+  region: string;
+  orders: number;
+  revenue: number;
+};
+
+export const kitchenSinkRegionSummarySchema = createExcelSchema<KitchenSinkRegionSummaryRow>()
+  .column("region", { header: "Region", accessor: "region" })
+  .column("orders", { header: "Orders", accessor: "orders" })
+  .column("revenue", { header: "Revenue", accessor: "revenue", style: currencyStyle })
+  .column("averageOrder", {
+    header: "Avg Order",
+    formula: ({ refs, fx }) =>
+      fx.round(fx.safeDiv(refs.column("revenue"), refs.column("orders"), 0), 2),
+    style: currencyStyle,
+  })
+  .build();

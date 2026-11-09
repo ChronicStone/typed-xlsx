@@ -16,7 +16,7 @@ import type {
   SchemaColumnValues,
   SchemaGroupContext,
 } from "../src";
-import { createExcelSchema, createWorkbook } from "../src";
+import { createExcelSchema, createWorkbook, createWorkbookStream } from "../src";
 
 // ── Path<T> ──────────────────────────────────────────────────────────────────
 
@@ -1089,3 +1089,177 @@ const _valueMargin: Values["margin"] = 1;
 const _valueLabelNumber: Values["label"] = 1;
 // @ts-expect-error - only declared columns have a value type
 const _valueUnknown: Values["unknown"] = 1;
+
+// ── Workbook charts ─────────────────────────────────────────────────────────
+
+type ChartMonthRow = { month: string; day: Date; revenue: number; cost: number | null };
+type ChartTargetRow = { month: string; target: number };
+type ChartTerritoryRow = { territory: string; byMonth: Record<string, number> };
+
+const chartMonthlySchema = createExcelSchema<ChartMonthRow>()
+  .column("month", { accessor: "month" })
+  .column("day", { accessor: "day" })
+  .column("revenue", { accessor: "revenue" })
+  .column("cost", { accessor: "cost" })
+  .column("label", { accessor: "revenue", transform: ({ value }) => `${value} €` })
+  .column("margin", { formula: ({ refs }) => refs.column("revenue").sub(refs.column("cost")) })
+  .build();
+const chartTargetSchema = createExcelSchema<ChartTargetRow>()
+  .column("month", { accessor: "month" })
+  .column("target", { accessor: "target" })
+  .build();
+const chartTerritorySchema = createExcelSchema<ChartTerritoryRow, { months: string[] }>()
+  .column("territory", { accessor: "territory" })
+  .dynamic("months", (builder, { ctx }) => {
+    for (const month of ctx.months) {
+      builder.column(month, { accessor: (row) => row.byMonth[month] ?? 0 });
+    }
+  })
+  .build();
+
+// valid: every mark kind, cross-table and cross-sheet marks, dynamic blocks, secondary axis
+createWorkbook()
+  .sheet("2026")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .table("targets", { schema: chartTargetSchema, rows: [] })
+  .chart("combo", ({ refs }) => ({
+    title: "Revenue vs target",
+    marks: [
+      refs.table("sales").bar({ x: "month", y: ["revenue", { column: "cost", name: "Costs" }] }),
+      refs.table("targets").line({ x: "month", y: "target", name: "Target", dashed: true }),
+      refs.table("sales").line({ x: "month", y: "margin", axis: "y2" }),
+    ],
+    axes: { y: { min: 0 }, y2: { format: "#,##0" } },
+  }))
+  .chart("share", ({ refs }) => ({
+    marks: [
+      refs.table("sales").pie({ label: "month", value: "revenue", labels: { percent: true } }),
+    ],
+  }))
+  .chart("timeline", ({ refs }) => ({
+    marks: [refs.table("sales").area({ x: "day", y: ["revenue", "margin"], stack: "percent" })],
+  }))
+  .chart("scatter", ({ refs }) => ({
+    marks: [refs.table("sales").scatter({ x: "revenue", y: "margin" })],
+  }))
+  .sheet("Territories")
+  .table("territories", { schema: chartTerritorySchema, rows: [], context: { months: [] } })
+  .chart("rows", ({ refs }) => ({
+    marks: [refs.table("territories").line({ x: { dynamic: "months" }, series: "territory" })],
+  }))
+  .chart("columns", ({ refs }) => ({
+    marks: [
+      refs.table("territories").bar({ x: "territory", y: { dynamic: "months" }, stack: true }),
+    ],
+  }))
+  .sheet("Dashboard")
+  .chart("yearOverYear", ({ refs }) => ({
+    marks: [
+      refs.sheet("2026").table("sales").bar({ x: "month", y: "revenue" }),
+      refs.sheet("2026").table("targets").bar({ x: "month", y: "target" }),
+    ],
+  }));
+
+const chartRefsCheck = createWorkbook()
+  .sheet("2026")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .table("client", { schema: chartMonthlySchema, rows: [], select: { exclude: ["cost"] } })
+  .table("targets", { schema: chartTargetSchema, rows: [] });
+
+chartRefsCheck
+  // @ts-expect-error - text columns cannot be plotted as values
+  .chart("text", ({ refs }) => ({ marks: [refs.table("sales").bar({ x: "month", y: "month" })] }))
+  .chart("transformed", ({ refs }) => ({
+    // @ts-expect-error - a column transformed into text cannot be plotted as values
+    marks: [refs.table("sales").bar({ x: "month", y: "label" })],
+  }))
+  .chart("excluded", ({ refs }) => ({
+    // @ts-expect-error - "cost" is excluded by this table's select
+    marks: [refs.table("client").bar({ x: "month", y: "cost" })],
+  }))
+  // @ts-expect-error - unknown column
+  .chart("typo", ({ refs }) => ({ marks: [refs.table("sales").line({ x: "month", y: "revenu" })] }))
+  .chart("scatterX", ({ refs }) => ({
+    // @ts-expect-error - a scatter mark needs a numeric x column
+    marks: [refs.table("sales").scatter({ x: "month", y: "revenue" })],
+  }))
+  .chart("pieValue", ({ refs }) => ({
+    // @ts-expect-error - a pie value must be numeric
+    marks: [refs.table("sales").pie({ label: "month", value: "month" })],
+  }))
+  .chart("names", ({ refs }) => ({
+    // @ts-expect-error - name and color apply to a single y column
+    marks: [refs.table("sales").bar({ x: "month", y: ["revenue", "cost"], name: "Both" })],
+  }))
+  .chart("series", ({ refs }) => ({
+    // @ts-expect-error - series only applies with x: { dynamic }
+    marks: [refs.table("sales").bar({ x: "month", y: "revenue", series: "month" })],
+  }))
+  // @ts-expect-error - a mark needs y
+  .chart("noY", ({ refs }) => ({ marks: [refs.table("sales").line({ x: "month" })] }))
+  // @ts-expect-error - a pie chart takes a single mark
+  .chart("pieMix", ({ refs }) => ({
+    marks: [
+      refs.table("sales").pie({ label: "month", value: "revenue" }),
+      refs.table("sales").bar({ x: "month", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - scatter marks cannot share a chart with other marks
+  .chart("scatterMix", ({ refs }) => ({
+    marks: [
+      refs.table("sales").scatter({ x: "revenue", y: "margin" }),
+      refs.table("sales").line({ x: "month", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - horizontal bars cannot share a chart with other marks
+  .chart("horizontalMix", ({ refs }) => ({
+    marks: [
+      refs.table("sales").bar({ x: "month", y: "revenue", horizontal: true }),
+      refs.table("sales").line({ x: "month", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - marks disagree on the x axis: text and dates
+  .chart("xKinds", ({ refs }) => ({
+    marks: [
+      refs.table("sales").bar({ x: "month", y: "revenue" }),
+      refs.table("sales").line({ x: "day", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - table ids are unique within a sheet
+  .table("sales", { schema: chartTargetSchema, rows: [] })
+  .sheet("Dashboard")
+  .chart("otherSheet", ({ refs }) => ({
+    // @ts-expect-error - a table id alone only looks on the current sheet
+    marks: [refs.table("sales").bar({ x: "month", y: "revenue" })],
+  }))
+  .chart("laterSheet", ({ refs }) => ({
+    // @ts-expect-error - sheets declared later in the chain are not visible yet
+    marks: [refs.sheet("Budget").table("budget").bar({ x: "month", y: "target" })],
+  }))
+  // @ts-expect-error - sheet names are unique within the chain
+  .sheet("2026")
+  .sheet("Budget")
+  .table("budget", { schema: chartTargetSchema, rows: [] });
+
+createWorkbook()
+  .sheet("Territories")
+  .table("territories", { schema: chartTerritorySchema, rows: [], context: { months: [] } })
+  .chart("noSeries", ({ refs }) => ({
+    // @ts-expect-error - x: { dynamic } needs series
+    marks: [refs.table("territories").line({ x: { dynamic: "months" } })],
+  }))
+  .chart("unknownBlock", ({ refs }) => ({
+    // @ts-expect-error - unknown dynamic block
+    marks: [refs.table("territories").line({ x: { dynamic: "weeks" }, series: "territory" })],
+  }));
+
+async function _streamCharts() {
+  const workbook = createWorkbookStream();
+  const sales = await workbook.sheet("Sales").table("sales", { schema: chartMonthlySchema });
+  const targets = await workbook.sheet("Sales").table("targets", { schema: chartTargetSchema });
+  workbook.sheet("Dashboard").chart("revenue", {
+    marks: [sales.bar({ x: "month", y: "revenue" }), targets.line({ x: "month", y: "target" })],
+  });
+  // @ts-expect-error - streamed tables check their columns too
+  sales.bar({ x: "month", y: "month" });
+}
