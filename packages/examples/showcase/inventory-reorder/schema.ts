@@ -8,8 +8,35 @@ const input = { protection: { locked: false }, fill: { color: { rgb: "FFFBEB" } 
  * formulas, so they update as soon as a buyer types a quantity in the yellow cells.
  */
 export const stockSchema = createExcelSchema<StockItem, { weeks: string[] }>()
+  .column("photo", {
+    type: "image",
+    header: "",
+    accessor: "photo",
+    alt: "product",
+    size: { width: 30, height: 30 },
+    padding: 3,
+    width: 6,
+  })
   .column("sku", { header: "SKU", accessor: "sku", width: 11 })
   .column("product", { header: "Product", accessor: "product", minWidth: 24 })
+  .column("category", {
+    type: "badge",
+    header: "Category",
+    accessor: "category",
+    width: 11,
+    variants: {
+      Lighting: {
+        style: { fill: { color: { rgb: "FEF3C7" } }, font: { color: { rgb: "92400E" } } },
+      },
+      Power: { style: { fill: { color: { rgb: "DBEAFE" } }, font: { color: { rgb: "1E40AF" } } } },
+      Sensors: {
+        style: { fill: { color: { rgb: "CCFBF1" } }, font: { color: { rgb: "115E59" } } },
+      },
+      Mounting: {
+        style: { fill: { color: { rgb: "F1F5F9" } }, font: { color: { rgb: "334155" } } },
+      },
+    },
+  })
   .column("warehouse", { header: "Warehouse", accessor: "warehouse", width: 11 })
   .group("sales", { header: "Units sold per week" }, (g) =>
     g.dynamic("weeks", (builder, { ctx }) => {

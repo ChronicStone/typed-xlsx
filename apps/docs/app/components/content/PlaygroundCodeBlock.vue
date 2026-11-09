@@ -31,6 +31,15 @@ const props = withDefaults(
 
 const cache = new Map<string, string>();
 
+/**
+ * The docs theme forces `html.dark .shiki span { color: var(--shiki-dark) !important }` for its
+ * dual-theme code blocks. This HTML is single-theme with inline colours, so without the variable
+ * every token turned plain in dark mode. Copy each colour into `--shiki-dark`.
+ */
+function withDarkColors(source: string) {
+  return source.replace(/style="color:(#[0-9a-fA-F]{3,8})"/g, 'style="color:$1;--shiki-dark:$1"');
+}
+
 function buildUrl(artifactId: string, paneKey: string, theme: string) {
   return `/generated/examples/showcase/${artifactId}/twoslash/${theme}/${paneKey}.html`;
 }
@@ -51,7 +60,7 @@ async function update() {
   }
 
   try {
-    const result = await $fetch<string>(url);
+    const result = withDarkColors(await $fetch<string>(url));
     if (v === version) {
       cache.set(url, result);
       html.value = result;
