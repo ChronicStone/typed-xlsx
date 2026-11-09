@@ -270,6 +270,11 @@ export class StylesCollector {
     return index;
   }
 
+  /** Id of a custom number format, registering it when needed. */
+  numberFormatId(format: string) {
+    return this.numFmtId(format);
+  }
+
   private numFmtId(format: string) {
     if (!format) return 0;
     const existing = this.numFmtIds.get(format);

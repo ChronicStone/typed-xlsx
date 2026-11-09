@@ -84,6 +84,8 @@ describe("kitchen sink examples", () => {
     expect([...bufferedEntries.keys()].some((path) => path.startsWith("xl/charts/chart"))).toBe(
       true,
     );
+    expect(bufferedEntries.has("xl/pivotTables/pivotTable1.xml")).toBe(true);
+    expect(readWorksheetRelationshipsByName(bufferedEntries, "Pivot")).toContain("pivotTable");
     expect(bufferedEntries.has("xl/media/image1.png")).toBe(true);
     expect(bufferedEntries.has("xl/media/image2.png")).toBe(true);
     expect(bufferedEntries.has("xl/media/image3.png")).toBe(true);

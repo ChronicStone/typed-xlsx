@@ -4,6 +4,7 @@ import {
   createKitchenSinkProductImageRows,
   createKitchenSinkSparklineRows,
   createKitchenSinkRegionSummaryRows,
+  createKitchenSinkOrderLineRows,
 } from "./data";
 import {
   kitchenSinkFormulaColumnSchema,
@@ -18,6 +19,7 @@ import {
   kitchenSinkValidationSchema,
   sparklineGalleryDefaults,
   kitchenSinkRegionSummarySchema,
+  kitchenSinkOrderLineSchema,
 } from "./schema";
 
 type KitchenSinkHyperlinkRow = {
@@ -385,6 +387,28 @@ export async function buildKitchenSinkStreamExample() {
     ],
     axes: { y: { title: "Revenue", min: 0 }, y2: { title: "Avg order" } },
   });
+
+  const pivotSheet = workbook.sheet("Pivot");
+  const orderLines = await pivotSheet.table("order-lines", {
+    title: "Order Lines",
+    schema: kitchenSinkOrderLineSchema,
+  });
+  const revenueByRegion = pivotSheet.pivot(
+    "revenue-by-region",
+    orderLines.pivot({
+      rows: ["region"],
+      columns: ["tier"],
+      values: { lineTotal: "sum" },
+      filters: ["sku"],
+    }),
+  );
+  pivotSheet.chart("revenue-by-region-chart", {
+    title: "Line totals by region and tier",
+    marks: [revenueByRegion.bar({ stack: true })],
+  });
+  for (const rows of allOrderBatches) {
+    await orderLines.commit({ rows: createKitchenSinkOrderLineRows(rows) });
+  }
 
   try {
     const readable = workbook.toNodeReadable();

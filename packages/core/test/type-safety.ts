@@ -1263,3 +1263,99 @@ async function _streamCharts() {
   // @ts-expect-error - streamed tables check their columns too
   sales.bar({ x: "month", y: "month" });
 }
+
+// ── Pivot tables and pivot charts ───────────────────────────────────────────
+
+// valid: rows, columns, filters, several aggregations, pivot charts, a pie over a single value
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .sheet("Analysis")
+  .pivot("byMonth", ({ refs }) =>
+    refs
+      .sheet("Sales")
+      .table("sales")
+      .pivot({
+        rows: ["month"],
+        columns: ["label"],
+        values: {
+          revenue: "sum",
+          month: "count",
+          cost: ["sum", { aggregate: "average", name: "Avg cost", format: "0.0" }],
+        },
+        filters: ["day"],
+        sort: "source",
+        style: "PivotStyleMedium9",
+      }),
+  )
+  .chart("byMonthChart", ({ refs }) => ({ marks: [refs.pivot("byMonth").bar({ stack: true })] }))
+  .pivot("single", ({ refs }) =>
+    refs
+      .sheet("Sales")
+      .table("sales")
+      .pivot({ rows: ["month"], values: { revenue: "sum" } }),
+  )
+  .chart("share", ({ refs }) => ({ marks: [refs.pivot("single").pie()] }));
+
+const pivotCheck = createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .table("client", { schema: chartMonthlySchema, rows: [], select: { exclude: ["cost"] } });
+
+pivotCheck
+  .pivot("unknownRow", ({ refs }) =>
+    // @ts-expect-error - unknown row field
+    refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" } }),
+  )
+  .pivot("textSum", ({ refs }) =>
+    // @ts-expect-error - only count works on a text column
+    refs.table("sales").pivot({ rows: ["day"], values: { month: "sum" } }),
+  )
+  .pivot("twice", ({ refs }) =>
+    // @ts-expect-error - a field is a row, a column or a filter, once
+    refs.table("sales").pivot({ rows: ["month"], filters: ["month"], values: { revenue: "sum" } }),
+  )
+  .pivot("twoColumns", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - a pivot takes at most one column field
+      .pivot({ rows: ["month"], columns: ["day", "label"], values: { revenue: "sum" } }),
+  )
+  .pivot("noValues", ({ refs }) =>
+    // @ts-expect-error - a pivot needs at least one value
+    refs.table("sales").pivot({ rows: ["month"], values: {} }),
+  )
+  .pivot("excluded", ({ refs }) =>
+    // @ts-expect-error - "cost" is excluded by this table's select
+    refs.table("client").pivot({ rows: ["month"], values: { cost: "sum" } }),
+  )
+  .pivot("columns", ({ refs }) =>
+    refs.table("sales").pivot({ rows: ["month"], columns: ["day"], values: { revenue: "sum" } }),
+  )
+  // @ts-expect-error - a pivot pie needs a pivot without columns and with a single value
+  .chart("pieWithColumns", ({ refs }) => ({ marks: [refs.pivot("columns").pie()] }))
+  // @ts-expect-error - a pivot chart takes a single mark
+  .chart("mixed", ({ refs }) => ({
+    marks: [refs.pivot("columns").bar(), refs.table("sales").line({ x: "month", y: "revenue" })],
+  }))
+  .chart("unknownPivot", ({ refs }) => ({
+    // @ts-expect-error - unknown pivot
+    marks: [refs.pivot("nope").bar()],
+  }))
+  // @ts-expect-error - pivot ids are unique within a sheet
+  .pivot("columns", ({ refs }) =>
+    refs.table("sales").pivot({ rows: ["month"], values: { revenue: "sum" } }),
+  );
+
+async function _streamPivots() {
+  const workbook = createWorkbookStream();
+  const sales = await workbook.sheet("Sales").table("sales", { schema: chartMonthlySchema });
+  const analysis = workbook.sheet("Analysis");
+  const byMonth = analysis.pivot(
+    "byMonth",
+    sales.pivot({ rows: ["month"], values: { revenue: "sum" } }),
+  );
+  analysis.chart("chart", { marks: [byMonth.pie()] });
+  // @ts-expect-error - streamed tables check pivot fields too
+  sales.pivot({ rows: ["nope"], values: { revenue: "sum" } });
+}

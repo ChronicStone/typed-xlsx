@@ -49,6 +49,20 @@ export type {
   ChartValuesInput,
 } from "./chart/types";
 export type {
+  PivotAggregate,
+  PivotAreaOptions,
+  PivotBarOptions,
+  PivotChartSource,
+  PivotDoughnutOptions,
+  PivotLineOptions,
+  PivotOptions,
+  PivotPieOptions,
+  PivotSort,
+  PivotSpec,
+  PivotTableStyle,
+  PivotValueOptions,
+} from "./pivot/types";
+export type {
   LazyText,
   Accessor,
   AccessorValue,

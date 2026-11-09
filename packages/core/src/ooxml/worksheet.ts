@@ -60,6 +60,7 @@ export function serializeWorksheet(
   styles: StylesCollector,
   startingTableIndex = 0,
   worksheetName = sheet.name,
+  extras?: import("../workbook/internal/pivots").WorksheetExtras,
 ) {
   const rowMap = new Map<number, string[]>();
   const rowHeights = new Map<number, number>();
@@ -140,6 +141,10 @@ export function serializeWorksheet(
     merges.push(...positionTableMerges(positioned));
   }
 
+  for (const [rowIndex, cells] of extras?.cells ?? []) {
+    rowMap.set(rowIndex, [...(rowMap.get(rowIndex) ?? []), ...cells]);
+  }
+
   const sortedRows = [...rowMap.entries()].sort(([left], [right]) => left - right);
   const rowNodes = sortedRows.map(([rowIndex, cells]) =>
     createWorksheetRowNode(rowIndex, sortWorksheetCells(cells), rowHeights.get(rowIndex)),
@@ -147,7 +152,7 @@ export function serializeWorksheet(
   const endRow = sortedRows.length > 0 ? sortedRows[sortedRows.length - 1]![0] : 0;
   const endCol = positionedTables.reduce((max, positioned) => {
     return Math.max(max, positioned.columnOffset + positioned.width - 1);
-  }, 0);
+  }, extras?.lastCol ?? 0);
 
   return {
     xml: xmlDocument(
@@ -163,7 +168,9 @@ export function serializeWorksheet(
         }),
         writeWorksheetViews(sheet.view),
         xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() }),
-        writeWorksheetColumns(buildWorksheetColumns(positionedTables)),
+        writeWorksheetColumns(
+          mergeWorksheetColumns(buildWorksheetColumns(positionedTables), extras),
+        ),
         xmlElement("sheetData", undefined, rowNodes),
         writeWorksheetProtection(sheet.protection),
         writeWorksheetAutoFilter(autoFilter),
@@ -563,6 +570,18 @@ function resolveDataCellStyle<T extends object>(
     rowIndex: cell.sourceRowIndex,
     subRowIndex: cell.subRowIndex,
   });
+}
+
+function mergeWorksheetColumns(
+  columns: WorksheetColumnDefinition[],
+  extras?: import("../workbook/internal/pivots").WorksheetExtras,
+) {
+  if (!extras) return columns;
+  const byIndex = new Map(columns.map((column) => [column.index, column]));
+  for (const column of extras.columns) {
+    if (!byIndex.has(column.index)) byIndex.set(column.index, column);
+  }
+  return [...byIndex.values()].sort((left, right) => left.index - right.index);
 }
 
 function buildWorksheetColumns(

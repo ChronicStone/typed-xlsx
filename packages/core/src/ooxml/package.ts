@@ -9,6 +9,11 @@ import { serializeBufferedWorkbookPlan } from "./workbook";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import type { ImageMediaType } from "../image/types";
 import { CHART_CONTENT_TYPE } from "./chart";
+import {
+  PIVOT_CACHE_CONTENT_TYPE,
+  PIVOT_CACHE_RELATIONSHIP,
+  PIVOT_TABLE_CONTENT_TYPE,
+} from "./pivot";
 import type { WorkbookBinaryPart, WorkbookXmlPart } from "./workbook";
 import {
   FEATURE_PROPERTY_BAG_CONTENT_TYPE,
@@ -29,6 +34,7 @@ export function writeContentTypesXml(
   mediaTypes: ImageMediaType[] = [],
   hasFeaturePropertyBag = false,
   chartCount = 0,
+  pivotCount = 0,
 ) {
   const uniqueMediaTypes = [...new Set(mediaTypes)];
   const overrides = [
@@ -81,6 +87,16 @@ export function writeContentTypesXml(
         ContentType: CHART_CONTENT_TYPE,
       }),
     ),
+    ...Array.from({ length: pivotCount }, (_, index) => [
+      xmlSelfClosing("Override", {
+        PartName: `/xl/pivotCache/pivotCacheDefinition${index + 1}.xml`,
+        ContentType: PIVOT_CACHE_CONTENT_TYPE,
+      }),
+      xmlSelfClosing("Override", {
+        PartName: `/xl/pivotTables/pivotTable${index + 1}.xml`,
+        ContentType: PIVOT_TABLE_CONTENT_TYPE,
+      }),
+    ]).flat(),
   ];
 
   return xmlDocument(
@@ -126,6 +142,7 @@ export function writeWorkbookRelationshipsXml(
   sheetCount: number,
   hasSharedStrings: boolean,
   hasFeaturePropertyBag = false,
+  pivotCount = 0,
 ) {
   const relationships = [
     ...Array.from({ length: sheetCount }, (_, index) =>
@@ -160,6 +177,16 @@ export function writeWorkbookRelationshipsXml(
         Id: `rId${nextRelationshipId}`,
         Type: FEATURE_PROPERTY_BAG_RELATIONSHIP_TYPE,
         Target: "featurePropertyBag/featurePropertyBag.xml",
+      }),
+    );
+  }
+
+  for (let index = 1; index <= pivotCount; index += 1) {
+    relationships.push(
+      xmlSelfClosing("Relationship", {
+        Id: `rIdPivotCache${index}`,
+        Type: PIVOT_CACHE_RELATIONSHIP,
+        Target: `pivotCache/pivotCacheDefinition${index}.xml`,
       }),
     );
   }
@@ -214,6 +241,9 @@ export function buildBufferedWorkbookXlsx(plan: BufferedWorkbookPlan) {
     part.path.startsWith("xl/drawings/drawing"),
   ).length;
   const chartCount = xml.parts.filter((part) => part.path.startsWith("xl/charts/chart")).length;
+  const pivotCount = xml.parts.filter((part) =>
+    part.path.startsWith("xl/pivotCache/pivotCacheDefinition"),
+  ).length;
   const hasFeaturePropertyBag = xml.parts.some((part) => part.path === FEATURE_PROPERTY_BAG_PATH);
   return buildXlsxPackage(xml.parts, {
     worksheetCount,
@@ -221,6 +251,7 @@ export function buildBufferedWorkbookXlsx(plan: BufferedWorkbookPlan) {
     tableCount,
     drawingCount,
     chartCount,
+    pivotCount,
     hasFeaturePropertyBag,
     mediaTypes: xml.binaryParts.flatMap((part) => (part.mediaType ? [part.mediaType] : [])),
     binaryParts: xml.binaryParts,
@@ -235,6 +266,7 @@ export function buildXlsxPackage(
     tableCount: number;
     drawingCount?: number;
     chartCount?: number;
+    pivotCount?: number;
     hasFeaturePropertyBag?: boolean;
     mediaTypes?: ImageMediaType[];
     binaryParts?: WorkbookBinaryPart[];
@@ -257,6 +289,7 @@ export function buildXlsxPackage(
         options.mediaTypes ?? [],
         hasFeaturePropertyBag,
         options.chartCount ?? 0,
+        options.pivotCount ?? 0,
       ),
     ),
   );
@@ -268,6 +301,7 @@ export function buildXlsxPackage(
         options.worksheetCount,
         options.hasSharedStrings,
         hasFeaturePropertyBag,
+        options.pivotCount ?? 0,
       ),
     ),
   );
@@ -293,6 +327,7 @@ export async function writeXlsxPackageToSink(
     tableCount: number;
     drawingCount?: number;
     chartCount?: number;
+    pivotCount?: number;
     hasFeaturePropertyBag?: boolean;
     mediaTypes?: ImageMediaType[];
   },
@@ -313,6 +348,7 @@ export async function writeXlsxPackageToSink(
       options.mediaTypes ?? [],
       hasFeaturePropertyBag,
       options.chartCount ?? 0,
+      options.pivotCount ?? 0,
     ),
   );
   await zip.add("_rels/.rels", writeRootRelationshipsXml());
@@ -322,6 +358,7 @@ export async function writeXlsxPackageToSink(
       options.worksheetCount,
       options.hasSharedStrings,
       hasFeaturePropertyBag,
+      options.pivotCount ?? 0,
     ),
   );
   if (!hasStyles) {

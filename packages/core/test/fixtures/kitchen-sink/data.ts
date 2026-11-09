@@ -321,3 +321,15 @@ export function createKitchenSinkRegionSummaryRows(orders: KitchenSinkOrder[]) {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([region, totals]) => ({ region, ...totals }));
 }
+
+export function createKitchenSinkOrderLineRows(orders: KitchenSinkOrder[]) {
+  return orders.flatMap((order) =>
+    order.items.map((item) => ({
+      region: order.region,
+      tier: order.customer.tier,
+      sku: item.sku,
+      quantity: item.quantity,
+      lineTotal: item.quantity * item.unitPrice,
+    })),
+  );
+}

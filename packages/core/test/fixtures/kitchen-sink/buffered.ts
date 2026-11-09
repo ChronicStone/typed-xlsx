@@ -1,6 +1,7 @@
 import { createExcelSchema, createWorkbook } from "../../../src";
 import {
   createKitchenSinkOrders,
+  createKitchenSinkOrderLineRows,
   createKitchenSinkProductImageRows,
   createKitchenSinkRegionSummaryRows,
   createKitchenSinkSparklineRows,
@@ -12,6 +13,7 @@ import {
   kitchenSinkGroupedFormulaContext,
   kitchenSinkHyperlinkSchema,
   kitchenSinkProductImageSchema,
+  kitchenSinkOrderLineSchema,
   kitchenSinkProtectedInputSchema,
   kitchenSinkRegionSummarySchema,
   kitchenSinkSchema,
@@ -346,6 +348,26 @@ export function buildKitchenSinkBufferedExample() {
         refs.table("region-summary").line({ x: "region", y: "averageOrder", axis: "y2" }),
       ],
       axes: { y: { title: "Revenue", min: 0 }, y2: { title: "Avg order" } },
+    }));
+
+  workbook
+    .sheet("Pivot")
+    .table("order-lines", {
+      title: "Order Lines",
+      schema: kitchenSinkOrderLineSchema,
+      rows: createKitchenSinkOrderLineRows(orders),
+    })
+    .pivot("revenue-by-region", ({ refs }) =>
+      refs.table("order-lines").pivot({
+        rows: ["region"],
+        columns: ["tier"],
+        values: { lineTotal: "sum" },
+        filters: ["sku"],
+      }),
+    )
+    .chart("revenue-by-region-chart", ({ refs }) => ({
+      title: "Line totals by region and tier",
+      marks: [refs.pivot("revenue-by-region").bar({ stack: true })],
     }));
 
   return workbook.toUint8Array();

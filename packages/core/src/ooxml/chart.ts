@@ -501,9 +501,22 @@ export function writeChartXml(chart: ResolvedChart) {
     },
     [
       val("c:roundedCorners", 0),
+      chart.pivotSource
+        ? xmlElement("c:pivotSource", undefined, [
+            xmlElement("c:name", undefined, xmlEscape(chart.pivotSource)),
+            val("c:fmtId", 0),
+          ])
+        : "",
       xmlElement("c:chart", undefined, [
         chart.title ? title(chart.title) : "",
         val("c:autoTitleDeleted", chart.title ? 0 : 1),
+        chart.pivotSource
+          ? xmlElement(
+              "c:pivotFmts",
+              undefined,
+              xmlElement("c:pivotFmt", undefined, val("c:idx", 0)),
+            )
+          : "",
         xmlElement("c:plotArea", undefined, [
           xmlSelfClosing("c:layout"),
           ...groups,

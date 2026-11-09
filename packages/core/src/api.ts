@@ -39,6 +39,7 @@ import type {
   ChartBookAddSheet,
   ChartBookAddTable,
   ChartMark,
+  ChartPivotIdGuard,
   ChartRefs,
   ChartSheetNameGuard,
   ChartSpec,
@@ -49,6 +50,8 @@ import type {
   EmptyChartBook,
 } from "./chart/types";
 import { createChartTable } from "./chart/table";
+import type { PivotChartSource, PivotShape, PivotSpec } from "./pivot/types";
+import { STREAM_PIVOT_SOURCE } from "./pivot/stream-source";
 
 export interface WorkbookOptions {
   protection?: WorkbookProtectionInput;
@@ -190,6 +193,19 @@ export interface WorkbookSheet<TBook = EmptyChartBook, TSheet extends string = s
     id: string,
     build: (args: { refs: ChartRefs<TBook, TSheet> }) => ChartSpec<TMarks> & ChartSpecGuard<TMarks>,
   ): WorkbookSheet<TBook, TSheet>;
+  /**
+   * Adds a native Excel pivot table over a table declared earlier in the chain. Excel refreshes it
+   * when the file opens; the library also writes its totals, so the file reads right before that.
+   *
+   * @example
+   * .pivot("byRegion", ({ refs }) =>
+   *   refs.table("sales").pivot({ rows: ["region"], columns: ["month"], values: { revenue: "sum" } }),
+   * )
+   */
+  pivot<const TPivotId extends string, TShape extends PivotShape>(
+    id: TPivotId & ChartPivotIdGuard<TPivotId, TBook, TSheet>,
+    build: (args: { refs: ChartRefs<TBook, TSheet> }) => PivotSpec<TShape>,
+  ): WorkbookSheet<ChartBookAddTable<TBook, TSheet, TPivotId, TShape>, TSheet>;
   /** Starts the next sheet of the same workbook, keeping the tables declared so far. */
   sheet<const TName extends string>(
     name: TName & ChartSheetNameGuard<TName, TBook>,
@@ -313,6 +329,20 @@ export interface WorkbookSheetStream {
     id: string,
     spec: ChartSpec<TMarks> & ChartSpecGuard<TMarks>,
   ): WorkbookSheetStream;
+  /**
+   * Adds a native Excel pivot table over a streamed table. Declare it before committing rows to
+   * that table: rows are tallied as they arrive. Returns the pivot's marks for `sheet.chart`.
+   *
+   * @example
+   * const sales = await workbook.sheet("Sales").table("sales", { schema });
+   * const byRegion = workbook.sheet("Analysis").pivot("byRegion", sales.pivot({
+   *   rows: ["region"], values: { revenue: "sum" },
+   * }));
+   */
+  pivot<TShape extends PivotShape>(
+    id: string,
+    spec: PivotSpec<TShape>,
+  ): PivotChartSource<TShape["pie"]>;
 }
 
 export interface WorkbookStream {
@@ -452,6 +482,11 @@ class PublicWorkbookSheet implements WorkbookSheet<any, any> {
     return this;
   }
 
+  pivot(id: string, build: (args: { refs: ChartRefs<any, string> }) => PivotSpec): any {
+    this.sheetBuilder.pivot(id, build);
+    return this;
+  }
+
   sheet(name: string, options?: WorkbookSheetOptions): any {
     return this.workbook.sheet(name, options);
   }
@@ -508,8 +543,11 @@ function createWorkbookTableStream<TRow extends object>(
   sheetName: string,
   tableId: string,
 ): WorkbookTableStream<TRow, any, any> {
+  const chartTable = createChartTable(sheetName, tableId);
   return {
-    ...createChartTable(sheetName, tableId),
+    ...chartTable,
+    pivot: (options: never) =>
+      Object.assign(chartTable.pivot(options), { [STREAM_PIVOT_SOURCE]: table }) as never,
     async commit(batch: WorkbookCommitBatch<TRow>) {
       await table.commit(batch);
     },
@@ -530,6 +568,10 @@ class WorkbookSheetStreamAdapter implements WorkbookSheetStream {
   chart(id: string, spec: ChartSpec): WorkbookSheetStream {
     this.sheetBuilder.chart(id, spec);
     return this;
+  }
+
+  pivot(id: string, spec: PivotSpec): any {
+    return this.sheetBuilder.pivot(id, spec);
   }
 }
 

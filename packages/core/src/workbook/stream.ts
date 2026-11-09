@@ -6,7 +6,22 @@ import { writeSharedStringsXml, createSharedStringsCollector } from "../ooxml/sh
 import { writeXlsxPackageToSink } from "../ooxml/package";
 import { writeChartXml } from "../ooxml/chart";
 import type { ChartPlan, ChartSpec } from "../chart/types";
-import { resolveStreamWorkbookObjects } from "./internal/charts";
+import { resolveStreamWorkbookObjects, type StreamPivotPlan } from "./internal/charts";
+import { createPivotChartSource } from "../chart/table";
+import { PivotAccumulator } from "../pivot/engine";
+import type { PivotSpec } from "../pivot/types";
+import { streamPivotSourceOf } from "../pivot/stream-source";
+import {
+  createPivotDefinition,
+  mergePivotExtras,
+  pivotValueOf,
+  type WorksheetExtras,
+} from "./internal/pivots";
+import {
+  PIVOT_TABLE_RELATIONSHIP,
+  writePivotTableRelationshipsXml,
+  writeWorkbookPivotCachesXml,
+} from "../ooxml/pivot";
 import {
   writeExcelTableXml,
   writeWorksheetRelationshipsXml,
@@ -207,6 +222,7 @@ interface StreamSheetFinalization {
   name: string;
   tables: StreamTableFinalization[];
   charts: ChartPlan[];
+  pivots: StreamPivotPlan[];
   protection?: ResolvedSheetProtectionOptions;
   view?: SheetViewOptions;
 }
@@ -273,6 +289,32 @@ class StreamTableBuilder<
 > {
   private readonly state: StreamTableState<T, TColumnId, TSchemaContext>;
   private readonly bodyStyles: TableBodyStyles;
+  private readonly pivots: PivotAccumulator[] = [];
+
+  /** Starts tallying a pivot over this table. Rows are not kept, so it must happen before any commit. */
+  attachPivot(id: string, spec: PivotSpec) {
+    if (this.state.committedLogicalRows > 0) {
+      throw new Error(
+        `Pivot "${id}": declare it before committing rows to "${this.state.tableId}", since streamed rows are not kept.`,
+      );
+    }
+    const accumulator = new PivotAccumulator(
+      createPivotDefinition(
+        id,
+        spec,
+        this.state.columns.map((column) => ({
+          id: column.id,
+          headerLabel: column.headerLabel,
+          format:
+            typeof column.style === "object" && column.style !== null
+              ? column.style.numFmt
+              : undefined,
+        })),
+      ),
+    );
+    this.pivots.push(accumulator);
+    return accumulator;
+  }
 
   constructor(
     tableId: string,
@@ -392,6 +434,16 @@ class StreamTableBuilder<
         );
         const startRow = this.state.committedPhysicalRows;
         const endRow = startRow + expanded.height - 1;
+        if (this.pivots.length > 0) {
+          if (expanded.height > 1) {
+            throw new Error(
+              `Pivot "${this.pivots[0]!.definition.id}": table "${this.state.tableId}" expands rows into sub-rows, which pivots do not support.`,
+            );
+          }
+          for (const pivot of this.pivots) {
+            pivot.add((column) => pivotValueOf(expanded.valuesByColumn[column]?.[0]));
+          }
+        }
         this.state.logicalRowBounds?.push({
           logicalRowHeight: expanded.height,
           logicalRowIndex: this.state.committedLogicalRows,
@@ -639,6 +691,7 @@ function isStreamExcelTableInput<
 class StreamSheetBuilder {
   private readonly tables: StreamTableBuilder<any, string, any>[] = [];
   private readonly charts: ChartPlan[] = [];
+  private readonly pivots: StreamPivotPlan[] = [];
   private disposed = false;
 
   constructor(
@@ -706,6 +759,20 @@ class StreamSheetBuilder {
     return this;
   }
 
+  pivot(id: string, spec: PivotSpec) {
+    if (this.disposed) {
+      throw new Error("Stream sheet has been disposed.");
+    }
+    const source = spec?.kind === "pivot-spec" ? streamPivotSourceOf(spec) : undefined;
+    if (!source) {
+      throw new Error(
+        `Pivot "${id}": pass a pivot made by a streamed table, such as sales.pivot({ ... }).`,
+      );
+    }
+    this.pivots.push({ id, spec, accumulator: source.attachPivot(id, spec) });
+    return createPivotChartSource(this.name, id);
+  }
+
   async finalize() {
     const tables = this.tables.map((table) => ({
       ...table.getFinalization(),
@@ -723,6 +790,7 @@ class StreamSheetBuilder {
       view: this.view,
       tables,
       charts: [...this.charts],
+      pivots: [...this.pivots],
     };
   }
 
@@ -834,8 +902,10 @@ export class StreamWorkbookBuilder {
     const mediaRegistry = createWorksheetMediaRegistry();
     const rawSheetNames = finalizedSheets.map((sheet) => sheet.name);
     const worksheetNames = buildWorksheetNames(rawSheetNames);
-    const objects = resolveStreamWorkbookObjects(finalizedSheets, worksheetNames);
+    const objects = resolveStreamWorkbookObjects(finalizedSheets, worksheetNames, this.styles);
     const chartsBySheet = objects.charts;
+    const pivotParts: StreamWorksheetPart[] = [];
+    let pivotCount = 0;
     let chartIndex = 0;
     let worksheetIndex = 0;
     let tableIndex = 0;
@@ -871,6 +941,25 @@ export class StreamWorkbookBuilder {
           column: image.column + positioned.columnOffset,
         })),
       );
+      const renderedPivots = objects.pivots[worksheetIndex - 1] ?? [];
+      const sheetPivots = renderedPivots.map((pivot, offset) => {
+        pivotCount += 1;
+        pivotParts.push(
+          {
+            path: `xl/pivotCache/pivotCacheDefinition${pivot.cacheIndex}.xml`,
+            source: pivot.cacheXml,
+          },
+          { path: `xl/pivotTables/pivotTable${pivot.cacheIndex}.xml`, source: pivot.tableXml },
+          {
+            path: `xl/pivotTables/_rels/pivotTable${pivot.cacheIndex}.xml.rels`,
+            source: writePivotTableRelationshipsXml(pivot.cacheIndex),
+          },
+        );
+        return {
+          relId: `rIdPivot${offset + 1}`,
+          target: `../pivotTables/pivotTable${pivot.cacheIndex}.xml`,
+        };
+      });
       const sheetCharts = (chartsBySheet[worksheetIndex - 1] ?? []).map((chart) => {
         chartIndex += 1;
         const chartPath = `xl/charts/chart${chartIndex}.xml`;
@@ -903,16 +992,18 @@ export class StreamWorkbookBuilder {
           conditionalFormatting,
           this.styles,
           drawing?.relId,
+          mergePivotExtras(renderedPivots),
         ),
       });
 
-      if (worksheetTableParts.length > 0 || drawing) {
+      if (worksheetTableParts.length > 0 || drawing || sheetPivots.length > 0) {
         worksheetRelationshipParts.push({
           path: `xl/worksheets/_rels/sheet${worksheetIndex}.xml.rels`,
           source: writeStreamWorksheetRelationshipsXml(
             worksheetTableParts,
             worksheetHyperlinks.externalRelationships,
             drawing,
+            sheetPivots,
           ),
         });
         tableParts.push(
@@ -954,7 +1045,7 @@ export class StreamWorkbookBuilder {
     const parts = [
       {
         path: "xl/workbook.xml",
-        source: writeStreamWorkbookXml(workbookSheetDefs, this.protection),
+        source: writeStreamWorkbookXml(workbookSheetDefs, this.protection, pivotCount),
       },
       {
         path: "xl/styles.xml",
@@ -981,6 +1072,7 @@ export class StreamWorkbookBuilder {
       ...tableParts,
       ...drawingParts,
       ...chartParts,
+      ...pivotParts,
       ...mediaParts,
     ];
 
@@ -992,6 +1084,7 @@ export class StreamWorkbookBuilder {
         tableCount: tableIndex,
         drawingCount: drawingIndex,
         chartCount: chartIndex,
+        pivotCount,
         hasFeaturePropertyBag,
         mediaTypes: mediaParts.map((part) => part.mediaType),
       },
@@ -1070,6 +1163,7 @@ async function* streamWorksheetXml(
   conditionalFormatting: ReturnType<typeof buildPositionedConditionalFormatting>,
   styles: StylesCollector,
   drawingRelId?: string,
+  extras?: WorksheetExtras,
 ): AsyncIterable<Uint8Array> {
   const merges = positionedTables.flatMap((positioned) => {
     const chrome = getStreamReportChrome(positioned.table);
@@ -1105,13 +1199,14 @@ async function* streamWorksheetXml(
           endCol: autoFilteredTables[0]!.columnOffset + autoFilteredTables[0]!.width - 1,
         })
       : "";
-  const lastRow = positionedTables.reduce(
+  const tablesLastRow = positionedTables.reduce(
     (max, positioned) => Math.max(max, positioned.rowOffset + positioned.height),
     1,
   );
+  const lastRow = Math.max(tablesLastRow, (extras?.lastRow ?? 0) + 1);
   const lastColIndex = positionedTables.reduce(
     (max, positioned) => Math.max(max, positioned.columnOffset + positioned.width - 1),
-    0,
+    extras?.lastCol ?? 0,
   );
   const lastCol = toWorksheetCol(lastColIndex);
   const rowMap = new Map<number, string[]>();
@@ -1119,12 +1214,16 @@ async function* streamWorksheetXml(
   const orderedTables = [...positionedTables].sort(
     (left, right) => left.rowOffset - right.rowOffset,
   );
-  const streamRows = orderedTables.every(
-    (positioned, index) =>
-      index === 0 ||
-      orderedTables[index - 1]!.rowOffset + orderedTables[index - 1]!.height <=
-        positioned.rowOffset,
-  );
+  // Pivot cells are appended last, so rows can only stream when pivots sit below every table.
+  const pivotsBelowTables = !extras || Math.min(...extras.cells.keys()) >= tablesLastRow;
+  const streamRows =
+    pivotsBelowTables &&
+    orderedTables.every(
+      (positioned, index) =>
+        index === 0 ||
+        orderedTables[index - 1]!.rowOffset + orderedTables[index - 1]!.height <=
+          positioned.rowOffset,
+    );
   const dataValidations = positionedTables.flatMap((positioned) =>
     positioned.table.dataValidations.map((block) => {
       const ref = shiftWorksheetRange(
@@ -1173,7 +1272,7 @@ async function* streamWorksheetXml(
       `${xmlSelfClosing("dimension", { ref: `A1:${lastCol}${lastRow}` })}` +
       `${writeWorksheetViews(sheet.view)}` +
       `${xmlSelfClosing("sheetFormatPr", { defaultRowHeight: getDefaultRowHeight() })}` +
-      `${writeStreamColumns(positionedTables)}` +
+      `${writeStreamColumns(positionedTables, extras)}` +
       `<sheetData>`,
   );
 
@@ -1386,6 +1485,9 @@ async function* streamWorksheetXml(
     }
   }
 
+  for (const [rowIndex, cells] of extras?.cells ?? []) {
+    appendCells(rowMap, rowIndex, cells);
+  }
   yield* flushWorksheetRows(rowMap, rowHeights);
 
   yield encodeXml(
@@ -1407,8 +1509,9 @@ function writeStreamWorksheetRelationshipsXml(
   tableParts: WorksheetTablePart[],
   hyperlinks: Array<{ relId: string; target: string }>,
   drawing?: WorksheetDrawingPart,
+  pivots: Array<{ relId: string; target: string }> = [],
 ) {
-  if (hyperlinks.length === 0 && !drawing) {
+  if (hyperlinks.length === 0 && !drawing && pivots.length === 0) {
     return writeWorksheetRelationshipsXml(tableParts);
   }
 
@@ -1433,6 +1536,13 @@ function writeStreamWorksheetRelationshipsXml(
             }),
           ]
         : []),
+      ...pivots.map((pivot) =>
+        xmlSelfClosing("Relationship", {
+          Id: pivot.relId,
+          Type: PIVOT_TABLE_RELATIONSHIP,
+          Target: pivot.target,
+        }),
+      ),
       ...hyperlinks.map((hyperlink) =>
         xmlSelfClosing("Relationship", {
           Id: hyperlink.relId,
@@ -1567,6 +1677,7 @@ function getSummaryStyleIndex(table: StreamTableFinalization, target: PlannedSum
 function writeStreamWorkbookXml(
   sheets: Array<{ name: string; id: number }>,
   protection?: StreamWorkbookProtection,
+  pivotCount = 0,
 ) {
   return xmlDocument(
     "workbook",
@@ -1600,12 +1711,17 @@ function writeStreamWorkbookXml(
         fullCalcOnLoad: 1,
         forceFullCalc: 1,
       }),
+      writeWorkbookPivotCachesXml(pivotCount),
     ],
   );
 }
 
-function writeStreamColumns(positionedTables: PositionedTable<StreamTableFinalization>[]) {
+function writeStreamColumns(
+  positionedTables: PositionedTable<StreamTableFinalization>[],
+  extras?: WorksheetExtras,
+) {
   const columns = new Map<number, number>();
+  for (const column of extras?.columns ?? []) columns.set(column.index, column.width);
 
   positionedTables.forEach((positioned) => {
     positioned.table.columns.forEach((column, columnIndex) => {

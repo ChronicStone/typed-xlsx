@@ -1,4 +1,5 @@
 import type { PrimitiveCellValue } from "../schema/builder";
+import type { PivotLayout } from "../pivot/engine";
 import { toCellRef } from "../ooxml/cells";
 import type {
   ChartAxes,
@@ -36,6 +37,16 @@ export interface ChartTableLocation {
   logicalRowCount: number;
   /** Body cell values, when the workbook still holds them (buffered output). */
   value?: (row: number, column: number) => PrimitiveCellValue;
+  /** Name of the native Excel table, for pivot sources. */
+  excelTableName?: string;
+}
+
+/** Where a placed pivot sits, for pivot charts. Rows and columns are 0-based. */
+export interface ChartPivotLocation {
+  worksheetName: string;
+  name: string;
+  anchor: { row: number; col: number };
+  layout: PivotLayout;
 }
 
 export interface ChartSheetInput {
@@ -48,7 +59,21 @@ export interface ChartSheetInput {
 /** Index of every laid-out table, keyed by the sheet name given in the chain. */
 export class ChartTableIndex {
   private readonly tables = new Map<string, ChartTableLocation[]>();
+  private readonly pivots = new Map<string, ChartPivotLocation>();
   private readonly sheetNames = new Map<string, number>();
+
+  addPivot(sheet: string, pivot: string, location: ChartPivotLocation) {
+    this.pivots.set(`${sheet}\u0000${pivot}`, location);
+  }
+
+  locatePivot(chartId: string, source: ChartMark["source"]) {
+    this.assertUniqueSheet(chartId, source);
+    const location = this.pivots.get(`${source.sheet}\u0000${source.table}`);
+    if (!location) {
+      throw new Error(`Chart "${chartId}": no pivot "${source.table}" on sheet "${source.sheet}".`);
+    }
+    return location;
+  }
 
   private assertUniqueSheet(chartId: string, source: ChartMark["source"]) {
     if ((this.sheetNames.get(source.sheet) ?? 0) > 1) {
@@ -147,6 +172,8 @@ export interface ResolvedChart {
   axes: ChartAxes;
   groups: ResolvedChartGroup[];
   anchor: ResolvedChartAnchor;
+  /** `[]Sheet!PivotName` when the chart is a pivot chart. */
+  pivotSource?: string;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -593,6 +620,69 @@ function applyPalette(chartId: string, groups: ResolvedChartGroup[], palette?: r
   }
 }
 
+function resolvePivotChart(
+  chartId: string,
+  mark: ChartMark,
+  pivot: ChartPivotLocation,
+): { kind: ResolvedChart["kind"]; groups: ResolvedChartGroup[]; pivotSource: string } {
+  const { layout, anchor, worksheetName } = pivot;
+  const options = mark.options as Record<string, any>;
+  const valueAt = new Map(layout.cells.map((cell) => [`${cell.row},${cell.col}`, cell.value]));
+  const bodyRows = Math.max(layout.body.lastRow - layout.body.firstRow + 1, 0);
+  const columnRange = (col: number): ChartDataRef =>
+    bodyRows === 0
+      ? { count: 0, values: [] }
+      : {
+          formula: qualify(
+            worksheetName,
+            absoluteRef(anchor.row + layout.body.firstRow, anchor.col + col),
+            absoluteRef(anchor.row + layout.body.lastRow, anchor.col + col),
+          ),
+          count: bodyRows,
+          values: Array.from(
+            { length: bodyRows },
+            (_, offset) => valueAt.get(`${layout.body.firstRow + offset},${col}`) ?? null,
+          ),
+        };
+  const categories = columnRange(0);
+  const labels = resolveLabels(options.labels);
+  const pie = mark.type === "pie" || mark.type === "doughnut";
+  const dataColumns = layout.dataColumns.filter((column) => !column.total);
+  const series = (pie ? dataColumns.slice(0, 1) : dataColumns).map((column) => ({
+    name: {
+      text: String(valueAt.get(`${column.headerRow},${column.col}`) ?? ""),
+      formula: qualify(
+        worksheetName,
+        absoluteRef(anchor.row + column.headerRow, anchor.col + column.col),
+      ),
+    },
+    categories,
+    values: columnRange(column.col),
+    ...(options.smooth !== undefined ? { smooth: Boolean(options.smooth) } : {}),
+    ...(options.markers !== undefined ? { markers: Boolean(options.markers) } : {}),
+    ...(labels ? { labels } : {}),
+  }));
+  assertRange(chartId, "gap", options.gap, 0, 500);
+  assertRange(chartId, "hole", options.hole, 10, 90);
+  const stack = pie ? undefined : stackMode(options.stack);
+
+  return {
+    kind: pie ? "pie" : "category",
+    pivotSource: `[]${worksheetName}!${pivot.name}`,
+    groups: [
+      {
+        type: mark.type,
+        axis: "y",
+        ...(stack ? { stack } : {}),
+        ...(mark.type === "bar" && options.horizontal === true ? { horizontal: true } : {}),
+        ...(options.gap !== undefined ? { gap: Number(options.gap) } : {}),
+        ...(mark.type === "doughnut" ? { hole: Number(options.hole ?? 55) } : {}),
+        series,
+      },
+    ],
+  };
+}
+
 function resolveChart(
   plan: ChartPlan,
   index: ChartTableIndex,
@@ -604,15 +694,24 @@ function resolveChart(
     throw new Error(`Chart "${id}": needs at least one mark.`);
   }
 
-  const kind = chartKind(id, marks);
-  const resolved = marks.map((mark) => {
-    const reader = new TableReader(id, mark.source, index.locate(id, mark.source));
-    return mark.type === "pie" || mark.type === "doughnut"
-      ? resolvePieMark(id, mark, reader)
-      : resolveSeriesMark(id, mark, reader);
-  });
-  if (kind === "category") assertMarksLineUp(id, resolved);
-  const groups = buildGroups(id, resolved);
+  let kind: ResolvedChart["kind"];
+  let groups: ResolvedChartGroup[];
+  let pivotSource: string | undefined;
+  if (marks.some((mark) => mark.source.pivot)) {
+    if (marks.length > 1) throw new Error(`Chart "${id}": a pivot chart takes a single mark.`);
+    const pivotChart = resolvePivotChart(id, marks[0]!, index.locatePivot(id, marks[0]!.source));
+    ({ kind, groups, pivotSource } = pivotChart);
+  } else {
+    kind = chartKind(id, marks);
+    const resolved = marks.map((mark) => {
+      const reader = new TableReader(id, mark.source, index.locate(id, mark.source));
+      return mark.type === "pie" || mark.type === "doughnut"
+        ? resolvePieMark(id, mark, reader)
+        : resolveSeriesMark(id, mark, reader);
+    });
+    if (kind === "category") assertMarksLineUp(id, resolved);
+    groups = buildGroups(id, resolved);
+  }
   applyPalette(id, groups, spec.colors);
   const seriesCount = groups.reduce((total, group) => total + group.series.length, 0);
   const legend =
@@ -636,6 +735,7 @@ function resolveChart(
     axes: spec.axes ?? {},
     groups,
     anchor: { col: from.col, row: from.row, width, height },
+    ...(pivotSource ? { pivotSource } : {}),
   };
 }
 

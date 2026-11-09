@@ -840,3 +840,19 @@ export const kitchenSinkRegionSummarySchema = createExcelSchema<KitchenSinkRegio
     style: currencyStyle,
   })
   .build();
+
+export type KitchenSinkOrderLineRow = {
+  region: string;
+  tier: string;
+  sku: string;
+  quantity: number;
+  lineTotal: number;
+};
+
+export const kitchenSinkOrderLineSchema = createExcelSchema<KitchenSinkOrderLineRow>()
+  .column("region", { header: "Region", accessor: "region" })
+  .column("tier", { header: "Tier", accessor: "tier" })
+  .column("sku", { header: "SKU", accessor: "sku" })
+  .column("quantity", { header: "Quantity", accessor: "quantity" })
+  .column("lineTotal", { header: "Line Total", accessor: "lineTotal", style: currencyStyle })
+  .build();

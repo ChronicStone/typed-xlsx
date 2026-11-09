@@ -47,5 +47,6 @@ describe("styles collector", () => {
     expect(() => collector.addStyle({ font: { bold: true } })).toThrow(
       /after styles\.xml was written/,
     );
+    expect(() => collector.numberFormatId("0.00%")).toThrow(/after styles\.xml was written/);
   });
 });

@@ -1,4 +1,12 @@
 import type { SchemaColumnId, SchemaColumnValues, SchemaDynamicId } from "../schema/builder";
+import type {
+  PivotChartSource,
+  PivotOptions,
+  PivotOptionsGuard,
+  PivotShape,
+  PivotShapeOf,
+  PivotSpec,
+} from "../pivot/types";
 
 // ── Options ──────────────────────────────────────────────────────────────────
 
@@ -211,14 +219,14 @@ export type ChartSeriesOptionsGuard<TOptions> = [ChartSeriesOptionProblems<TOpti
 // ── Marks ────────────────────────────────────────────────────────────────────
 
 /** Mark variants that matter for combination rules. */
-export type ChartMarkVariant = ChartMarkType | "horizontal-bar";
+export type ChartMarkVariant = ChartMarkType | "horizontal-bar" | "pivot" | "pivot-invalid-pie";
 
 /** A layer of a chart, created from a table with `refs.table(id).bar(...)`, `.line(...)`, … */
 export interface ChartMark<TVariant extends ChartMarkVariant = ChartMarkVariant, TX = unknown> {
   readonly kind: "chart-mark";
   readonly type: ChartMarkType;
-  /** Table the mark reads. */
-  readonly source: { readonly sheet: string; readonly table: string };
+  /** Table the mark reads, or the pivot when `pivot` is set. */
+  readonly source: { readonly sheet: string; readonly table: string; readonly pivot?: boolean };
   readonly options: Readonly<Record<string, unknown>>;
   readonly __variant?: TVariant;
   readonly __x?: TX;
@@ -253,6 +261,15 @@ export interface ChartTable<TColumns = Record<string, unknown>, TDynamic extends
   doughnut<const TOptions extends ChartDoughnutOptions<TColumns>>(
     options: TOptions,
   ): ChartMark<"doughnut", ChartXValue<TColumns, TOptions["label"]>>;
+  /**
+   * A native Excel pivot table over this table, for `sheet.pivot(id, …)`.
+   *
+   * @example
+   * refs.table("sales").pivot({ rows: ["region"], columns: ["month"], values: { revenue: "sum" } })
+   */
+  pivot<const TOptions extends PivotOptions<TColumns>>(
+    options: TOptions & PivotOptionsGuard<TOptions>,
+  ): PivotSpec<PivotShapeOf<TOptions>>;
 }
 
 // ── Chart spec and combination rules ─────────────────────────────────────────
@@ -313,6 +330,14 @@ type HasOther<TMarks extends readonly unknown[], TVariant> = [
   : true;
 
 type ChartMarkProblems<TMarks extends readonly unknown[]> =
+  | (Has<TMarks, "pivot" | "pivot-invalid-pie"> extends true
+      ? TMarks["length"] extends 1
+        ? never
+        : "a pivot chart takes a single mark"
+      : never)
+  | (Has<TMarks, "pivot-invalid-pie"> extends true
+      ? "a pivot pie needs a pivot without columns and with a single value"
+      : never)
   | (Has<TMarks, "pie" | "doughnut"> extends true
       ? TMarks["length"] extends 1
         ? never
@@ -357,6 +382,21 @@ type ChartTableIdsOf<TBook, TSheet extends string> = TSheet extends keyof TBook
       string
   : never;
 
+type ChartPivotIdsOf<TBook, TSheet extends string> = TSheet extends keyof TBook
+  ? {
+      [K in keyof TBook[TSheet]]: TBook[TSheet][K] extends PivotShape ? K : never;
+    }[keyof TBook[TSheet]] &
+      string
+  : never;
+
+type ChartPivotOf<TBook, TSheet extends string, TPivot extends string> = TSheet extends keyof TBook
+  ? TPivot extends keyof TBook[TSheet]
+    ? TBook[TSheet][TPivot] extends PivotShape<infer TPie>
+      ? PivotChartSource<TPie>
+      : never
+    : never
+  : never;
+
 type ChartTableOf<TBook, TSheet extends string, TTable extends string> = TSheet extends keyof TBook
   ? TTable extends keyof TBook[TSheet]
     ? TBook[TSheet][TTable] extends ChartTableShape<infer TColumns, infer TDynamic>
@@ -370,6 +410,10 @@ export interface ChartSheetRefs<TBook, TSheet extends string> {
   table<const TTable extends ChartTableIdsOf<TBook, TSheet>>(
     tableId: TTable,
   ): ChartTableOf<TBook, TSheet, TTable>;
+  /** A pivot of this sheet, declared earlier in the chain. */
+  pivot<const TPivot extends ChartPivotIdsOf<TBook, TSheet>>(
+    pivotId: TPivot,
+  ): ChartPivotOf<TBook, TSheet, TPivot>;
 }
 
 /**
@@ -410,6 +454,18 @@ export type ChartSheetNameGuard<TName extends string, TBook> = string extends TN
   ? unknown
   : TName extends keyof TBook
     ? { readonly [P in `✗ sheet "${TName}" already exists`]: true }
+    : unknown;
+
+export type ChartPivotIdGuard<
+  TPivot extends string,
+  TBook,
+  TSheet extends string,
+> = string extends TPivot
+  ? unknown
+  : TSheet extends keyof TBook
+    ? TPivot extends keyof TBook[TSheet]
+      ? { readonly [P in `✗ "${TPivot}" is already used on this sheet`]: true }
+      : unknown
     : unknown;
 
 export type ChartTableIdGuard<
