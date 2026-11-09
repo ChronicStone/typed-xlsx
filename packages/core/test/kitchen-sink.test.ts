@@ -30,9 +30,10 @@ describe("kitchen sink examples", () => {
     expect(sparklineGallerySheet).toContain('type="column"');
     expect(sparklineGallerySheet).toContain('type="stacked"');
     expect(formulaColumnsSheet).toContain("<conditionalFormatting");
-    expect(formulaColumnsSheet).toContain('sqref="H4:H7"');
-    expect(formulaColumnsSheet).toContain("($H2&lt;1000)");
-    expect(formulaColumnsSheet).toContain("AND(($H2&gt;=5000),(G2&gt;=0.85))");
+    // The sheet has a title, so data starts on row 3 and the totals row (7) stays unformatted.
+    expect(formulaColumnsSheet).toContain('sqref="H3:H6"');
+    expect(formulaColumnsSheet).toContain("($H3&lt;1000)");
+    expect(formulaColumnsSheet).toContain("AND(($H3&gt;=5000),(G3&gt;=0.85))");
     expect(styles).toContain('<dxfs count="4"');
     expect(styles).toContain("FFFEE2E2");
     expect(styles).toContain("FFDCFCE7");

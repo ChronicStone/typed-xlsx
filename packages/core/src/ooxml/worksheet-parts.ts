@@ -1,4 +1,5 @@
 import { getDefaultRowHeight } from "../planner/metrics";
+import { assertRelativeRefsResolved } from "./relative-refs";
 import type { WorksheetConditionalFormattingBlock } from "../styles/conditional-runtime";
 import type { StylesCollector } from "../styles/collector";
 import type { WorksheetDataValidation } from "../validation/runtime";
@@ -123,6 +124,7 @@ export function writeWorksheetConditionalFormatting(
         "conditionalFormatting",
         { sqref: block.ref },
         block.rules.map((rule) => {
+          assertRelativeRefsResolved(rule.formula);
           const dxfId = styles.addDifferentialStyle(rule.style);
 
           return xmlElement(
@@ -146,8 +148,10 @@ export function writeWorksheetDataValidations(validations: WorksheetDataValidati
   return xmlElement(
     "dataValidations",
     { count: validations.length },
-    validations.map((validation) =>
-      xmlElement(
+    validations.map((validation) => {
+      assertRelativeRefsResolved(validation.formula1);
+      assertRelativeRefsResolved(validation.formula2);
+      return xmlElement(
         "dataValidation",
         {
           sqref: validation.ref,
@@ -172,8 +176,8 @@ export function writeWorksheetDataValidations(validations: WorksheetDataValidati
             ? xmlElement("formula2", undefined, xmlEscape(validation.formula2))
             : "",
         ],
-      ),
-    ),
+      );
+    }),
   );
 }
 
