@@ -3,7 +3,9 @@ import BpHero from "../landing/BpHero.vue";
 import BpScale from "../landing/BpScale.vue";
 import BpRender from "../landing/BpRender.vue";
 import BpTypes from "../landing/BpTypes.vue";
+import BpPaths from "../landing/BpPaths.vue";
 import BpModular from "../landing/BpModular.vue";
+import BpCharts from "../landing/BpCharts.vue";
 import BpOutputs from "../landing/BpOutputs.vue";
 import BpEngine from "../landing/BpEngine.vue";
 
@@ -39,7 +41,9 @@ useHead({
     <BpScale />
     <BpRender />
     <BpTypes />
+    <BpPaths />
     <BpModular />
+    <BpCharts />
     <BpOutputs />
     <BpEngine />
   </div>
