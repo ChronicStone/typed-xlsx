@@ -578,8 +578,13 @@ function mergeWorksheetColumns(
 ) {
   if (!extras) return columns;
   const byIndex = new Map(columns.map((column) => [column.index, column]));
+  // A pivot below a table shares its columns: the wider one wins, so neither is cut off.
   for (const column of extras.columns) {
-    if (!byIndex.has(column.index)) byIndex.set(column.index, column);
+    const existing = byIndex.get(column.index);
+    byIndex.set(
+      column.index,
+      existing ? { ...existing, width: Math.max(existing.width, column.width) } : column,
+    );
   }
   return [...byIndex.values()].sort((left, right) => left.index - right.index);
 }

@@ -322,9 +322,14 @@ export function createKitchenSinkRegionSummaryRows(orders: KitchenSinkOrder[]) {
     .map(([region, totals]) => ({ region, ...totals }));
 }
 
+const DAY_MS = 86_400_000;
+
 export function createKitchenSinkOrderLineRows(orders: KitchenSinkOrder[]) {
+  let lineIndex = 0;
   return orders.flatMap((order) =>
     order.items.map((item) => ({
+      // Lines ship in waves after the order, so shipments span several quarters and years.
+      shippedAt: new Date(order.createdAt.getTime() + (lineIndex++ * 41 + 3) * DAY_MS),
       region: order.region,
       tier: order.customer.tier,
       sku: item.sku,

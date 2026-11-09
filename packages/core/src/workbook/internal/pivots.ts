@@ -1,16 +1,25 @@
 import { isFormulaCell, type CellData } from "../../cell-data";
+import { PIVOT_DATE_FIELD_NAMES, PIVOT_DATE_UNITS } from "../../pivot/dates";
 import {
   defaultPivotValueName,
   layoutPivot,
   PivotAccumulator,
+  pivotCacheFieldCount,
   UNKNOWN_PIVOT_VALUE,
+  type PivotDateGroupDefinition,
   type PivotDefinition,
   type PivotFieldDefinition,
   type PivotLayout,
   type PivotSourceValue,
   type PivotValueDefinition,
 } from "../../pivot/engine";
-import type { PivotAggregate, PivotSort, PivotSpec } from "../../pivot/types";
+import type {
+  PivotAggregate,
+  PivotDateUnit,
+  PivotShowAs,
+  PivotSort,
+  PivotSpec,
+} from "../../pivot/types";
 import {
   pivotCacheFieldNames,
   serializePivotCell,
@@ -22,6 +31,12 @@ import type { StylesCollector } from "../../styles/collector";
 
 const AGGREGATES = new Set<PivotAggregate>(["sum", "count", "average", "min", "max"]);
 const SORTS = new Set<PivotSort>(["ascending", "descending", "source"]);
+const SHOW_SUFFIX: Record<PivotShowAs, string> = {
+  percentOfTotal: "% of total",
+  percentOfRow: "% of row",
+  percentOfColumn: "% of column",
+};
+const DEFAULT_PERCENT_FORMAT = "0.0%";
 const DEFAULT_STYLE = "PivotStyleLight16";
 /** Rows kept above a pivot without filters, as Excel does, so readers can add filters later. */
 const ROWS_ABOVE_PIVOT = 2;
@@ -40,7 +55,9 @@ export function pivotValueOf(value: CellData | undefined): PivotSourceValue {
   return value;
 }
 
-type ValueEntry = PivotAggregate | { aggregate: PivotAggregate; name?: string; format?: string };
+type ValueEntry =
+  | PivotAggregate
+  | { aggregate: PivotAggregate; show?: PivotShowAs; name?: string; format?: string };
 
 /** Turns pivot options into a definition over the source table's rendered columns. */
 export function createPivotDefinition(
@@ -63,33 +80,70 @@ export function createPivotDefinition(
     }
     return index;
   };
-  const field = (columnId: unknown, role: string): PivotFieldDefinition => {
+  const takenNames = new Set(fieldNames.map((name) => name.toLocaleLowerCase()));
+  const used = new Set<number>();
+  const dateGroups: PivotDateGroupDefinition[] = [];
+  let nextFieldIndex = columns.length;
+
+  /** One user field: a column, or a grouped date that becomes one field per level. */
+  const fields = (input: unknown, role: "row" | "column" | "filter"): PivotFieldDefinition[] => {
+    const grouped = typeof input === "object" && input !== null;
+    const columnId = grouped ? (input as { field?: unknown }).field : input;
     const index = indexOf(columnId, role);
-    return { index, header: fieldNames[index]! };
-  };
-
-  const rows = ((options.rows ?? []) as unknown[]).map((columnId) => field(columnId, "row"));
-  if (rows.length === 0) throw new Error(`Pivot "${id}": needs at least one row field.`);
-  const columnIds = (options.columns ?? []) as unknown[];
-  if (columnIds.length > 1) {
-    throw new Error(`Pivot "${id}": takes at most one column field.`);
-  }
-  const column = columnIds[0] === undefined ? undefined : field(columnIds[0], "column");
-  const filters = ((options.filters ?? []) as unknown[]).map((columnId) =>
-    field(columnId, "filter"),
-  );
-
-  const seen = new Set<number>();
-  for (const entry of [...rows, ...(column ? [column] : []), ...filters]) {
-    if (seen.has(entry.index)) {
+    if (used.has(index)) {
       throw new Error(
-        `Pivot "${id}": field "${columns[entry.index]!.id}" is used twice: a field is a row, a column or a filter, once.`,
+        `Pivot "${id}": field "${columns[index]!.id}" is used twice: a field is a row, a column or a filter, once.`,
       );
     }
-    seen.add(entry.index);
-  }
+    used.add(index);
+    if (!grouped) return [{ index, header: fieldNames[index]! }];
 
-  const takenNames = new Set(fieldNames.map((name) => name.toLocaleLowerCase()));
+    const by = (input as { by?: unknown }).by;
+    const units = (Array.isArray(by) ? by : [by]) as PivotDateUnit[];
+    const ranks = units.map((unit) => PIVOT_DATE_UNITS.indexOf(unit));
+    if (
+      units.length === 0 ||
+      ranks.some((rank, position) => rank < 0 || (position > 0 && rank <= ranks[position - 1]!))
+    ) {
+      throw new Error(
+        `Pivot "${id}": "${String(columnId)}" must be grouped by "year", "quarter" or "month", or several of them from the largest, got ${JSON.stringify(by)}.`,
+      );
+    }
+    if (role !== "row" && units.length > 1) {
+      throw new Error(
+        `Pivot "${id}": a ${role} groups "${String(columnId)}" by one unit; only rows take several.`,
+      );
+    }
+    const levels = units.map((unit, position) => {
+      if (position === units.length - 1) return { index, unit, name: fieldNames[index]! };
+      // Excel numbers repeated names, such as "Years2" for a second grouped date.
+      let name = PIVOT_DATE_FIELD_NAMES[unit];
+      for (let suffix = 2; takenNames.has(name.toLocaleLowerCase()); suffix += 1) {
+        name = `${PIVOT_DATE_FIELD_NAMES[unit]}${suffix}`;
+      }
+      takenNames.add(name.toLocaleLowerCase());
+      return { index: nextFieldIndex++, unit, name };
+    });
+    dateGroups.push({ source: index, levels });
+    return levels.map((level) => ({
+      index: level.index,
+      header: level.name,
+      source: index,
+      group: level.unit,
+    }));
+  };
+
+  const rows = ((options.rows ?? []) as unknown[]).flatMap((input) => fields(input, "row"));
+  if (rows.length === 0) throw new Error(`Pivot "${id}": needs at least one row field.`);
+  const columnInputs = (options.columns ?? []) as unknown[];
+  if (columnInputs.length > 1) {
+    throw new Error(`Pivot "${id}": takes at most one column field.`);
+  }
+  const column = columnInputs[0] === undefined ? undefined : fields(columnInputs[0], "column")[0];
+  const filters = ((options.filters ?? []) as unknown[]).flatMap((input) =>
+    fields(input, "filter"),
+  );
+
   const values: PivotValueDefinition[] = Object.entries(
     (options.values ?? {}) as Record<string, ValueEntry | ValueEntry[]>,
   ).flatMap(([columnId, input]) => {
@@ -99,25 +153,40 @@ export function createPivotDefinition(
       if (!AGGREGATES.has(aggregate)) {
         throw new Error(`Pivot "${id}": unknown aggregate "${String(aggregate)}".`);
       }
+      const show = typeof entry === "object" ? entry.show : undefined;
+      if (show !== undefined && !(show in SHOW_SUFFIX)) {
+        throw new Error(`Pivot "${id}": unknown "show" value "${String(show)}".`);
+      }
       // Excel rejects a value named like a source field; a trailing space is its own workaround.
       let name =
         (typeof entry === "object" ? entry.name : undefined) ??
-        defaultPivotValueName(aggregate, fieldNames[index]!);
+        defaultPivotValueName(aggregate, fieldNames[index]!) +
+          (show ? ` (${SHOW_SUFFIX[show]})` : "");
       while (takenNames.has(name.toLocaleLowerCase())) name = `${name} `;
       takenNames.add(name.toLocaleLowerCase());
       const format =
         (typeof entry === "object" ? entry.format : undefined) ??
-        (aggregate === "count" ? undefined : columns[index]!.format);
+        (show
+          ? DEFAULT_PERCENT_FORMAT
+          : aggregate === "count"
+            ? undefined
+            : columns[index]!.format);
       return {
         index,
         header: fieldNames[index]!,
         aggregate,
         name,
         ...(format ? { format } : {}),
+        ...(show ? { show } : {}),
       };
     });
   });
   if (values.length === 0) throw new Error(`Pivot "${id}": needs at least one value.`);
+  if (!column && values.some((value) => value.show === "percentOfRow")) {
+    throw new Error(
+      `Pivot "${id}": "percentOfRow" needs a column field: without one, every row is 100%.`,
+    );
+  }
 
   const sort = (options.sort ?? "ascending") as PivotSort;
   if (!SORTS.has(sort)) throw new Error(`Pivot "${id}": unknown sort "${String(sort)}".`);
@@ -130,6 +199,7 @@ export function createPivotDefinition(
     ...(column ? { column } : {}),
     filters,
     values,
+    dateGroups,
     sort,
     rowTotals: typeof totals === "object" ? (totals.row ?? true) : (totals ?? true),
     columnTotals: typeof totals === "object" ? (totals.column ?? true) : (totals ?? true),
@@ -245,7 +315,7 @@ export function renderPivot(params: {
       cacheId: params.cacheIndex,
       accumulator,
       layout,
-      fieldCount: definition.sourceHeaders.length,
+      fieldCount: pivotCacheFieldCount(definition),
       anchor,
       valueNames: definition.values.map((value) => value.name),
       valueNumFmtIds: definition.values.map((value) =>

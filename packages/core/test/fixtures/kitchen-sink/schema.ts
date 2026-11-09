@@ -842,6 +842,7 @@ export const kitchenSinkRegionSummarySchema = createExcelSchema<KitchenSinkRegio
   .build();
 
 export type KitchenSinkOrderLineRow = {
+  shippedAt: Date;
   region: string;
   tier: string;
   sku: string;
@@ -850,6 +851,11 @@ export type KitchenSinkOrderLineRow = {
 };
 
 export const kitchenSinkOrderLineSchema = createExcelSchema<KitchenSinkOrderLineRow>()
+  .column("shippedAt", {
+    header: "Shipped At",
+    accessor: "shippedAt",
+    style: { numFmt: "yyyy-mm-dd" },
+  })
   .column("region", { header: "Region", accessor: "region" })
   .column("tier", { header: "Tier", accessor: "tier" })
   .column("sku", { header: "SKU", accessor: "sku" })

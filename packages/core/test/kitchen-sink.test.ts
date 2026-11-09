@@ -85,6 +85,12 @@ describe("kitchen sink examples", () => {
       true,
     );
     expect(bufferedEntries.has("xl/pivotTables/pivotTable1.xml")).toBe(true);
+    expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toContain(
+      'showDataAs="percentOfTotal"',
+    );
+    expect(readWorkbookEntry(bufferedEntries, "xl/pivotCache/pivotCacheDefinition2.xml")).toContain(
+      'groupBy="quarters"',
+    );
     expect(readWorksheetRelationshipsByName(bufferedEntries, "Pivot")).toContain("pivotTable");
     expect(bufferedEntries.has("xl/media/image1.png")).toBe(true);
     expect(bufferedEntries.has("xl/media/image2.png")).toBe(true);
@@ -120,6 +126,9 @@ describe("kitchen sink examples", () => {
     expect(streamedImagesSheet).toContain("<drawing");
     expect(streamedImagesRels).toContain("relationships/drawing");
     expect(streamedDrawing).toContain("<xdr:oneCellAnchor>");
+    expect(readWorkbookEntry(streamedEntries, "xl/pivotCache/pivotCacheDefinition2.xml")).toContain(
+      '<cacheField name="Years" numFmtId="0" databaseField="0">',
+    );
     expect(streamedEntries.has("xl/media/image1.png")).toBe(true);
     expect(streamedEntries.has("xl/media/image2.png")).toBe(true);
     expect(streamedEntries.has("xl/media/image3.png")).toBe(true);

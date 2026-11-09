@@ -1,5 +1,7 @@
 import type { PrimitiveCellValue } from "../schema/builder";
-import type { PivotAccumulator, PivotLayout } from "../pivot/engine";
+import { PIVOT_DATE_GROUP_BY, pivotDateGroupItems } from "../pivot/dates";
+import type { PivotAccumulator, PivotFieldDefinition, PivotLayout } from "../pivot/engine";
+import type { PivotDateUnit, PivotShowAs } from "../pivot/types";
 import { toCellRef } from "./cells";
 import { xmlDocument, xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
 
@@ -17,6 +19,67 @@ const RELATIONSHIP_NAMESPACE =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
 export type PivotCacheSource = { sheet: string; ref: string } | { tableName: string };
+
+const SHOW_DATA_AS: Record<PivotShowAs, string> = {
+  percentOfTotal: "percentOfTotal",
+  percentOfRow: "percentOfRow",
+  percentOfColumn: "percentOfCol",
+};
+
+/** Placeholder range for a grouped date column without rows, so the group stays well formed. */
+const EMPTY_DATE_RANGE = { min: Date.UTC(2000, 0, 1), max: Date.UTC(2000, 0, 1) };
+
+function dateRangeOf(accumulator: PivotAccumulator, source: number) {
+  return accumulator.dateRanges.get(source) ?? EMPTY_DATE_RANGE;
+}
+
+interface CacheFieldGroup {
+  index: number;
+  name: string;
+  unit: PivotDateUnit;
+  source: number;
+  /** Next larger level, such as the years above quarters. */
+  parent?: number;
+}
+
+/** Every grouped cache field: the source columns grouped by their finest unit, and the levels above them. */
+function cacheFieldGroups(accumulator: PivotAccumulator) {
+  return accumulator.definition.dateGroups.flatMap((group) =>
+    group.levels.map((level, position): CacheFieldGroup => ({
+      ...level,
+      source: group.source,
+      ...(position > 0 ? { parent: group.levels[position - 1]!.index } : {}),
+    })),
+  );
+}
+
+function writeFieldGroup(accumulator: PivotAccumulator, group: CacheFieldGroup) {
+  const items = pivotDateGroupItems(group.unit, dateRangeOf(accumulator, group.source));
+  return xmlElement("fieldGroup", { par: group.parent, base: group.source }, [
+    xmlSelfClosing("rangePr", {
+      groupBy: PIVOT_DATE_GROUP_BY[group.unit],
+      startDate: isoDate(items.start),
+      endDate: isoDate(items.end),
+    }),
+    xmlElement(
+      "groupItems",
+      { count: items.labels.length },
+      items.labels.map((label) => xmlSelfClosing("s", { v: label })),
+    ),
+  ]);
+}
+
+/** Shared items of a grouped date column: only its range, since its items are the groups. */
+function writeDateSharedItems(range: { min: number; max: number }) {
+  return xmlSelfClosing("sharedItems", {
+    containsSemiMixedTypes: 0,
+    containsNonDate: 0,
+    containsDate: 1,
+    containsString: 0,
+    minDate: isoDate(new Date(range.min)),
+    maxDate: isoDate(new Date(range.max)),
+  });
+}
 
 function isBlank(value: PrimitiveCellValue) {
   return value === null || value === undefined || value === "";
@@ -92,6 +155,9 @@ export function writePivotCacheDefinitionXml(params: {
   source: PivotCacheSource;
 }) {
   const { accumulator, fieldNames, source } = params;
+  const groups = cacheFieldGroups(accumulator);
+  const groupOf = new Map(groups.map((group) => [group.index, group]));
+  const addedFields = groups.filter((group) => group.index >= fieldNames.length);
   const worksheetSource =
     "tableName" in source
       ? xmlSelfClosing("worksheetSource", { name: source.tableName })
@@ -111,10 +177,15 @@ export function writePivotCacheDefinitionXml(params: {
     },
     [
       xmlElement("cacheSource", { type: "worksheet" }, worksheetSource),
-      xmlElement(
-        "cacheFields",
-        { count: fieldNames.length },
-        fieldNames.map((name, index) => {
+      xmlElement("cacheFields", { count: fieldNames.length + addedFields.length }, [
+        ...fieldNames.map((name, index) => {
+          const group = groupOf.get(index);
+          if (group) {
+            return xmlElement("cacheField", { name, numFmtId: 0 }, [
+              writeDateSharedItems(dateRangeOf(accumulator, index)),
+              writeFieldGroup(accumulator, group),
+            ]);
+          }
           const items = accumulator.items.get(index);
           return xmlElement(
             "cacheField",
@@ -122,7 +193,15 @@ export function writePivotCacheDefinitionXml(params: {
             items ? writeSharedItems(items.values) : xmlSelfClosing("sharedItems"),
           );
         }),
-      ),
+        // Date levels above a grouped column are fields of their own, with no column behind them.
+        ...addedFields.map((group) =>
+          xmlElement(
+            "cacheField",
+            { name: group.name, numFmtId: 0, databaseField: 0 },
+            writeFieldGroup(accumulator, group),
+          ),
+        ),
+      ]),
     ],
   );
 }
@@ -147,6 +226,24 @@ export function writePivotTableXml(params: {
   if (column) axisOf.set(column.index, "axisCol");
   filters.forEach((field) => axisOf.set(field.index, "axisPage"));
   const dataIndexes = new Set(values.map((value) => value.index));
+  const groupedFields = new Map<number, PivotFieldDefinition>();
+  for (const field of [...rows, ...(column ? [column] : []), ...filters]) {
+    if (field.group) groupedFields.set(field.index, field);
+  }
+
+  /**
+   * Item positions in the cache. Grouped dates point at their group items, all of them in calendar
+   * order: groups without rows, such as the range bounds, stay hidden.
+   */
+  const itemPositions = (field: PivotFieldDefinition | undefined, order: number[]) => {
+    if (!field?.group) return order;
+    const { labels } = pivotDateGroupItems(
+      field.group,
+      dateRangeOf(accumulator, field.source ?? field.index),
+    );
+    const positions = labels.map((_, position) => position);
+    return definition.sort === "descending" ? positions.reverse() : positions;
+  };
 
   const pivotFields = Array.from({ length: params.fieldCount }, (_, index) => {
     const axis = axisOf.get(index);
@@ -158,7 +255,7 @@ export function writePivotTableXml(params: {
       showAll: 0,
     };
     if (!axis) return xmlSelfClosing("pivotField", attributes);
-    const order = layout.order.get(index)!;
+    const order = itemPositions(groupedFields.get(index), layout.order.get(index)!);
     return xmlElement(
       "pivotField",
       attributes,
@@ -240,6 +337,7 @@ export function writePivotTableXml(params: {
             name: params.valueNames[index],
             fld: value.index,
             subtotal: value.aggregate === "sum" ? undefined : value.aggregate,
+            showDataAs: value.show ? SHOW_DATA_AS[value.show] : undefined,
             baseField: 0,
             baseItem: 0,
             numFmtId: params.valueNumFmtIds[index],

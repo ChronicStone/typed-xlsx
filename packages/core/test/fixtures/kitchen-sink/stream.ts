@@ -406,6 +406,13 @@ export async function buildKitchenSinkStreamExample() {
     title: "Line totals by region and tier",
     marks: [revenueByRegion.bar({ stack: true })],
   });
+  pivotSheet.pivot(
+    "shipments-by-quarter",
+    orderLines.pivot({
+      rows: [{ field: "shippedAt", by: ["year", "quarter"] }],
+      values: { lineTotal: ["sum", { aggregate: "sum", show: "percentOfTotal" }] },
+    }),
+  );
   for (const rows of allOrderBatches) {
     await orderLines.commit({ rows: createKitchenSinkOrderLineRows(rows) });
   }

@@ -91,6 +91,17 @@ type ColumnsMatching<TColumns, TValue> = {
 
 /** Columns whose cells hold numbers. Only these can be plotted as values. */
 export type ChartNumericColumn<TColumns> = ColumnsMatching<TColumns, number>;
+/** Columns whose cells always hold a date: blanks are not allowed, since Excel cannot group them. */
+export type ChartDateColumn<TColumns> = {
+  [K in keyof TColumns]-?: unknown extends TColumns[K]
+    ? K
+    : [TColumns[K]] extends [never]
+      ? never
+      : [TColumns[K]] extends [Date]
+        ? K
+        : never;
+}[keyof TColumns] &
+  string;
 /** Columns that can label categories: text, numbers, dates or booleans. */
 export type ChartCategoryColumn<TColumns> = ColumnsMatching<
   TColumns,

@@ -1723,9 +1723,11 @@ function writeStreamColumns(
   const columns = new Map<number, number>();
   for (const column of extras?.columns ?? []) columns.set(column.index, column.width);
 
+  // A pivot below a table shares its columns: the wider one wins, so neither is cut off.
   positionedTables.forEach((positioned) => {
     positioned.table.columns.forEach((column, columnIndex) => {
-      columns.set(positioned.columnOffset + columnIndex, column.width);
+      const index = positioned.columnOffset + columnIndex;
+      columns.set(index, Math.max(columns.get(index) ?? 0, column.width));
     });
   });
 

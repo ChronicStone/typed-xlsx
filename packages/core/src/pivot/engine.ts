@@ -1,20 +1,33 @@
 import type { PrimitiveCellValue } from "../schema/builder";
-import type { PivotAggregate, PivotSort } from "./types";
+import { pivotDateKey, pivotDateLabel } from "./dates";
+import type { PivotAggregate, PivotDateUnit, PivotShowAs, PivotSort } from "./types";
 
 /** A source cell whose value only Excel knows, such as a report-mode formula. */
 export const UNKNOWN_PIVOT_VALUE: unique symbol = Symbol("typed-xlsx.unknown-pivot-value");
 export type PivotSourceValue = PrimitiveCellValue | typeof UNKNOWN_PIVOT_VALUE;
 
 export interface PivotFieldDefinition {
-  /** Index of the column in the source range. */
+  /** Index of the field in the pivot cache: a source column, or a date level added after them. */
   index: number;
   header: string;
+  /** Source column the field reads, when it is a date level added after the source columns. */
+  source?: number;
+  /** Calendar unit of a grouped date field. */
+  group?: PivotDateUnit;
 }
 
 export interface PivotValueDefinition extends PivotFieldDefinition {
   aggregate: PivotAggregate;
   name: string;
   format?: string;
+  show?: PivotShowAs;
+}
+
+/** A grouped date column: one cache field per level, the source column holding the finest. */
+export interface PivotDateGroupDefinition {
+  source: number;
+  /** Levels, outermost first. The last one is the source column itself. */
+  levels: Array<{ index: number; unit: PivotDateUnit; name: string }>;
 }
 
 export interface PivotDefinition {
@@ -25,6 +38,7 @@ export interface PivotDefinition {
   column?: PivotFieldDefinition;
   filters: PivotFieldDefinition[];
   values: PivotValueDefinition[];
+  dateGroups: PivotDateGroupDefinition[];
   sort: PivotSort;
   rowTotals: boolean;
   columnTotals: boolean;
@@ -110,9 +124,23 @@ function aggregateValue(accumulator: Accumulator | undefined, aggregate: PivotAg
 
 export class PivotFieldError extends Error {}
 
+/** Number of pivot cache fields: the source columns, then the date levels added after them. */
+export function pivotCacheFieldCount(definition: PivotDefinition) {
+  return (
+    definition.sourceHeaders.length +
+    definition.dateGroups.reduce((count, group) => count + group.levels.length - 1, 0)
+  );
+}
+
+function describeValue(value: PrimitiveCellValue) {
+  return isBlank(value) ? "a blank cell" : JSON.stringify(value);
+}
+
 /** Tallies a pivot row by row, so streamed tables can feed it as batches are committed. */
 export class PivotAccumulator {
   readonly items = new Map<number, PivotFieldItems>();
+  /** Earliest and latest time of each grouped date column, by source column. */
+  readonly dateRanges = new Map<number, { min: number; max: number }>();
   private readonly cells = new Map<string, Accumulator[]>();
   private readonly leafPaths = new Map<string, number[]>();
   recordCount = 0;
@@ -134,6 +162,7 @@ export class PivotAccumulator {
         `Pivot "${this.definition.id}": "${field.header}" is computed by Excel, so it cannot be a row, column or filter.`,
       );
     }
+    if (field.group) value = this.dateKey(field, value);
     const items = this.items.get(field.index)!;
     const key = pivotItemKey(value);
     let index = items.keys.get(key);
@@ -145,12 +174,38 @@ export class PivotAccumulator {
     return index;
   }
 
+  private dateKey(field: PivotFieldDefinition, value: PrimitiveCellValue) {
+    const source = field.source ?? field.index;
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+      throw new PivotFieldError(
+        `Pivot "${this.definition.id}": "${this.definition.sourceHeaders[source]}" is grouped by ${field.group}, so every row needs a date, got ${describeValue(value)}.`,
+      );
+    }
+    const time = value.getTime();
+    const range = this.dateRanges.get(source);
+    if (range) {
+      range.min = Math.min(range.min, time);
+      range.max = Math.max(range.max, time);
+    } else {
+      this.dateRanges.set(source, { min: time, max: time });
+    }
+    return pivotDateKey(field.group!, value);
+  }
+
+  /** Text shown for an item: its value, `(blank)`, or a date group such as `Qtr1`. */
+  label(field: PivotFieldDefinition, item: number): PrimitiveCellValue {
+    const value = this.items.get(field.index)!.values[item]!;
+    if (field.group) return pivotDateLabel(field.group, value as number);
+    return isBlank(value) ? "(blank)" : value;
+  }
+
   add(read: (index: number) => PivotSourceValue) {
     const { rows, column, filters, values } = this.definition;
     this.recordCount += 1;
-    const path = rows.map((field) => this.itemOf(field, read(field.index)));
-    const columnItem = column ? this.itemOf(column, read(column.index)) : undefined;
-    for (const field of filters) this.itemOf(field, read(field.index));
+    const readField = (field: PivotFieldDefinition) => read(field.source ?? field.index);
+    const path = rows.map((field) => this.itemOf(field, readField(field)));
+    const columnItem = column ? this.itemOf(column, readField(column)) : undefined;
+    for (const field of filters) this.itemOf(field, readField(field));
     const cellValues = values.map((value) => read(value.index));
 
     this.leafPaths.set(path.join(","), path);
@@ -172,6 +227,22 @@ export class PivotAccumulator {
   value(depth: number, prefix: number[], columnKey: string, valueIndex: number) {
     const accumulator = this.cells.get(`${depth}|${prefix.join(",")}|${columnKey}`)?.[valueIndex];
     return aggregateValue(accumulator, this.definition.values[valueIndex]!.aggregate);
+  }
+
+  /** The value as the pivot shows it: the aggregate, or its share of a total. */
+  shown(depth: number, prefix: number[], columnKey: string, valueIndex: number) {
+    const amount = this.value(depth, prefix, columnKey, valueIndex);
+    const show = this.definition.values[valueIndex]!.show;
+    if (!show) return amount;
+    const total =
+      show === "percentOfTotal"
+        ? this.value(0, [], "*", valueIndex)
+        : show === "percentOfRow"
+          ? this.value(depth, prefix, "*", valueIndex)
+          : this.value(0, [], columnKey, valueIndex);
+    if (!total) return null;
+    // Excel shows 0% where a row and a column have no rows in common.
+    return (amount ?? 0) / total;
   }
 
   paths() {
@@ -253,10 +324,6 @@ export interface PivotLayout {
   order: Map<number, number[]>;
 }
 
-function displayValue(value: PrimitiveCellValue) {
-  return isBlank(value) ? "(blank)" : value;
-}
-
 function textLength(value: PrimitiveCellValue) {
   if (value === null || value === undefined) return 0;
   if (value instanceof Date) return 10;
@@ -271,7 +338,9 @@ export function layoutPivot(accumulator: PivotAccumulator): PivotLayout {
   const { rows, column, filters, values } = definition;
   const order = new Map<number, number[]>();
   for (const field of [...rows, ...(column ? [column] : []), ...filters]) {
-    order.set(field.index, orderPivotItems(accumulator.items.get(field.index)!, definition.sort));
+    // Date groups keep calendar order: Excel cannot show them in the order rows arrived.
+    const sort = field.group && definition.sort === "source" ? "ascending" : definition.sort;
+    order.set(field.index, orderPivotItems(accumulator.items.get(field.index)!, sort));
   }
 
   const cells: PivotLayoutCell[] = [];
@@ -286,8 +355,7 @@ export function layoutPivot(accumulator: PivotAccumulator): PivotLayout {
 
   // Data columns: each column item × value, then the grand totals per value.
   const columnItems = column ? order.get(column.index)! : [];
-  const columnLabel = (item: number) =>
-    displayValue(accumulator.items.get(column!.index)!.values[item]!);
+  const columnLabel = (item: number) => accumulator.label(column!, item);
   const dataColumns: Array<{
     valueIndex: number;
     columnKey: string;
@@ -387,7 +455,7 @@ export function layoutPivot(accumulator: PivotAccumulator): PivotLayout {
       put({
         row: rowIndex,
         col: index + 1,
-        value: accumulator.value(depth, prefix, entry.columnKey, entry.valueIndex),
+        value: accumulator.shown(depth, prefix, entry.columnKey, entry.valueIndex),
         role,
         valueIndex: entry.valueIndex,
       });
@@ -400,7 +468,7 @@ export function layoutPivot(accumulator: PivotAccumulator): PivotLayout {
       put({
         row,
         col: 0,
-        value: displayValue(accumulator.items.get(field.index)!.values[item]!),
+        value: accumulator.label(field, item),
         role: "label",
         depth: prefix.length,
       });

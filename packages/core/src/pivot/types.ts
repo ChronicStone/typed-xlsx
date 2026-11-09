@@ -1,4 +1,9 @@
-import type { ChartCategoryColumn, ChartDataLabels, ChartMark } from "../chart/types";
+import type {
+  ChartCategoryColumn,
+  ChartDataLabels,
+  ChartDateColumn,
+  ChartMark,
+} from "../chart/types";
 
 // ── Options ──────────────────────────────────────────────────────────────────
 
@@ -10,11 +15,24 @@ export type PivotSort = "ascending" | "descending" | "source";
 /** Built-in Excel pivot table style, such as `"PivotStyleMedium9"`. */
 export type PivotTableStyle = `PivotStyle${"Light" | "Medium" | "Dark"}${number}`;
 
+/**
+ * Shows a value as a share instead of the amount:
+ * - `"percentOfTotal"`: of the grand total, so the whole pivot adds up to 100%.
+ * - `"percentOfRow"`: of its row's total, so each row adds up to 100% across the columns.
+ * - `"percentOfColumn"`: of its column's total, so each column adds up to 100%.
+ */
+export type PivotShowAs = "percentOfTotal" | "percentOfRow" | "percentOfColumn";
+
 export interface PivotValueOptions<TAggregate extends PivotAggregate = PivotAggregate> {
   aggregate: TAggregate;
+  /** Show the value as a percentage of a total. */
+  show?: PivotShowAs;
   /** Header of the value. Defaults to "Sum of Revenue", "Count of Orders", … */
   name?: string;
-  /** Excel number format such as `"#,##0"`. Defaults to the source column's format, except for counts. */
+  /**
+   * Excel number format such as `"#,##0"`. Defaults to the source column's format, except for
+   * counts, and to `"0.0%"` for values shown as a percentage.
+   */
   format?: string;
 }
 
@@ -41,15 +59,40 @@ export type PivotValueInput<TValue> =
 /** Columns that can be a row, a column or a filter of a pivot. */
 export type PivotField<TColumns> = ChartCategoryColumn<TColumns>;
 
+/** Calendar unit a date field is grouped by. */
+export type PivotDateUnit = "year" | "quarter" | "month";
+
+/** Date levels of a row field, outermost first. `"month"` alone merges the same month of different years. */
+export type PivotDateLevels =
+  | PivotDateUnit
+  | readonly ["year", "quarter"]
+  | readonly ["year", "month"]
+  | readonly ["quarter", "month"]
+  | readonly ["year", "quarter", "month"];
+
+/** A date column grouped by calendar units, such as `{ field: "orderedAt", by: ["year", "month"] }`. */
+export interface PivotDateField<TColumns, TBy = PivotDateLevels> {
+  readonly field: ChartDateColumn<TColumns>;
+  readonly by: TBy;
+}
+
+/** A row field: a column, or a date column grouped by one or several calendar units. */
+export type PivotRowField<TColumns> = PivotField<TColumns> | PivotDateField<TColumns>;
+
+/** A column or filter field: a column, or a date column grouped by one calendar unit. */
+export type PivotAxisField<TColumns> =
+  | PivotField<TColumns>
+  | PivotDateField<TColumns, PivotDateUnit>;
+
 export interface PivotOptions<TColumns> {
   /** Fields listed down the left, outermost first. */
-  rows: readonly [PivotField<TColumns>, ...PivotField<TColumns>[]];
+  rows: readonly [PivotRowField<TColumns>, ...PivotRowField<TColumns>[]];
   /** Field spread across the top, one column per item. A pivot takes at most one. */
-  columns?: readonly PivotField<TColumns>[];
+  columns?: readonly PivotAxisField<TColumns>[];
   /** Values to aggregate, keyed by column: `{ revenue: "sum", orders: "count" }`. */
   values: { readonly [K in keyof TColumns & string]?: PivotValueInput<TColumns[K]> };
   /** Fields readers can filter the whole pivot by, shown above it. */
-  filters?: readonly PivotField<TColumns>[];
+  filters?: readonly PivotAxisField<TColumns>[];
   /** Order of row and column items. Defaults to `"ascending"`. */
   sort?: PivotSort;
   /** Grand totals. Defaults to `true` for both. `{ row: false }` hides the bottom row, `{ column: false }` the right column. */
@@ -69,7 +112,10 @@ type Duplicates<TFields extends readonly unknown[], TSeen = never> = TFields ext
   ? (THead extends TSeen ? THead : never) | Duplicates<TRest, TSeen | THead>
   : never;
 
-type FieldList<TValue> = TValue extends readonly unknown[] ? TValue : readonly [];
+/** Field names of a list of fields, reading `field` from grouped dates. */
+type FieldList<TValue> = TValue extends readonly unknown[]
+  ? { [K in keyof TValue]: TValue[K] extends { readonly field: infer TField } ? TField : TValue[K] }
+  : readonly [];
 
 type PivotOptionProblems<TOptions> =
   | (Duplicates<
@@ -90,7 +136,26 @@ type PivotOptionProblems<TOptions> =
       : never)
   | (TOptions extends { columns: readonly [unknown, unknown, ...unknown[]] }
       ? "a pivot takes at most one column field"
+      : never)
+  | (TOptions extends { values: infer TValues }
+      ? "percentOfRow" extends ShownAs<TValues>
+        ? TOptions extends { columns: readonly [unknown, ...unknown[]] }
+          ? never
+          : '"percentOfRow" needs a column field: without one, every row is 100%'
+        : never
       : never);
+
+type ValueEntries<TValues> = {
+  [K in keyof TValues]: TValues[K] extends readonly (infer TEntry)[] ? TEntry : TValues[K];
+}[keyof TValues];
+
+/** `show` options used by a pivot's values. */
+type ShownAs<TValues> =
+  ValueEntries<TValues> extends infer TEntry
+    ? TEntry extends { show: infer TShow }
+      ? TShow
+      : never
+    : never;
 
 /** Adds readable `✗ …` requirements to pivot options. */
 export type PivotOptionsGuard<TOptions> = [PivotOptionProblems<TOptions>] extends [never]

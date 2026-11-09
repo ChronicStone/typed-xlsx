@@ -368,7 +368,13 @@ export function buildKitchenSinkBufferedExample() {
     .chart("revenue-by-region-chart", ({ refs }) => ({
       title: "Line totals by region and tier",
       marks: [refs.pivot("revenue-by-region").bar({ stack: true })],
-    }));
+    }))
+    .pivot("shipments-by-quarter", ({ refs }) =>
+      refs.table("order-lines").pivot({
+        rows: [{ field: "shippedAt", by: ["year", "quarter"] }],
+        values: { lineTotal: ["sum", { aggregate: "sum", show: "percentOfTotal" }] },
+      }),
+    );
 
   return workbook.toUint8Array();
 }

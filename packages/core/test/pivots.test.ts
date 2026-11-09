@@ -34,6 +34,32 @@ const rows: Sale[] = [
   { region: "Sud", product: "Chairs", month: "Feb", channel: "Web", revenue: 50, orders: 5 },
 ];
 
+type DatedSale = Sale & { orderedAt: Date };
+
+const datedRows: DatedSale[] = rows.map((row, index) => ({
+  ...row,
+  orderedAt: new Date(Date.UTC(2024 + (index % 2), index * 2, 10 + index, 9)),
+}));
+
+const datedSchema = createExcelSchema<DatedSale>()
+  .column("orderedAt", { header: "Ordered", accessor: "orderedAt" })
+  .column("region", { header: "Region", accessor: "region" })
+  .column("revenue", { header: "Revenue", accessor: "revenue", style: { numFmt: "#,##0" } })
+  .build();
+
+const utc = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day));
+
+/** Values of the data columns on the row labelled `label`, rounded for comparison. */
+function rowValues(layout: ReturnType<typeof layoutPivot>, label: string) {
+  const row = layout.cells.find((cell) => cell.col === 0 && cell.value === label)!.row;
+  return layout.cells
+    .filter((cell) => cell.row === row && cell.col > 0)
+    .sort((left, right) => left.col - right.col)
+    .map((cell) =>
+      typeof cell.value === "number" ? Math.round(cell.value * 1e4) / 1e4 : cell.value,
+    );
+}
+
 function definition(overrides: Partial<PivotDefinition> = {}): PivotDefinition {
   return {
     id: "p",
@@ -41,6 +67,7 @@ function definition(overrides: Partial<PivotDefinition> = {}): PivotDefinition {
     rows: [{ index: 0, header: "Region" }],
     filters: [],
     values: [{ index: 3, header: "Revenue", aggregate: "sum", name: "Sum of Revenue" }],
+    dateGroups: [],
     sort: "ascending",
     rowTotals: true,
     columnTotals: true,
@@ -181,6 +208,72 @@ describe("pivot engine", () => {
       "Est",
       "(blank)",
     ]);
+  });
+
+  it("shows values as a share of the grand, row or column total, 0% where nothing meets", () => {
+    const shown = (show: "percentOfTotal" | "percentOfRow" | "percentOfColumn") =>
+      layoutPivot(
+        tally(
+          definition({
+            column: { index: 2, header: "Month" },
+            values: [{ index: 3, header: "Revenue", aggregate: "sum", name: "Share", show }],
+          }),
+          data,
+        ),
+      );
+    // Columns: Feb, Jan, Grand Total. Feb totals 120, Jan 30, the whole pivot 150.
+    const ofTotal = shown("percentOfTotal");
+    expect(rowValues(ofTotal, "Est")).toEqual([0.2667, 0, 0.2667]);
+    expect(rowValues(ofTotal, "Grand Total")).toEqual([0.8, 0.2, 1]);
+    const ofRow = shown("percentOfRow");
+    expect(rowValues(ofRow, "Nord")).toEqual([0.75, 0.25, 1]);
+    expect(rowValues(ofRow, "Grand Total")).toEqual([0.8, 0.2, 1]);
+    const ofColumn = shown("percentOfColumn");
+    expect(rowValues(ofColumn, "Sud")).toEqual([0.4167, 0.6667, 0.4667]);
+    expect(rowValues(ofColumn, "Grand Total")).toEqual([1, 1, 1]);
+  });
+
+  it("groups dates by year and month, in calendar order", () => {
+    const grouped = definition({
+      sourceHeaders: ["Ordered", "Revenue"],
+      rows: [
+        { index: 2, header: "Years", source: 0, group: "year" },
+        { index: 0, header: "Ordered", source: 0, group: "month" },
+      ],
+      values: [{ index: 1, header: "Revenue", aggregate: "sum", name: "Sum of Revenue" }],
+      dateGroups: [
+        {
+          source: 0,
+          levels: [
+            { index: 2, unit: "year", name: "Years" },
+            { index: 0, unit: "month", name: "Ordered" },
+          ],
+        },
+      ],
+      sort: "source",
+    });
+    const accumulator = tally(grouped, [
+      [utc(2025, 2, 3), 5],
+      [utc(2024, 10, 1), 1],
+      [utc(2025, 0, 9), 2],
+      [utc(2025, 2, 30), 4],
+    ]);
+    expect(grid(layoutPivot(accumulator))).toEqual([
+      "Years / Ordered|Sum of Revenue",
+      "2024|1",
+      "Nov|1",
+      "2025|11",
+      "Jan|2",
+      "Mar|9",
+      "Grand Total|12",
+    ]);
+    expect(accumulator.dateRanges.get(0)).toEqual({
+      min: utc(2024, 10, 1).getTime(),
+      max: utc(2025, 2, 30).getTime(),
+    });
+    expect(() => tally(grouped, [[null, 1]])).toThrow(
+      'Pivot "p": "Ordered" is grouped by year, so every row needs a date, got a blank cell.',
+    );
   });
 
   it("leaves values Excel must compute empty, and refuses them as fields", () => {
@@ -332,6 +425,89 @@ describe("workbook pivots", () => {
   });
 });
 
+describe("grouped dates and percentages", () => {
+  it("writes date groups as Excel does: the finest on the column, larger levels as added fields", () => {
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Sales")
+        .table("sales", { schema: datedSchema, rows: datedRows })
+        .pivot("byMonth", ({ refs }) =>
+          refs.table("sales").pivot({
+            rows: [{ field: "orderedAt", by: ["year", "quarter", "month"] }],
+            columns: ["region"],
+            values: { revenue: ["sum", { aggregate: "sum", show: "percentOfColumn" }] },
+          }),
+        )
+        .toUint8Array(),
+    );
+
+    // Orders run from 10 Jan 2024 to 13 Jul 2025.
+    const cache = text("xl/pivotCache/pivotCacheDefinition1.xml");
+    expect(cache).toContain('<cacheFields count="5">');
+    expect(cache).toContain(
+      '<cacheField name="Ordered" numFmtId="0"><sharedItems containsSemiMixedTypes="0" containsNonDate="0" containsDate="1" containsString="0" minDate="2024-01-10T09:00:00" maxDate="2025-07-13T09:00:00"/><fieldGroup par="4" base="0"><rangePr groupBy="months" startDate="2024-01-10T00:00:00" endDate="2025-07-14T00:00:00"/><groupItems count="14"><s v="&lt;1/10/2024"/><s v="Jan"/>',
+    );
+    expect(cache).toContain(
+      '<cacheField name="Years" numFmtId="0" databaseField="0"><fieldGroup base="0"><rangePr groupBy="years" startDate="2024-01-10T00:00:00" endDate="2025-07-14T00:00:00"/><groupItems count="4"><s v="&lt;1/10/2024"/><s v="2024"/><s v="2025"/><s v="&gt;7/14/2025"/></groupItems></fieldGroup></cacheField>',
+    );
+    expect(cache).toContain(
+      '<cacheField name="Quarters" numFmtId="0" databaseField="0"><fieldGroup par="3" base="0"><rangePr groupBy="quarters"',
+    );
+
+    const table = text("xl/pivotTables/pivotTable1.xml");
+    expect(table).toContain('rowHeaderCaption="Years / Quarters / Ordered"');
+    expect(table).toContain('<pivotFields count="5">');
+    expect(table).toContain(
+      '<rowFields count="3"><field x="3"/><field x="4"/><field x="0"/></rowFields>',
+    );
+    expect(table).toMatch(
+      /<dataField name="Sum of Revenue \(% of column\)" fld="2" showDataAs="percentOfCol" baseField="0" baseItem="0" numFmtId="\d+"\/>/,
+    );
+    expect(text("xl/styles.xml")).toContain('formatCode="0.0%"');
+
+    const sheet = text("xl/worksheets/sheet1.xml");
+    for (const label of ["2024", "Qtr1", "Jan", "Sum of Revenue (% of column)"]) {
+      expect(sheet).toContain(`<t>${label}</t>`);
+    }
+    // The pivot sits below the table. Column C holds both the table's Revenue and the pivot's
+    // "Sum of Revenue (% of column)" header: it widens to fit the header.
+    const columnC = /<col min="3" max="3"[^>]*width="([\d.]+)"/.exec(sheet);
+    expect(Number(columnC?.[1])).toBeGreaterThanOrEqual("Sum of Revenue (% of column)".length);
+  });
+
+  it("explains what it cannot group or show", () => {
+    const bad = (options: any, data: DatedSale[] = datedRows) =>
+      createWorkbook()
+        .sheet("Sales")
+        .table("sales", { schema: datedSchema, rows: data })
+        .pivot("bad", ({ refs }) => refs.table("sales").pivot(options))
+        .toUint8Array();
+
+    expect(() =>
+      bad({ rows: [{ field: "orderedAt", by: "year" }], values: { revenue: "sum" } }, [
+        { ...datedRows[0]!, orderedAt: null as never },
+      ]),
+    ).toThrow(
+      'Pivot "bad": "Ordered" is grouped by year, so every row needs a date, got a blank cell.',
+    );
+    expect(() =>
+      bad({ rows: [{ field: "orderedAt", by: ["month", "year"] }], values: { revenue: "sum" } }),
+    ).toThrow(
+      'Pivot "bad": "orderedAt" must be grouped by "year", "quarter" or "month", or several of them from the largest, got ["month","year"].',
+    );
+    expect(() =>
+      bad({
+        rows: ["region"],
+        columns: [{ field: "orderedAt", by: ["year", "month"] }],
+        values: { revenue: "sum" },
+      }),
+    ).toThrow('Pivot "bad": a column groups "orderedAt" by one unit; only rows take several.');
+    expect(() =>
+      bad({ rows: ["region"], values: { revenue: { aggregate: "sum", show: "percentOfRow" } } }),
+    ).toThrow('Pivot "bad": "percentOfRow" needs a column field: without one, every row is 100%.');
+  });
+});
+
 describe("streamed pivots", () => {
   it("tallies rows as batches are committed", async () => {
     const workbook = createWorkbookStream({ tempStorage: "memory" });
@@ -355,6 +531,28 @@ describe("streamed pivots", () => {
     expect(sheet).toMatch(/<c r="B4"[^>]*><v>40<\/v><\/c>/);
     expect(text("xl/charts/chart1.xml")).toContain("<c:pivotSource>");
     expect(text("xl/workbook.xml")).toContain("<pivotCaches>");
+  });
+
+  it("groups streamed dates over the range of every committed batch", async () => {
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const sales = await workbook.sheet("Sales").table("sales", { schema: datedSchema });
+    workbook.sheet("Analysis").pivot(
+      "byYear",
+      sales.pivot({
+        rows: [{ field: "orderedAt", by: ["year", "month"] }],
+        values: { revenue: { aggregate: "sum", show: "percentOfTotal" } },
+      }),
+    );
+    await sales.commit({ rows: datedRows.slice(0, 2) });
+    await sales.commit({ rows: datedRows.slice(2) });
+
+    const { text } = readParts(await streamBytes(workbook));
+    const cache = text("xl/pivotCache/pivotCacheDefinition1.xml");
+    expect(cache).toContain('minDate="2024-01-10T09:00:00" maxDate="2025-07-13T09:00:00"');
+    expect(cache).toContain('<s v="2024"/><s v="2025"/>');
+    const sheet = text("xl/worksheets/sheet2.xml");
+    // 2024 holds Nord 10 + Nord 30 + Sud 50 of 150.
+    expect(sheet).toMatch(/<t>2024<\/t><\/is><\/c><c r="B\d+"[^>]*><v>0\.6<\/v>/);
   });
 
   it("asks for pivots before rows are committed", async () => {

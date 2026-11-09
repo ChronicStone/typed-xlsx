@@ -1347,6 +1347,100 @@ pivotCheck
     refs.table("sales").pivot({ rows: ["month"], values: { revenue: "sum" } }),
   );
 
+type DatedSaleRow = { orderedAt: Date; shippedAt: Date | null; region: string; revenue: number };
+const datedSaleSchema = createExcelSchema<DatedSaleRow>()
+  .column("orderedAt", { accessor: "orderedAt" })
+  .column("shippedAt", { accessor: "shippedAt" })
+  .column("region", { accessor: "region" })
+  .column("revenue", { accessor: "revenue" })
+  .build();
+
+// valid: dates grouped by calendar units, values shown as percentages
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: datedSaleSchema, rows: [] })
+  .pivot("byMonth", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: [{ field: "orderedAt", by: ["year", "quarter", "month"] }],
+      columns: ["region"],
+      values: { revenue: ["sum", { aggregate: "sum", show: "percentOfRow" }] },
+    }),
+  )
+  .pivot("byYear", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      columns: [{ field: "orderedAt", by: "year" }],
+      values: { revenue: { aggregate: "sum", show: "percentOfColumn", format: "0%" } },
+    }),
+  )
+  .chart("byYearChart", ({ refs }) => ({ marks: [refs.pivot("byYear").bar({ stack: true })] }))
+  .pivot("share", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: [{ field: "orderedAt", by: "month" }],
+      values: { revenue: { aggregate: "sum", show: "percentOfTotal" } },
+      filters: ["region"],
+    }),
+  )
+  .chart("shareChart", ({ refs }) => ({ marks: [refs.pivot("share").pie()] }));
+
+const datedCheck = createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: datedSaleSchema, rows: [] });
+
+datedCheck
+  .pivot("textByYear", ({ refs }) =>
+    refs.table("sales").pivot({
+      // @ts-expect-error - only date columns can be grouped by calendar units
+      rows: [{ field: "region", by: "year" }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("blankDates", ({ refs }) =>
+    refs.table("sales").pivot({
+      // @ts-expect-error - Excel cannot group a date column that may be blank
+      rows: [{ field: "shippedAt", by: "month" }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("wrongOrder", ({ refs }) =>
+    refs.table("sales").pivot({
+      // @ts-expect-error - date levels go from the largest unit to the smallest
+      rows: [{ field: "orderedAt", by: ["month", "year"] }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("levelsInColumns", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      // @ts-expect-error - a column groups a date by one unit; only rows take several
+      columns: [{ field: "orderedAt", by: ["year", "month"] }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("groupedTwice", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - a grouped date is still one field: a row, a column or a filter, once
+      .pivot({
+        rows: [{ field: "orderedAt", by: "year" }],
+        filters: [{ field: "orderedAt", by: "month" }],
+        values: { revenue: "sum" },
+      }),
+  )
+  .pivot("rowShareWithoutColumns", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - "percentOfRow" needs a column field
+      .pivot({ rows: ["region"], values: { revenue: { aggregate: "sum", show: "percentOfRow" } } }),
+  )
+  .pivot("unknownShow", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      // @ts-expect-error - unknown "show" value
+      values: { revenue: { aggregate: "sum", show: "percentOfGrandTotal" } },
+    }),
+  );
+
 async function _streamPivots() {
   const workbook = createWorkbookStream();
   const sales = await workbook.sheet("Sales").table("sales", { schema: chartMonthlySchema });
