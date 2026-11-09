@@ -30,6 +30,8 @@ import { createExcelSchema, createWorkbook } from "typed-xlsx";
 - Report mode for custom layouts, summaries, and sub-row expansion
 - Excel table mode for native tables, totals rows, autoFilter, and structured refs
 - Renderer columns for badges, checkboxes, hyperlinks, sparklines, and embedded or URL-backed images
+- Native Excel charts built from your tables: bar, line, area, scatter, pie and combo charts with typed column references
+- Native Excel pivot tables and pivot charts, with fields and aggregations checked against your schema
 - Full comparison against SheetJS and ExcelJS: [Why typed-xlsx?](https://typed-xlsx.vercel.app/getting-started/comparison)
 
 [![Executive Board Pack](./apps/docs/public/images/marketing/board-overview.png)](https://typed-xlsx.vercel.app/playground/executive-board-pack)
@@ -75,7 +77,7 @@ Read the full tradeoffs and feature matrix here:
 Reach for a lower-level spreadsheet library when you need to:
 
 - read or modify existing `.xlsx` files
-- embed charts or arbitrary freeform worksheet drawings
+- draw arbitrary freeform worksheet shapes or drawings
 - support spreadsheet formats beyond `.xlsx`
 - do highly manual cell-by-cell spreadsheet editing
 
@@ -234,6 +236,58 @@ for await (const batch of cursor) {
 
 await workbook.writeToFile("./orders.xlsx");
 ```
+
+## Charts
+
+Native Excel charts plot the tables you already declare. Each mark reads a table declared earlier in the chain, and TypeScript only accepts numeric columns as values.
+
+```ts
+createWorkbook()
+  .sheet("2026")
+  .table("sales", { schema: salesSchema, rows })
+  .table("targets", { schema: targetSchema, rows: targetRows })
+  .chart("performance", ({ refs }) => ({
+    title: "Revenue vs target",
+    marks: [
+      refs.table("sales").bar({ x: "month", y: "revenue" }),
+      refs.table("targets").line({ x: "month", y: "target", name: "Target" }),
+    ],
+  }))
+  .sheet("Dashboard")
+  .chart("yearOverYear", ({ refs }) => ({
+    marks: [
+      refs
+        .sheet("2026")
+        .table("sales")
+        .area({ x: "month", y: ["revenue", "cost"], stack: true }),
+    ],
+  }));
+```
+
+Bars, lines, areas, scatter plots, pies and doughnuts, combos with a secondary axis, and charts over dynamic columns work in buffered and streaming workbooks.
+
+Pivot tables summarize a table and stay interactive in Excel. Pivot charts follow them:
+
+```ts
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: salesSchema, rows })
+  .sheet("Analysis")
+  .pivot("byRegion", ({ refs }) =>
+    refs
+      .sheet("Sales")
+      .table("sales")
+      .pivot({
+        rows: ["region"],
+        columns: ["month"],
+        values: { revenue: "sum" }, // only numeric columns can be summed
+        filters: ["channel"],
+      }),
+  )
+  .chart("byRegionChart", ({ refs }) => ({ marks: [refs.pivot("byRegion").bar({ stack: true })] }));
+```
+
+Values can be shown as a share of a total (`show: "percentOfTotal"`), and date columns grouped by year, quarter or month (`{ field: "orderedAt", by: ["year", "month"] }`). A pivot follows the theme of its table, or takes its own `theme` or built-in `style`.
 
 ## Report Mode Vs Excel Table Mode
 
