@@ -684,7 +684,7 @@ describe("pivot themes", () => {
     ).toThrow('Pivot "p": takes a built-in style or a theme, not both.');
   });
 
-  it("keeps Excel's default style for tables without a theme", () => {
+  it("styles pivots over unthemed tables with the classic theme, like the tables", () => {
     const { text } = readParts(
       createWorkbook()
         .sheet("Sales")
@@ -692,10 +692,17 @@ describe("pivot themes", () => {
         .pivot("p", ({ refs }) =>
           refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" } }),
         )
+        .pivot("builtIn", ({ refs }) =>
+          refs
+            .table("sales")
+            .pivot({ rows: ["product"], values: { revenue: "sum" }, style: "PivotStyleLight16" }),
+        )
         .toUint8Array(),
     );
-    expect(text("xl/pivotTables/pivotTable1.xml")).toContain('name="PivotStyleLight16"');
-    expect(text("xl/styles.xml")).not.toContain("<tableStyles");
+    expect(text("xl/pivotTables/pivotTable1.xml")).toContain('name="typed-xlsx Pivot 1"');
+    expect(text("xl/styles.xml")).toContain("<tableStyles");
+    // A built-in style is still yours to pick.
+    expect(text("xl/pivotTables/pivotTable2.xml")).toContain('name="PivotStyleLight16"');
   });
 
   it("draws the frame along every edge, totals included", () => {

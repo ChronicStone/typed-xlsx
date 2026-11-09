@@ -89,8 +89,8 @@ describe("kitchen sink examples", () => {
     expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toContain(
       'showDataAs="percentOfTotal"',
     );
-    expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toContain(
-      '<pivotTableStyleInfo name="typed-xlsx Pivot 1"',
+    expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toMatch(
+      /<pivotTableStyleInfo name="typed-xlsx Pivot \d+"/,
     );
     expect(readWorkbookEntry(bufferedEntries, "xl/pivotCache/pivotCacheDefinition2.xml")).toContain(
       'groupBy="quarters"',

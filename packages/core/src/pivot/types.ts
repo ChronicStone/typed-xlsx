@@ -100,7 +100,7 @@ export interface PivotOptions<TColumns> {
   totals?: boolean | { row?: boolean; column?: boolean };
   /**
    * Built-in Excel pivot style, such as `"PivotStyleMedium9"`. Without `style` or `theme`, the pivot
-   * follows the theme of its source table, or Excel's default `"PivotStyleLight16"` when it has none.
+   * follows the theme of its source table, or the classic theme tables use by default.
    */
   style?: PivotTableStyle;
   /** Theme whose `pivot*` slots style the pivot. Defaults to the source table's theme. */

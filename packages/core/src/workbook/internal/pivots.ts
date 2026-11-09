@@ -28,6 +28,7 @@ import {
   type PivotCacheSource,
 } from "../../ooxml/pivot";
 import type { StylesCollector } from "../../styles/collector";
+import { spreadsheetThemes } from "../../styles/theme";
 import { deepMerge } from "../../styles/merge";
 import type { CellStyle } from "../../styles/types";
 import type { SpreadsheetTheme } from "../../styles/theme";
@@ -202,7 +203,10 @@ export function createPivotDefinition(
   if (style !== undefined && explicitTheme !== undefined) {
     throw new Error(`Pivot "${id}": takes a built-in style or a theme, not both.`);
   }
-  const theme = explicitTheme ?? (style === undefined ? sourceTheme : undefined);
+  // Without a style or a theme, a pivot looks like the tables: the source table's theme, or the
+  // classic theme every table uses by default.
+  const theme =
+    explicitTheme ?? (style === undefined ? (sourceTheme ?? spreadsheetThemes.classic) : undefined);
   const banded = options.banded as boolean | { rows?: boolean; columns?: boolean } | undefined;
 
   return {
