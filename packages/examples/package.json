@@ -9,6 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "bun run ./scripts/generate-examples.ts",
+    "previews": "bun run ./scripts/build-previews.ts",
     "check": "tsc --noEmit"
   },
   "dependencies": {
