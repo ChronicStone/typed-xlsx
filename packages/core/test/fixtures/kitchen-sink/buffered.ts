@@ -1,17 +1,22 @@
 import { createExcelSchema, createWorkbook } from "../../../src";
 import {
   createKitchenSinkOrders,
+  createKitchenSinkOrderLineRows,
   createKitchenSinkProductImageRows,
+  createKitchenSinkRegionSummaryRows,
   createKitchenSinkSparklineRows,
 } from "./data";
 import {
+  kitchenSinkPivotTheme,
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
   kitchenSinkGroupedFormulaContext,
   kitchenSinkHyperlinkSchema,
   kitchenSinkProductImageSchema,
+  kitchenSinkOrderLineSchema,
   kitchenSinkProtectedInputSchema,
+  kitchenSinkRegionSummarySchema,
   kitchenSinkSchema,
   kitchenSinkSparklineGallerySchema,
   kitchenSinkValidationSchema,
@@ -329,6 +334,50 @@ export function buildKitchenSinkBufferedExample() {
       style: "TableStyleLight9",
       totalsRow: true,
     });
+
+  workbook
+    .sheet("Charts")
+    .table("region-summary", {
+      title: "Revenue by Region",
+      schema: kitchenSinkRegionSummarySchema,
+      rows: createKitchenSinkRegionSummaryRows(orders),
+    })
+    .chart("region-performance", ({ refs }) => ({
+      title: "Revenue and average order by region",
+      marks: [
+        refs.table("region-summary").bar({ x: "region", y: "revenue", color: "#2563EB" }),
+        refs.table("region-summary").line({ x: "region", y: "averageOrder", axis: "y2" }),
+      ],
+      axes: { y: { title: "Revenue", min: 0 }, y2: { title: "Avg order" } },
+    }));
+
+  workbook
+    .sheet("Pivot")
+    .table("order-lines", {
+      title: "Order Lines",
+      schema: kitchenSinkOrderLineSchema,
+      rows: createKitchenSinkOrderLineRows(orders),
+    })
+    .pivot("revenue-by-region", ({ refs }) =>
+      refs.table("order-lines").pivot({
+        rows: ["region"],
+        columns: ["tier"],
+        values: { lineTotal: "sum" },
+        filters: ["sku"],
+      }),
+    )
+    .chart("revenue-by-region-chart", ({ refs }) => ({
+      title: "Line totals by region and tier",
+      marks: [refs.pivot("revenue-by-region").bar({ stack: true })],
+    }))
+    .pivot("shipments-by-quarter", ({ refs }) =>
+      refs.table("order-lines").pivot({
+        rows: [{ field: "shippedAt", by: ["year", "quarter"] }],
+        values: { lineTotal: ["sum", { aggregate: "sum", show: "percentOfTotal" }] },
+        theme: kitchenSinkPivotTheme,
+        banded: true,
+      }),
+    );
 
   return workbook.toUint8Array();
 }

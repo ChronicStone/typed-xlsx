@@ -3,8 +3,11 @@ import {
   createKitchenSinkOrders,
   createKitchenSinkProductImageRows,
   createKitchenSinkSparklineRows,
+  createKitchenSinkRegionSummaryRows,
+  createKitchenSinkOrderLineRows,
 } from "./data";
 import {
+  kitchenSinkPivotTheme,
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
@@ -16,6 +19,8 @@ import {
   kitchenSinkSparklineGallerySchema,
   kitchenSinkValidationSchema,
   sparklineGalleryDefaults,
+  kitchenSinkRegionSummarySchema,
+  kitchenSinkOrderLineSchema,
 } from "./schema";
 
 type KitchenSinkHyperlinkRow = {
@@ -365,6 +370,54 @@ export async function buildKitchenSinkStreamExample() {
         region: order.region,
       })),
     });
+  }
+
+  const chartsSheet = workbook.sheet("Charts");
+  const regionSummary = await chartsSheet.table("region-summary", {
+    title: "Revenue by Region",
+    schema: kitchenSinkRegionSummarySchema,
+  });
+  await regionSummary.commit({
+    rows: createKitchenSinkRegionSummaryRows(allOrderBatches.flat()),
+  });
+  chartsSheet.chart("region-performance", {
+    title: "Revenue and average order by region",
+    marks: [
+      regionSummary.bar({ x: "region", y: "revenue", color: "#2563EB" }),
+      regionSummary.line({ x: "region", y: "averageOrder", axis: "y2" }),
+    ],
+    axes: { y: { title: "Revenue", min: 0 }, y2: { title: "Avg order" } },
+  });
+
+  const pivotSheet = workbook.sheet("Pivot");
+  const orderLines = await pivotSheet.table("order-lines", {
+    title: "Order Lines",
+    schema: kitchenSinkOrderLineSchema,
+  });
+  const revenueByRegion = pivotSheet.pivot(
+    "revenue-by-region",
+    orderLines.pivot({
+      rows: ["region"],
+      columns: ["tier"],
+      values: { lineTotal: "sum" },
+      filters: ["sku"],
+    }),
+  );
+  pivotSheet.chart("revenue-by-region-chart", {
+    title: "Line totals by region and tier",
+    marks: [revenueByRegion.bar({ stack: true })],
+  });
+  pivotSheet.pivot(
+    "shipments-by-quarter",
+    orderLines.pivot({
+      rows: [{ field: "shippedAt", by: ["year", "quarter"] }],
+      values: { lineTotal: ["sum", { aggregate: "sum", show: "percentOfTotal" }] },
+      theme: kitchenSinkPivotTheme,
+      banded: true,
+    }),
+  );
+  for (const rows of allOrderBatches) {
+    await orderLines.commit({ rows: createKitchenSinkOrderLineRows(rows) });
   }
 
   try {

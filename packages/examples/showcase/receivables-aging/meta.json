@@ -1,0 +1,27 @@
+{
+  "id": "receivables-aging",
+  "title": "Receivables Aging",
+  "description": "Open invoices bucketed by days late, an aging pivot by customer that collectors can filter, and a doughnut of what is overdue.",
+  "developerHook": "Compute the business rules in TypeScript, then hand Excel a pivot readers can slice themselves.",
+  "tags": ["finance", "collections", "pivot-tables"],
+  "features": [
+    "pivot tables",
+    "pivot filters",
+    "pivot charts",
+    "badges",
+    "hyperlinks",
+    "formula columns",
+    "summary rows",
+    "spreadsheet themes"
+  ],
+  "datasetProfile": "small",
+  "artifactFile": "artifact/receivables-aging.xlsx",
+  "primarySourceFile": "workbook.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "table",
+    "accentClass": "artifact-accent-rose",
+    "landingEyebrow": "Pivot tables",
+    "playgroundSummary": "64 open invoices with days late and buckets computed in TypeScript, an aging pivot by customer filtered by collector, and a doughnut of receivables by age."
+  }
+}

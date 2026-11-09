@@ -1,0 +1,27 @@
+{
+  "id": "inventory-reorder",
+  "title": "Inventory Reorder Plan",
+  "description": "A protected buying sheet: eight weeks of sales with sparklines, weeks of cover and a reorder flag as live formulas, and yellow input cells with dropdowns and limits.",
+  "developerHook": "Hand people a sheet they can safely edit: locked formulas, validated inputs, and statuses that react as they type.",
+  "tags": ["operations", "workflow", "validation"],
+  "features": [
+    "sheet protection",
+    "unlocked input cells",
+    "list and integer validation",
+    "formula columns",
+    "group formulas",
+    "dynamic columns",
+    "sparklines",
+    "conditional styles"
+  ],
+  "datasetProfile": "small",
+  "artifactFile": "artifact/inventory-reorder.xlsx",
+  "primarySourceFile": "schema.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "workflow",
+    "accentClass": "artifact-accent-emerald",
+    "landingEyebrow": "Editable workflows",
+    "playgroundSummary": "Fourteen SKUs with weekly sales, cover and a reorder flag computed in Excel. Buyers pick a supplier and type quantities in validated, unlocked cells; everything else is protected."
+  }
+}

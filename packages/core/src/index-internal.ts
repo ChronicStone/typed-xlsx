@@ -70,6 +70,7 @@ export type {
   PrimitiveCellValue,
   ReportSchemaDefinition,
   SchemaColumnId,
+  SchemaColumnValues,
   SchemaContext,
   SchemaContextOf,
   SchemaGroupContext,

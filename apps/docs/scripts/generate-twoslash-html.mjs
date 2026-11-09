@@ -64,7 +64,12 @@ export const faker: any;
 // @filename: _shared/faker.ts
 export function createShowcaseFaker(_seed: number) {
   return {
-    helpers: { arrayElement: <T>(values: T[]) => values[0] as T },
+    helpers: {
+      arrayElement: <T>(values: T[]) => values[0] as T,
+      weightedArrayElement: <T>(values: Array<{ weight: number; value: T }>) =>
+        values[0]!.value,
+    },
+    datatype: { boolean: (_options?: unknown) => false },
     number: {
       int: (_options?: unknown) => 0,
       float: (_options?: unknown) => 0,
@@ -72,8 +77,12 @@ export function createShowcaseFaker(_seed: number) {
     string: { alphanumeric: (_options?: unknown) => "SAMPLE" },
     commerce: { productName: () => "Sample Product" },
     company: { name: () => "Sample Company" },
-    person: { fullName: () => "Sample Person" },
-    internet: { email: () => "sample@example.com" },
+    person: {
+      fullName: () => "Sample Person",
+      firstName: () => "Sample",
+      lastName: () => "Person",
+    },
+    internet: { email: (_options?: unknown) => "sample@example.com" },
     location: { city: () => "Paris" },
   };
 }`;

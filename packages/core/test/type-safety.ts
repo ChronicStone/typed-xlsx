@@ -13,9 +13,16 @@ import type {
   ImageValue,
   Path,
   SchemaColumnId,
+  SchemaColumnValues,
   SchemaGroupContext,
 } from "../src";
-import { createExcelSchema, createWorkbook } from "../src";
+import {
+  createExcelSchema,
+  createWorkbook,
+  createWorkbookStream,
+  defineSpreadsheetTheme,
+  spreadsheetThemes,
+} from "../src";
 
 // ── Path<T> ──────────────────────────────────────────────────────────────────
 
@@ -1066,3 +1073,500 @@ createWorkbook()
     select: { include: ["derived", "name"] },
     context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
   });
+
+// ── SchemaColumnValues: the value type of each column ─────────────────────
+
+type ValueRow = { month: string; revenue: number; cost: number | null };
+const valueSchema = createExcelSchema<ValueRow>()
+  .column("month", { accessor: "month" })
+  .column("revenue", { accessor: "revenue" })
+  .column("cost", { accessor: "cost" })
+  .column("label", { accessor: "revenue", transform: ({ value }) => `${value} €` })
+  .column("margin", { formula: ({ refs }) => refs.column("revenue").sub(refs.column("cost")) })
+  .build();
+
+type Values = SchemaColumnValues<typeof valueSchema>;
+const _valueMonth: Values["month"] = "Jan";
+const _valueRevenue: Values["revenue"] = 1;
+const _valueCost: Values["cost"] = null;
+const _valueLabel: Values["label"] = "12 €";
+const _valueMargin: Values["margin"] = 1;
+// @ts-expect-error - a transformed column keeps the transform's type
+const _valueLabelNumber: Values["label"] = 1;
+// @ts-expect-error - only declared columns have a value type
+const _valueUnknown: Values["unknown"] = 1;
+
+// ── Workbook charts ─────────────────────────────────────────────────────────
+
+type ChartMonthRow = { month: string; day: Date; revenue: number; cost: number | null };
+type ChartTargetRow = { month: string; target: number };
+type ChartTerritoryRow = { territory: string; byMonth: Record<string, number> };
+
+const chartMonthlySchema = createExcelSchema<ChartMonthRow>()
+  .column("month", { accessor: "month" })
+  .column("day", { accessor: "day" })
+  .column("revenue", { accessor: "revenue" })
+  .column("cost", { accessor: "cost" })
+  .column("label", { accessor: "revenue", transform: ({ value }) => `${value} €` })
+  .column("margin", { formula: ({ refs }) => refs.column("revenue").sub(refs.column("cost")) })
+  .build();
+const chartTargetSchema = createExcelSchema<ChartTargetRow>()
+  .column("month", { accessor: "month" })
+  .column("target", { accessor: "target" })
+  .build();
+const chartTerritorySchema = createExcelSchema<ChartTerritoryRow, { months: string[] }>()
+  .column("territory", { accessor: "territory" })
+  .dynamic("months", (builder, { ctx }) => {
+    for (const month of ctx.months) {
+      builder.column(month, { accessor: (row) => row.byMonth[month] ?? 0 });
+    }
+  })
+  .build();
+
+// valid: every mark kind, cross-table and cross-sheet marks, dynamic blocks, secondary axis
+createWorkbook()
+  .sheet("2026")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .table("targets", { schema: chartTargetSchema, rows: [] })
+  .chart("combo", ({ refs }) => ({
+    title: "Revenue vs target",
+    marks: [
+      refs.table("sales").bar({ x: "month", y: ["revenue", { column: "cost", name: "Costs" }] }),
+      refs.table("targets").line({ x: "month", y: "target", name: "Target", dashed: true }),
+      refs.table("sales").line({ x: "month", y: "margin", axis: "y2" }),
+    ],
+    axes: { y: { min: 0 }, y2: { format: "#,##0" } },
+  }))
+  .chart("share", ({ refs }) => ({
+    marks: [
+      refs.table("sales").pie({ label: "month", value: "revenue", labels: { percent: true } }),
+    ],
+  }))
+  .chart("timeline", ({ refs }) => ({
+    marks: [refs.table("sales").area({ x: "day", y: ["revenue", "margin"], stack: "percent" })],
+  }))
+  .chart("scatter", ({ refs }) => ({
+    marks: [refs.table("sales").scatter({ x: "revenue", y: "margin" })],
+  }))
+  .sheet("Territories")
+  .table("territories", { schema: chartTerritorySchema, rows: [], context: { months: [] } })
+  .chart("rows", ({ refs }) => ({
+    marks: [refs.table("territories").line({ x: { dynamic: "months" }, series: "territory" })],
+  }))
+  .chart("columns", ({ refs }) => ({
+    marks: [
+      refs.table("territories").bar({ x: "territory", y: { dynamic: "months" }, stack: true }),
+    ],
+  }))
+  .sheet("Dashboard")
+  .chart("yearOverYear", ({ refs }) => ({
+    marks: [
+      refs.sheet("2026").table("sales").bar({ x: "month", y: "revenue" }),
+      refs.sheet("2026").table("targets").bar({ x: "month", y: "target" }),
+    ],
+  }));
+
+const chartRefsCheck = createWorkbook()
+  .sheet("2026")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .table("client", { schema: chartMonthlySchema, rows: [], select: { exclude: ["cost"] } })
+  .table("targets", { schema: chartTargetSchema, rows: [] });
+
+chartRefsCheck
+  // @ts-expect-error - text columns cannot be plotted as values
+  .chart("text", ({ refs }) => ({ marks: [refs.table("sales").bar({ x: "month", y: "month" })] }))
+  .chart("transformed", ({ refs }) => ({
+    // @ts-expect-error - a column transformed into text cannot be plotted as values
+    marks: [refs.table("sales").bar({ x: "month", y: "label" })],
+  }))
+  .chart("excluded", ({ refs }) => ({
+    // @ts-expect-error - "cost" is excluded by this table's select
+    marks: [refs.table("client").bar({ x: "month", y: "cost" })],
+  }))
+  // @ts-expect-error - unknown column
+  .chart("typo", ({ refs }) => ({ marks: [refs.table("sales").line({ x: "month", y: "revenu" })] }))
+  .chart("scatterX", ({ refs }) => ({
+    // @ts-expect-error - a scatter mark needs a numeric x column
+    marks: [refs.table("sales").scatter({ x: "month", y: "revenue" })],
+  }))
+  .chart("pieValue", ({ refs }) => ({
+    // @ts-expect-error - a pie value must be numeric
+    marks: [refs.table("sales").pie({ label: "month", value: "month" })],
+  }))
+  .chart("names", ({ refs }) => ({
+    // @ts-expect-error - name and color apply to a single y column
+    marks: [refs.table("sales").bar({ x: "month", y: ["revenue", "cost"], name: "Both" })],
+  }))
+  .chart("series", ({ refs }) => ({
+    // @ts-expect-error - series only applies with x: { dynamic }
+    marks: [refs.table("sales").bar({ x: "month", y: "revenue", series: "month" })],
+  }))
+  // @ts-expect-error - a mark needs y
+  .chart("noY", ({ refs }) => ({ marks: [refs.table("sales").line({ x: "month" })] }))
+  // @ts-expect-error - a pie chart takes a single mark
+  .chart("pieMix", ({ refs }) => ({
+    marks: [
+      refs.table("sales").pie({ label: "month", value: "revenue" }),
+      refs.table("sales").bar({ x: "month", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - scatter marks cannot share a chart with other marks
+  .chart("scatterMix", ({ refs }) => ({
+    marks: [
+      refs.table("sales").scatter({ x: "revenue", y: "margin" }),
+      refs.table("sales").line({ x: "month", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - horizontal bars cannot share a chart with other marks
+  .chart("horizontalMix", ({ refs }) => ({
+    marks: [
+      refs.table("sales").bar({ x: "month", y: "revenue", horizontal: true }),
+      refs.table("sales").line({ x: "month", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - marks disagree on the x axis: text and dates
+  .chart("xKinds", ({ refs }) => ({
+    marks: [
+      refs.table("sales").bar({ x: "month", y: "revenue" }),
+      refs.table("sales").line({ x: "day", y: "revenue" }),
+    ],
+  }))
+  // @ts-expect-error - table ids are unique within a sheet
+  .table("sales", { schema: chartTargetSchema, rows: [] })
+  .sheet("Dashboard")
+  .chart("otherSheet", ({ refs }) => ({
+    // @ts-expect-error - a table id alone only looks on the current sheet
+    marks: [refs.table("sales").bar({ x: "month", y: "revenue" })],
+  }))
+  .chart("laterSheet", ({ refs }) => ({
+    // @ts-expect-error - sheets declared later in the chain are not visible yet
+    marks: [refs.sheet("Budget").table("budget").bar({ x: "month", y: "target" })],
+  }))
+  // @ts-expect-error - sheet names are unique within the chain
+  .sheet("2026")
+  .sheet("Budget")
+  .table("budget", { schema: chartTargetSchema, rows: [] });
+
+createWorkbook()
+  .sheet("Territories")
+  .table("territories", { schema: chartTerritorySchema, rows: [], context: { months: [] } })
+  .chart("noSeries", ({ refs }) => ({
+    // @ts-expect-error - x: { dynamic } needs series
+    marks: [refs.table("territories").line({ x: { dynamic: "months" } })],
+  }))
+  .chart("unknownBlock", ({ refs }) => ({
+    // @ts-expect-error - unknown dynamic block
+    marks: [refs.table("territories").line({ x: { dynamic: "weeks" }, series: "territory" })],
+  }));
+
+async function _streamCharts() {
+  const workbook = createWorkbookStream();
+  const sales = await workbook.sheet("Sales").table("sales", { schema: chartMonthlySchema });
+  const targets = await workbook.sheet("Sales").table("targets", { schema: chartTargetSchema });
+  workbook.sheet("Dashboard").chart("revenue", {
+    marks: [sales.bar({ x: "month", y: "revenue" }), targets.line({ x: "month", y: "target" })],
+  });
+  // @ts-expect-error - streamed tables check their columns too
+  sales.bar({ x: "month", y: "month" });
+}
+
+// ── Pivot tables and pivot charts ───────────────────────────────────────────
+
+// valid: rows, columns, filters, several aggregations, pivot charts, a pie over a single value
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .sheet("Analysis")
+  .pivot("byMonth", ({ refs }) =>
+    refs
+      .sheet("Sales")
+      .table("sales")
+      .pivot({
+        rows: ["month"],
+        columns: ["label"],
+        values: {
+          revenue: "sum",
+          month: "count",
+          cost: ["sum", { aggregate: "average", name: "Avg cost", format: "0.0" }],
+        },
+        filters: ["day"],
+        sort: "source",
+        style: "PivotStyleMedium9",
+      }),
+  )
+  .chart("byMonthChart", ({ refs }) => ({ marks: [refs.pivot("byMonth").bar({ stack: true })] }))
+  .pivot("single", ({ refs }) =>
+    refs
+      .sheet("Sales")
+      .table("sales")
+      .pivot({ rows: ["month"], values: { revenue: "sum" } }),
+  )
+  .chart("share", ({ refs }) => ({ marks: [refs.pivot("single").pie()] }));
+
+const pivotCheck = createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: chartMonthlySchema, rows: [] })
+  .table("client", { schema: chartMonthlySchema, rows: [], select: { exclude: ["cost"] } });
+
+pivotCheck
+  .pivot("unknownRow", ({ refs }) =>
+    // @ts-expect-error - unknown row field
+    refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" } }),
+  )
+  .pivot("textSum", ({ refs }) =>
+    // @ts-expect-error - only count works on a text column
+    refs.table("sales").pivot({ rows: ["day"], values: { month: "sum" } }),
+  )
+  .pivot("twice", ({ refs }) =>
+    // @ts-expect-error - a field is a row, a column or a filter, once
+    refs.table("sales").pivot({ rows: ["month"], filters: ["month"], values: { revenue: "sum" } }),
+  )
+  .pivot("twoColumns", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - a pivot takes at most one column field
+      .pivot({ rows: ["month"], columns: ["day", "label"], values: { revenue: "sum" } }),
+  )
+  .pivot("noValues", ({ refs }) =>
+    // @ts-expect-error - a pivot needs at least one value
+    refs.table("sales").pivot({ rows: ["month"], values: {} }),
+  )
+  .pivot("excluded", ({ refs }) =>
+    // @ts-expect-error - "cost" is excluded by this table's select
+    refs.table("client").pivot({ rows: ["month"], values: { cost: "sum" } }),
+  )
+  .pivot("columns", ({ refs }) =>
+    refs.table("sales").pivot({ rows: ["month"], columns: ["day"], values: { revenue: "sum" } }),
+  )
+  // @ts-expect-error - a pivot pie needs a pivot without columns and with a single value
+  .chart("pieWithColumns", ({ refs }) => ({ marks: [refs.pivot("columns").pie()] }))
+  // @ts-expect-error - a pivot chart takes a single mark
+  .chart("mixed", ({ refs }) => ({
+    marks: [refs.pivot("columns").bar(), refs.table("sales").line({ x: "month", y: "revenue" })],
+  }))
+  .chart("unknownPivot", ({ refs }) => ({
+    // @ts-expect-error - unknown pivot
+    marks: [refs.pivot("nope").bar()],
+  }))
+  // @ts-expect-error - pivot ids are unique within a sheet
+  .pivot("columns", ({ refs }) =>
+    refs.table("sales").pivot({ rows: ["month"], values: { revenue: "sum" } }),
+  );
+
+type DatedSaleRow = { orderedAt: Date; shippedAt: Date | null; region: string; revenue: number };
+const datedSaleSchema = createExcelSchema<DatedSaleRow>()
+  .column("orderedAt", { accessor: "orderedAt" })
+  .column("shippedAt", { accessor: "shippedAt" })
+  .column("region", { accessor: "region" })
+  .column("revenue", { accessor: "revenue" })
+  .build();
+
+// valid: dates grouped by calendar units, values shown as percentages
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: datedSaleSchema, rows: [] })
+  .pivot("byMonth", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: [{ field: "orderedAt", by: ["year", "quarter", "month"] }],
+      columns: ["region"],
+      values: { revenue: ["sum", { aggregate: "sum", show: "percentOfRow" }] },
+    }),
+  )
+  .pivot("byYear", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      columns: [{ field: "orderedAt", by: "year" }],
+      values: { revenue: { aggregate: "sum", show: "percentOfColumn", format: "0%" } },
+    }),
+  )
+  .chart("byYearChart", ({ refs }) => ({ marks: [refs.pivot("byYear").bar({ stack: true })] }))
+  .pivot("share", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: [{ field: "orderedAt", by: "month" }],
+      values: { revenue: { aggregate: "sum", show: "percentOfTotal" } },
+      filters: ["region"],
+    }),
+  )
+  .chart("shareChart", ({ refs }) => ({ marks: [refs.pivot("share").pie()] }));
+
+const datedCheck = createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: datedSaleSchema, rows: [] });
+
+datedCheck
+  .pivot("textByYear", ({ refs }) =>
+    refs.table("sales").pivot({
+      // @ts-expect-error - only date columns can be grouped by calendar units
+      rows: [{ field: "region", by: "year" }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("blankDates", ({ refs }) =>
+    refs.table("sales").pivot({
+      // @ts-expect-error - Excel cannot group a date column that may be blank
+      rows: [{ field: "shippedAt", by: "month" }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("wrongOrder", ({ refs }) =>
+    refs.table("sales").pivot({
+      // @ts-expect-error - date levels go from the largest unit to the smallest
+      rows: [{ field: "orderedAt", by: ["month", "year"] }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("levelsInColumns", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      // @ts-expect-error - a column groups a date by one unit; only rows take several
+      columns: [{ field: "orderedAt", by: ["year", "month"] }],
+      values: { revenue: "sum" },
+    }),
+  )
+  .pivot("groupedTwice", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - a grouped date is still one field: a row, a column or a filter, once
+      .pivot({
+        rows: [{ field: "orderedAt", by: "year" }],
+        filters: [{ field: "orderedAt", by: "month" }],
+        values: { revenue: "sum" },
+      }),
+  )
+  .pivot("rowShareWithoutColumns", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - "percentOfRow" needs a column field
+      .pivot({ rows: ["region"], values: { revenue: { aggregate: "sum", show: "percentOfRow" } } }),
+  )
+  .pivot("unknownShow", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      // @ts-expect-error - unknown "show" value
+      values: { revenue: { aggregate: "sum", show: "percentOfGrandTotal" } },
+    }),
+  );
+
+// valid: pivot themes bind to table slots and take their own pivot slots
+const pivotBrand = defineSpreadsheetTheme({
+  slots: {
+    header: { fill: { color: { rgb: "0B1220" } } },
+    pivotFrame: { border: { top: { style: "medium" }, bottom: { style: "medium" } } },
+    pivotTotal: ({ tokens }) => ({ fill: { color: { rgb: tokens.colors.summaryFill } } }),
+    pivotHeader: { font: { italic: true } },
+  },
+});
+
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: datedSaleSchema, rows: [], theme: spreadsheetThemes.slate })
+  .pivot("byRegion", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      values: { revenue: "sum" },
+      theme: pivotBrand,
+      banded: { rows: true, columns: false },
+    }),
+  )
+  .pivot("builtIn", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      values: { revenue: "sum" },
+      style: "PivotStyleMedium9",
+      banded: true,
+    }),
+  );
+
+defineSpreadsheetTheme({
+  slots: {
+    // @ts-expect-error - Excel draws a pivot header's border on its first row only
+    pivotHeader: { border: { bottom: { style: "thin" } } },
+  },
+});
+defineSpreadsheetTheme({
+  slots: {
+    // @ts-expect-error - a pivot style cannot change number formats
+    pivotTotal: { numFmt: "0.0" },
+  },
+});
+spreadsheetThemes.slate.extend({
+  slots: {
+    // @ts-expect-error - a pivot style cannot change font sizes
+    pivotBody: { font: { size: 14 } },
+  },
+});
+
+datedCheck
+  .pivot("styleAndTheme", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - a pivot takes a built-in style or a theme, not both
+      .pivot({
+        rows: ["region"],
+        values: { revenue: "sum" },
+        style: "PivotStyleMedium9",
+        theme: spreadsheetThemes.slate,
+      }),
+  )
+  .pivot("badBanding", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      values: { revenue: "sum" },
+      // @ts-expect-error - banded takes a boolean or { rows, columns }
+      banded: "rows",
+    }),
+  );
+
+async function _streamPivots() {
+  const workbook = createWorkbookStream();
+  const sales = await workbook.sheet("Sales").table("sales", { schema: chartMonthlySchema });
+  const analysis = workbook.sheet("Analysis");
+  const byMonth = analysis.pivot(
+    "byMonth",
+    sales.pivot({ rows: ["month"], values: { revenue: "sum" } }),
+  );
+  analysis.chart("chart", { marks: [byMonth.pie()] });
+  // @ts-expect-error - streamed tables check pivot fields too
+  sales.pivot({ rows: ["nope"], values: { revenue: "sum" } });
+}
+
+// Columns declared inside a group keep their value type in formulas: a number column compares to
+// numbers, and a boolean column compares to booleans.
+createExcelSchema<{ qty: number; urgent: boolean }>()
+  .group("order", { header: "Order" }, (group) =>
+    group
+      .column("qty", { accessor: "qty" })
+      .column("urgent", { accessor: "urgent", type: "checkbox" }),
+  )
+  .column("status", {
+    formula: ({ refs, fx }) =>
+      fx.if(refs.column("qty").gt(0).and(refs.column("urgent").eq(true)), "Rush", "Normal"),
+  })
+  .build();
+
+// Pivot values are checked against the table: an unknown key or an empty list does not compile.
+type PivotSale = { region: string; revenue: number; orderedAt?: Date | null };
+const pivotSales = createExcelSchema<PivotSale>()
+  .column("region", { header: "Region", accessor: "region" })
+  .column("revenue", { header: "Revenue", accessor: "revenue" })
+  .column("orderedAt", { header: "Ordered", accessor: "orderedAt", defaultValue: new Date(0) })
+  .build();
+
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: pivotSales, rows: [] })
+  .pivot("unknownValue", ({ refs }) =>
+    // @ts-expect-error - "profit" is not a column of the table
+    refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum", profit: "sum" } }),
+  )
+  .pivot("emptyValue", ({ refs }) =>
+    // @ts-expect-error - a value needs at least one aggregation
+    refs.table("sales").pivot({ rows: ["region"], values: { revenue: [] } }),
+  )
+  // A date column with a defaultValue is never blank, so it can be grouped by date.
+  .pivot("byYear", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: [{ field: "orderedAt", by: "year" }],
+      values: { revenue: "sum" },
+    }),
+  );

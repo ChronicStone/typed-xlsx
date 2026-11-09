@@ -12,6 +12,9 @@ export type {
 
 export type {
   PreviewCell,
+  PreviewChart,
+  PreviewChartKind,
+  PreviewChartSeries,
   PreviewImage,
   PreviewSheet,
   PreviewSparkline,

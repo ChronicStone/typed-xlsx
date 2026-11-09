@@ -1,3 +1,5 @@
+import type { ChartPlan } from "../chart/types";
+import type { PivotPlan } from "../pivot/types";
 import type {
   ExcelTableSchemaDefinition,
   ReportSchemaDefinition,
@@ -398,6 +400,8 @@ export interface BufferedSheetPlan {
   view?: SheetViewOptions;
   protection?: ResolvedSheetProtectionOptions;
   tables: BufferedTablePlan<any>[];
+  charts?: ChartPlan[];
+  pivots?: PivotPlan[];
 }
 
 export interface BufferedWorkbookPlan {

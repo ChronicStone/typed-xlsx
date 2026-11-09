@@ -22,6 +22,7 @@
     "content-types.xml",
     "workbook.xml",
     "styles.xml",
+    "shared-strings.xml",
     "sheet1.xml",
     "sheet2.xml"
   ]

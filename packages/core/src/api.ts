@@ -35,6 +35,23 @@ import {
   WorkbookByteStream,
 } from "./workbook/internal/stream-sinks";
 import type { SpreadsheetTheme } from "./styles/theme";
+import type {
+  ChartBookAddSheet,
+  ChartBookAddTable,
+  ChartMark,
+  ChartPivotIdGuard,
+  ChartRefs,
+  ChartSheetNameGuard,
+  ChartSpec,
+  ChartSpecGuard,
+  ChartTable,
+  ChartTableIdGuard,
+  ChartTableShapeOf,
+  EmptyChartBook,
+} from "./chart/types";
+import { createChartTable } from "./chart/table";
+import type { PivotChartSource, PivotShape, PivotSpec } from "./pivot/types";
+import { STREAM_PIVOT_SOURCE } from "./pivot/stream-source";
 
 export interface WorkbookOptions {
   protection?: WorkbookProtectionInput;
@@ -121,27 +138,82 @@ export type WorkbookTableOptions<
     : never;
 
 export interface Workbook {
-  sheet(name: string, options?: WorkbookSheetOptions): WorkbookSheet;
+  sheet<const TName extends string>(
+    name: TName,
+    options?: WorkbookSheetOptions,
+  ): WorkbookSheet<ChartBookAddSheet<EmptyChartBook, TName>, TName>;
   toUint8Array(): Uint8Array;
   toBuffer(): Buffer;
   writeToFile(filePath: string): Promise<void>;
 }
 
-export interface WorkbookSheet {
+/**
+ * A sheet in a buffered workbook. Chaining `.table()`, `.chart()` and `.sheet()` keeps a
+ * type-level registry of every table declared so far (`TBook`), which charts read through `refs`.
+ */
+export interface WorkbookSheet<TBook = EmptyChartBook, TSheet extends string = string> {
   table<
     TSchema extends AnyReportSchemaDefinition,
     const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+    const TTableId extends string = string,
   >(
-    id: string,
-    input: WorkbookReportTableOptions<TSchema, TSelection>,
-  ): WorkbookSheet;
+    id: TTableId,
+    input: WorkbookReportTableOptions<TSchema, TSelection> &
+      ChartTableIdGuard<TTableId, TBook, TSheet>,
+  ): WorkbookSheet<
+    ChartBookAddTable<TBook, TSheet, TTableId, ChartTableShapeOf<TSchema, TSelection>>,
+    TSheet
+  >;
   table<
     TSchema extends AnyExcelTableSchemaDefinition,
     const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+    const TTableId extends string = string,
   >(
+    id: TTableId,
+    input: WorkbookExcelTableOptions<TSchema, TSelection> &
+      ChartTableIdGuard<TTableId, TBook, TSheet>,
+  ): WorkbookSheet<
+    ChartBookAddTable<TBook, TSheet, TTableId, ChartTableShapeOf<TSchema, TSelection>>,
+    TSheet
+  >;
+  /**
+   * Adds a native Excel chart built from marks of tables declared earlier in the chain:
+   * `refs.table(id)` on this sheet, `refs.sheet(name).table(id)` on another one.
+   *
+   * @example
+   * .chart("revenue", ({ refs }) => ({
+   *   title: "Revenue vs target",
+   *   marks: [
+   *     refs.table("sales").bar({ x: "month", y: "revenue" }),
+   *     refs.table("targets").line({ x: "month", y: "target" }),
+   *   ],
+   * }))
+   */
+  chart<const TMarks extends readonly [ChartMark<any, any>, ...ChartMark<any, any>[]]>(
     id: string,
-    input: WorkbookExcelTableOptions<TSchema, TSelection>,
-  ): WorkbookSheet;
+    build: (args: { refs: ChartRefs<TBook, TSheet> }) => ChartSpec<TMarks> & ChartSpecGuard<TMarks>,
+  ): WorkbookSheet<TBook, TSheet>;
+  /**
+   * Adds a native Excel pivot table over a table declared earlier in the chain. Excel refreshes it
+   * when the file opens; the library also writes its totals, so the file reads right before that.
+   *
+   * @example
+   * .pivot("byRegion", ({ refs }) =>
+   *   refs.table("sales").pivot({ rows: ["region"], columns: ["month"], values: { revenue: "sum" } }),
+   * )
+   */
+  pivot<const TPivotId extends string, TShape extends PivotShape>(
+    id: TPivotId & ChartPivotIdGuard<TPivotId, TBook, TSheet>,
+    build: (args: { refs: ChartRefs<TBook, TSheet> }) => PivotSpec<TShape>,
+  ): WorkbookSheet<ChartBookAddTable<TBook, TSheet, TPivotId, TShape>, TSheet>;
+  /** Starts the next sheet of the same workbook, keeping the tables declared so far. */
+  sheet<const TName extends string>(
+    name: TName & ChartSheetNameGuard<TName, TBook>,
+    options?: WorkbookSheetOptions,
+  ): WorkbookSheet<ChartBookAddSheet<TBook, TName>, TName>;
+  toUint8Array(): Uint8Array;
+  toBuffer(): Buffer;
+  writeToFile(filePath: string): Promise<void>;
 }
 
 export interface WorkbookStreamOptions {
@@ -208,9 +280,25 @@ export interface WorkbookCommitBatch<TRow extends object> {
   rows: TRow[];
 }
 
-export interface WorkbookTableStream<TRow extends object> {
+/**
+ * A streamed table. Besides committing rows, it creates chart marks from its rendered columns,
+ * such as `sales.line({ x: "month", y: "revenue" })`, for `sheet.chart(...)`.
+ */
+export interface WorkbookTableStream<
+  TRow extends object,
+  TColumns = Record<string, unknown>,
+  TDynamic extends string = string,
+> extends ChartTable<TColumns, TDynamic> {
   commit(batch: WorkbookCommitBatch<TRow>): Promise<void>;
 }
+
+type StreamTableOf<TSchema extends AnySchemaDefinition, TSelection> =
+  ChartTableShapeOf<TSchema, TSelection> extends {
+    columns: infer TColumns;
+    dynamic: infer TDynamic extends string;
+  }
+    ? WorkbookTableStream<SchemaRow<TSchema>, TColumns, TDynamic>
+    : never;
 
 export interface WorkbookSheetStream {
   table<
@@ -219,14 +307,42 @@ export interface WorkbookSheetStream {
   >(
     id: string,
     options: WorkbookStreamResolvedReportTableOptions<TSchema, TSelection>,
-  ): Promise<WorkbookTableStream<SchemaRow<TSchema>>>;
+  ): Promise<StreamTableOf<TSchema, TSelection>>;
   table<
     TSchema extends AnyExcelTableSchemaDefinition,
     const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
   >(
     id: string,
     options: WorkbookStreamResolvedExcelTableOptions<TSchema, TSelection>,
-  ): Promise<WorkbookTableStream<SchemaRow<TSchema>>>;
+  ): Promise<StreamTableOf<TSchema, TSelection>>;
+  /**
+   * Adds a native Excel chart built from marks of streamed tables, written when the workbook
+   * is finalized. Charts can read tables of any sheet of the same workbook.
+   *
+   * @example
+   * const sales = await workbook.sheet("Sales").table("sales", { schema });
+   * workbook.sheet("Dashboard").chart("revenue", {
+   *   marks: [sales.line({ x: "month", y: "revenue" })],
+   * });
+   */
+  chart<const TMarks extends readonly [ChartMark<any, any>, ...ChartMark<any, any>[]]>(
+    id: string,
+    spec: ChartSpec<TMarks> & ChartSpecGuard<TMarks>,
+  ): WorkbookSheetStream;
+  /**
+   * Adds a native Excel pivot table over a streamed table. Declare it before committing rows to
+   * that table: rows are tallied as they arrive. Returns the pivot's marks for `sheet.chart`.
+   *
+   * @example
+   * const sales = await workbook.sheet("Sales").table("sales", { schema });
+   * const byRegion = workbook.sheet("Analysis").pivot("byRegion", sales.pivot({
+   *   rows: ["region"], values: { revenue: "sum" },
+   * }));
+   */
+  pivot<TShape extends PivotShape>(
+    id: string,
+    spec: PivotSpec<TShape>,
+  ): PivotChartSource<TShape["pie"]>;
 }
 
 export interface WorkbookStream {
@@ -347,15 +463,44 @@ class LazyFileWorkbookSink implements StreamWorkbookSink {
   }
 }
 
-class PublicWorkbookSheet implements WorkbookSheet {
-  constructor(private readonly sheetBuilder: ReturnType<BufferedWorkbookBuilder["sheet"]>) {}
+class PublicWorkbookSheet implements WorkbookSheet<any, any> {
+  constructor(
+    private readonly sheetBuilder: ReturnType<BufferedWorkbookBuilder["sheet"]>,
+    private readonly workbook: PublicWorkbook,
+  ) {}
 
   table<
     TSchema extends AnySchemaDefinition,
     const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-  >(id: string, input: WorkbookTableOptions<TSchema, TSelection>) {
+  >(id: string, input: WorkbookTableOptions<TSchema, TSelection>): any {
     this.sheetBuilder.table(id, input);
     return this;
+  }
+
+  chart(id: string, build: (args: { refs: ChartRefs<any, string> }) => ChartSpec): any {
+    this.sheetBuilder.chart(id, build);
+    return this;
+  }
+
+  pivot(id: string, build: (args: { refs: ChartRefs<any, string> }) => PivotSpec): any {
+    this.sheetBuilder.pivot(id, build);
+    return this;
+  }
+
+  sheet(name: string, options?: WorkbookSheetOptions): any {
+    return this.workbook.sheet(name, options);
+  }
+
+  toUint8Array() {
+    return this.workbook.toUint8Array();
+  }
+
+  toBuffer() {
+    return this.workbook.toBuffer();
+  }
+
+  async writeToFile(filePath: string) {
+    await this.workbook.writeToFile(filePath);
   }
 }
 
@@ -366,13 +511,17 @@ class PublicWorkbook implements Workbook {
     this.workbook = BufferedWorkbookBuilder.create({ protection: options.protection });
   }
 
-  sheet(name: string, options?: WorkbookSheetOptions) {
+  sheet<const TName extends string>(
+    name: TName,
+    options?: WorkbookSheetOptions,
+  ): WorkbookSheet<ChartBookAddSheet<EmptyChartBook, TName>, TName> {
     const sheetBuilder = this.workbook.sheet(name);
     if (options) {
       sheetBuilder.options(options);
     }
 
-    return new PublicWorkbookSheet(sheetBuilder);
+    // The runtime sheet is untyped; the chain's registry only exists at the type level.
+    return new PublicWorkbookSheet(sheetBuilder, this) as never;
   }
 
   toUint8Array() {
@@ -389,14 +538,20 @@ class PublicWorkbook implements Workbook {
   }
 }
 
-class WorkbookTableStreamAdapter<TRow extends object> implements WorkbookTableStream<TRow> {
-  constructor(
-    private readonly table: { commit(batch: WorkbookCommitBatch<TRow>): Promise<void> },
-  ) {}
-
-  async commit(batch: WorkbookCommitBatch<TRow>) {
-    await this.table.commit(batch);
-  }
+function createWorkbookTableStream<TRow extends object>(
+  table: { commit(batch: WorkbookCommitBatch<TRow>): Promise<void> },
+  sheetName: string,
+  tableId: string,
+): WorkbookTableStream<TRow, any, any> {
+  const chartTable = createChartTable(sheetName, tableId);
+  return {
+    ...chartTable,
+    pivot: (options: never) =>
+      Object.assign(chartTable.pivot(options), { [STREAM_PIVOT_SOURCE]: table }) as never,
+    async commit(batch: WorkbookCommitBatch<TRow>) {
+      await table.commit(batch);
+    },
+  };
 }
 
 class WorkbookSheetStreamAdapter implements WorkbookSheetStream {
@@ -405,9 +560,18 @@ class WorkbookSheetStreamAdapter implements WorkbookSheetStream {
   async table<
     TSchema extends AnySchemaDefinition,
     const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-  >(id: string, options: WorkbookStreamResolvedTableOptions<TSchema, TSelection>) {
+  >(id: string, options: WorkbookStreamResolvedTableOptions<TSchema, TSelection>): Promise<any> {
     const table = await this.sheetBuilder.table(id, options);
-    return new WorkbookTableStreamAdapter<SchemaRow<TSchema>>(table);
+    return createWorkbookTableStream<SchemaRow<TSchema>>(table, this.sheetBuilder.sheetName, id);
+  }
+
+  chart(id: string, spec: ChartSpec): WorkbookSheetStream {
+    this.sheetBuilder.chart(id, spec);
+    return this;
+  }
+
+  pivot(id: string, spec: PivotSpec): any {
+    return this.sheetBuilder.pivot(id, spec);
   }
 }
 
@@ -478,6 +642,7 @@ class PublicWorkbookStream implements WorkbookStream {
   private async startOutput(sink: {
     write(chunk: Uint8Array): Promise<void>;
     close(): Promise<void>;
+    fail?(error: Error): void;
   }) {
     if (this.outputStarted) {
       throw new Error("Workbook stream output has already started.");
@@ -487,7 +652,12 @@ class PublicWorkbookStream implements WorkbookStream {
     try {
       await this.workbook.finish(sink);
     } catch (error) {
-      await Promise.allSettled([this.workbook.dispose(), sink.close()]);
+      // A byte stream must end with the error; closing it first would hand readers an empty file.
+      const failure = error instanceof Error ? error : new Error(String(error));
+      await Promise.allSettled([
+        this.workbook.dispose(),
+        sink.fail ? Promise.resolve(sink.fail(failure)) : sink.close(),
+      ]);
       throw error;
     }
   }

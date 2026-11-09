@@ -15,6 +15,14 @@ import {
 } from "./drawing";
 import type { ImageMediaType } from "../image/types";
 import { FEATURE_PROPERTY_BAG_PATH, writeFeaturePropertyBagXml } from "./feature-property-bag";
+import { resolveBufferedWorkbookObjects } from "../workbook/internal/charts";
+import { mergePivotExtras } from "../workbook/internal/pivots";
+import {
+  PIVOT_TABLE_RELATIONSHIP,
+  writePivotTableRelationshipsXml,
+  writeWorkbookPivotCachesXml,
+} from "./pivot";
+import { writeChartXml } from "./chart";
 
 export interface WorkbookXmlPart {
   path: string;
@@ -32,7 +40,7 @@ export interface BufferedWorkbookXml {
   binaryParts: WorkbookBinaryPart[];
 }
 
-function writeWorkbookXml(plan: BufferedWorkbookPlan) {
+function writeWorkbookXml(plan: BufferedWorkbookPlan, pivotCount: number) {
   const sheetNames = buildWorksheetNames(plan.sheets.map((sheet) => sheet.name));
   const sheets = sheetNames.map((sheetName, index) =>
     xmlSelfClosing("sheet", {
@@ -52,6 +60,7 @@ function writeWorkbookXml(plan: BufferedWorkbookPlan) {
       writeWorkbookProtectionXml(plan.protection),
       xmlElement("sheets", undefined, sheets),
       writeWorkbookCalculationXml(),
+      writeWorkbookPivotCachesXml(pivotCount),
     ],
   );
 }
@@ -85,7 +94,13 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
   const worksheetParts: WorkbookXmlPart[] = [];
   const tableParts: WorkbookXmlPart[] = [];
   const drawingParts: WorkbookXmlPart[] = [];
+  const chartParts: WorkbookXmlPart[] = [];
   const binaryParts: WorkbookBinaryPart[] = [];
+  const pivotParts: WorkbookXmlPart[] = [];
+  const objects = resolveBufferedWorkbookObjects(plan.sheets, sheetNames, styles);
+  const chartsBySheet = objects.charts;
+  let pivotCount = 0;
+  let chartIndex = 0;
   const mediaRegistry = createWorksheetMediaRegistry();
   let tableIndex = 0;
   let drawingIndex = 0;
@@ -98,15 +113,38 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
       styles,
       tableIndex,
       sheetNames[sheetIndex],
+      mergePivotExtras(objects.pivots[sheetIndex] ?? []),
     );
+    const sheetPivots = (objects.pivots[sheetIndex] ?? []).map((pivot, offset) => {
+      pivotCount += 1;
+      pivotParts.push(
+        { path: `xl/pivotCache/pivotCacheDefinition${pivot.cacheIndex}.xml`, xml: pivot.cacheXml },
+        { path: `xl/pivotTables/pivotTable${pivot.cacheIndex}.xml`, xml: pivot.tableXml },
+        {
+          path: `xl/pivotTables/_rels/pivotTable${pivot.cacheIndex}.xml.rels`,
+          xml: writePivotTableRelationshipsXml(pivot.cacheIndex),
+        },
+      );
+      return {
+        relId: `rIdPivot${offset + 1}`,
+        target: `../pivotTables/pivotTable${pivot.cacheIndex}.xml`,
+      };
+    });
     const partitionedHyperlinks = partitionWorksheetHyperlinks(serialized.hyperlinks ?? []);
+    const sheetCharts = (chartsBySheet[sheetIndex] ?? []).map((chart) => {
+      chartIndex += 1;
+      const chartPath = `xl/charts/chart${chartIndex}.xml`;
+      chartParts.push({ path: chartPath, xml: writeChartXml(chart) });
+      return { name: `Chart ${chartIndex}`, chartPath, anchor: chart.anchor };
+    });
     const drawing =
-      serialized.images.length > 0
+      serialized.images.length > 0 || sheetCharts.length > 0
         ? createWorksheetDrawingPart({
             drawingIndex: drawingIndex + 1,
             imageStartIndex: pictureIndex + 1,
             images: serialized.images,
             mediaRegistry,
+            charts: sheetCharts,
           })
         : undefined;
     worksheetParts.push({
@@ -116,7 +154,8 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
     if (
       serialized.tableParts.length > 0 ||
       partitionedHyperlinks.externalRelationships.length > 0 ||
-      drawing
+      drawing ||
+      sheetPivots.length > 0
     ) {
       worksheetParts.push({
         path: `xl/worksheets/_rels/sheet${sheetIndex + 1}.xml.rels`,
@@ -124,6 +163,7 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
           tableParts: serialized.tableParts,
           hyperlinks: partitionedHyperlinks.externalRelationships,
           drawing,
+          pivots: sheetPivots,
         }),
       });
       tableParts.push(...serialized.tableParts.map((part) => ({ path: part.path, xml: part.xml })));
@@ -159,7 +199,7 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
     parts: [
       {
         path: "xl/workbook.xml",
-        xml: writeWorkbookXml(plan),
+        xml: writeWorkbookXml(plan, pivotCount),
       },
       {
         path: "xl/styles.xml",
@@ -173,6 +213,8 @@ export function serializeBufferedWorkbookPlan(plan: BufferedWorkbookPlan): Buffe
       ...worksheetParts,
       ...tableParts,
       ...drawingParts,
+      ...chartParts,
+      ...pivotParts,
     ],
     binaryParts,
   };
@@ -182,8 +224,9 @@ function writeWorksheetObjectRelationshipsXml(params: {
   tableParts: import("./table").WorksheetTablePart[];
   hyperlinks: Array<{ relId: string; target: string }>;
   drawing?: WorksheetDrawingPart;
+  pivots?: Array<{ relId: string; target: string }>;
 }) {
-  if (params.hyperlinks.length === 0 && !params.drawing) {
+  if (params.hyperlinks.length === 0 && !params.drawing && !params.pivots?.length) {
     return writeWorksheetRelationshipsXml(params.tableParts);
   }
 
@@ -208,6 +251,13 @@ function writeWorksheetObjectRelationshipsXml(params: {
             }),
           ]
         : []),
+      ...(params.pivots ?? []).map((pivot) =>
+        xmlSelfClosing("Relationship", {
+          Id: pivot.relId,
+          Type: PIVOT_TABLE_RELATIONSHIP,
+          Target: pivot.target,
+        }),
+      ),
       ...params.hyperlinks.map((hyperlink) =>
         xmlSelfClosing("Relationship", {
           Id: hyperlink.relId,

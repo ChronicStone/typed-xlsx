@@ -1,0 +1,27 @@
+{
+  "id": "revenue-review",
+  "title": "Quarterly Revenue Review",
+  "description": "Seven quarters of orders turned into a plan-vs-actual overview, pivot tables by quarter and channel, and native charts that Excel keeps in sync.",
+  "developerHook": "Declare pivots and charts from the same typed tables, and let Excel refresh them when the data changes.",
+  "tags": ["finance", "charts", "pivot-tables"],
+  "features": [
+    "native charts",
+    "combo chart with a secondary axis",
+    "pivot tables",
+    "pivot charts",
+    "date grouping",
+    "percent of row",
+    "spreadsheet themes",
+    "conditional styles"
+  ],
+  "datasetProfile": "medium",
+  "artifactFile": "artifact/revenue-review.xlsx",
+  "primarySourceFile": "workbook.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "board",
+    "accentClass": "artifact-accent-cyan",
+    "landingEyebrow": "Charts and pivots",
+    "playgroundSummary": "Orders become a plan-vs-actual overview with a combo chart, a quarterly pivot by region with its pivot chart, and a channel mix with a doughnut."
+  }
+}

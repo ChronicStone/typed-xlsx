@@ -20,6 +20,7 @@
     "content-types.xml",
     "workbook.xml",
     "styles.xml",
+    "shared-strings.xml",
     "sheet1.xml",
     "worksheets/sheet1.xml.rels"
   ]

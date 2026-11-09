@@ -6,8 +6,10 @@
 import { DOMParser } from "@xmldom/xmldom";
 import { unzipSync } from "fflate";
 import type { Element as XmlElement } from "@xmldom/xmldom";
+import { readChart } from "./preview-charts";
 import type {
   PreviewCell,
+  PreviewChart,
   PreviewImage,
   PreviewSheet,
   PreviewSparkline,
@@ -373,9 +375,16 @@ export function formatNumber(n: number, code?: string): string {
   const scientific = /E[+-]/i.test(bare);
   const m = section.match(/[0#?][0#?,]*(\.[0#?]*)?|\.[0#?]+/);
   if (!m) return sign + unquote(section);
-  const pattern = m[0];
+  // Commas right after the last digit placeholder scale by a thousand each: "#,##0," shows 182000 as 182.
+  let pattern = m[0];
+  let scale = pattern.match(/,+$/)?.[0].length ?? 0;
+  pattern = pattern.slice(0, pattern.length - scale);
+  const rest = section.slice((m.index ?? 0) + m[0].length);
+  const lead = rest.match(/^,+/)?.[0].length ?? 0;
+  scale += lead;
+  value /= 1000 ** scale;
   const prefix = unquote(section.slice(0, m.index));
-  const suffix = unquote(section.slice((m.index ?? 0) + pattern.length));
+  const suffix = unquote(rest.slice(lead));
   if (scientific)
     return (
       sign +
@@ -1184,8 +1193,8 @@ export function buildWorkbookPreview(
   // pass 2: evaluate and build the render model
   const sheets = loaded.map(({ def, doc, rels, evalSheet, maxR, maxC, rowHeights, tables }) => {
     const dim = parseRange(attr(first(doc, "dimension"), "ref") ?? "A1");
-    const rows = Math.max(maxR, dim?.r2 ?? 1);
-    const cols = Math.max(maxC, dim?.c2 ?? 1);
+    let rows = Math.max(maxR, dim?.r2 ?? 1);
+    let cols = Math.max(maxC, dim?.c2 ?? 1);
     const fmtPr = first(doc, "sheetFormatPr");
     const defaultRowHeight = ptToPx(Number(attr(fmtPr, "defaultRowHeight") ?? 15));
     const defaultColWidth = Number(attr(fmtPr, "defaultColWidth") ?? 8.43);
@@ -1350,7 +1359,12 @@ export function buildWorkbookPreview(
 
     // images anchored through the drawing part
     const images: PreviewImage[] = [];
-    const colLeft = (c0: number) => colWidths.slice(0, c0).reduce((a, b) => a + b, 0);
+    const charts: PreviewChart[] = [];
+    const colLeft = (c0: number) => {
+      let x = 0;
+      for (let i = 0; i < c0; i++) x += colWidths[i] ?? colWidthPx(defaultColWidth);
+      return x;
+    };
     const rowTop = (r0: number) => {
       let y = 0;
       for (let r = 1; r <= r0; r++) y += rowHeights[r] ?? defaultRowHeight;
@@ -1371,7 +1385,9 @@ export function buildWorkbookPreview(
         const blip = first(a, "a:blip");
         const media = drels.get(attr(blip, "r:embed") ?? "")?.target;
         const bytesOf = media ? binaries.get(media) : undefined;
-        if (!bytesOf || !media) continue;
+        const chartPart = drels.get(attr(first(a, "c:chart"), "r:id") ?? "")?.target;
+        const chartXml = chartPart ? files.get(chartPart) : undefined;
+        if (!chartXml && (!bytesOf || !media)) continue;
         const from = first(a, "xdr:from");
         const fc = Number(text(first(from, "xdr:col")));
         const fr = Number(text(first(from, "xdr:row")));
@@ -1395,6 +1411,31 @@ export function buildWorkbookPreview(
             Number(text(first(to, "xdr:rowOff"))) / EMU_PER_PX -
             y;
         }
+        if (chartXml) {
+          charts.push(
+            readChart(
+              chartXml,
+              { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) },
+              (ref) => {
+                const m = ref.match(/^(?:'((?:[^']|'')+)'|([^!]+))!(.+)$/);
+                const sheet = engine.sheets.get(
+                  m ? (m[1] ?? m[2] ?? "").replace(/''/g, "'") : def.name,
+                );
+                const range = parseRange((m ? m[3]! : ref).replace(/\$/g, ""));
+                const values: Array<number | null> = [];
+                if (range && sheet)
+                  for (let r = range.r1; r <= range.r2; r++)
+                    for (let c = range.c1; c <= range.c2; c++) {
+                      const v = engine.cellValue(sheet, r, c);
+                      values.push(typeof v === "number" ? v : null);
+                    }
+                return values;
+              },
+            ),
+          );
+          continue;
+        }
+        if (!bytesOf || !media) continue;
         const ext2 = media.split(".").pop()?.toLowerCase();
         const mime =
           ext2 === "jpg" || ext2 === "jpeg"
@@ -1413,6 +1454,18 @@ export function buildWorkbookPreview(
       }
     }
 
+    // grow the drawn grid so charts placed past the used range stay visible
+    if (charts.length) {
+      const right = Math.max(...charts.map((c) => c.x + c.w));
+      const bottom = Math.max(...charts.map((c) => c.y + c.h));
+      const defaultColPx = colWidthPx(defaultColWidth);
+      while (colLeft(cols) < right + 16) {
+        colWidths.push(defaultColPx);
+        cols++;
+      }
+      if (!gap) while (rowTop(rows) < bottom + 12) rows++;
+    }
+
     const sheet: PreviewSheet = {
       name: def.name,
       file: def.part.split("/").pop() ?? "",
@@ -1428,6 +1481,7 @@ export function buildWorkbookPreview(
       tables,
       sparklines,
       images,
+      ...(charts.length ? { charts } : {}),
       protected: !!first(doc, "sheetProtection"),
     };
     if (freeze && (freeze.rows || freeze.cols)) sheet.freeze = freeze;

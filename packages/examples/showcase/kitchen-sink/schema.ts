@@ -9,6 +9,7 @@ import type {
   OrderRow,
   ProductMediaRow,
   ProtectedInputRow,
+  RegionSaleRow,
   SparklineRow,
   SummaryRow,
   TerritoryRow,
@@ -617,6 +618,33 @@ export const badgeCheckboxSchema = createExcelSchema<BadgeCheckboxRow>()
           fill: { color: { rgb: "F1F5F9" } },
           font: { color: { rgb: "475569" }, bold: true },
         }),
+    headerStyle,
+  })
+  .build();
+
+export const regionSalesSchema = createExcelSchema<RegionSaleRow>()
+  .column("month", { header: "Month", accessor: "month", width: 10, headerStyle })
+  .column("region", { header: "Region", accessor: "region", width: 10, headerStyle })
+  .column("revenue", {
+    header: "Revenue",
+    accessor: "revenue",
+    width: 12,
+    style: currencyStyle,
+    headerStyle,
+  })
+  .column("cost", {
+    header: "Cost",
+    accessor: "cost",
+    width: 12,
+    style: currencyStyle,
+    headerStyle,
+  })
+  .column("margin", {
+    header: "Margin %",
+    formula: ({ refs, fx }) =>
+      fx.safeDiv(refs.column("revenue").sub(refs.column("cost")), refs.column("revenue"), 0),
+    width: 10,
+    style: percentStyle,
     headerStyle,
   })
   .build();

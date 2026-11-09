@@ -1,41 +1,151 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, nextTick, ref, shallowRef, watch } from "vue";
+import type { PreviewWorkbook } from "typed-xlsx-examples";
+import XlsxSheet from "../playground/XlsxSheet.vue";
+import { loadWorkbookPreview } from "../playground/xlsx";
+import { findArtifactCatalogEntry } from "../../data/artifactCatalog";
 import { revealOnScroll, useWidget } from "./bp";
 
+/**
+ * "Real workbooks": one Excel window whose sheet tabs are example reports. Each tab draws the
+ * real generated file from its playground preview, so what you see is what the library writes.
+ */
 const root = ref<HTMLElement | null>(null);
 
-const CARDS = [
+/** `zoom` scales a sheet down on wide screens so its chart fits next to its table. */
+type Tab = { id: string; label: string; sheet: string; points: string[]; zoom?: number };
+const TABS: Tab[] = [
   {
-    id: "executive-board-pack",
-    title: "Executive Board Pack",
-    desc: "Two stacked tables per sheet, grouped headers, portfolio totals and averages.",
-    img: "/images/marketing/board-overview.png",
-    alt: "Executive Board Pack workbook with grouped commercial and adoption headers",
+    id: "revenue-review",
+    label: "Revenue review",
+    sheet: "Overview",
+    zoom: 0.68,
+    points: [
+      "Plan vs actual with a combo chart and a second axis",
+      "Pivot tables by quarter and by channel",
+      "Pivot charts Excel keeps in sync",
+    ],
+  },
+  {
+    id: "saas-metrics",
+    label: "SaaS metrics",
+    sheet: "Plans",
+    points: [
+      "MRR bridge where closing MRR and NRR are formulas",
+      "Twelve dynamic month columns with sparklines",
+      "Stacked area chart of MRR by plan",
+    ],
+  },
+  {
+    id: "receivables-aging",
+    label: "Receivables aging",
+    sheet: "Aging by customer",
+    points: [
+      "Days late and buckets computed in TypeScript",
+      "Aging pivot by customer, filterable by collector",
+      "Doughnut of receivables by age",
+    ],
+  },
+  {
+    id: "commission-statements",
+    label: "Commissions",
+    sheet: "Statements",
+    points: [
+      "The pay plan as auditable Excel formulas",
+      "Attainment highlighted by conditional styles",
+      "Every deal behind it, linked to the CRM",
+    ],
+  },
+  {
+    id: "inventory-reorder",
+    label: "Inventory reorder",
+    sheet: "Reorder plan",
+    points: [
+      "Protected sheet with yellow input cells",
+      "Supplier dropdowns and quantity limits",
+      "Weeks of cover and status react as buyers type",
+    ],
   },
   {
     id: "streaming-fulfillment-export",
-    title: "Streaming Fulfillment Export",
-    desc: "Thousands of shipment rows committed in batches, with totals and a fill-rate average at the end.",
-    img: "/images/marketing/streaming-fulfillment.png",
-    alt: "Streaming fulfillment export with thousands of shipment rows and totals",
-  },
-  {
-    id: "deal-desk-quote-review",
-    title: "Deal Desk Quote Review",
-    desc: "Multi-line quotes expanded into sub-rows, with margin math and approval flags.",
-    img: "/images/marketing/subrow-quote-review.png",
-    alt: "Deal desk quote review with multi-line quotes expanded into sub-rows",
-  },
-  {
-    id: "renewal-ops-workbook",
-    title: "Renewal Ops Workbook",
-    desc: "Unlocked inputs with validation, while formulas and logic columns stay protected.",
-    img: "/images/marketing/workflow-safe-renewals.png",
-    alt: "Renewal operations workbook with editable inputs and protected logic",
+    label: "Order ledger · streamed",
+    sheet: "",
+    points: [
+      "Thousands of rows written in batches",
+      "Memory stays flat whatever the row count",
+      "Same schema as a buffered export",
+    ],
   },
 ];
 
-useWidget(root, (s) => revealOnScroll(s));
+const active = ref(0);
+const tab = computed(() => TABS[active.value]!);
+const entry = computed(() => findArtifactCatalogEntry(tab.value.id));
+const models = new Map<string, PreviewWorkbook | null>();
+const model = shallowRef<PreviewWorkbook | null>(null);
+const loading = ref(false);
+const scroller = ref<HTMLElement | null>(null);
+const visible = ref(false);
+
+const sheet = computed(() => {
+  const m = model.value;
+  if (!m) return null;
+  return m.sheets.find((s) => s.name === tab.value.sheet) ?? m.sheets[0] ?? null;
+});
+
+async function load(id: string) {
+  if (!models.has(id)) {
+    loading.value = true;
+    models.set(id, (await loadWorkbookPreview(id)) ?? null);
+    loading.value = false;
+  }
+  if (tab.value.id === id) model.value = models.get(id) ?? null;
+}
+
+watch(
+  [active, visible],
+  async () => {
+    if (!visible.value) return;
+    await load(tab.value.id);
+    await nextTick();
+    if (scroller.value) {
+      scroller.value.scrollTop = 0;
+      scroller.value.scrollLeft = 0;
+    }
+    // warm the next tab so switching feels instant
+    const next = TABS[(active.value + 1) % TABS.length]!;
+    void load(next.id).then(() => (model.value = models.get(tab.value.id) ?? null));
+  },
+  { immediate: false },
+);
+
+const baseZoom = ref(0.82);
+const zoom = computed(() =>
+  baseZoom.value < 0.82 ? baseZoom.value : (tab.value.zoom ?? baseZoom.value),
+);
+useWidget(root, (s) => {
+  revealOnScroll(s);
+  const fit = () => {
+    const w = scroller.value?.clientWidth ?? 1000;
+    baseZoom.value = w < 520 ? 0.58 : w < 820 ? 0.7 : 0.82;
+  };
+  fit();
+  s.on(window, "resize", fit);
+  s.observe(
+    s.$(".wb"),
+    ([en]) => {
+      if (en?.isIntersecting) visible.value = true;
+    },
+    { rootMargin: "400px" },
+  );
+});
+
+function onTabKey(e: KeyboardEvent) {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  e.preventDefault();
+  active.value = (active.value + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length;
+  root.value?.querySelector<HTMLElement>(`.wb-tabs [data-i="${active.value}"]`)?.focus();
+}
 </script>
 
 <template>
@@ -43,25 +153,60 @@ useWidget(root, (s) => revealOnScroll(s));
     <div class="wrap">
       <h2 class="h2 reveal">Real workbooks.<br /><span class="accent">Open any of them.</span></h2>
       <p class="lede reveal">
-        Every example in the playground is generated by typed-xlsx, with the schema that produced it
-        right next to the file.
+        Reports a finance, sales or operations team would actually send, each generated by
+        typed-xlsx and drawn here from the real file. Open one to read the schema that produced it.
       </p>
-      <div class="rail">
-        <article v-for="c in CARDS" :key="c.id" class="card">
-          <NuxtLink :to="`/playground/${c.id}`" class="plate-link" :aria-label="`Open ${c.title}`">
-            <figure class="plate">
-              <span class="corner tl" /><span class="corner br" />
-              <img :src="c.img" :alt="c.alt" loading="lazy" decoding="async" />
-            </figure>
-          </NuxtLink>
-          <div class="cap">
-            <h3>{{ c.title }}</h3>
-            <p>{{ c.desc }}</p>
-            <NuxtLink :to="`/playground/${c.id}`"
-              >Open in playground <UIcon name="i-lucide-arrow-up-right" class="ic"
-            /></NuxtLink>
+      <div class="wb reveal">
+        <div class="wb-bar">
+          <span class="wb-file"
+            ><UIcon name="i-lucide-file-spreadsheet" class="ic" />{{ tab.id }}.xlsx</span
+          >
+          <span v-if="sheet" class="wb-sheet">{{ sheet.name }}</span>
+          <NuxtLink :to="`/playground/${tab.id}`" class="wb-open"
+            >Open in playground <UIcon name="i-lucide-arrow-up-right" class="ic"
+          /></NuxtLink>
+        </div>
+        <div class="wb-body">
+          <div ref="scroller" class="wb-grid" :class="{ busy: loading && !sheet }">
+            <XlsxSheet
+              v-if="sheet && model"
+              :key="tab.id + sheet.name"
+              :sheet="sheet"
+              :styles="model.styles"
+              :dxfs="model.dxfs"
+              :zoom="zoom"
+              :extra-rows="4"
+              :extra-cols="2"
+            />
+            <div v-else class="wb-loading">Loading workbook…</div>
           </div>
-        </article>
+          <aside class="wb-side">
+            <h3>{{ entry?.title }}</h3>
+            <p>{{ entry?.description }}</p>
+            <ul>
+              <li v-for="p in tab.points" :key="p">{{ p }}</li>
+            </ul>
+            <NuxtLink :to="`/playground/${tab.id}`" class="wb-cta"
+              >Open in playground <UIcon name="i-lucide-arrow-right" class="ic"
+            /></NuxtLink>
+          </aside>
+        </div>
+        <div class="wb-tabs" role="tablist" aria-label="Example workbooks" @keydown="onTabKey">
+          <button
+            v-for="(t, i) in TABS"
+            :key="t.id"
+            type="button"
+            role="tab"
+            :data-i="i"
+            :aria-selected="active === i"
+            :tabindex="active === i ? 0 : -1"
+            :class="{ on: active === i }"
+            @click="active = i"
+          >
+            {{ t.label }}
+          </button>
+          <NuxtLink to="/playground" class="wb-all">All examples</NuxtLink>
+        </div>
       </div>
     </div>
   </section>

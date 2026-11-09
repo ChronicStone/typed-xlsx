@@ -1,4 +1,4 @@
-import type { BorderStyle, CellStyle, FillStyle, FontStyle } from "./types";
+import type { BorderSideStyle, BorderStyle, CellStyle, FillStyle, FontStyle } from "./types";
 import { getCellControl } from "./internal";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
 
@@ -28,7 +28,36 @@ interface XfEntry {
 
 interface DxfEntry {
   key: string;
-  style: CellStyle;
+  style: DifferentialStyle;
+}
+
+/** Border of an area of a table style: its edges, and the lines between its cells. */
+export interface AreaBorderStyle extends BorderStyle {
+  vertical?: BorderSideStyle;
+  horizontal?: BorderSideStyle;
+}
+
+/** A differential style. Areas of table styles also draw lines between their cells. */
+export type DifferentialStyle = Omit<CellStyle, "border"> & { border?: AreaBorderStyle };
+
+/** Element of a pivot table style, such as its header row or its grand total row. */
+export type PivotStyleElementType =
+  | "wholeTable"
+  | "headerRow"
+  | "totalRow"
+  | "lastColumn"
+  | "firstRowStripe"
+  | "firstColumnStripe"
+  | "firstRowSubheading"
+  | "secondRowSubheading"
+  | "thirdRowSubheading"
+  | "pageFieldLabels"
+  | "pageFieldValues";
+
+interface TableStyleEntry {
+  key: string;
+  name: string;
+  elements: Array<{ type: PivotStyleElementType; dxfId: number }>;
 }
 
 function colorRgb(value?: { rgb: string }) {
@@ -85,16 +114,18 @@ function serializeDifferentialFill(fill?: FillStyle) {
     return undefined;
   }
 
+  // Excel reads a differential solid fill from its background colour; other readers from the foreground.
   return xmlElement(
     "fill",
     undefined,
     xmlElement("patternFill", { patternType: "solid" }, [
       xmlSelfClosing("fgColor", { rgb: colorRgb(fill.color) }),
+      xmlSelfClosing("bgColor", { rgb: colorRgb(fill.color) }),
     ]),
   );
 }
 
-function serializeBorder(border?: BorderStyle) {
+function serializeBorder(border?: AreaBorderStyle) {
   const side = (name: string, value?: { style?: string; color?: { rgb: string } }) => {
     if (!value?.style) return xmlSelfClosing(name);
     return xmlElement(
@@ -110,6 +141,8 @@ function serializeBorder(border?: BorderStyle) {
     side("top", border?.top),
     side("bottom", border?.bottom),
     xmlSelfClosing("diagonal"),
+    border?.vertical ? side("vertical", border.vertical) : "",
+    border?.horizontal ? side("horizontal", border.horizontal) : "",
   ]);
 }
 
@@ -178,8 +211,20 @@ export class StylesCollector {
   private readonly borderMap = new Map<string, number>([["", 0]]);
   private readonly xfMap = new Map<string, number>([["", 0]]);
   private readonly dxfMap = new Map<string, number>();
+  private readonly tableStyles: TableStyleEntry[] = [];
+  private readonly tableStyleMap = new Map<string, string>();
   private readonly numFmtIds = new Map<string, number>();
   private nextNumFmtId = 164;
+  /** Set once `styles.xml` is written: a style added later would have no entry in it. */
+  private written = false;
+
+  private assertNotWritten(kind: string) {
+    if (this.written) {
+      throw new Error(
+        `typed-xlsx: a ${kind} was registered after styles.xml was written. This is a bug in typed-xlsx; please report it.`,
+      );
+    }
+  }
 
   addStyle(style?: CellStyle) {
     if (!style) return 0;
@@ -200,6 +245,7 @@ export class StylesCollector {
     const existing = this.xfMap.get(key);
     if (existing !== undefined) return existing;
 
+    this.assertNotWritten("cell style");
     const index = this.xfs.length;
     this.xfs.push({
       key,
@@ -213,7 +259,7 @@ export class StylesCollector {
     return index;
   }
 
-  addDifferentialStyle(style?: CellStyle) {
+  addDifferentialStyle(style?: DifferentialStyle) {
     if (!style) {
       return undefined;
     }
@@ -222,10 +268,33 @@ export class StylesCollector {
     const existing = this.dxfMap.get(key);
     if (existing !== undefined) return existing;
 
+    this.assertNotWritten("conditional formatting style");
     const index = this.dxfs.length;
     this.dxfs.push({ key, style });
     this.dxfMap.set(key, index);
     return index;
+  }
+
+  /** Name of a custom pivot table style made of these elements, registering it when needed. */
+  addPivotTableStyle(
+    elements: ReadonlyArray<{ type: PivotStyleElementType; style: DifferentialStyle }>,
+  ) {
+    const key = JSON.stringify(elements);
+    const existing = this.tableStyleMap.get(key);
+    if (existing !== undefined) return existing;
+
+    this.assertNotWritten("pivot table style");
+    const name = `typed-xlsx Pivot ${this.tableStyles.length + 1}`;
+    this.tableStyles.push({
+      key,
+      name,
+      elements: elements.map((element) => ({
+        type: element.type,
+        dxfId: this.addDifferentialStyle(element.style)!,
+      })),
+    });
+    this.tableStyleMap.set(key, name);
+    return name;
   }
 
   private addFont(font?: FontStyle) {
@@ -258,10 +327,16 @@ export class StylesCollector {
     return index;
   }
 
+  /** Id of a custom number format, registering it when needed. */
+  numberFormatId(format: string) {
+    return this.numFmtId(format);
+  }
+
   private numFmtId(format: string) {
     if (!format) return 0;
     const existing = this.numFmtIds.get(format);
     if (existing !== undefined) return existing;
+    this.assertNotWritten("number format");
     const id = this.nextNumFmtId++;
     this.numFmtIds.set(format, id);
     return id;
@@ -277,6 +352,8 @@ export class StylesCollector {
         this.numFmtId(xf.numFmt);
       }
     }
+
+    this.written = true;
 
     const numFmtEntries = [...this.numFmtIds.entries()].map(([format, id]) =>
       xmlSelfClosing("numFmt", { numFmtId: id, formatCode: format }),
@@ -346,12 +423,34 @@ export class StylesCollector {
           { count: this.dxfs.length },
           this.dxfs.map((dxf) => serializeDxf(dxf.style)),
         ),
+        this.tableStyles.length > 0
+          ? xmlElement(
+              "tableStyles",
+              {
+                count: this.tableStyles.length,
+                defaultTableStyle: "TableStyleMedium2",
+                defaultPivotStyle: "PivotStyleLight16",
+              },
+              this.tableStyles.map((style) =>
+                xmlElement(
+                  "tableStyle",
+                  { name: style.name, table: 0, count: style.elements.length },
+                  style.elements.map((element) =>
+                    xmlSelfClosing("tableStyleElement", {
+                      type: element.type,
+                      dxfId: element.dxfId,
+                    }),
+                  ),
+                ),
+              ),
+            )
+          : "",
       ],
     );
   }
 }
 
-function serializeDxf(style: CellStyle) {
+function serializeDxf(style: DifferentialStyle) {
   const children = [] as string[];
 
   if (style.font) {
@@ -374,7 +473,7 @@ function serializeDxf(style: CellStyle) {
   }
 
   if (style.alignment) {
-    children.push(serializeAlignment(style));
+    children.push(serializeAlignment(style as CellStyle));
   }
 
   return xmlElement("dxf", undefined, children);

@@ -34,9 +34,26 @@ describe("kitchen sink examples", () => {
     expect(formulaColumnsSheet).toContain('sqref="H3:H6"');
     expect(formulaColumnsSheet).toContain("($H3&lt;1000)");
     expect(formulaColumnsSheet).toContain("AND(($H3&gt;=5000),(G3&gt;=0.85))");
-    expect(styles).toContain('<dxfs count="4"');
+    // Four conditional formats; the pivot styles add theirs after them.
+    expect(Number(/<dxfs count="(\d+)"/.exec(styles)?.[1])).toBeGreaterThanOrEqual(4);
     expect(styles).toContain("FFFEE2E2");
     expect(styles).toContain("FFDCFCE7");
+  });
+
+  it("declares every conditional formatting style it references", async () => {
+    for (const entries of [
+      unzipWorkbookEntries(buildKitchenSinkBufferedExample()),
+      unzipWorkbookEntries(await buildKitchenSinkStreamExample()),
+    ]) {
+      const styles = readWorkbookEntry(entries, "xl/styles.xml");
+      const dxfCount = Number(/<dxfs count="(\d+)"/.exec(styles)?.[1] ?? 0);
+      const referenced = [...entries]
+        .filter(([path]) => /^xl\/worksheets\/sheet\d+\.xml$/.test(path))
+        .flatMap(([, xml]) => [...xml.matchAll(/dxfId="(\d+)"/g)].map((match) => Number(match[1])));
+
+      expect(referenced.length).toBeGreaterThan(0);
+      expect(Math.max(...referenced)).toBeLessThan(dxfCount);
+    }
   });
 
   it("emits validation xml in the kitchen sink examples", async () => {
@@ -64,6 +81,21 @@ describe("kitchen sink examples", () => {
     expect(bufferedImagesSheet).toContain("<drawing");
     expect(bufferedImagesRels).toContain("relationships/drawing");
     expect(bufferedDrawing).toContain("<xdr:oneCellAnchor>");
+    expect(readWorksheetByName(bufferedEntries, "Charts")).toContain("<drawing");
+    expect([...bufferedEntries.keys()].some((path) => path.startsWith("xl/charts/chart"))).toBe(
+      true,
+    );
+    expect(bufferedEntries.has("xl/pivotTables/pivotTable1.xml")).toBe(true);
+    expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toContain(
+      'showDataAs="percentOfTotal"',
+    );
+    expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toMatch(
+      /<pivotTableStyleInfo name="typed-xlsx Pivot \d+"/,
+    );
+    expect(readWorkbookEntry(bufferedEntries, "xl/pivotCache/pivotCacheDefinition2.xml")).toContain(
+      'groupBy="quarters"',
+    );
+    expect(readWorksheetRelationshipsByName(bufferedEntries, "Pivot")).toContain("pivotTable");
     expect(bufferedEntries.has("xl/media/image1.png")).toBe(true);
     expect(bufferedEntries.has("xl/media/image2.png")).toBe(true);
     expect(bufferedEntries.has("xl/media/image3.png")).toBe(true);
@@ -98,6 +130,9 @@ describe("kitchen sink examples", () => {
     expect(streamedImagesSheet).toContain("<drawing");
     expect(streamedImagesRels).toContain("relationships/drawing");
     expect(streamedDrawing).toContain("<xdr:oneCellAnchor>");
+    expect(readWorkbookEntry(streamedEntries, "xl/pivotCache/pivotCacheDefinition2.xml")).toContain(
+      '<cacheField name="Years" numFmtId="0" databaseField="0">',
+    );
     expect(streamedEntries.has("xl/media/image1.png")).toBe(true);
     expect(streamedEntries.has("xl/media/image2.png")).toBe(true);
     expect(streamedEntries.has("xl/media/image3.png")).toBe(true);

@@ -1,4 +1,9 @@
-import { createExcelSchema, type CellStyle, type TableStyleDefaults } from "../../../src";
+import {
+  createExcelSchema,
+  spreadsheetThemes,
+  type CellStyle,
+  type TableStyleDefaults,
+} from "../../../src";
 import type { KitchenSinkOrder, KitchenSinkProductImageRow, KitchenSinkSparklineRow } from "./data";
 
 const headerStyle: CellStyle = {
@@ -822,3 +827,54 @@ export const kitchenSinkGroupedFormulaContext = {
   },
   regions: ["AMER", "APAC", "EMEA"] as Array<"AMER" | "APAC" | "EMEA">,
 };
+
+export type KitchenSinkRegionSummaryRow = {
+  region: string;
+  orders: number;
+  revenue: number;
+};
+
+export const kitchenSinkRegionSummarySchema = createExcelSchema<KitchenSinkRegionSummaryRow>()
+  .column("region", { header: "Region", accessor: "region" })
+  .column("orders", { header: "Orders", accessor: "orders" })
+  .column("revenue", { header: "Revenue", accessor: "revenue", style: currencyStyle })
+  .column("averageOrder", {
+    header: "Avg Order",
+    formula: ({ refs, fx }) =>
+      fx.round(fx.safeDiv(refs.column("revenue"), refs.column("orders"), 0), 2),
+    style: currencyStyle,
+  })
+  .build();
+
+export type KitchenSinkOrderLineRow = {
+  shippedAt: Date;
+  region: string;
+  tier: string;
+  sku: string;
+  quantity: number;
+  lineTotal: number;
+};
+
+const navyFrame = { style: "medium" as const, color: { rgb: "0B1220" } };
+
+/** Pivot theme: slate's colours, framed in navy. */
+export const kitchenSinkPivotTheme = spreadsheetThemes.slate.extend({
+  slots: {
+    pivotFrame: {
+      border: { top: navyFrame, right: navyFrame, bottom: navyFrame, left: navyFrame },
+    },
+  },
+});
+
+export const kitchenSinkOrderLineSchema = createExcelSchema<KitchenSinkOrderLineRow>()
+  .column("shippedAt", {
+    header: "Shipped At",
+    accessor: "shippedAt",
+    style: { numFmt: "yyyy-mm-dd" },
+  })
+  .column("region", { header: "Region", accessor: "region" })
+  .column("tier", { header: "Tier", accessor: "tier" })
+  .column("sku", { header: "SKU", accessor: "sku" })
+  .column("quantity", { header: "Quantity", accessor: "quantity" })
+  .column("lineTotal", { header: "Line Total", accessor: "lineTotal", style: currencyStyle })
+  .build();

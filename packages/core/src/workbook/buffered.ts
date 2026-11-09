@@ -24,6 +24,9 @@ import { toCellRef } from "../ooxml/cells";
 import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
 import { resolveLazyText } from "../text";
 import type { SchemaContext } from "../schema/builder";
+import { createChartRefs } from "../chart/refs";
+import type { ChartPlan, ChartRefs, ChartSpec } from "../chart/types";
+import type { PivotPlan, PivotSpec } from "../pivot/types";
 
 function isBufferedExcelTableInput<
   T extends object,
@@ -126,6 +129,7 @@ function planTable<
       rowCount: table.rows.length,
       planner,
       defaults,
+      theme: table.theme ?? table.schema.theme,
       summaries: [],
       hyperlinks: collectPlannerHyperlinks(planner),
       images: collectPlannerImages(planner),
@@ -159,6 +163,7 @@ function planTable<
     rowCount: table.rows.length,
     planner,
     defaults,
+    theme: table.theme ?? table.schema.theme,
     summaries,
     hyperlinks: collectPlannerHyperlinks(planner),
     images: collectPlannerImages(planner),
@@ -187,6 +192,8 @@ function planTable<
 
 class BufferedSheetBuilder {
   private readonly tables: Array<{ id: string; input: BufferedTableInput<any, string, any> }> = [];
+  private readonly charts: ChartPlan[] = [];
+  private readonly pivots: PivotPlan[] = [];
   private layout: SheetLayoutOptions | undefined;
   private view: SheetViewOptions | undefined;
   private protection: ReturnType<typeof resolveProtection> | undefined;
@@ -213,6 +220,20 @@ class BufferedSheetBuilder {
     return this;
   }
 
+  pivot(id: string, build: (args: { refs: ChartRefs<any, string> }) => PivotSpec) {
+    const spec = build({ refs: createChartRefs(this.name) });
+    if (spec?.kind !== "pivot-spec") {
+      throw new Error(`Pivot "${id}": return refs.table(id).pivot({ ... }) from the callback.`);
+    }
+    this.pivots.push({ id, spec });
+    return this;
+  }
+
+  chart(id: string, build: (args: { refs: ChartRefs<any, string> }) => ChartSpec) {
+    this.charts.push({ id, spec: build({ refs: createChartRefs(this.name) }) });
+    return this;
+  }
+
   build(): BufferedSheetPlan {
     return {
       name: this.name,
@@ -220,6 +241,8 @@ class BufferedSheetBuilder {
       view: this.view,
       protection: this.protection,
       tables: this.tables.map((table) => planTable(table.id, table.input)),
+      ...(this.charts.length > 0 ? { charts: [...this.charts] } : {}),
+      ...(this.pivots.length > 0 ? { pivots: [...this.pivots] } : {}),
     };
   }
 }
