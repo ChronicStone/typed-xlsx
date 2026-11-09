@@ -1543,3 +1543,30 @@ createExcelSchema<{ qty: number; urgent: boolean }>()
       fx.if(refs.column("qty").gt(0).and(refs.column("urgent").eq(true)), "Rush", "Normal"),
   })
   .build();
+
+// Pivot values are checked against the table: an unknown key or an empty list does not compile.
+type PivotSale = { region: string; revenue: number; orderedAt?: Date | null };
+const pivotSales = createExcelSchema<PivotSale>()
+  .column("region", { header: "Region", accessor: "region" })
+  .column("revenue", { header: "Revenue", accessor: "revenue" })
+  .column("orderedAt", { header: "Ordered", accessor: "orderedAt", defaultValue: new Date(0) })
+  .build();
+
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: pivotSales, rows: [] })
+  .pivot("unknownValue", ({ refs }) =>
+    // @ts-expect-error - "profit" is not a column of the table
+    refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum", profit: "sum" } }),
+  )
+  .pivot("emptyValue", ({ refs }) =>
+    // @ts-expect-error - a value needs at least one aggregation
+    refs.table("sales").pivot({ rows: ["region"], values: { revenue: [] } }),
+  )
+  // A date column with a defaultValue is never blank, so it can be grouped by date.
+  .pivot("byYear", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: [{ field: "orderedAt", by: "year" }],
+      values: { revenue: "sum" },
+    }),
+  );

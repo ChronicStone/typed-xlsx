@@ -813,3 +813,166 @@ describe("streamed pivots", () => {
     await workbook.dispose();
   });
 });
+
+describe("pivots that Excel would repair", () => {
+  const place = (build: (book: any) => any) =>
+    readParts(
+      build(
+        createWorkbook().sheet("Sales").table("sales", { schema: salesSchema, rows }),
+      ).toUint8Array(),
+    );
+
+  it("places an automatic pivot below one placed with at", () => {
+    const { text } = place((book) =>
+      book
+        .sheet("Analysis")
+        .pivot("first", ({ refs }: any) =>
+          refs
+            .sheet("Sales")
+            .table("sales")
+            .pivot({ rows: ["region"], values: { revenue: "sum" }, at: "A3" }),
+        )
+        .pivot("second", ({ refs }: any) =>
+          refs.sheet("Sales").table("sales").pivot({ rows: ["product"], values: { orders: "sum" } }),
+        ),
+    );
+    const top = (xml: string) => Number(/<location ref="[A-Z]+(\d+):/.exec(xml)![1]);
+    const bottom = (xml: string) => Number(/<location ref="[A-Z]+\d+:[A-Z]+(\d+)"/.exec(xml)![1]);
+    expect(top(text("xl/pivotTables/pivotTable2.xml"))).toBeGreaterThan(
+      bottom(text("xl/pivotTables/pivotTable1.xml")),
+    );
+  });
+
+  it("rejects a pivot placed over a table or another pivot", () => {
+    expect(() =>
+      place((book) =>
+        book.pivot("onTop", ({ refs }: any) =>
+          refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" }, at: "A1" }),
+        ),
+      ),
+    ).toThrow('Pivot "onTop": at "A1" overlaps a table.');
+    expect(() =>
+      place((book) =>
+        book
+          .sheet("Analysis")
+          .pivot("a", ({ refs }: any) =>
+            refs
+              .sheet("Sales")
+              .table("sales")
+              .pivot({ rows: ["region"], values: { revenue: "sum" }, at: "B2" }),
+          )
+          .pivot("b", ({ refs }: any) =>
+            refs
+              .sheet("Sales")
+              .table("sales")
+              .pivot({ rows: ["region"], values: { revenue: "sum" }, at: "C3" }),
+          ),
+      ),
+    ).toThrow('overlaps pivot "a"');
+  });
+
+  it("rejects cells outside the sheet", () => {
+    expect(() =>
+      place((book) =>
+        book.sheet("Analysis").pivot("p", ({ refs }: any) =>
+          refs
+            .sheet("Sales")
+            .table("sales")
+            .pivot({ rows: ["region"], values: { revenue: "sum" }, at: "A0" }),
+        ),
+      ),
+    ).toThrow('"at" must be a cell inside the sheet');
+    expect(() =>
+      place((book) =>
+        book.chart("c", ({ refs }: any) => ({
+          at: "A0",
+          marks: [refs.table("sales").bar({ x: "region", y: "revenue" })],
+        })),
+      ),
+    ).toThrow('"at" must be a cell inside the sheet');
+  });
+
+  it("names cache fields uniquely when headers repeat", () => {
+    type Row = { a: string; b: string; c: string; n: number };
+    const schema = createExcelSchema<Row>()
+      .column("a", { header: "Foo", accessor: "a" })
+      .column("b", { header: "Foo", accessor: "b" })
+      .column("c", { header: "Foo2", accessor: "c" })
+      .column("n", { header: "N", accessor: "n" })
+      .build();
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Data")
+        .table("t", { schema, rows: [{ a: "x", b: "y", c: "z", n: 1 }] })
+        .pivot("p", ({ refs }) => refs.table("t").pivot({ rows: ["a"], values: { n: "sum" } }))
+        .toUint8Array(),
+    );
+    const names = [
+      ...text("xl/pivotCache/pivotCacheDefinition1.xml").matchAll(/<cacheField name="([^"]*)"/g),
+    ].map((m) => m[1]);
+    expect(new Set(names.map((name) => name!.toLowerCase())).size).toBe(names.length);
+  });
+
+  it("counts dates a millisecond apart as one item, as the cache writes whole seconds", () => {
+    type Row = { at: Date; n: number };
+    const schema = createExcelSchema<Row>()
+      .column("at", { header: "At", accessor: "at" })
+      .column("n", { header: "N", accessor: "n" })
+      .build();
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Data")
+        .table("t", {
+          schema,
+          rows: [
+            { at: new Date(Date.UTC(2026, 0, 1, 9, 0, 0, 1)), n: 1 },
+            { at: new Date(Date.UTC(2026, 0, 1, 9, 0, 0, 2)), n: 2 },
+          ],
+        })
+        .pivot("p", ({ refs }) => refs.table("t").pivot({ rows: ["at"], values: { n: "sum" } }))
+        .toUint8Array(),
+    );
+    const cache = text("xl/pivotCache/pivotCacheDefinition1.xml");
+    expect(cache.match(/<d v="2026-01-01T09:00:00"\/>/g)).toHaveLength(1);
+  });
+
+  it("caps pivot charts at Excel's 255 series", () => {
+    type Row = { region: string; code: string; n: number };
+    const schema = createExcelSchema<Row>()
+      .column("region", { header: "Region", accessor: "region" })
+      .column("code", { header: "Code", accessor: "code" })
+      .column("n", { header: "N", accessor: "n" })
+      .build();
+    const data = Array.from({ length: 256 }, (_, i) => ({ region: "A", code: `c${i}`, n: i }));
+    expect(() =>
+      createWorkbook()
+        .sheet("Data")
+        .table("t", { schema, rows: data })
+        .pivot("p", ({ refs }) =>
+          refs.table("t").pivot({ rows: ["region"], columns: ["code"], values: { n: "sum" } }),
+        )
+        .chart("c", ({ refs }) => ({ marks: [refs.pivot("p").bar()] }))
+        .toUint8Array(),
+    ).toThrow("a chart holds at most 255 series");
+  });
+
+  it("writes the range of many distinct numbers without overflowing the stack", () => {
+    type Row = { region: string; id: number; n: number };
+    const schema = createExcelSchema<Row>()
+      .column("region", { header: "Region", accessor: "region" })
+      .column("id", { header: "Id", accessor: "id" })
+      .column("n", { header: "N", accessor: "n" })
+      .build();
+    const data = Array.from({ length: 150_000 }, (_, i) => ({ region: "A", id: i, n: 1 }));
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Data")
+        .table("t", { schema, rows: data })
+        .pivot("p", ({ refs }) =>
+          refs.table("t").pivot({ rows: ["region"], filters: ["id"], values: { n: "sum" } }),
+        )
+        .toUint8Array(),
+    );
+    expect(text("xl/pivotCache/pivotCacheDefinition1.xml")).toContain('maxValue="149999"');
+  });
+});

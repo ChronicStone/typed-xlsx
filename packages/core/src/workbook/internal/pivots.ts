@@ -235,7 +235,12 @@ export function parsePivotCell(pivotId: string, value: string) {
   for (const letter of match[1]!.toUpperCase()) {
     column = column * 26 + (letter.charCodeAt(0) - 64);
   }
-  return { col: column - 1, row: Number(match[2]) - 1 };
+  const row = Number(match[2]);
+  // Excel sheets have rows 1 to 1,048,576 and columns A to XFD.
+  if (row < 1 || row > 1_048_576 || column > 16_384) {
+    throw new Error(`Pivot "${pivotId}": "at" must be a cell inside the sheet, such as "A3", got "${value}".`);
+  }
+  return { col: column - 1, row: row - 1 };
 }
 
 export interface RenderedPivot {
@@ -252,19 +257,52 @@ export interface RenderedPivot {
   lastCol: number;
 }
 
-/** Places pivots on a sheet: at `at`, or stacked below the sheet's tables. */
+/** Zero-based, inclusive cell rectangle. */
+export interface CellArea {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+}
+
+const overlaps = (a: CellArea, b: CellArea) =>
+  a.top <= b.bottom && b.top <= a.bottom && a.left <= b.right && b.left <= a.right;
+
+/**
+ * Places pivots on a sheet: at `at`, or stacked below everything placed so far. Excel repairs a
+ * file whose pivot covers a table or another pivot, so an `at` that overlaps one throws.
+ */
 export class PivotPlacer {
   private nextTop: number;
+  private readonly taken: Array<CellArea & { what: string }>;
 
-  constructor(tablesBottomRow: number) {
+  constructor(tablesBottomRow: number, tableAreas: ReadonlyArray<CellArea> = []) {
     this.nextTop = tablesBottomRow >= 0 ? tablesBottomRow + 2 : 0;
+    this.taken = tableAreas.map((area) => ({ ...area, what: "a table" }));
   }
 
   place(pivotId: string, at: unknown, layout: PivotLayout) {
-    if (typeof at === "string") return parsePivotCell(pivotId, at);
-    const row = this.nextTop + Math.max(0, ROWS_ABOVE_PIVOT - layout.pageRows);
-    this.nextTop = row + layout.height + 1;
-    return { row, col: 0 };
+    let anchor: { row: number; col: number };
+    if (typeof at === "string") {
+      anchor = parsePivotCell(pivotId, at);
+    } else {
+      anchor = { row: this.nextTop + Math.max(0, ROWS_ABOVE_PIVOT - layout.pageRows), col: 0 };
+    }
+    const area = {
+      top: anchor.row,
+      left: anchor.col,
+      bottom: anchor.row + layout.height - 1,
+      right: anchor.col + layout.width - 1,
+    };
+    const clash = this.taken.find((taken) => overlaps(taken, area));
+    if (clash) {
+      throw new Error(
+        `Pivot "${pivotId}": at "${at}" overlaps ${clash.what}. Pick a cell outside it, or leave "at" out to place the pivot below.`,
+      );
+    }
+    this.taken.push({ ...area, what: `pivot "${pivotId}"` });
+    this.nextTop = Math.max(this.nextTop, area.bottom + 2);
+    return anchor;
   }
 }
 

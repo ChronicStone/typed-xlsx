@@ -85,7 +85,8 @@ function isBlank(value: PrimitiveCellValue) {
 /** Excel groups pivot items case-insensitively and keeps the first spelling. */
 export function pivotItemKey(value: PrimitiveCellValue) {
   if (isBlank(value)) return "blank";
-  if (value instanceof Date) return `d:${value.getTime()}`;
+  // Whole seconds, as the cache writes dates: two items a millisecond apart would be duplicates.
+  if (value instanceof Date) return `d:${Math.floor(value.getTime() / 1000)}`;
   if (typeof value === "number") return `n:${value}`;
   if (typeof value === "boolean") return `b:${value}`;
   return `s:${String(value).toLocaleLowerCase()}`;

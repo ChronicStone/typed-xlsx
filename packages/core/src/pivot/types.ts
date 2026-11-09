@@ -125,7 +125,25 @@ type FieldList<TValue> = TValue extends readonly unknown[]
   ? { [K in keyof TValue]: TValue[K] extends { readonly field: infer TField } ? TField : TValue[K] }
   : readonly [];
 
-type PivotOptionProblems<TOptions> =
+/** Value keys that are not columns of the source table, and values given no aggregation. */
+type PivotValueProblems<TOptions, TColumns> = TOptions extends { values: infer TValues }
+  ?
+      | (unknown extends TColumns
+          ? never
+          : Exclude<keyof TValues, keyof TColumns> extends infer TUnknown
+            ? TUnknown extends string
+              ? `value "${TUnknown}" is not a column of the table`
+              : never
+            : never)
+      | {
+          [K in keyof TValues & string]: TValues[K] extends readonly []
+            ? `value "${K}" needs at least one aggregation`
+            : never;
+        }[keyof TValues & string]
+  : never;
+
+type PivotOptionProblems<TOptions, TColumns = unknown> =
+  | PivotValueProblems<TOptions, TColumns>
   | (Duplicates<
       [
         ...FieldList<TOptions extends { rows: infer R } ? R : []>,
@@ -169,9 +187,11 @@ type ShownAs<TValues> =
     : never;
 
 /** Adds readable `✗ …` requirements to pivot options. */
-export type PivotOptionsGuard<TOptions> = [PivotOptionProblems<TOptions>] extends [never]
+export type PivotOptionsGuard<TOptions, TColumns = unknown> = [
+  PivotOptionProblems<TOptions, TColumns>,
+] extends [never]
   ? unknown
-  : { [TProblem in PivotOptionProblems<TOptions> as `✗ ${TProblem}`]: true };
+  : { [TProblem in PivotOptionProblems<TOptions, TColumns> as `✗ ${TProblem}`]: true };
 
 // ── Shapes and specs ─────────────────────────────────────────────────────────
 

@@ -89,19 +89,35 @@ function isoDate(value: Date) {
   return value.toISOString().slice(0, 19);
 }
 
-/** Field names as Excel derives them from the header row: blanks rejected, duplicates numbered. */
+/**
+ * Field names as Excel derives them from the header row: blanks rejected, duplicates numbered.
+ * Numbering skips names already taken, so headers "Foo", "Foo", "Foo2" stay distinct.
+ */
 export function pivotCacheFieldNames(headers: readonly string[], pivotId: string) {
-  const seen = new Map<string, number>();
+  const taken = new Set<string>();
   return headers.map((header) => {
     const name = header.trim();
     if (!name) {
       throw new Error(`Pivot "${pivotId}": every source column needs a header.`);
     }
-    const key = name.toLocaleLowerCase();
-    const count = (seen.get(key) ?? 0) + 1;
-    seen.set(key, count);
-    return count === 1 ? name : `${name}${count}`;
+    let candidate = name;
+    for (let count = 2; taken.has(candidate.toLocaleLowerCase()); count += 1) {
+      candidate = `${name}${count}`;
+    }
+    taken.add(candidate.toLocaleLowerCase());
+    return candidate;
   });
+}
+
+/** Smallest and largest value, without spreading: a large array overflows the call stack. */
+function extent(values: readonly number[]) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const value of values) {
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+  return { min, max };
 }
 
 function writeSharedItems(values: readonly PrimitiveCellValue[]) {
@@ -122,15 +138,16 @@ function writeSharedItems(values: readonly PrimitiveCellValue[]) {
   if (numbers.length > 0) {
     attributes.containsNumber = 1;
     if (numbers.every((value) => Number.isInteger(value))) attributes.containsInteger = 1;
-    attributes.minValue = Math.min(...numbers);
-    attributes.maxValue = Math.max(...numbers);
+    const range = extent(numbers);
+    attributes.minValue = range.min;
+    attributes.maxValue = range.max;
   }
   if (dates.length > 0) {
     attributes.containsNonDate = kinds > 1 || blanks ? undefined : 0;
     attributes.containsDate = 1;
-    const times = dates.map((value) => value.getTime());
-    attributes.minDate = isoDate(new Date(Math.min(...times)));
-    attributes.maxDate = isoDate(new Date(Math.max(...times)));
+    const range = extent(dates.map((value) => value.getTime()));
+    attributes.minDate = isoDate(new Date(range.min));
+    attributes.maxDate = isoDate(new Date(range.max));
   }
   if (blanks) attributes.containsBlank = 1;
   attributes.count = values.length;

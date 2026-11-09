@@ -206,7 +206,12 @@ function parseCellRef(chartId: string, value: string) {
   for (const letter of match[1]!.toUpperCase()) {
     column = column * 26 + (letter.charCodeAt(0) - 64);
   }
-  return { col: column - 1, row: Number(match[2]) - 1 };
+  const row = Number(match[2]);
+  // Excel sheets have rows 1 to 1,048,576 and columns A to XFD.
+  if (row < 1 || row > 1_048_576 || column > 16_384) {
+    throw new Error(`Chart "${chartId}": "at" must be a cell inside the sheet, such as "B2", got "${value}".`);
+  }
+  return { col: column - 1, row: row - 1 };
 }
 
 export function normalizeChartColor(chartId: string, color: string) {
@@ -693,6 +698,11 @@ function resolvePivotChart(
     ...(options.markers !== undefined ? { markers: Boolean(options.markers) } : {}),
     ...(labels ? { labels } : {}),
   }));
+  if (series.length > MAX_SERIES) {
+    throw new Error(
+      `Chart "${chartId}": the pivot has ${series.length} columns of values, but a chart holds at most ${MAX_SERIES} series.`,
+    );
+  }
   assertRange(chartId, "gap", options.gap, 0, 500);
   assertRange(chartId, "hole", options.hole, 10, 90);
   const stack = pie ? undefined : stackMode(options.stack);

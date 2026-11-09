@@ -320,11 +320,18 @@ export interface BaseSchemaNodeDefinition<
 
 type ColumnCellValue<TValue> = TValue extends readonly (infer TItem)[] ? TItem : TValue;
 
-/** Value a column writes into its cells, after `transform` and `defaultValue`. */
+type AccessorCellValue<TAccessorValue, TTransformed> = [TTransformed] extends [never]
+  ? ColumnCellValue<TAccessorValue>
+  : ColumnCellValue<TTransformed>;
+
+/**
+ * Value a column writes into its cells, after `transform` and `defaultValue`. A default replaces
+ * missing values, so a column with one is never blank: it can then be grouped by date in a pivot.
+ */
 export type AccessorColumnValue<TAccessorValue, TTransformed, TDefault> =
-  | ([TTransformed] extends [never]
-      ? ColumnCellValue<TAccessorValue>
-      : ColumnCellValue<TTransformed>)
+  | ([TDefault] extends [never]
+      ? AccessorCellValue<TAccessorValue, TTransformed>
+      : Exclude<AccessorCellValue<TAccessorValue, TTransformed>, null | undefined>)
   | TDefault;
 
 /**

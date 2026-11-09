@@ -18,6 +18,7 @@ import {
   pivotCacheSource,
   pivotValueOf,
   PivotPlacer,
+  type CellArea,
   renderPivot,
   type PivotSourceColumn,
   type RenderedPivot,
@@ -53,6 +54,12 @@ function sheetExtent(positioned: Array<PositionedTable<LayoutTableLike>>) {
       (max, table) => Math.max(max, table.rowOffset + table.height - 1),
       -1,
     ),
+    areas: positioned.map((table) => ({
+      top: table.rowOffset,
+      left: table.columnOffset,
+      bottom: table.rowOffset + table.height - 1,
+      right: table.columnOffset + table.width - 1,
+    })),
   };
 }
 
@@ -121,10 +128,11 @@ function placePivots(params: {
   sources: PivotSources;
   index: ChartTableIndex;
   tablesBottomRow: number;
+  tableAreas: ReadonlyArray<CellArea>;
   nextCacheIndex: () => number;
   styles: StylesCollector;
 }) {
-  const placer = new PivotPlacer(params.tablesBottomRow);
+  const placer = new PivotPlacer(params.tablesBottomRow, params.tableAreas);
   return params.plans.map((plan) => {
     const source = params.sources.locate(plan.id, plan.spec.source.sheet, plan.spec.source.table);
     let accumulator = plan.accumulator;
@@ -222,6 +230,7 @@ export function resolveBufferedWorkbookObjects(
       sources,
       index,
       tablesBottomRow: extents[sheetIndex]!.bottomRow,
+      tableAreas: extents[sheetIndex]!.areas,
       nextCacheIndex: () => (cacheIndex += 1),
       styles,
     }),
@@ -321,6 +330,7 @@ export function resolveStreamWorkbookObjects<
       sources,
       index,
       tablesBottomRow: extents[sheetIndex]!.bottomRow,
+      tableAreas: extents[sheetIndex]!.areas,
       nextCacheIndex: () => (cacheIndex += 1),
       styles,
     }),

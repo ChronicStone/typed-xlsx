@@ -279,7 +279,7 @@ export interface ChartTable<TColumns = Record<string, unknown>, TDynamic extends
    * refs.table("sales").pivot({ rows: ["region"], columns: ["month"], values: { revenue: "sum" } })
    */
   pivot<const TOptions extends PivotOptions<TColumns>>(
-    options: TOptions & PivotOptionsGuard<TOptions>,
+    options: TOptions & PivotOptionsGuard<TOptions, TColumns>,
   ): PivotSpec<PivotShapeOf<TOptions>>;
 }
 
