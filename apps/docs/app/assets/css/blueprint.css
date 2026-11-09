@@ -727,13 +727,21 @@ html.dark:has(.bp) {
   grid-template-columns: 40px 1fr;
   width: 100%;
   text-align: left;
-  opacity: 0;
-  transition:
-    opacity 0.5s,
-    background-color 0.2s;
+  transition: background-color 0.2s;
+  /* rows are in the prerendered HTML; the stagger is CSS-only so it never waits for hydration */
+  animation: bp-pr-in 0.35s var(--ease) both;
+  animation-delay: calc(80ms + var(--i, 0) * 50ms);
 }
-.bp-land .pr.show {
-  opacity: 1;
+@keyframes bp-pr-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-land .pr {
+    animation: none;
+  }
 }
 .bp-land .pr + .pr {
   border-top: 1px solid var(--line-faint);

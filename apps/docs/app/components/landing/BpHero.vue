@@ -6,7 +6,6 @@ const root = ref<HTMLElement | null>(null);
 const assembled = ref(true);
 const focus = ref<number | null>(null);
 const noTr = ref(true);
-const shown = ref(0);
 const copied = ref(false);
 
 /* ---------- the exploded invoice workbook: six layers of one schema ---------- */
@@ -219,7 +218,6 @@ useWidget(root, (s) => {
   sizeStage();
   s.on(window, "resize", sizeStage);
 
-  coEls.forEach((_el, i) => s.timeout(() => (shown.value = i + 1), 900 + i * 110));
   requestAnimationFrame(() => requestAnimationFrame(() => (noTr.value = false)));
   if (reduce) setHero("exploded", true);
   else s.timeout(() => heroLoop("exploded"), 700);
@@ -277,7 +275,8 @@ useWidget(root, (s) => {
               :key="c.title"
               type="button"
               class="pr"
-              :class="{ on: focus === i, show: i < shown }"
+              :class="{ on: focus === i }"
+              :style="{ '--i': i }"
               @mouseenter="enterPart(i)"
               @focus="enterPart(i)"
               @mouseleave="focus = null"
