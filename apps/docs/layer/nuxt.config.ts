@@ -37,7 +37,6 @@ export default defineNuxtConfig({
   modules: [
     resolve("../../../node_modules/docus/modules/config.ts"),
     resolve("../../../node_modules/docus/modules/routing.ts"),
-    resolve("../../../node_modules/docus/modules/markdown-rewrite.ts"),
     resolve("../../../node_modules/docus/modules/css.ts"),
     () => {
       const nuxt = useNuxt();
