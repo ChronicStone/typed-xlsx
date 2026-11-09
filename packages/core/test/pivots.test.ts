@@ -884,6 +884,16 @@ describe("pivots that Excel would repair", () => {
     ).toThrow('"at" must be a cell inside the sheet');
     expect(() =>
       place((book) =>
+        book.sheet("Analysis").pivot("p", ({ refs }: any) =>
+          refs
+            .sheet("Sales")
+            .table("sales")
+            .pivot({ rows: ["region"], values: { revenue: "sum" }, at: "A1048576" }),
+        ),
+      ),
+    ).toThrow("runs past the end of the sheet");
+    expect(() =>
+      place((book) =>
         book.chart("c", ({ refs }: any) => ({
           at: "A0",
           marks: [refs.table("sales").bar({ x: "region", y: "revenue" })],

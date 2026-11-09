@@ -294,6 +294,11 @@ export class PivotPlacer {
       bottom: anchor.row + layout.height - 1,
       right: anchor.col + layout.width - 1,
     };
+    if (area.bottom > 1_048_575 || area.right > 16_383) {
+      throw new Error(
+        `Pivot "${pivotId}": it needs ${layout.height} rows and ${layout.width} columns from "${typeof at === "string" ? at : "its position"}", which runs past the end of the sheet.`,
+      );
+    }
     const clash = this.taken.find((taken) => overlaps(taken, area));
     if (clash) {
       throw new Error(
