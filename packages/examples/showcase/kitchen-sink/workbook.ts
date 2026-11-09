@@ -9,6 +9,7 @@ import {
   createOrders,
   createProductMediaRows,
   createProtectedInputRows,
+  createRegionSales,
   createSparklineRows,
   createSummaryRows,
   createTerritories,
@@ -23,6 +24,7 @@ import {
   imageMediaSchema,
   nativeExcelTableSchema,
   protectedInputSchema,
+  regionSalesSchema,
   sparklineSchema,
   subRowExpansionSchema,
   summaryRowsSchema,
@@ -237,6 +239,37 @@ export function buildKitchenSinkWorkbook() {
       select: { exclude: ["ownerContact", "notes"] },
       defaults: reportDefaults,
     });
+
+  workbook
+    .sheet("14 Charts Pivots")
+    .table("region-sales", {
+      title: "Revenue by Region",
+      rows: createRegionSales(),
+      schema: regionSalesSchema,
+      defaults: reportDefaults,
+    })
+    .chart("margin-trend", ({ refs }) => ({
+      title: "Revenue and margin",
+      at: "H2",
+      marks: [
+        refs.table("region-sales").bar({ x: "month", y: "revenue", name: "Revenue" }),
+        refs.table("region-sales").line({ x: "month", y: "margin", name: "Margin %", axis: "y2" }),
+      ],
+      axes: { y2: { format: "0%" } },
+    }))
+    .pivot("by-region", ({ refs }) =>
+      refs.table("region-sales").pivot({
+        rows: ["month"],
+        columns: ["region"],
+        values: { revenue: "sum" },
+        sort: "source",
+      }),
+    )
+    .chart("by-region-chart", ({ refs }) => ({
+      title: "Revenue by month and region",
+      at: "H20",
+      marks: [refs.pivot("by-region").bar({ stack: true })],
+    }));
 
   return workbook.toUint8Array();
 }

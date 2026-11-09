@@ -121,6 +121,60 @@ const tourThumb = getWorkbookThumb("kitchen-sink");
       </p>
     </section>
 
+    <section class="wrap cat">
+      <div class="cat-head">
+        <h2 class="h3">Real-world reports</h2>
+        <div class="filters" role="group" aria-label="Filter exports">
+          <button
+            v-for="f in FILTERS"
+            :key="f.key"
+            type="button"
+            :class="{ on: filter === f.key }"
+            :aria-pressed="filter === f.key"
+            @click="filter = f.key"
+          >
+            {{ f.label }} <span>{{ others.filter(f.test).length }}</span>
+          </button>
+        </div>
+      </div>
+      <div class="agrid">
+        <NuxtLink
+          v-for="{ a, thumb } in cards"
+          :key="a.id"
+          :to="`/playground/${a.id}`"
+          class="acard"
+          :class="{ hide: !activeTest(a) }"
+        >
+          <div class="thumb">
+            <span class="corner tl" /><span class="corner br" />
+            <div class="mini">
+              <XlsxSheet
+                v-if="thumb && thumb.sheets[0]"
+                :sheet="thumb.sheets[0]"
+                :styles="thumb.styles"
+                :dxfs="thumb.dxfs"
+                compact
+                :zoom="0.62"
+                :clip-width="470"
+              />
+            </div>
+          </div>
+          <div class="ameta">
+            <div class="kind">{{ kindLabel(a) }}</div>
+            <h3>{{ a.title }}</h3>
+            <p>{{ a.description }}</p>
+            <div class="af">
+              <span
+                >{{ a.inspectSummary?.sheetNames.length ?? 1 }} sheet{{
+                  (a.inspectSummary?.sheetNames.length ?? 1) > 1 ? "s" : ""
+                }}, {{ kb(thumb?.fileSize) }}</span
+              ><UIcon name="i-lucide-arrow-right" class="ic" />
+            </div>
+          </div>
+        </NuxtLink>
+      </div>
+    </section>
+    <h2 v-if="tour" class="wrap h3 tour-h">Every feature in one workbook</h2>
     <section v-if="tour" class="wrap feat">
       <div class="deck-stage" aria-hidden="true">
         <div class="deck">
@@ -183,60 +237,6 @@ const tourThumb = getWorkbookThumb("kitchen-sink");
             ><UIcon name="i-lucide-download" class="ic" /> Download .xlsx</a
           >
         </div>
-      </div>
-    </section>
-
-    <section class="wrap cat">
-      <div class="cat-head">
-        <h2 class="h3">Real-world exports</h2>
-        <div class="filters" role="group" aria-label="Filter exports">
-          <button
-            v-for="f in FILTERS"
-            :key="f.key"
-            type="button"
-            :class="{ on: filter === f.key }"
-            :aria-pressed="filter === f.key"
-            @click="filter = f.key"
-          >
-            {{ f.label }} <span>{{ others.filter(f.test).length }}</span>
-          </button>
-        </div>
-      </div>
-      <div class="agrid">
-        <NuxtLink
-          v-for="{ a, thumb } in cards"
-          :key="a.id"
-          :to="`/playground/${a.id}`"
-          class="acard"
-          :class="{ hide: !activeTest(a) }"
-        >
-          <div class="thumb">
-            <span class="corner tl" /><span class="corner br" />
-            <div class="mini">
-              <XlsxSheet
-                v-if="thumb && thumb.sheets[0]"
-                :sheet="thumb.sheets[0]"
-                :styles="thumb.styles"
-                :dxfs="thumb.dxfs"
-                compact
-                :zoom="0.62"
-                :clip-width="470"
-              />
-            </div>
-          </div>
-          <div class="ameta">
-            <div class="kind">{{ kindLabel(a) }}</div>
-            <h3>{{ a.title }}</h3>
-            <p>{{ a.description }}</p>
-            <div class="af">
-              <span
-                >{{ a.inspectSummary?.sheetNames.length ?? 1 }} sheet{{
-                  (a.inspectSummary?.sheetNames.length ?? 1) > 1 ? "s" : ""
-                }}, {{ kb(thumb?.fileSize) }}</span
-              ><UIcon name="i-lucide-arrow-right" class="ic" />
-            </div>
-          </div>
-        </NuxtLink>
       </div>
     </section>
   </div>

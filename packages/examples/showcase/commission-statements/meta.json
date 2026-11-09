@@ -1,0 +1,27 @@
+{
+  "id": "commission-statements",
+  "title": "Commission Statements",
+  "description": "Quarterly commission statements where the plan itself is in formulas: attainment, base rate, accelerator above quota and SPIFFs, next to every deal behind them.",
+  "developerHook": "Ship the compensation plan as auditable Excel formulas, typed against the rep schema.",
+  "tags": ["sales", "compensation", "formulas"],
+  "features": [
+    "formula columns",
+    "fx.min / fx.max",
+    "column groups",
+    "conditional styles",
+    "horizontal bar chart",
+    "pivot tables",
+    "badges",
+    "hyperlinks"
+  ],
+  "datasetProfile": "small",
+  "artifactFile": "artifact/commission-statements.xlsx",
+  "primarySourceFile": "schema.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "table",
+    "accentClass": "artifact-accent-amber",
+    "landingEyebrow": "Formula logic",
+    "playgroundSummary": "Twelve reps, their quota and closed-won, and a payout computed by Excel formulas: 8% to quota, 12% above it, plus SPIFFs. A deals sheet and a pivot by deal type sit behind it."
+  }
+}

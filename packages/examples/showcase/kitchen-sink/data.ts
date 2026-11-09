@@ -282,7 +282,37 @@ export function createFeatureMapRows(): FeatureMapRow[] {
       target: "#'13 Layout Controls'!A1",
       track: "Layout",
     },
+    {
+      apiSurface: ".chart(), refs.table().bar/line, .pivot(), refs.pivot().bar",
+      buffered: true,
+      demonstrates:
+        "Native charts and a pivot table with its pivot chart, checked against the schema.",
+      feature: "Charts and pivots",
+      sheet: "14 Charts Pivots",
+      streaming: true,
+      target: "#'14 Charts Pivots'!A1",
+      track: "Workbook",
+    },
   ];
+}
+
+export type RegionSaleRow = {
+  month: string;
+  region: "AMER" | "EMEA" | "APAC";
+  revenue: number;
+  cost: number;
+};
+
+/** Six months of revenue per region, for the charts and pivots sheet. */
+export function createRegionSales(): RegionSaleRow[] {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+  const base = { AMER: 182, EMEA: 141, APAC: 96 } as const;
+  return months.flatMap((month, i) =>
+    (["AMER", "EMEA", "APAC"] as const).map((region, k) => {
+      const revenue = Math.round((base[region] + i * (9 - k * 2) + ((i * 7 + k * 3) % 11)) * 1000);
+      return { month, region, revenue, cost: Math.round(revenue * (0.58 + k * 0.03)) };
+    }),
+  );
 }
 
 export function createAccounts(): AccountRow[] {

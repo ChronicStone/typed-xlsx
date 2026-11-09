@@ -8,5 +8,5 @@
       "typed-xlsx/*": ["../core/src/*"]
     }
   },
-  "include": ["index.ts", "src/**/*.ts", "scripts/**/*.ts", "generated/**/*.ts"]
+  "include": ["index.ts", "src/**/*.ts", "scripts/**/*.ts", "generated/**/*.ts", "showcase/**/*.ts"]
 }

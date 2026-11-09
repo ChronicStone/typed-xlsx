@@ -1,7 +1,11 @@
 {
   "id": "kitchen-sink",
   "title": "Kitchen Sink Feature Tour",
-  "tags": ["kitchen-sink", "feature-tour", "playground"],
+  "tags": [
+    "kitchen-sink",
+    "feature-tour",
+    "playground"
+  ],
   "features": [
     "typed accessors",
     "sub-row expansion",
@@ -32,12 +36,14 @@
     "10 Data Validation",
     "11 Protected Inputs",
     "12 Native Excel Table",
-    "13 Layout Controls"
+    "13 Layout Controls",
+    "14 Charts Pivots"
   ],
   "inspectFiles": [
     "content-types.xml",
     "workbook.xml",
     "styles.xml",
+    "shared-strings.xml",
     "feature-property-bag.xml",
     "sheet1.xml",
     "sheet10.xml",
@@ -45,6 +51,7 @@
     "sheet12.xml",
     "sheet13.xml",
     "sheet14.xml",
+    "sheet15.xml",
     "sheet2.xml",
     "sheet3.xml",
     "sheet4.xml",
@@ -55,9 +62,12 @@
     "sheet9.xml",
     "worksheets/sheet10.xml.rels",
     "worksheets/sheet13.xml.rels",
+    "worksheets/sheet15.xml.rels",
     "worksheets/sheet6.xml.rels",
     "worksheets/sheet8.xml.rels",
     "drawings/drawing1.xml",
-    "drawings/drawing1.xml.rels"
+    "drawings/drawing2.xml",
+    "drawings/drawing1.xml.rels",
+    "drawings/drawing2.xml.rels"
   ]
 }

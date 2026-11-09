@@ -71,6 +71,54 @@ export interface PreviewImage {
   alt: string;
 }
 
+export type PreviewChartKind = "bar" | "line" | "area" | "scatter" | "pie" | "doughnut";
+
+export interface PreviewChartSeries {
+  name: string;
+  kind: PreviewChartKind;
+  /** secondary value axis */
+  y2?: 1;
+  /** series color; pie and doughnut slices use `points` */
+  color?: string;
+  points?: Array<string | null>;
+  /** category labels (scatter: x values as numbers in `xs`) */
+  cats: string[];
+  /** outer category labels of a multi-level axis, each at the index of its first category */
+  groups?: Array<{ at: number; label: string }>;
+  xs?: Array<number | null>;
+  vals: Array<number | null>;
+  dashed?: 1;
+  /** markers drawn on a line */
+  markers?: 1;
+  smooth?: 1;
+  /** data labels: "value" | "percent" */
+  labels?: "value" | "percent";
+  labelFmt?: string;
+}
+
+export interface PreviewChart {
+  /** pixel box relative to the sheet origin (A1 top-left) */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  title?: string;
+  series: PreviewChartSeries[];
+  /** bar charts drawn horizontally */
+  horizontal?: 1;
+  /** "stacked" | "percentStacked" per chart kind */
+  stack?: Partial<Record<PreviewChartKind, "stacked" | "percentStacked">>;
+  hole?: number;
+  axes: {
+    x?: { title?: string; fmt?: string; min?: number; max?: number };
+    y?: { title?: string; fmt?: string; min?: number; max?: number };
+    y2?: { title?: string; fmt?: string; min?: number; max?: number };
+  };
+  legend?: "b" | "t" | "r" | "l";
+  /** drawn from a pivot table */
+  pivot?: 1;
+}
+
 export interface PreviewTable {
   name: string;
   ref: string;
@@ -113,6 +161,7 @@ export interface PreviewSheet {
   tables: PreviewTable[];
   sparklines: PreviewSparkline[];
   images: PreviewImage[];
+  charts?: PreviewChart[];
   protected: boolean;
   /** rows elided from very long sheets: rows (after + 1 .. after + hidden) are not in `cells` */
   gap?: { after: number; hidden: number };

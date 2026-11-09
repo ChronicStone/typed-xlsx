@@ -43,18 +43,37 @@ function inferKindFromArtifact(artifact: GeneratedExamplesArtifact): ArtifactKin
   return "buffered";
 }
 
+/**
+ * Real reports first, the way a team would use them; small feature demos after; the kitchen sink,
+ * which shows every feature at once, last.
+ */
+const FEATURED = [
+  "revenue-review",
+  "saas-metrics",
+  "receivables-aging",
+  "commission-statements",
+  "inventory-reorder",
+  "streaming-fulfillment-export",
+  "deal-desk-quote-review",
+  "renewal-ops-workbook",
+  "executive-board-pack",
+  "product-media-catalog",
+];
+const rank = (id: string) => {
+  if (id === "kitchen-sink") return FEATURED.length + 2;
+  const index = FEATURED.indexOf(id);
+  return index === -1 ? FEATURED.length + 1 : index;
+};
+
 export const artifactCatalog = getGeneratedExampleArtifacts()
   .map((artifact) => ({
     ...artifact,
     kind: inferKindFromArtifact(artifact),
     inspectSummary: inspectSummaryById[artifact.id],
   }))
-  .sort((left, right) => {
-    if (left.id === "kitchen-sink") return -1;
-    if (right.id === "kitchen-sink") return 1;
-
-    return left.title.localeCompare(right.title);
-  }) satisfies ArtifactCatalogEntry[];
+  .sort(
+    (left, right) => rank(left.id) - rank(right.id) || left.title.localeCompare(right.title),
+  ) satisfies ArtifactCatalogEntry[];
 
 export function getArtifactPlaygroundSummary(artifact: ArtifactCatalogEntry) {
   return artifact.preview.playgroundSummary;

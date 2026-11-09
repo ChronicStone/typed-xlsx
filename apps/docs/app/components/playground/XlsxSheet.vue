@@ -7,6 +7,7 @@ import type {
   PreviewStyle,
 } from "typed-xlsx-examples";
 import { colLetter, parseCellRef, parseRangeRef, tableStyleColors } from "./xlsx";
+import XlsxChart from "./XlsxChart.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -448,6 +449,13 @@ defineExpose({ parseCellRef });
           height: `${img.h}px`,
         }"
       />
+      <XlsxChart
+        v-for="(ch, k) in sheet.charts ?? []"
+        :key="'chart' + k"
+        class="xs-chart"
+        :chart="ch"
+        :style="{ left: `${cornerLeft + ch.x}px`, top: `${contentTop + ch.y}px` }"
+      />
     </div>
   </div>
 </template>
@@ -668,6 +676,11 @@ defineExpose({ parseCellRef });
   position: absolute;
   z-index: 3;
   pointer-events: none;
+}
+/* above the cells, below frozen rows and columns, as charts scroll under panes in Excel */
+.xs-chart {
+  position: absolute;
+  z-index: 1;
 }
 .xs-gap {
   display: grid;

@@ -1,0 +1,29 @@
+{
+  "id": "saas-metrics",
+  "title": "Monthly SaaS Metrics",
+  "description": "The monthly pack a finance team sends on the 1st: an MRR bridge with live formulas, MRR by plan with trend sparklines, and the top accounts with health and renewal dates.",
+  "developerHook": "Bake what your code knows, wire what readers will edit, and chart both from the same typed tables.",
+  "tags": ["saas", "finance", "board-report"],
+  "features": [
+    "formula columns",
+    "column groups",
+    "dynamic columns",
+    "sparklines",
+    "native charts",
+    "stacked area chart",
+    "badges",
+    "hyperlinks",
+    "checkboxes",
+    "conditional styles"
+  ],
+  "datasetProfile": "small",
+  "artifactFile": "artifact/saas-metrics.xlsx",
+  "primarySourceFile": "workbook.ts",
+  "supportsStreaming": false,
+  "preview": {
+    "kind": "board",
+    "accentClass": "artifact-accent-cyan",
+    "landingEyebrow": "Monthly metrics",
+    "playgroundSummary": "An MRR bridge whose closing, net new and NRR are Excel formulas, MRR by plan with sparklines and a stacked area chart, and the top accounts with CRM links."
+  }
+}
