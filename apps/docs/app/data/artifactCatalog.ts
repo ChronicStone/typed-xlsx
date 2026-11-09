@@ -56,18 +56,6 @@ export const artifactCatalog = getGeneratedExampleArtifacts()
     return left.title.localeCompare(right.title);
   }) satisfies ArtifactCatalogEntry[];
 
-export function getArtifactPreviewKind(artifact: ArtifactCatalogEntry) {
-  return artifact.preview.kind;
-}
-
-export function getArtifactAccentClass(artifact: ArtifactCatalogEntry) {
-  return artifact.preview.accentClass;
-}
-
-export function getArtifactLandingEyebrow(artifact: ArtifactCatalogEntry) {
-  return artifact.preview.landingEyebrow;
-}
-
 export function getArtifactPlaygroundSummary(artifact: ArtifactCatalogEntry) {
   return artifact.preview.playgroundSummary;
 }

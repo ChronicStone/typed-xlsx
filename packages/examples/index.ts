@@ -10,6 +10,17 @@ export type {
   ShowcasePreviewKind,
 } from "./src/_shared/report-types";
 
+export type {
+  PreviewCell,
+  PreviewImage,
+  PreviewSheet,
+  PreviewSparkline,
+  PreviewStyle,
+  PreviewTable,
+  PreviewValidation,
+  PreviewWorkbook,
+} from "./src/_shared/preview-types";
+
 export function getGeneratedExamplesManifest() {
   return examplesManifest;
 }

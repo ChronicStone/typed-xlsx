@@ -1,5 +1,5 @@
 <template>
-  <UMain>
+  <UMain class="docs-shell">
     <UContainer>
       <UPage>
         <template #left>

@@ -14,7 +14,6 @@
     "check": "bun run typecheck"
   },
   "dependencies": {
-    "@barzhsieh/nuxt-content-mermaid": "2.2.3",
     "@shikijs/vitepress-twoslash": "4.6.0",
     "better-sqlite3": "12.11.1",
     "docus": "5.15.0",

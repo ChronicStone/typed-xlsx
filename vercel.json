@@ -3,5 +3,72 @@
   "buildCommand": "bun run docs:build",
   "outputDirectory": "apps/docs/.output/public",
   "installCommand": "bun install",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/formulas/row-model",
+      "destination": "/core-concepts/row-model",
+      "permanent": true
+    },
+    {
+      "source": "/formulas/summary-formulas",
+      "destination": "/columns/summary-rows",
+      "permanent": true
+    },
+    {
+      "source": "/getting-started/key-benefits-and-why",
+      "destination": "/getting-started/introduction",
+      "permanent": true
+    },
+    {
+      "source": "/schema-builder/create-schema",
+      "destination": "/columns/defining-columns",
+      "permanent": true
+    },
+    {
+      "source": "/schema-builder/build-schema",
+      "destination": "/columns/defining-columns",
+      "permanent": true
+    },
+    {
+      "source": "/schema-builder/columns",
+      "destination": "/columns/defining-columns",
+      "permanent": true
+    },
+    {
+      "source": "/schema-builder/dynamic-columns",
+      "destination": "/columns/dynamic-columns",
+      "permanent": true
+    },
+    {
+      "source": "/schema-builder/reusable-formatters",
+      "destination": "/columns/defining-columns",
+      "permanent": true
+    },
+    {
+      "source": "/schema-builder/reusable-transformers",
+      "destination": "/columns/defining-columns",
+      "permanent": true
+    },
+    {
+      "source": "/file-builder/create-file-builder",
+      "destination": "/workbook/building-workbooks",
+      "permanent": true
+    },
+    {
+      "source": "/file-builder/define-sheets",
+      "destination": "/workbook/building-workbooks",
+      "permanent": true
+    },
+    {
+      "source": "/file-builder/define-tables",
+      "destination": "/workbook/building-workbooks",
+      "permanent": true
+    },
+    {
+      "source": "/file-builder/build-excel-file",
+      "destination": "/workbook/building-workbooks",
+      "permanent": true
+    }
+  ]
 }

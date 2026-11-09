@@ -49,11 +49,17 @@ function hasBuiltExampleArtifacts() {
     return false;
   }
 
-  return readdirSync(showcaseRoot, { withFileTypes: true })
+  const reports = readdirSync(showcaseRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .some((entry) =>
+    .filter((entry) => existsSync(resolve(showcaseRoot, entry.name, "meta.json")));
+
+  // the playground renders each workbook from its preview model, so every report needs one
+  return (
+    reports.some((entry) =>
       existsSync(resolve(showcaseRoot, entry.name, "artifact/inspect/summary.json")),
-    );
+    ) &&
+    reports.every((entry) => existsSync(resolve(showcaseRoot, entry.name, "artifact/preview.json")))
+  );
 }
 
 function ensureExamplesWorkspaceArtifacts() {

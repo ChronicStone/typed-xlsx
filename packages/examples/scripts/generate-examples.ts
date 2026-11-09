@@ -3,6 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { DOMParser } from "@xmldom/xmldom";
 import { unzipSync } from "fflate";
+import { writeArtifactPreview } from "./build-previews";
 import type {
   GeneratedExamplesArtifact,
   GeneratedExamplesManifest,
@@ -91,6 +92,7 @@ function writeInspectArtifacts(
     { source: "[Content_Types].xml", file: "content-types.xml" },
     { source: "xl/workbook.xml", file: "workbook.xml" },
     { source: "xl/styles.xml", file: "styles.xml" },
+    { source: "xl/sharedStrings.xml", file: "shared-strings.xml" },
     ...featurePropertyBagEntries.map((entry) => ({
       source: entry,
       file: "feature-property-bag.xml",
@@ -171,6 +173,7 @@ async function main() {
 
     const entries = unzipWorkbookEntries(workbookBytes);
     writeInspectArtifacts(reportDir, meta, entries);
+    writeArtifactPreview(reportDir, meta.artifactFile);
 
     artifacts.push({
       id: meta.id,

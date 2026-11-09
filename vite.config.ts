@@ -53,6 +53,8 @@ export default defineConfig({
   fmt: {
     ignorePatterns: [
       ".repo-migration/**",
+      // MDC component blocks (`::name` + `---` YAML props) parse as setext headings in Markdown
+      "apps/docs/content/**",
       "apps/docs/.data/**",
       "apps/docs/.nuxt/**",
       "apps/docs/.output/**",
