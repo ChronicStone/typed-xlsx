@@ -3,4 +3,44 @@ export default defineNuxtConfig({
   vue: {
     runtimeCompiler: true,
   },
+  site: {
+    name: "typed-xlsx",
+    url: "https://typed-xlsx.vercel.app",
+  },
+  // pages moved or removed over the docs restructures keep their old URLs (and search rankings) working
+  routeRules: {
+    "/formulas/row-model": { redirect: { to: "/core-concepts/row-model", statusCode: 301 } },
+    "/formulas/summary-formulas": { redirect: { to: "/columns/summary-rows", statusCode: 301 } },
+    "/getting-started/key-benefits-and-why": {
+      redirect: { to: "/getting-started/introduction", statusCode: 301 },
+    },
+    "/schema-builder/create-schema": {
+      redirect: { to: "/columns/defining-columns", statusCode: 301 },
+    },
+    "/schema-builder/build-schema": {
+      redirect: { to: "/columns/defining-columns", statusCode: 301 },
+    },
+    "/schema-builder/columns": { redirect: { to: "/columns/defining-columns", statusCode: 301 } },
+    "/schema-builder/dynamic-columns": {
+      redirect: { to: "/columns/dynamic-columns", statusCode: 301 },
+    },
+    "/schema-builder/reusable-formatters": {
+      redirect: { to: "/columns/defining-columns", statusCode: 301 },
+    },
+    "/schema-builder/reusable-transformers": {
+      redirect: { to: "/columns/defining-columns", statusCode: 301 },
+    },
+    "/file-builder/create-file-builder": {
+      redirect: { to: "/workbook/building-workbooks", statusCode: 301 },
+    },
+    "/file-builder/define-sheets": {
+      redirect: { to: "/workbook/building-workbooks", statusCode: 301 },
+    },
+    "/file-builder/define-tables": {
+      redirect: { to: "/workbook/building-workbooks", statusCode: 301 },
+    },
+    "/file-builder/build-excel-file": {
+      redirect: { to: "/workbook/building-workbooks", statusCode: 301 },
+    },
+  },
 });
