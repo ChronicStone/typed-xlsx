@@ -6,7 +6,7 @@
 [![JSDocs][jsdocs-src]][jsdocs-href]
 [![License][license-src]][license-href]
 
-Type-safe, schema-driven Excel reporting for TypeScript.
+Type-safe Excel (`.xlsx`) reports for TypeScript, in Node.js, Bun, Deno and edge runtimes.
 
 Define one schema, then generate polished buffered exports or stream large workbooks with the same API.
 
