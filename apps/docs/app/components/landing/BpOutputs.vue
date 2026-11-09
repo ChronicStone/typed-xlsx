@@ -29,21 +29,21 @@ const TABS: Tab[] = [
   {
     id: "saas-metrics",
     label: "SaaS metrics",
-    sheet: "Plans",
+    sheet: "Top accounts",
     points: [
-      "MRR bridge where closing MRR and NRR are formulas",
-      "Twelve dynamic month columns with sparklines",
-      "Stacked area chart of MRR by plan",
+      "Accounts linked to the CRM, plans and health as badges",
+      "Seat usage as a formula, flagged when it drops",
+      "Behind it: an MRR bridge, sparklines and a stacked area chart",
     ],
   },
   {
     id: "receivables-aging",
     label: "Receivables aging",
-    sheet: "Aging by customer",
+    sheet: "Open invoices",
     points: [
-      "Days late and buckets computed in TypeScript",
-      "Aging pivot by customer, filterable by collector",
-      "Doughnut of receivables by age",
+      "Invoices linked to billing, buckets as badges",
+      "Days late computed in TypeScript, open amounts as formulas",
+      "Behind it: an aging pivot by customer and a doughnut",
     ],
   },
   {
@@ -61,6 +61,7 @@ const TABS: Tab[] = [
     label: "Inventory reorder",
     sheet: "Reorder plan",
     points: [
+      "Product images, category badges and sales sparklines",
       "Protected sheet with yellow input cells",
       "Supplier dropdowns and quantity limits",
       "Weeks of cover and status react as buyers type",

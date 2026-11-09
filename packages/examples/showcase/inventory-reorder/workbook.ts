@@ -5,7 +5,7 @@ import { stockSchema } from "./schema";
 export function buildInventoryReorder() {
   return createWorkbook()
     .sheet("Reorder plan", {
-      freezePane: { rows: 3, columns: 2 },
+      freezePane: { rows: 3, columns: 3 },
       // Only the yellow cells can be edited; formulas and history stay locked.
       protection: { selectLockedCells: true, selectUnlockedCells: true },
     })
