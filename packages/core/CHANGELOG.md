@@ -1,5 +1,27 @@
 # typed-xlsx
 
+## 4.3.0
+
+### Minor Changes
+
+- [#65](https://github.com/ChronicStone/typed-xlsx/pull/65) [`987d7a1`](https://github.com/ChronicStone/typed-xlsx/commit/987d7a1a741b2dd01b9eb2b9de059ffe7fc08ae9) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Add native Excel charts. Charts are lists of marks (bar, line, area, scatter, pie, doughnut) built from tables declared earlier in the workbook chain with `refs.table(id)` or `refs.sheet(name).table(id)`, or from streamed table handles with `sheet.chart(id, spec)`. Marks from different tables line up on their own x column, combos can use a secondary axis, and dynamic columns can be plotted as series or as categories.
+
+  Schemas now record the value type of every column (after `transform`, `defaultValue`, and for formula results), exposed as `SchemaColumnValues<typeof schema>`. Charts use it to accept only numeric columns as values.
+
+- [#65](https://github.com/ChronicStone/typed-xlsx/pull/65) [`e63eeac`](https://github.com/ChronicStone/typed-xlsx/commit/e63eeac127ccc22653e4d57514809044cc698402) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Add native Excel pivot tables and pivot charts. `refs.table(id).pivot({ rows, columns, values, filters })` describes a pivot over a table declared earlier in the workbook chain, `.pivot(id, …)` places it, and `refs.pivot(id).bar()` (or `line`, `area`, `pie`, `doughnut`) draws a pivot chart that Excel keeps in sync. Fields and aggregations are checked against the source table's columns: only numeric columns can be summed or averaged. Excel refreshes pivots on open, and the library also writes their totals so files read correctly before that. Streamed tables support pivots declared before their first commit.
+
+  Values can be shown as a share of a total with `show: "percentOfTotal" | "percentOfRow" | "percentOfColumn"`. Date columns can be grouped by year, quarter or month with `{ field, by }`, and rows can nest several units such as `by: ["year", "quarter", "month"]`. Only date columns that cannot be blank can be grouped, since Excel drops the grouping when a date is missing.
+
+  Pivots follow spreadsheet themes. A pivot uses its `style` (a built-in Excel pivot style), else its `theme`, else the theme of its source table, else the classic theme tables use, so a pivot looks like the tables around it by default. Themes gain six pivot slots, `pivotBody`, `pivotFrame`, `pivotHeader`, `pivotSubheading`, `pivotTotal` and `pivotStripe`, bound by default to the table slots of the same theme, plus a `stripeFill` token. A themed pivot is written as a custom pivot style, so it stays styled when readers refresh it. `banded` adds banded rows or columns. Pivots now keep their written column widths when Excel refreshes them.
+
+### Patch Changes
+
+- [#65](https://github.com/ChronicStone/typed-xlsx/pull/65) [`06b797f`](https://github.com/ChronicStone/typed-xlsx/commit/06b797fbc5546eb2955319c548416d8c4eb17991) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Columns declared inside `.group()` keep their value type in formulas. They were typed as booleans, so `refs.column("qty").gt(0)` on a grouped number column did not compile.
+
+- [#65](https://github.com/ChronicStone/typed-xlsx/pull/65) [`62a771f`](https://github.com/ChronicStone/typed-xlsx/commit/62a771ff40bb8c49b228991f784984ce62813683) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Streamed workbooks read through `toReadableStream()` or `toNodeReadable()` now fail with the finalization error instead of ending as an empty file. Worksheets now write `<drawing>` before `<tableParts>`, as the spreadsheet schema requires when a sheet holds both images and a native Excel table.
+
+- [#65](https://github.com/ChronicStone/typed-xlsx/pull/65) [`6679149`](https://github.com/ChronicStone/typed-xlsx/commit/6679149ee57f44e34390ad83709e0c2c0698e240) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Streamed summary rows with conditional formatting no longer make Excel repair the file: their styles are now declared in `styles.xml`.
+
 ## 4.2.2
 
 ### Patch Changes
@@ -49,6 +71,7 @@
   This replaces the previous glyph-label customization options on checkbox columns. Use sheet protection with per-cell `style.protection.locked` when some checkbox cells should be editable and others should stay locked.
 
   Renderer callbacks also gained more complete context support:
+
   - badge variant labels may be callbacks with access to the row, value, and schema context
   - hyperlink tooltips can be lazy text callbacks
   - table titles and renderer styles resolve with schema context in buffered and streaming workbooks
@@ -96,6 +119,7 @@
   The `1.0` line established the rewritten core architecture: typed schemas, buffered and streaming builders, reducer-based summaries, custom OOXML generation, and a consistent schema-first API. This release builds on that foundation and adds the Excel-native features that were still missing from the early `1.x` surface.
 
   The biggest shift in `2.0` is that the library no longer only produces polished exports. It now models more of Excel itself:
+
   - live formula columns
   - report-mode formula summaries
   - native Excel tables with totals rows and structured references
@@ -112,6 +136,7 @@
   Columns can now emit real Excel formulas through a type-safe DSL with predecessor-aware references.
 
   New capabilities include:
+
   - `formula: ({ row, refs, fx }) => ...`
   - selector-first predecessor references via `refs.column("columnId")`
   - structural selectors via `refs.group("groupId")` and `refs.dynamic("dynamicId")`
@@ -131,11 +156,13 @@
   Report mode already supported sub-row expansion through array-returning accessors. `2.0` adds formula APIs that understand that row model explicitly.
 
   New concepts include:
+
   - `refs.column(...)` for current physical-row references
   - `row.series(...)` for full logical-row spans across expanded physical rows
   - formula `expansion` control with `"auto"`, `"single"`, and `"expand"`
 
   This makes it possible to express both:
+
   - per-line formulas that repeat on every physical row
   - logical-row formulas that render once and merge across expanded output rows
 
@@ -144,6 +171,7 @@
   Report-mode summaries can now emit native Excel formulas in addition to reducer-computed values.
 
   New capabilities include:
+
   - `summary.formula("sum")`
   - `summary.formula(({ column, fx }) => ...)`
   - formula-based summary styling
@@ -156,6 +184,7 @@
   Summary formulas now distinguish between physical worksheet ranges and logical source rows.
 
   New range contexts include:
+
   - `column.cells()` for physical-cell aggregation
   - `column.rows()` for logical-row-aware aggregation
 
@@ -166,6 +195,7 @@
   Schemas can now opt into real Excel table output with `createExcelSchema<T>({ mode: "excel-table" })`.
 
   New behavior includes:
+
   - native `<table>` OOXML generation
   - table styles such as `TableStyleMedium2`
   - structured formula references instead of A1 references
@@ -180,6 +210,7 @@
   Excel-table schemas now support native totals rows through per-column configuration.
 
   Columns can opt into:
+
   - static labels
   - `sum`
   - `average`
@@ -197,6 +228,7 @@
   Native worksheet autoFilter support is now available.
 
   Behavior differs by mode:
+
   - report mode: opt in with `autoFilter: true`
   - excel-table mode: enabled by default, opt out with `autoFilter: false`
 
@@ -207,6 +239,7 @@
   Formula support now works much better with grouped schemas and runtime-generated columns.
 
   New capabilities include:
+
   - group-local predecessor scope
   - outer-scope references from inside groups
   - structural scope selectors via `refs.group(groupId)`
@@ -219,6 +252,7 @@
   `conditionalStyle` now emits native Excel conditional formatting rules instead of resolving everything at export time in JavaScript.
 
   This means workbook styling can remain live after export and continue reacting to:
+
   - formula results
   - later user edits
   - row-level conditions expressed through the same formula DSL
@@ -230,6 +264,7 @@
   Columns can now emit native Excel validation rules.
 
   Supported validation kinds include:
+
   - `list([...])`
   - `integer()`
   - `decimal()`
@@ -238,6 +273,7 @@
   - `custom(({ row, fx }) => ...)`
 
   Additional capabilities include:
+
   - prompts and error alerts
   - lazy message/title callbacks
   - comparison helpers like `between`, `gte`, `lt`, and others
@@ -250,6 +286,7 @@
   Cells can now carry native Excel hyperlink metadata independently from their rendered value.
 
   Supported forms include:
+
   - static URL strings
   - `{ target, tooltip?, style? }` objects
   - callback-based hyperlinks that can return a link or `null`
@@ -261,6 +298,7 @@
   The workbook builders now support workbook-level and sheet-level protection metadata, along with cell protection flags in styles.
 
   New capabilities include:
+
   - workbook `protection`
   - sheet `protection`
   - cell `protection.locked`
@@ -274,6 +312,7 @@
   Tables now support `defaults` for shared styling across headers, summaries, and cell protection states.
 
   This includes presets and overrides for:
+
   - headers
   - summary rows
   - locked cells
@@ -287,6 +326,7 @@
   The schema and workbook APIs now use a cleaner model for shared styling and runtime context.
 
   New capabilities include:
+
   - `defineSpreadsheetTheme(...)`
   - built-in themes via `spreadsheetThemes.*`
   - `theme.extend(...)` and `theme.slot(...)`
@@ -304,6 +344,7 @@
   The release also significantly expands the examples and documentation surface to match the richer API.
 
   Notable additions include:
+
   - showcase workbook examples replacing older legacy samples
   - dedicated docs for formulas, excel-table mode, validation, hyperlinks, protection, streaming, and performance
   - a new formula row-model doc that explains logical rows, physical rows, `refs.column(...)`, `row.series(...)`, and summary range semantics
@@ -316,6 +357,7 @@
   ## Constraints and important behavior changes
 
   There are a few important constraints to keep in mind with the new feature set:
+
   - formula scope remains predecessor-based; forward references are rejected
   - report-mode summary formulas are report-mode only; excel-table mode should use totals rows instead
   - excel-table mode does not support sub-row expansion
@@ -330,6 +372,7 @@
   In `1.x`, typed-xlsx was already a strong typed export builder with buffered and stream paths. In `2.0`, it becomes capable of authoring much more spreadsheet-native behavior without abandoning that same schema-first model.
 
   The end result is one API surface that now covers:
+
   - polished buffered reports
   - large streamed exports
   - formula-driven financial and operational workbooks
@@ -385,6 +428,7 @@
   This was a complete ground-up rewrite of the library. The old SheetJS / `xlsx-js-style` stack is gone, along with the architectural ceilings that came with it. Every layer from schema definition to layout planning to OOXML serialization and ZIP packaging was rebuilt from scratch to support type-safe modeling, deterministic output, and genuinely streamable large exports.
 
   Why this release mattered:
+
   - the previous `streaming: true` path still depended on an in-memory workbook model and could not scale predictably for large datasets
   - the old summary model depended on the full `rows: T[]` array, which made true streaming impossible
   - `key` was a typed path but could only point at a single field, forcing computed columns into separate transform steps
@@ -392,6 +436,7 @@
   - long-standing issues like `tablesPerRow`, freeze panes, ESM compatibility, and large-dataset behavior were rooted in the old engine and could not be fixed cleanly without replacing it
 
   Core API and modeling changes:
+
   - add `createExcelSchema()` as the new primary schema entry point with typed column ids, typed dot-path accessors, and function accessors at the definition site
   - replace `key` with `accessor`, unifying typed path access and computed value access in the same API
   - replace array-wide summary callbacks with reducer-style summaries built around `init`, `step`, and `finalize`
@@ -400,6 +445,7 @@
   - wire schema group context through workbook builders as part of the new typed schema system
 
   Workbook engine and output changes:
+
   - add `createWorkbook()` for rebuilt buffered exports on the new engine
   - add `createWorkbookStream()` for real commit-based large exports with incremental sheet writing
   - implement custom OOXML serialization for worksheets, shared strings, styles, relationships, and workbook metadata
@@ -408,6 +454,7 @@
   - add stream tuning options through `memoryProfile` and string-mode controls
 
   Layout, styling, and feature improvements:
+
   - support multi-row summaries and sparse summary rows
   - support row expansion for array-valued cells and the merge planning that goes with it
   - support freeze panes and RTL sheets in both buffered and streamed exports
@@ -416,6 +463,7 @@
   - add better width planning, row height estimation, and polished worksheet layout behavior
 
   Tooling, docs, and examples:
+
   - move the library into a Bun workspace package structure
   - migrate the docs site into the workspace and rewrite the getting-started, schema, workbook, streaming, performance, reference, and migration guides
   - add benchmark tooling for stream workloads
@@ -423,12 +471,14 @@
   - add broad coverage for the planner, OOXML layer, buffered API, streamed API, and large workbook smoke tests
 
   Fixed issues called out during the rewrite:
+
   - fix large dataset performance and memory pressure by introducing a genuinely bounded stream path
   - fix broken `tablesPerRow` layout behavior
   - fix TypeScript ESM compatibility problems in the public package
   - add support for freezing rows and columns
 
   Migration notes:
+
   - replace `ExcelSchemaBuilder.create<T>()` with `createExcelSchema<T>()`
   - replace `ExcelBuilder.create()` with `createWorkbook()` and use `createWorkbookStream()` for commit-based exports
   - replace `key` with `accessor`
