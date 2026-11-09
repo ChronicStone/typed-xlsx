@@ -215,6 +215,8 @@ export function writePivotTableXml(params: {
   fieldCount: number;
   /** Absolute top-left cell of the pivot, filters included. */
   anchor: { row: number; col: number };
+  /** Built-in style, or the custom style a theme registered. */
+  styleName: string;
   valueNames: readonly string[];
   valueNumFmtIds: readonly (number | undefined)[];
 }) {
@@ -291,7 +293,9 @@ export function writePivotTableXml(params: {
       colGrandTotals: definition.rowTotals ? undefined : 0,
       updatedVersion: 6,
       minRefreshableVersion: 3,
-      useAutoFormatting: 1,
+      // Keeps the column widths written with the pivot: Excel's autofit narrows them to the values
+      // and cuts long headers off.
+      useAutoFormatting: 0,
       itemPrintTitles: 1,
       createdVersion: 6,
       outline: 1,
@@ -345,12 +349,13 @@ export function writePivotTableXml(params: {
         ),
       ),
       xmlSelfClosing("pivotTableStyleInfo", {
-        name: definition.style,
+        name: params.styleName,
         showRowHeaders: 1,
         showColHeaders: 1,
-        showRowStripes: 0,
-        showColStripes: 0,
-        showLastColumn: 1,
+        showRowStripes: definition.banded?.rows ? 1 : 0,
+        showColStripes: definition.banded?.columns ? 1 : 0,
+        // A theme styles the last column as a grand total, so only when it is one.
+        showLastColumn: definition.theme && !(column && definition.columnTotals) ? 0 : 1,
       }),
     ],
   );

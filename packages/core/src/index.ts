@@ -69,6 +69,11 @@ export type {
   PivotValueOptions,
 } from "./pivot/types";
 export type {
+  PivotAreaStyle,
+  SpreadsheetPivotSlotName,
+  SpreadsheetTableSlotName,
+} from "./styles/theme";
+export type {
   LazyText,
   Accessor,
   AccessorValue,

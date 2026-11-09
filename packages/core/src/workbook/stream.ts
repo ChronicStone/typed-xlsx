@@ -132,6 +132,8 @@ interface StreamTableState<
   TSchemaContext extends SchemaContext,
 > {
   tableId: string;
+  /** Theme of the table, which its pivots follow unless they name a style or a theme. */
+  theme?: import("../styles/theme").SpreadsheetTheme;
   title?: string;
   context?: TSchemaContext;
   render?: import("./types").ReportTableRenderOptions;
@@ -310,6 +312,7 @@ class StreamTableBuilder<
               ? column.style.numFmt
               : undefined,
         })),
+        this.state.theme,
       ),
     );
     this.pivots.push(accumulator);
@@ -372,6 +375,7 @@ class StreamTableBuilder<
     const summaryBindings = createSummaryBindings(columns);
     this.state = {
       tableId,
+      theme: options?.theme ?? schema.theme,
       title,
       context,
       render: options?.render,

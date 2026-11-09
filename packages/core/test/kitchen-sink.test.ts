@@ -34,7 +34,8 @@ describe("kitchen sink examples", () => {
     expect(formulaColumnsSheet).toContain('sqref="H3:H6"');
     expect(formulaColumnsSheet).toContain("($H3&lt;1000)");
     expect(formulaColumnsSheet).toContain("AND(($H3&gt;=5000),(G3&gt;=0.85))");
-    expect(styles).toContain('<dxfs count="4"');
+    // Four conditional formats; the pivot styles add theirs after them.
+    expect(Number(/<dxfs count="(\d+)"/.exec(styles)?.[1])).toBeGreaterThanOrEqual(4);
     expect(styles).toContain("FFFEE2E2");
     expect(styles).toContain("FFDCFCE7");
   });
@@ -87,6 +88,9 @@ describe("kitchen sink examples", () => {
     expect(bufferedEntries.has("xl/pivotTables/pivotTable1.xml")).toBe(true);
     expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toContain(
       'showDataAs="percentOfTotal"',
+    );
+    expect(readWorkbookEntry(bufferedEntries, "xl/pivotTables/pivotTable2.xml")).toContain(
+      '<pivotTableStyleInfo name="typed-xlsx Pivot 1"',
     );
     expect(readWorkbookEntry(bufferedEntries, "xl/pivotCache/pivotCacheDefinition2.xml")).toContain(
       'groupBy="quarters"',

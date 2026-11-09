@@ -28,6 +28,10 @@ import {
   type PivotCacheSource,
 } from "../../ooxml/pivot";
 import type { StylesCollector } from "../../styles/collector";
+import { deepMerge } from "../../styles/merge";
+import type { CellStyle } from "../../styles/types";
+import type { SpreadsheetTheme } from "../../styles/theme";
+import { pivotStyleElements, pivotThemeSlots, themedPivotCellStyles } from "./pivot-theme";
 
 const AGGREGATES = new Set<PivotAggregate>(["sum", "count", "average", "min", "max"]);
 const SORTS = new Set<PivotSort>(["ascending", "descending", "source"]);
@@ -64,6 +68,8 @@ export function createPivotDefinition(
   id: string,
   spec: PivotSpec,
   columns: readonly PivotSourceColumn[],
+  /** Theme of the source table, which the pivot follows unless it names a style or a theme. */
+  sourceTheme?: SpreadsheetTheme,
 ): PivotDefinition {
   const options = spec.options as Record<string, any>;
   const label = `${spec.source.sheet}/${spec.source.table}`;
@@ -191,6 +197,13 @@ export function createPivotDefinition(
   const sort = (options.sort ?? "ascending") as PivotSort;
   if (!SORTS.has(sort)) throw new Error(`Pivot "${id}": unknown sort "${String(sort)}".`);
   const totals = options.totals as boolean | { row?: boolean; column?: boolean } | undefined;
+  const style = options.style as string | undefined;
+  const explicitTheme = options.theme as SpreadsheetTheme | undefined;
+  if (style !== undefined && explicitTheme !== undefined) {
+    throw new Error(`Pivot "${id}": takes a built-in style or a theme, not both.`);
+  }
+  const theme = explicitTheme ?? (style === undefined ? sourceTheme : undefined);
+  const banded = options.banded as boolean | { rows?: boolean; columns?: boolean } | undefined;
 
   return {
     id,
@@ -204,7 +217,12 @@ export function createPivotDefinition(
     rowTotals: typeof totals === "object" ? (totals.row ?? true) : (totals ?? true),
     columnTotals: typeof totals === "object" ? (totals.column ?? true) : (totals ?? true),
     grandTotalLabel: (options.grandTotalLabel as string | undefined) ?? "Grand Total",
-    style: (options.style as string | undefined) ?? DEFAULT_STYLE,
+    style: style ?? DEFAULT_STYLE,
+    ...(theme ? { theme: pivotThemeSlots(theme) } : {}),
+    banded: {
+      rows: typeof banded === "object" ? (banded.rows ?? false) : (banded ?? false),
+      columns: typeof banded === "object" ? (banded.columns ?? false) : false,
+    },
   };
 }
 
@@ -278,8 +296,48 @@ export function renderPivot(params: {
     return style;
   };
 
+  const themed = definition.theme
+    ? themedPivotCellStyles(layout, definition, definition.theme)
+    : undefined;
+  const styleName = definition.theme
+    ? styles.addPivotTableStyle(pivotStyleElements(definition.theme))
+    : definition.style;
+  const themedStyle = (cell: (typeof layout.cells)[number]) => {
+    const format =
+      cell.valueIndex === undefined ? undefined : definition.values[cell.valueIndex]!.format;
+    return styles.addStyle(
+      deepMerge<CellStyle>(
+        themed!.get(`${cell.row},${cell.col}`),
+        format ? { numFmt: format } : undefined,
+        cell.role === "label" && cell.depth
+          ? { alignment: { horizontal: "left", indent: cell.depth } }
+          : undefined,
+      ),
+    );
+  };
+
   const cells = new Map<number, string[]>();
+  const put = (row: number, xml: string) => {
+    if (!xml) return;
+    const entries = cells.get(row) ?? [];
+    entries.push(xml);
+    cells.set(row, entries);
+  };
+  const written = new Set<string>();
   for (const cell of layout.cells) {
+    written.add(`${cell.row},${cell.col}`);
+    if (themed) {
+      put(
+        anchor.row + cell.row,
+        serializePivotCell(
+          anchor.row + cell.row,
+          anchor.col + cell.col,
+          cell.value,
+          themedStyle(cell),
+        ),
+      );
+      continue;
+    }
     const style =
       cell.role === "header" || (cell.role === "total" && cell.valueIndex === undefined)
         ? boldStyle
@@ -293,11 +351,16 @@ export function renderPivot(params: {
                 ? boldStyle
                 : undefined;
     const row = anchor.row + cell.row;
-    const xml = serializePivotCell(row, anchor.col + cell.col, cell.value, style);
-    if (!xml) continue;
-    const entries = cells.get(row) ?? [];
-    entries.push(xml);
-    cells.set(row, entries);
+    put(row, serializePivotCell(row, anchor.col + cell.col, cell.value, style));
+  }
+  // A themed pivot fills its whole area, so empty cells get the body's fill and borders too.
+  for (const [key, style] of themed ?? []) {
+    if (written.has(key)) continue;
+    const [row, col] = key.split(",").map(Number) as [number, number];
+    put(
+      anchor.row + row,
+      serializePivotCell(anchor.row + row, anchor.col + col, null, styles.addStyle(style)),
+    );
   }
 
   return {
@@ -317,6 +380,7 @@ export function renderPivot(params: {
       layout,
       fieldCount: pivotCacheFieldCount(definition),
       anchor,
+      styleName,
       valueNames: definition.values.map((value) => value.name),
       valueNumFmtIds: definition.values.map((value) =>
         value.format ? styles.numberFormatId(value.format) : undefined,

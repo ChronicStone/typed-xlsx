@@ -16,7 +16,13 @@ import type {
   SchemaColumnValues,
   SchemaGroupContext,
 } from "../src";
-import { createExcelSchema, createWorkbook, createWorkbookStream } from "../src";
+import {
+  createExcelSchema,
+  createWorkbook,
+  createWorkbookStream,
+  defineSpreadsheetTheme,
+  spreadsheetThemes,
+} from "../src";
 
 // ── Path<T> ──────────────────────────────────────────────────────────────────
 
@@ -1438,6 +1444,76 @@ datedCheck
       rows: ["region"],
       // @ts-expect-error - unknown "show" value
       values: { revenue: { aggregate: "sum", show: "percentOfGrandTotal" } },
+    }),
+  );
+
+// valid: pivot themes bind to table slots and take their own pivot slots
+const pivotBrand = defineSpreadsheetTheme({
+  slots: {
+    header: { fill: { color: { rgb: "0B1220" } } },
+    pivotFrame: { border: { top: { style: "medium" }, bottom: { style: "medium" } } },
+    pivotTotal: ({ tokens }) => ({ fill: { color: { rgb: tokens.colors.summaryFill } } }),
+    pivotHeader: { font: { italic: true } },
+  },
+});
+
+createWorkbook()
+  .sheet("Sales")
+  .table("sales", { schema: datedSaleSchema, rows: [], theme: spreadsheetThemes.slate })
+  .pivot("byRegion", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      values: { revenue: "sum" },
+      theme: pivotBrand,
+      banded: { rows: true, columns: false },
+    }),
+  )
+  .pivot("builtIn", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      values: { revenue: "sum" },
+      style: "PivotStyleMedium9",
+      banded: true,
+    }),
+  );
+
+defineSpreadsheetTheme({
+  slots: {
+    // @ts-expect-error - Excel draws a pivot header's border on its first row only
+    pivotHeader: { border: { bottom: { style: "thin" } } },
+  },
+});
+defineSpreadsheetTheme({
+  slots: {
+    // @ts-expect-error - a pivot style cannot change number formats
+    pivotTotal: { numFmt: "0.0" },
+  },
+});
+spreadsheetThemes.slate.extend({
+  slots: {
+    // @ts-expect-error - a pivot style cannot change font sizes
+    pivotBody: { font: { size: 14 } },
+  },
+});
+
+datedCheck
+  .pivot("styleAndTheme", ({ refs }) =>
+    refs
+      .table("sales")
+      // @ts-expect-error - a pivot takes a built-in style or a theme, not both
+      .pivot({
+        rows: ["region"],
+        values: { revenue: "sum" },
+        style: "PivotStyleMedium9",
+        theme: spreadsheetThemes.slate,
+      }),
+  )
+  .pivot("badBanding", ({ refs }) =>
+    refs.table("sales").pivot({
+      rows: ["region"],
+      values: { revenue: "sum" },
+      // @ts-expect-error - banded takes a boolean or { rows, columns }
+      banded: "rows",
     }),
   );
 

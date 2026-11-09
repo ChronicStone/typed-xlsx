@@ -7,6 +7,7 @@ import {
   createKitchenSinkOrderLineRows,
 } from "./data";
 import {
+  kitchenSinkPivotTheme,
   kitchenSinkFormulaColumnSchema,
   kitchenSinkFormulaSummarySchema,
   kitchenSinkGroupedFormulaSchema,
@@ -411,6 +412,8 @@ export async function buildKitchenSinkStreamExample() {
     orderLines.pivot({
       rows: [{ field: "shippedAt", by: ["year", "quarter"] }],
       values: { lineTotal: ["sum", { aggregate: "sum", show: "percentOfTotal" }] },
+      theme: kitchenSinkPivotTheme,
+      banded: true,
     }),
   );
   for (const rows of allOrderBatches) {

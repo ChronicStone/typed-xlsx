@@ -4,6 +4,7 @@ import type {
   ChartDateColumn,
   ChartMark,
 } from "../chart/types";
+import type { SpreadsheetTheme } from "../styles/theme";
 
 // ── Options ──────────────────────────────────────────────────────────────────
 
@@ -97,8 +98,15 @@ export interface PivotOptions<TColumns> {
   sort?: PivotSort;
   /** Grand totals. Defaults to `true` for both. `{ row: false }` hides the bottom row, `{ column: false }` the right column. */
   totals?: boolean | { row?: boolean; column?: boolean };
-  /** Pivot table style. Defaults to `"PivotStyleLight16"`, Excel's default. */
+  /**
+   * Built-in Excel pivot style, such as `"PivotStyleMedium9"`. Without `style` or `theme`, the pivot
+   * follows the theme of its source table, or Excel's default `"PivotStyleLight16"` when it has none.
+   */
   style?: PivotTableStyle;
+  /** Theme whose `pivot*` slots style the pivot. Defaults to the source table's theme. */
+  theme?: SpreadsheetTheme;
+  /** Banded rows or columns, coloured by the style or the theme's `pivotStripe` slot. */
+  banded?: boolean | { rows?: boolean; columns?: boolean };
   /** Label of the grand totals. Defaults to `"Grand Total"`. */
   grandTotalLabel?: string;
   /** Top-left cell, such as `"A3"`. Defaults to below the sheet's tables. */
@@ -136,6 +144,9 @@ type PivotOptionProblems<TOptions> =
       : never)
   | (TOptions extends { columns: readonly [unknown, unknown, ...unknown[]] }
       ? "a pivot takes at most one column field"
+      : never)
+  | (TOptions extends { style: string; theme: object }
+      ? "a pivot takes a built-in style or a theme, not both"
       : never)
   | (TOptions extends { values: infer TValues }
       ? "percentOfRow" extends ShownAs<TValues>

@@ -1,5 +1,6 @@
 import type { PrimitiveCellValue } from "../schema/builder";
 import { pivotDateKey, pivotDateLabel } from "./dates";
+import type { PivotAreaStyle, SpreadsheetPivotSlotName } from "../styles/theme";
 import type { PivotAggregate, PivotDateUnit, PivotShowAs, PivotSort } from "./types";
 
 /** A source cell whose value only Excel knows, such as a report-mode formula. */
@@ -43,7 +44,11 @@ export interface PivotDefinition {
   rowTotals: boolean;
   columnTotals: boolean;
   grandTotalLabel: string;
+  /** Built-in style, used when no theme styles the pivot. */
   style: string;
+  /** Pivot slots of the theme that styles the pivot. */
+  theme?: Record<SpreadsheetPivotSlotName, PivotAreaStyle>;
+  banded?: { rows: boolean; columns: boolean };
 }
 
 interface Accumulator {

@@ -1,4 +1,9 @@
-import { createExcelSchema, type CellStyle, type TableStyleDefaults } from "../../../src";
+import {
+  createExcelSchema,
+  spreadsheetThemes,
+  type CellStyle,
+  type TableStyleDefaults,
+} from "../../../src";
 import type { KitchenSinkOrder, KitchenSinkProductImageRow, KitchenSinkSparklineRow } from "./data";
 
 const headerStyle: CellStyle = {
@@ -849,6 +854,17 @@ export type KitchenSinkOrderLineRow = {
   quantity: number;
   lineTotal: number;
 };
+
+const navyFrame = { style: "medium" as const, color: { rgb: "0B1220" } };
+
+/** Pivot theme: slate's colours, framed in navy. */
+export const kitchenSinkPivotTheme = spreadsheetThemes.slate.extend({
+  slots: {
+    pivotFrame: {
+      border: { top: navyFrame, right: navyFrame, bottom: navyFrame, left: navyFrame },
+    },
+  },
+});
 
 export const kitchenSinkOrderLineSchema = createExcelSchema<KitchenSinkOrderLineRow>()
   .column("shippedAt", {

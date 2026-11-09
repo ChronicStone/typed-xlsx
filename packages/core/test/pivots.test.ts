@@ -1,6 +1,12 @@
 import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import { createExcelSchema, createWorkbook, createWorkbookStream } from "../src";
+import {
+  createExcelSchema,
+  createWorkbook,
+  createWorkbookStream,
+  defineSpreadsheetTheme,
+  spreadsheetThemes,
+} from "../src";
 import {
   layoutPivot,
   PivotAccumulator,
@@ -347,6 +353,8 @@ describe("workbook pivots", () => {
     // "Orders" is also a source field name, so Excel's own workaround applies: a trailing space.
     expect(table).toContain('<dataField name="Orders " fld="5" subtotal="count"');
     expect(table).not.toContain("sortType");
+    // Excel keeps the written column widths instead of narrowing them to the values.
+    expect(table).toContain('useAutoFormatting="0"');
 
     const sheet = text("xl/worksheets/sheet2.xml");
     expect(sheet).toMatch(/<c r="A1" t="inlineStr" s="\d+"><is><t>Channel<\/t>/);
@@ -505,6 +513,207 @@ describe("grouped dates and percentages", () => {
     expect(() =>
       bad({ rows: ["region"], values: { revenue: { aggregate: "sum", show: "percentOfRow" } } }),
     ).toThrow('Pivot "bad": "percentOfRow" needs a column field: without one, every row is 100%.');
+  });
+});
+
+const thin = (rgb: string) => ({ style: "thin" as const, color: { rgb } });
+const medium = (rgb: string) => ({ style: "medium" as const, color: { rgb } });
+const allSides = <T>(side: T) => ({ top: side, right: side, bottom: side, left: side });
+
+/** The dxf of each element of a custom pivot style, by element type. */
+function pivotStyleDxfs(stylesXml: string, styleName: string) {
+  const dxfs = [
+    .../<dxfs count="\d+">(.*?)<\/dxfs>/.exec(stylesXml)![1]!.matchAll(/<dxf>.*?<\/dxf>/g),
+  ].map((match) => match[0]);
+  const body = new RegExp(`<tableStyle name="${styleName}"[^>]*>(.*?)</tableStyle>`).exec(
+    stylesXml,
+  )![1]!;
+  return Object.fromEntries(
+    [...body.matchAll(/type="(\w+)" dxfId="(\d+)"/g)].map((match) => [
+      match[1]!,
+      dxfs[Number(match[2])]!,
+    ]),
+  );
+}
+
+describe("pivot themes", () => {
+  it("binds pivot slots to table slots, and keeps following them when a theme is extended", () => {
+    const theme = defineSpreadsheetTheme();
+    expect(theme.slots.pivotHeader).toEqual({
+      font: { bold: true, color: { rgb: "1E3A8A" } },
+      fill: { color: { rgb: "DBEAFE" } },
+    });
+    expect(theme.slots.pivotBody).toEqual({ border: theme.slots.cellBase.border });
+    expect(theme.slots.pivotTotal).toEqual({
+      font: theme.slots.summary.font,
+      fill: theme.slots.summary.fill,
+      border: theme.slots.summary.border,
+    });
+    expect(theme.slots.pivotStripe).toEqual({ fill: { color: { rgb: "F1F5F9" } } });
+
+    // An override sits on top of the binding, which still follows the table slot.
+    const branded = theme
+      .extend({ slots: { pivotHeader: { font: { italic: true } } } })
+      .extend({ slots: { header: { fill: { color: { rgb: "0B1220" } } } } });
+    expect(branded.slots.pivotHeader).toEqual({
+      font: { bold: true, italic: true, color: { rgb: "1E3A8A" } },
+      fill: { color: { rgb: "0B1220" } },
+    });
+
+    // What a pivot style cannot use is dropped, also from untyped input.
+    const loose = theme.extend({
+      slots: {
+        pivotHeader: { border: allSides(thin("000000")) } as never,
+        pivotTotal: { numFmt: "0.0", alignment: { horizontal: "left" } } as never,
+      },
+    });
+    expect(loose.slots.pivotHeader).toEqual(theme.slots.pivotHeader);
+    expect(loose.slots.pivotTotal).toEqual(theme.slots.pivotTotal);
+  });
+
+  it("follows the source table's theme, and fills the whole pivot before Excel refreshes it", () => {
+    const themed = createExcelSchema<Sale>()
+      .theme(spreadsheetThemes.slate)
+      .column("region", { header: "Region", accessor: "region" })
+      .column("month", { header: "Month", accessor: "month" })
+      .column("revenue", { header: "Revenue", accessor: "revenue" })
+      .build();
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Sales")
+        .table("sales", { schema: themed, rows })
+        .pivot("byRegion", ({ refs }) =>
+          refs.table("sales").pivot({
+            rows: ["region"],
+            columns: ["month"],
+            values: { revenue: "sum" },
+            at: "A10",
+          }),
+        )
+        .toUint8Array(),
+    );
+
+    const styles = text("xl/styles.xml");
+    const table = text("xl/pivotTables/pivotTable1.xml");
+    expect(table).toContain(
+      '<pivotTableStyleInfo name="typed-xlsx Pivot 1" showRowHeaders="1" showColHeaders="1" showRowStripes="0" showColStripes="0" showLastColumn="1"/>',
+    );
+    const elements = pivotStyleDxfs(styles, "typed-xlsx Pivot 1");
+    expect(elements.headerRow).toContain('<fgColor rgb="FF0B1220"/><bgColor rgb="FF0B1220"/>');
+    expect(elements.headerRow).not.toContain("<border>");
+    expect(elements.wholeTable).toContain(
+      '<vertical style="thin"><color rgb="FF000000"/></vertical>',
+    );
+    expect(elements.totalRow).toContain('<fgColor rgb="FFE0E7FF"/>');
+
+    // Header rows A10:D11, three regions, the grand total: every cell of A10:D15 is written.
+    const sheet = text("xl/worksheets/sheet1.xml");
+    for (const column of ["A", "B", "C", "D"]) {
+      for (let row = 10; row <= 15; row += 1) expect(sheet).toContain(`<c r="${column}${row}"`);
+    }
+  });
+
+  it("lets a built-in style or another theme replace the table's, and bands rows", () => {
+    const pivotStyle = (options: Record<string, unknown>, schema = salesSchema) => {
+      const { text } = readParts(
+        createWorkbook()
+          .sheet("Sales")
+          .table("sales", { schema, rows, theme: spreadsheetThemes.slate })
+          .pivot("p", ({ refs }) =>
+            refs
+              .table("sales")
+              .pivot({ rows: ["region"], values: { revenue: "sum" }, ...options } as never),
+          )
+          .toUint8Array(),
+      );
+      return {
+        info: /<pivotTableStyleInfo[^>]*>/.exec(text("xl/pivotTables/pivotTable1.xml"))![0],
+        styles: text("xl/styles.xml"),
+      };
+    };
+
+    const builtIn = pivotStyle({ style: "PivotStyleMedium9", banded: true });
+    expect(builtIn.info).toContain('name="PivotStyleMedium9"');
+    expect(builtIn.info).toContain('showRowStripes="1"');
+    expect(builtIn.styles).not.toContain("<tableStyles");
+
+    const forest = pivotStyle({ theme: spreadsheetThemes.forest, banded: { columns: true } });
+    expect(forest.info).toContain('name="typed-xlsx Pivot 1"');
+    expect(forest.info).toContain('showRowStripes="0" showColStripes="1"');
+    // Without a column field the last column holds values, so it is not styled as a total.
+    expect(forest.info).toContain('showLastColumn="0"');
+    expect(pivotStyleDxfs(forest.styles, "typed-xlsx Pivot 1").headerRow).toContain("FFDCFCE7");
+
+    expect(() =>
+      pivotStyle({ style: "PivotStyleMedium9", theme: spreadsheetThemes.forest }),
+    ).toThrow('Pivot "p": takes a built-in style or a theme, not both.');
+  });
+
+  it("keeps Excel's default style for tables without a theme", () => {
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Sales")
+        .table("sales", { schema: salesSchema, rows })
+        .pivot("p", ({ refs }) =>
+          refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" } }),
+        )
+        .toUint8Array(),
+    );
+    expect(text("xl/pivotTables/pivotTable1.xml")).toContain('name="PivotStyleLight16"');
+    expect(text("xl/styles.xml")).not.toContain("<tableStyles");
+  });
+
+  it("draws the frame along every edge, totals included", () => {
+    const framed = spreadsheetThemes.slate.extend({
+      slots: {
+        pivotFrame: { border: allSides(medium("0B1220")) },
+        pivotBody: { border: allSides(thin("CBD5E1")) },
+      },
+    });
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Sales")
+        .table("sales", { schema: salesSchema, rows })
+        .pivot("p", ({ refs }) =>
+          refs.table("sales").pivot({
+            rows: ["region"],
+            columns: ["month"],
+            values: { revenue: "sum" },
+            theme: framed,
+          }),
+        )
+        .toUint8Array(),
+    );
+    const elements = pivotStyleDxfs(text("xl/styles.xml"), "typed-xlsx Pivot 1");
+    expect(elements.wholeTable).toBe(
+      '<dxf><border><left style="medium"><color rgb="FF0B1220"/></left><right style="medium"><color rgb="FF0B1220"/></right><top style="medium"><color rgb="FF0B1220"/></top><bottom style="medium"><color rgb="FF0B1220"/></bottom><diagonal/><vertical style="thin"><color rgb="FFCBD5E1"/></vertical><horizontal style="thin"><color rgb="FFCBD5E1"/></horizontal></border></dxf>',
+    );
+    // The totals keep their own lines inside, and the frame along the pivot's edges.
+    expect(elements.totalRow).toContain('<bottom style="medium"><color rgb="FF0B1220"/></bottom>');
+    expect(elements.totalRow).toContain('<top style="thin"><color rgb="FF000000"/></top>');
+    expect(elements.lastColumn).toContain('<right style="medium"><color rgb="FF0B1220"/></right>');
+  });
+
+  it("styles pivots of streamed tables with their theme", async () => {
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const sales = await workbook
+      .sheet("Sales")
+      .table("sales", { schema: salesSchema, theme: spreadsheetThemes.rose });
+    workbook
+      .sheet("Analysis")
+      .pivot(
+        "byRegion",
+        sales.pivot({ rows: ["region"], values: { revenue: "sum" }, banded: true }),
+      );
+    await sales.commit({ rows });
+
+    const { text } = readParts(await streamBytes(workbook));
+    expect(text("xl/pivotTables/pivotTable1.xml")).toContain(
+      'name="typed-xlsx Pivot 1" showRowHeaders="1" showColHeaders="1" showRowStripes="1"',
+    );
+    expect(pivotStyleDxfs(text("xl/styles.xml"), "typed-xlsx Pivot 1").headerRow).toContain(
+      "FF7F1D1D",
+    );
   });
 });
 

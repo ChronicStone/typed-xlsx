@@ -10,6 +10,7 @@ import { layoutPivot, PivotAccumulator, type PivotSourceValue } from "../../pivo
 import type { PivotPlan } from "../../pivot/types";
 import { toCellRef } from "../../ooxml/cells";
 import type { StylesCollector } from "../../styles/collector";
+import type { SpreadsheetTheme } from "../../styles/theme";
 import type { BufferedSheetPlan, BufferedTablePlan, SheetLayoutOptions } from "../types";
 import { layoutTables, type LayoutTableLike, type PositionedTable } from "./layout";
 import {
@@ -65,6 +66,8 @@ interface PivotSource {
   physicalRowCount: number;
   logicalRowCount: number;
   read?: (row: number, column: number) => PivotSourceValue;
+  /** Theme of the table, which its pivots follow unless they name a style or a theme. */
+  theme?: SpreadsheetTheme;
 }
 
 class PivotSources {
@@ -126,7 +129,9 @@ function placePivots(params: {
     const source = params.sources.locate(plan.id, plan.spec.source.sheet, plan.spec.source.table);
     let accumulator = plan.accumulator;
     if (!accumulator) {
-      accumulator = new PivotAccumulator(createPivotDefinition(plan.id, plan.spec, source.columns));
+      accumulator = new PivotAccumulator(
+        createPivotDefinition(plan.id, plan.spec, source.columns, source.theme),
+      );
       for (let row = 0; row < source.physicalRowCount; row += 1) {
         accumulator.add((column) => source.read!(row, column));
       }
@@ -202,6 +207,7 @@ export function resolveBufferedWorkbookObjects(
           format: staticFormat(column.style),
         })),
         read: (row, column) => pivotValueOf(table.planner.rows[row]!.cells[column]?.value),
+        theme: table.theme,
       });
     }
     return sheetExtent(positioned);
