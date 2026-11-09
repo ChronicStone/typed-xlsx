@@ -171,10 +171,10 @@ export function serializeWorksheet(
         writeWorksheetConditionalFormatting(conditionalFormatting, styles),
         writeWorksheetDataValidations(dataValidations),
         writeWorksheetHyperlinks(partitionedHyperlinks.worksheetHyperlinks),
-        writeWorksheetTableParts(tableParts),
         writeWorksheetDrawing(
           images.length > 0 || (sheet.charts?.length ?? 0) > 0 ? "rIdDrawing1" : undefined,
         ),
+        writeWorksheetTableParts(tableParts),
         writeWorksheetSparklines(sparklineGroups),
       ],
     ),

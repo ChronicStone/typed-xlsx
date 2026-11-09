@@ -600,6 +600,7 @@ class PublicWorkbookStream implements WorkbookStream {
   private async startOutput(sink: {
     write(chunk: Uint8Array): Promise<void>;
     close(): Promise<void>;
+    fail?(error: Error): void;
   }) {
     if (this.outputStarted) {
       throw new Error("Workbook stream output has already started.");
@@ -609,7 +610,12 @@ class PublicWorkbookStream implements WorkbookStream {
     try {
       await this.workbook.finish(sink);
     } catch (error) {
-      await Promise.allSettled([this.workbook.dispose(), sink.close()]);
+      // A byte stream must end with the error; closing it first would hand readers an empty file.
+      const failure = error instanceof Error ? error : new Error(String(error));
+      await Promise.allSettled([
+        this.workbook.dispose(),
+        sink.fail ? Promise.resolve(sink.fail(failure)) : sink.close(),
+      ]);
       throw error;
     }
   }

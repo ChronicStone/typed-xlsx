@@ -1389,7 +1389,7 @@ async function* streamWorksheetXml(
   yield* flushWorksheetRows(rowMap, rowHeights);
 
   yield encodeXml(
-    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetTableParts(tableParts)}${writeWorksheetDrawing(drawingRelId)}${writeWorksheetSparklines(sparklineGroups)}</worksheet>`,
+    `</sheetData>${writeWorksheetProtection(sheet.protection)}${autoFilter}${writeWorksheetMerges(merges)}${writeWorksheetConditionalFormatting(conditionalFormatting, styles)}${writeWorksheetDataValidations(dataValidations)}${writeWorksheetHyperlinks(hyperlinks.worksheetHyperlinks)}${writeWorksheetDrawing(drawingRelId)}${writeWorksheetTableParts(tableParts)}${writeWorksheetSparklines(sparklineGroups)}</worksheet>`,
   );
 }
 

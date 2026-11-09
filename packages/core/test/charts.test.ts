@@ -300,6 +300,25 @@ describe("workbook charts", () => {
     expect(xml).toContain("<c:numLit>");
   });
 
+  it("writes <drawing> before <tableParts>, as the worksheet schema requires", () => {
+    const excelSchema = createExcelSchema<TargetRow>({ mode: "excel-table" })
+      .column("month", { header: "Month", accessor: "month" })
+      .column("target", { header: "Target", accessor: "target" })
+      .build();
+    const sheet = readParts(
+      createWorkbook()
+        .sheet("Targets")
+        .table("targets", { schema: excelSchema, rows: targets })
+        .chart("targets", ({ refs }) => ({
+          marks: [refs.table("targets").bar({ x: "month", y: "target" })],
+        }))
+        .toUint8Array(),
+    ).text("xl/worksheets/sheet1.xml");
+
+    expect(sheet.indexOf("<drawing ")).toBeGreaterThan(-1);
+    expect(sheet.indexOf("<drawing ")).toBeLessThan(sheet.indexOf("<tableParts"));
+  });
+
   it("refuses marks whose rows do not line up", () => {
     const workbook = createWorkbook()
       .sheet("2026")
@@ -389,5 +408,21 @@ describe("streamed workbook charts", () => {
       "'Goals'!$B$2:$B$4",
     ]);
     expect(text("xl/worksheets/sheet3.xml")).toContain('<drawing r:id="rIdDrawing1"/>');
+  });
+
+  it("refuses streamed marks with different row counts", async () => {
+    const workbook = createWorkbookStream({ tempStorage: "memory" });
+    const sheet = workbook.sheet("Sales");
+    const sales = await sheet.table("sales", { schema: monthlySchema });
+    const goals = await sheet.table("targets", { schema: targetSchema });
+    await sales.commit({ rows });
+    await goals.commit({ rows: targets.slice(0, 2) });
+    sheet.chart("performance", {
+      marks: [sales.bar({ x: "month", y: "revenue" }), goals.line({ x: "month", y: "target" })],
+    });
+
+    await expect(streamBytes(workbook)).rejects.toThrow(
+      'Chart "performance": "Sales/targets" has 2 categories but "Sales/sales" has 3.',
+    );
   });
 });
