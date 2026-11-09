@@ -324,6 +324,11 @@ export interface PivotLayout {
   /** Body rows, without the grand total. */
   body: { firstRow: number; lastRow: number };
   dataColumns: PivotDataColumn[];
+  /**
+   * Body rows of innermost row items, with the labels of their whole path, outermost first.
+   * Other body rows are the subtotals of outer items.
+   */
+  leaves: Array<{ row: number; labels: string[] }>;
   columnWidths: number[];
   /** Display order of each axis or filter field's items, as cache item indexes. */
   order: Map<number, number[]>;
@@ -455,6 +460,7 @@ export function layoutPivot(accumulator: PivotAccumulator): PivotLayout {
 
   let row = top + headerRows;
   const bodyFirstRow = row;
+  const leaves: PivotLayout["leaves"] = [];
   const writeValues = (rowIndex: number, depth: number, prefix: number[], role: PivotCellRole) => {
     dataColumns.forEach((entry, index) => {
       put({
@@ -478,6 +484,11 @@ export function layoutPivot(accumulator: PivotAccumulator): PivotLayout {
         depth: prefix.length,
       });
       writeValues(row, path.length, path, "value");
+      if (path.length === rows.length)
+        leaves.push({
+          row,
+          labels: path.map((entry, depth) => String(accumulator.label(rows[depth]!, entry) ?? "")),
+        });
       row += 1;
       if (path.length < rows.length) visit(path);
     }
@@ -514,6 +525,7 @@ export function layoutPivot(accumulator: PivotAccumulator): PivotLayout {
       headerRow: dataColumnHeaderRow[index]!,
       total: entry.total,
     })),
+    leaves,
     columnWidths: columnWidths.map((width) => Math.min(Math.max(width, 6), 60)),
     order,
   };

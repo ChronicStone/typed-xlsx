@@ -410,6 +410,41 @@ describe("workbook pivots", () => {
     expect(chart).toContain("<c:f>&apos;Analysis&apos;!$C$5:$C$7</c:f>");
   });
 
+  it("caches only innermost items in charts of pivots with nested rows", () => {
+    const { text } = readParts(
+      createWorkbook()
+        .sheet("Sales")
+        .table("sales", { schema: datedSchema, rows: datedRows })
+        .sheet("Analysis")
+        .pivot("byQuarter", ({ refs }) =>
+          refs
+            .sheet("Sales")
+            .table("sales")
+            .pivot({
+              rows: [{ field: "orderedAt", by: ["year", "quarter"] }],
+              values: { revenue: "sum" },
+            }),
+        )
+        .chart("chart", ({ refs }) => ({ marks: [refs.pivot("byQuarter").bar()] }))
+        .toUint8Array(),
+    );
+    const chart = text("xl/charts/chart1.xml");
+    // Years are subtotal rows in the pivot: they label groups of quarters instead of being bars.
+    const cache = chart.match(/<c:multiLvlStrCache>(.*?)<\/c:multiLvlStrCache>/)?.[1] ?? "";
+    const [quarters, years] = [...cache.matchAll(/<c:lvl>(.*?)<\/c:lvl>/g)].map((m) =>
+      [...m[1]!.matchAll(/<c:v>(.*?)<\/c:v>/g)].map((v) => v[1]),
+    );
+    const count = Number(cache.match(/<c:ptCount val="(\d+)"\/>/)?.[1]);
+    expect(years).toEqual(["2024", "2025"]);
+    expect(quarters).toHaveLength(count);
+    expect(quarters!.every((label) => /^Qtr[1-4]$/.test(label!))).toBe(true);
+    const values = chart.match(/<c:numCache>.*?<\/c:numCache>/)?.[0] ?? "";
+    expect(values).toContain(`<c:ptCount val="${count}"/>`);
+    // The bars add up to the grand total, so no subtotal is counted twice.
+    const sum = [...values.matchAll(/<c:v>([\d.]+)<\/c:v>/g)].reduce((t, m) => t + Number(m[1]), 0);
+    expect(sum).toBe(datedRows.reduce((t, row) => t + row.revenue, 0));
+  });
+
   it("explains what it cannot pivot", () => {
     const bad = (pivot: (sales: any) => any) =>
       createWorkbook()

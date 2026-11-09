@@ -117,6 +117,11 @@ export interface ChartDataRef {
   count: number;
   /** Cached values, when known. */
   values?: readonly PrimitiveCellValue[];
+  /**
+   * Multi-level category labels, innermost level first. Each level has `count` entries; outer
+   * levels name a group on its first entry only.
+   */
+  levels?: ReadonlyArray<ReadonlyArray<string | null>>;
 }
 
 export interface ChartSeriesName {
@@ -644,7 +649,33 @@ function resolvePivotChart(
             (_, offset) => valueAt.get(`${layout.body.firstRow + offset},${col}`) ?? null,
           ),
         };
-  const categories = columnRange(0);
+  // With nested row fields, the body interleaves subtotal rows of outer items. The chart range
+  // stays the whole body, which Excel rebuilds from the pivot, but the caches that apps without
+  // pivot refresh draw from hold the innermost items only, labelled by their path.
+  const nested = layout.leaves.length < bodyRows;
+  const leafRange = (col: number): ChartDataRef => ({
+    ...columnRange(col),
+    count: layout.leaves.length,
+    values: layout.leaves.map((leaf) => valueAt.get(`${leaf.row},${col}`) ?? null),
+  });
+  const categories: ChartDataRef = nested
+    ? {
+        ...leafRange(0),
+        values: layout.leaves.map((leaf) => leaf.labels[leaf.labels.length - 1] ?? ""),
+        levels: Array.from({ length: layout.leaves[0]?.labels.length ?? 1 }, (_, fromInner) => {
+          const depth = (layout.leaves[0]?.labels.length ?? 1) - 1 - fromInner;
+          return layout.leaves.map((leaf, i) => {
+            const previous = layout.leaves[i - 1];
+            const sameGroup =
+              fromInner > 0 &&
+              previous !== undefined &&
+              previous.labels.slice(0, depth + 1).join("\u0000") ===
+                leaf.labels.slice(0, depth + 1).join("\u0000");
+            return sameGroup ? null : (leaf.labels[depth] ?? "");
+          });
+        }),
+      }
+    : columnRange(0);
   const labels = resolveLabels(options.labels);
   const pie = mark.type === "pie" || mark.type === "doughnut";
   const dataColumns = layout.dataColumns.filter((column) => !column.total);
@@ -657,7 +688,7 @@ function resolvePivotChart(
       ),
     },
     categories,
-    values: columnRange(column.col),
+    values: nested ? leafRange(column.col) : columnRange(column.col),
     ...(options.smooth !== undefined ? { smooth: Boolean(options.smooth) } : {}),
     ...(options.markers !== undefined ? { markers: Boolean(options.markers) } : {}),
     ...(labels ? { labels } : {}),

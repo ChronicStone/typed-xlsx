@@ -97,7 +97,28 @@ function textData(ref: ChartDataRef) {
   ]);
 }
 
+function multiLevelData(ref: ChartDataRef & { formula: string }) {
+  return xmlElement("c:multiLvlStrRef", undefined, [
+    xmlElement("c:f", undefined, xmlEscape(ref.formula)),
+    xmlElement("c:multiLvlStrCache", undefined, [
+      val("c:ptCount", ref.count),
+      ...(ref.levels ?? []).map((level) =>
+        xmlElement(
+          "c:lvl",
+          undefined,
+          level.flatMap((label, idx) =>
+            label === null
+              ? []
+              : [xmlElement("c:pt", { idx }, xmlElement("c:v", undefined, xmlEscape(label)))],
+          ),
+        ),
+      ),
+    ]),
+  ]);
+}
+
 function categoryData(ref: ChartDataRef) {
+  if (ref.levels && ref.formula) return multiLevelData({ ...ref, formula: ref.formula });
   const present = (ref.values ?? []).filter(
     (value) => value !== null && value !== undefined && value !== "",
   );
