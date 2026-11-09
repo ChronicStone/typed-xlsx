@@ -180,6 +180,16 @@ export class StylesCollector {
   private readonly dxfMap = new Map<string, number>();
   private readonly numFmtIds = new Map<string, number>();
   private nextNumFmtId = 164;
+  /** Set once `styles.xml` is written: a style added later would have no entry in it. */
+  private written = false;
+
+  private assertNotWritten(kind: string) {
+    if (this.written) {
+      throw new Error(
+        `typed-xlsx: a ${kind} was registered after styles.xml was written. This is a bug in typed-xlsx; please report it.`,
+      );
+    }
+  }
 
   addStyle(style?: CellStyle) {
     if (!style) return 0;
@@ -200,6 +210,7 @@ export class StylesCollector {
     const existing = this.xfMap.get(key);
     if (existing !== undefined) return existing;
 
+    this.assertNotWritten("cell style");
     const index = this.xfs.length;
     this.xfs.push({
       key,
@@ -222,6 +233,7 @@ export class StylesCollector {
     const existing = this.dxfMap.get(key);
     if (existing !== undefined) return existing;
 
+    this.assertNotWritten("conditional formatting style");
     const index = this.dxfs.length;
     this.dxfs.push({ key, style });
     this.dxfMap.set(key, index);
@@ -262,6 +274,7 @@ export class StylesCollector {
     if (!format) return 0;
     const existing = this.numFmtIds.get(format);
     if (existing !== undefined) return existing;
+    this.assertNotWritten("number format");
     const id = this.nextNumFmtId++;
     this.numFmtIds.set(format, id);
     return id;
@@ -277,6 +290,8 @@ export class StylesCollector {
         this.numFmtId(xf.numFmt);
       }
     }
+
+    this.written = true;
 
     const numFmtEntries = [...this.numFmtIds.entries()].map(([format, id]) =>
       xmlSelfClosing("numFmt", { numFmtId: id, formatCode: format }),

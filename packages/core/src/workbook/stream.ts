@@ -229,11 +229,19 @@ function buildPositionedConditionalFormatting(
   );
 }
 
+/**
+ * Registers every conditional formatting style of a sheet, summary rows included. `styles.xml`
+ * is written before rows stream, so a style first seen while streaming would have no entry.
+ */
 function registerConditionalFormattingDifferentialStyles(
+  positionedTables: PositionedTable<StreamTableFinalization>[],
   blocks: ReturnType<typeof buildPositionedConditionalFormatting>,
   styles: StylesCollector,
 ) {
-  blocks.forEach((block) => {
+  const summaryBlocks = positionedTables.flatMap((positioned) =>
+    positioned.table.summaries.flatMap((summary) => summary.conditionalFormatting ?? []),
+  );
+  [...blocks, ...summaryBlocks].forEach((block) => {
     block.rules.forEach((rule) => {
       styles.addDifferentialStyle(rule.style);
     });
@@ -816,7 +824,11 @@ export class StreamWorkbookBuilder {
       worksheetIndex += 1;
       const positionedTables = layoutTables({ layout: sheet.layout, tables: sheet.tables });
       const conditionalFormatting = buildPositionedConditionalFormatting(positionedTables);
-      registerConditionalFormattingDifferentialStyles(conditionalFormatting, this.styles);
+      registerConditionalFormattingDifferentialStyles(
+        positionedTables,
+        conditionalFormatting,
+        this.styles,
+      );
       const worksheetTableParts = buildStreamWorksheetTableParts(positionedTables, tableIndex);
       const worksheetHyperlinks = partitionWorksheetHyperlinks(
         positionedTables.flatMap((positioned) =>

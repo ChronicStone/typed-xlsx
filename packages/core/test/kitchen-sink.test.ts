@@ -39,6 +39,22 @@ describe("kitchen sink examples", () => {
     expect(styles).toContain("FFDCFCE7");
   });
 
+  it("declares every conditional formatting style it references", async () => {
+    for (const entries of [
+      unzipWorkbookEntries(buildKitchenSinkBufferedExample()),
+      unzipWorkbookEntries(await buildKitchenSinkStreamExample()),
+    ]) {
+      const styles = readWorkbookEntry(entries, "xl/styles.xml");
+      const dxfCount = Number(/<dxfs count="(\d+)"/.exec(styles)?.[1] ?? 0);
+      const referenced = [...entries]
+        .filter(([path]) => /^xl\/worksheets\/sheet\d+\.xml$/.test(path))
+        .flatMap(([, xml]) => [...xml.matchAll(/dxfId="(\d+)"/g)].map((match) => Number(match[1])));
+
+      expect(referenced.length).toBeGreaterThan(0);
+      expect(Math.max(...referenced)).toBeLessThan(dxfCount);
+    }
+  });
+
   it("emits validation xml in the kitchen sink examples", async () => {
     const bufferedEntries = unzipWorkbookEntries(buildKitchenSinkBufferedExample());
     const bufferedValidationSheet = readWorksheetByName(bufferedEntries, "Validation");

@@ -30,3 +30,22 @@ describe("table body styles", () => {
     expect(first.resolve(0, {})).not.toBe(second.resolve(0, {}));
   });
 });
+
+describe("styles collector", () => {
+  it("refuses styles that would be missing from an already written styles.xml", () => {
+    const collector = new StylesCollector();
+    const known = { fill: { color: { rgb: "FEE2E2" } } };
+    const dxfId = collector.addDifferentialStyle(known);
+    const xfId = collector.addStyle({ numFmt: "#,##0" });
+    collector.toXml();
+
+    expect(collector.addDifferentialStyle(known)).toBe(dxfId);
+    expect(collector.addStyle({ numFmt: "#,##0" })).toBe(xfId);
+    expect(() => collector.addDifferentialStyle({ fill: { color: { rgb: "DCFCE7" } } })).toThrow(
+      /after styles\.xml was written/,
+    );
+    expect(() => collector.addStyle({ font: { bold: true } })).toThrow(
+      /after styles\.xml was written/,
+    );
+  });
+});
