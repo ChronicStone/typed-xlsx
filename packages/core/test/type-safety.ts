@@ -13,6 +13,7 @@ import type {
   ImageValue,
   Path,
   SchemaColumnId,
+  SchemaColumnValues,
   SchemaGroupContext,
 } from "../src";
 import { createExcelSchema, createWorkbook } from "../src";
@@ -1066,3 +1067,25 @@ createWorkbook()
     select: { include: ["derived", "name"] },
     context: { orgs: [{ id: 1, name: "Acme" }], tags: [] },
   });
+
+// ── SchemaColumnValues: the value type of each column ─────────────────────
+
+type ValueRow = { month: string; revenue: number; cost: number | null };
+const valueSchema = createExcelSchema<ValueRow>()
+  .column("month", { accessor: "month" })
+  .column("revenue", { accessor: "revenue" })
+  .column("cost", { accessor: "cost" })
+  .column("label", { accessor: "revenue", transform: ({ value }) => `${value} €` })
+  .column("margin", { formula: ({ refs }) => refs.column("revenue").sub(refs.column("cost")) })
+  .build();
+
+type Values = SchemaColumnValues<typeof valueSchema>;
+const _valueMonth: Values["month"] = "Jan";
+const _valueRevenue: Values["revenue"] = 1;
+const _valueCost: Values["cost"] = null;
+const _valueLabel: Values["label"] = "12 €";
+const _valueMargin: Values["margin"] = 1;
+// @ts-expect-error - a transformed column keeps the transform's type
+const _valueLabelNumber: Values["label"] = 1;
+// @ts-expect-error - only declared columns have a value type
+const _valueUnknown: Values["unknown"] = 1;

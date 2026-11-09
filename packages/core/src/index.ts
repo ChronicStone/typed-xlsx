@@ -84,6 +84,7 @@ export type {
   ColumnDefinition,
   ReportSchemaDefinition,
   SchemaColumnId,
+  SchemaColumnValues,
   SchemaContext,
   SchemaContextOf,
   SchemaGroupContext,
