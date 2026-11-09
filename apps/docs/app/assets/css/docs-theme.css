@@ -1,0 +1,187 @@
+/*
+ * The landing's blueprint palette, applied to the Nuxt UI tokens every docs component reads.
+ * Docs-only typography, code panels and tables are scoped to `.docs-shell` (layouts/docs.vue).
+ */
+:root {
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ui-radius: 0.375rem;
+
+  --ui-primary: #07844a;
+  --ui-bg: #eef4f0;
+  --ui-bg-muted: #e4ece7;
+  --ui-bg-elevated: #f7faf8;
+  --ui-bg-accented: #d9e5de;
+  --ui-bg-inverted: #0a1f15;
+  --ui-border: #ccd9d1;
+  --ui-border-muted: #dbe5df;
+  --ui-border-accented: #afc3b7;
+  --ui-border-inverted: #0a1f15;
+  --ui-text-dimmed: #85998d;
+  --ui-text-muted: #5f7a6b;
+  --ui-text-toned: #3b5a49;
+  --ui-text: #1d3428;
+  --ui-text-highlighted: #0a1f15;
+  --ui-text-inverted: #ffffff;
+
+  --doc-grid: rgba(10, 70, 40, 0.045);
+  --doc-grid-major: rgba(10, 70, 40, 0.08);
+  --doc-accent-soft: rgba(7, 132, 74, 0.1);
+  --doc-code-bg: #071510;
+  --doc-code-line: rgba(205, 240, 220, 0.12);
+  --doc-code-shadow: 0 24px 48px -28px rgba(16, 60, 36, 0.45);
+  --doc-code-ink: #d6eadd;
+  --doc-code-dim: #5d7a6a;
+}
+
+.dark {
+  --ui-primary: #3ee38c;
+  --ui-bg: #06110c;
+  --ui-bg-muted: #0b1c14;
+  --ui-bg-elevated: #0b1c14;
+  --ui-bg-accented: #10261b;
+  --ui-bg-inverted: #e3f2e8;
+  --ui-border: #1a3427;
+  --ui-border-muted: #12271c;
+  --ui-border-accented: #2a4a3b;
+  --ui-border-inverted: #e3f2e8;
+  --ui-text-dimmed: #4f6b5c;
+  --ui-text-muted: #6a8878;
+  --ui-text-toned: #a1bdac;
+  --ui-text: #cfe3d6;
+  --ui-text-highlighted: #e9f6ed;
+  --ui-text-inverted: #03140a;
+
+  --doc-grid: rgba(120, 230, 170, 0.035);
+  --doc-grid-major: rgba(120, 230, 170, 0.07);
+  --doc-accent-soft: rgba(62, 227, 140, 0.11);
+  --doc-code-bg: #0a1a12;
+  --doc-code-line: rgba(205, 240, 220, 0.16);
+  --doc-code-shadow: 0 28px 60px -30px rgba(0, 0, 0, 0.8);
+}
+
+body {
+  font-feature-settings: "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* the drafting grid behind every page except the landing and playground, which draw their own */
+html:not(:has(.bp)) body {
+  background-image:
+    linear-gradient(var(--doc-grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--doc-grid-major) 1px, transparent 1px),
+    linear-gradient(var(--doc-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--doc-grid) 1px, transparent 1px);
+  background-size:
+    120px 120px,
+    120px 120px,
+    24px 24px,
+    24px 24px;
+  background-position: -1px -1px;
+  background-attachment: fixed;
+}
+
+/* ---------- typography ---------- */
+.docs-shell h1 {
+  font-weight: 800;
+  font-variation-settings: "wdth" 106;
+  letter-spacing: -0.032em;
+  line-height: 1.02;
+}
+.docs-shell h2 {
+  font-weight: 760;
+  font-variation-settings: "wdth" 104;
+  letter-spacing: -0.022em;
+}
+.docs-shell h3 {
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+.docs-shell h4 {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+.docs-shell p,
+.docs-shell li {
+  text-wrap: pretty;
+}
+
+/* inline code reads as a token, not a box */
+.docs-shell :not(pre) > code {
+  border: 0;
+  background: var(--doc-accent-soft);
+  color: var(--ui-text-highlighted);
+  font-weight: 500;
+  font-size: 0.86em;
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+}
+.docs-shell a :not(pre) > code,
+.docs-shell a > code {
+  color: var(--ui-primary);
+}
+
+/* ---------- code panels: always the landing's dark green, in both modes ---------- */
+.docs-shell pre.shiki {
+  background: var(--doc-code-bg) !important;
+  border-color: var(--doc-code-line) !important;
+  color: var(--doc-code-ink);
+  font-size: 0.82rem;
+  line-height: 1.75;
+  border-radius: 8px;
+  box-shadow: var(--doc-code-shadow);
+  /* code scrolls sideways instead of wrapping mid-expression */
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+.docs-shell pre.shiki code span {
+  color: var(--shiki-dark, inherit);
+}
+.docs-shell pre.shiki ::selection {
+  background: rgba(94, 232, 160, 0.22);
+}
+.docs-shell pre.shiki + button,
+.docs-shell pre.shiki ~ button {
+  color: var(--doc-code-dim);
+}
+/* code block filename / tabs headers */
+.docs-shell [data-slot="header"]:has(+ pre.shiki),
+.docs-shell .group:has(> pre.shiki) > div:first-child:not(pre) {
+  background: #0b1c14;
+  border-color: var(--doc-code-line);
+  color: var(--doc-code-dim);
+}
+.docs-shell .twoslash .twoslash-hover {
+  border-bottom-color: rgba(94, 232, 160, 0.4) !important;
+}
+.docs-shell .twoslash-error {
+  background: none;
+  text-decoration: underline wavy #ff7a7a;
+  text-underline-offset: 4px;
+}
+
+/* ---------- tables: hairlines and mono column labels, like the landing title blocks ---------- */
+.docs-shell table {
+  border-spacing: 0;
+}
+.docs-shell th {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+  background: color-mix(in oklab, var(--ui-bg-elevated) 70%, transparent);
+}
+.docs-shell td {
+  font-size: 0.9rem;
+}
+.docs-shell td,
+.docs-shell th {
+  border-color: var(--ui-border) !important;
+}

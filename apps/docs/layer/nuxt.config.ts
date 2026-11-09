@@ -52,7 +52,6 @@ export default defineNuxtConfig({
     },
     "@nuxt/ui",
     "nuxt-content-twoslash",
-    "@barzhsieh/nuxt-content-mermaid",
     "@nuxt/content",
     "@nuxt/image",
     "@nuxtjs/robots",
