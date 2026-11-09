@@ -1292,6 +1292,11 @@ abstract class BaseSchemaBuilder<
   TBooleanColumnId extends TColumnId = never,
   TColumnValues = EmptyColumnValues,
 > {
+  /**
+   * Type-only. Without a member that uses it, `infer` in `ChildBooleanColumnIds` falls back to
+   * the constraint, and every column built inside a group was typed as a boolean in formulas.
+   */
+  declare readonly __booleanColumnIds?: TBooleanColumnId;
   protected readonly columns: SchemaNode<T, TSchemaContext>[] = [];
   protected readonly ids = new Set<string>();
   protected currentTheme?: SpreadsheetTheme;

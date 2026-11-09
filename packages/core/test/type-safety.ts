@@ -1529,3 +1529,17 @@ async function _streamPivots() {
   // @ts-expect-error - streamed tables check pivot fields too
   sales.pivot({ rows: ["nope"], values: { revenue: "sum" } });
 }
+
+// Columns declared inside a group keep their value type in formulas: a number column compares to
+// numbers, and a boolean column compares to booleans.
+createExcelSchema<{ qty: number; urgent: boolean }>()
+  .group("order", { header: "Order" }, (group) =>
+    group
+      .column("qty", { accessor: "qty" })
+      .column("urgent", { accessor: "urgent", type: "checkbox" }),
+  )
+  .column("status", {
+    formula: ({ refs, fx }) =>
+      fx.if(refs.column("qty").gt(0).and(refs.column("urgent").eq(true)), "Rush", "Normal"),
+  })
+  .build();
