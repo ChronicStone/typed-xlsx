@@ -3740,3 +3740,12 @@ html:not(.dark) .bp-pg svg.wb-link path {
 .bp-pg .btn .ic {
   font-size: 1.05em;
 }
+
+/* The docs theme sets every code span's background with !important in dark mode (for its
+   dual-theme blocks); keep the playground's clickable and selected .column() blocks visible. */
+html.dark .bp-pg .code-body .shiki .line.blk:hover {
+  background-color: rgba(94, 232, 160, 0.05) !important;
+}
+html.dark .bp-pg .code-body .shiki .line.sel {
+  background-color: rgba(94, 232, 160, 0.1) !important;
+}
