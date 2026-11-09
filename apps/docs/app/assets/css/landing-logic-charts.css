@@ -1002,6 +1002,25 @@
   color: var(--accent);
 }
 @media (max-width: 900px) {
+  /* tabs move up under the title bar, next to the sheet they switch */
+  .bp-land .wb {
+    display: flex;
+    flex-direction: column;
+  }
+  .bp-land .wb-bar {
+    order: -2;
+  }
+  .bp-land .wb-tabs {
+    order: -1;
+    border-top: 0;
+    border-bottom: 1px solid var(--line-ghost);
+  }
+  .bp-land .wb-tabs button.on {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .bp-land .wb-all {
+    display: none;
+  }
   .bp-land .wb-body {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
