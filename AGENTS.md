@@ -20,3 +20,8 @@
 - Any new user-facing feature must be reflected in the kitchen-sink example unless there is a clear, documented reason not to.
 - If a feature is intentionally omitted from kitchen sink, explain why in the PR or working notes.
 - Prefer one focused kitchen-sink usage per feature rather than many redundant variations.
+
+## Agent skill
+
+- `packages/core/skills/typed-xlsx/` is the skill users install for their coding agents. Update it with any user-facing API change.
+- Every ``ts block in it is compiled by `packages/core/test/skill-examples.test.ts`. Fence a deliberately partial snippet as ``ts nocheck.
