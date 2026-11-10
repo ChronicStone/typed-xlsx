@@ -1,5 +1,8 @@
 export default defineNuxtConfig({
   extends: ["./layer"],
+  // Vercel Web Analytics: cookieless page views, read in the Vercel dashboard (Analytics tab).
+  // Free on the Hobby plan up to 50k events a month; collects nothing outside Vercel deployments.
+  modules: ["@vercel/analytics/nuxt"],
   vue: {
     runtimeCompiler: true,
   },

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@shikijs/vitepress-twoslash": "4.6.0",
+    "@vercel/analytics": "^2.0.1",
     "better-sqlite3": "12.11.1",
     "docus": "5.15.0",
     "motion": "^14.10.1",
