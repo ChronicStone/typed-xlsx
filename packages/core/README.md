@@ -27,7 +27,9 @@
 
 <br />
 
-Most spreadsheet libraries hand you cells. **typed-xlsx hands you a schema.** You describe each column once, against your own TypeScript type. The library writes the workbook: headers, styles, real Excel formulas, totals and native tables. If a column or a formula points at something that doesn't exist, the compiler stops you before anyone opens the file.
+Most spreadsheet libraries hand you cells. **typed-xlsx hands you a schema.** You describe each column once, against your own TypeScript type, and the library writes the workbook: headers, number formats and styles, plus totals, native tables and real Excel formulas wherever you want them. If a column points at a field that doesn't exist, the compiler stops you before anyone opens the file.
+
+**Start with three columns. Never rewrite it.** A plain data export takes a few lines. When someone asks for totals, styling or live formulas, you add them to the same schema. When the data outgrows memory, you stream it. Formulas are opt-in, column by column, so a read-only report never needs one.
 
 ```bash
 npm install typed-xlsx
@@ -35,7 +37,37 @@ npm install typed-xlsx
 
 Also on pnpm, yarn and bun. It runs on Node.js, Bun, Deno and edge runtimes, with zero runtime dependencies. Actively maintained since 2023 and versioned with semver: 4.x is the current major.
 
-## A report in one schema
+## A plain export
+
+```ts
+import { createExcelSchema, createWorkbook } from "typed-xlsx";
+
+type User = { name: string; email: string; createdAt: Date };
+
+const users: User[] = [
+  { name: "Ada Lovelace", email: "ada@example.com", createdAt: new Date("2026-03-14") },
+];
+
+const userSchema = createExcelSchema<User>()
+  .column("name", { header: "Name", accessor: "name" })
+  .column("email", { header: "Email", accessor: "email" })
+  .column("signedUp", {
+    header: "Signed up",
+    accessor: "createdAt",
+    style: { numFmt: "yyyy-mm-dd" },
+  })
+  .build();
+
+const workbook = createWorkbook();
+workbook.sheet("Users").table("users", { rows: users, schema: userSchema });
+await workbook.writeToFile("./users.xlsx");
+```
+
+That's a finished, typed export: real dates, sized columns, a header row. No formulas anywhere.
+
+## The same schema, grown into a report
+
+When the sheet goes to finance, add computed columns, a totals row and status badges. The `Total` column below is a live Excel formula. For a read-only report, `s.cell()` writes the total as a plain value computed in JavaScript instead.
 
 ```ts
 import { createExcelSchema, createWorkbook } from "typed-xlsx";
