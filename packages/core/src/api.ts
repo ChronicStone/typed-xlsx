@@ -71,11 +71,27 @@ type SchemaSelectableIds<TSchema extends AnySchemaDefinition> = TSchema extends 
   ? SchemaColumnIds<TSchema> | SchemaGroupIds<TSchema> | SchemaDynamicIds<TSchema>
   : never;
 type SchemaResolvedContext<TSchema extends AnySchemaDefinition> = SchemaContextOf<TSchema>;
+/**
+ * The schema's context read from its `__context` field rather than inferred, so it still resolves
+ * when the context is a type parameter (a helper generic over the context type). Only used for the
+ * `context` field: while a call is being inferred, TypeScript keeps `undefined` in this lookup, so
+ * callbacks such as `title` read the inferred version above.
+ */
+type SchemaFieldContext<TSchema extends AnySchemaDefinition> = Required<
+  Pick<TSchema, "__context">
+>["__context"];
 type IsExactlyUnknown<T> = unknown extends T ? ([T] extends [unknown] ? true : false) : false;
+/**
+ * `context` is required when the schema declares one. The second member accepts
+ * `{ context: TContext }` when the context type is still a type parameter, which the first can't
+ * decide; for a schema with a context it requires `context` too. A schema without context accepts
+ * one and ignores it.
+ */
 type WorkbookTableContextField<TSchema extends AnySchemaDefinition> =
-  IsExactlyUnknown<SchemaResolvedContext<TSchema>> extends true
-    ? { context?: never }
-    : { context: SchemaResolvedContext<TSchema> };
+  | (IsExactlyUnknown<SchemaResolvedContext<TSchema>> extends true
+      ? { context?: never }
+      : { context: SchemaResolvedContext<TSchema> })
+  | { context: SchemaFieldContext<TSchema> };
 
 /**
  * Reports unknown chart options. A spec returned from a callback skips TypeScript's own check for
@@ -87,11 +103,26 @@ type ChartSpecKeys<TSpec> = ValidateKeys<TSpec, keyof ChartSpec, "a chart option
  * Reports unknown table options with the options of that schema kind, instead of TypeScript's
  * "does not exist in type WorkbookReportTableInput<SchemaDefinition<…>>".
  */
-type TableOptionKeys<TInput, TOptions> = ValidateKeys<
+type TableOptionKeys<
   TInput,
-  TOptions extends unknown ? keyof TOptions : never,
+  TSchema extends AnySchemaDefinition,
+  TReportKeys,
+  TExcelKeys,
+> = ValidateKeys<
+  TInput,
+  // Picked from the schema's kind, which resolves even when the schema's row or context is a
+  // type parameter, so helpers generic over them still get the check instead of an error.
+  (TSchema["kind"] extends "excel-table" ? TExcelKeys : TReportKeys) & PropertyKey,
   "a table option"
 >;
+type BufferedTableKeys = keyof WorkbookReportTableInput<AnyReportSchemaDefinition, any> | "context";
+type BufferedExcelTableKeys =
+  | keyof WorkbookExcelTableInput<AnyExcelTableSchemaDefinition, any>
+  | "context";
+type StreamTableKeys = keyof WorkbookStreamTableOptions<AnyReportSchemaDefinition, any> | "context";
+type StreamExcelTableKeys =
+  | keyof WorkbookStreamExcelTableOptions<AnyExcelTableSchemaDefinition, any>
+  | "context";
 
 export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {
   protection?: SheetProtectionInput;
@@ -182,7 +213,7 @@ export interface WorkbookSheet<TBook = EmptyChartBook, TSheet extends string = s
     id: TTableId,
     input: WorkbookTableOptions<TSchema, TSelection> &
       ChartTableIdGuard<TTableId, TBook, TSheet> &
-      TableOptionKeys<TInput, WorkbookTableOptions<TSchema, TSelection>> & {
+      TableOptionKeys<TInput, TSchema, BufferedTableKeys, BufferedExcelTableKeys> & {
         // Infers the schema directly, so a wrapper forwarding `WorkbookTableOptions<S>` compiles.
         schema: TSchema;
       },
@@ -303,10 +334,17 @@ export interface WorkbookCommitBatch<TRow extends object> {
  * A streamed table. Besides committing rows, it creates chart marks from its rendered columns,
  * such as `sales.line({ x: "month", y: "revenue" })`, for `sheet.chart(...)`.
  */
+/**
+ * A streamed table handle. Without the column parameters, `WorkbookTableStream<Row>` accepts the
+ * handle of any table with that row type (its chart marks are then untyped), so code written for
+ * the 4.x handle keeps compiling.
+ */
 export interface WorkbookTableStream<
   TRow extends object,
-  TColumns = Record<string, unknown>,
-  TDynamic extends string = string,
+  // oxlint-disable-next-line typescript/no-explicit-any -- see above
+  TColumns = any,
+  // oxlint-disable-next-line typescript/no-explicit-any -- see above
+  TDynamic extends string = any,
 > extends ChartTable<TColumns, TDynamic> {
   commit(batch: WorkbookCommitBatch<TRow>): Promise<void>;
 }
@@ -327,7 +365,7 @@ export interface WorkbookSheetStream {
   >(
     id: string,
     options: WorkbookStreamResolvedTableOptions<TSchema, TSelection> &
-      TableOptionKeys<TInput, WorkbookStreamResolvedTableOptions<TSchema, TSelection>> & {
+      TableOptionKeys<TInput, TSchema, StreamTableKeys, StreamExcelTableKeys> & {
         schema: TSchema;
       },
   ): Promise<StreamTableOf<TSchema, TSelection>>;
