@@ -164,6 +164,13 @@ html:not(:has(.bp)) body {
   text-decoration: underline wavy #ff7a7a;
   text-underline-offset: 4px;
 }
+/* error messages wrap inside the code block instead of running off its right edge */
+.docs-shell .twoslash-error-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 
 /* ---------- tables: hairlines and mono column labels, like the landing title blocks ---------- */
 .docs-shell table {

@@ -44,17 +44,23 @@ Type 'number' is not assignable to type 'string'.
 line 120 at "qtyy").mul(2) });
 Argument of type '"qtyy"' is not assignable to parameter of type '"qty"'.
 
-line 125 at accessor: "tags" });
+line 125 at "qty").mul(refs.column("price")) })
+Argument of type '"qty"' is not assignable to parameter of type '"No column is declared before this formula. A formula can only reference columns declared earlier in the chain: declare this column after the ones it uses​"'.
+
+line 125 at "price")) })
+Argument of type '"price"' is not assignable to parameter of type '"No column is declared before this formula. A formula can only reference columns declared earlier in the chain: declare this column after the ones it uses​"'.
+
+line 132 at accessor: "tags" });
 Type '"tags"' is not assignable to type '"'tags' doesn't hold a single cell value (string, number, boolean, Date, null or undefined). Fields that do: active, createdAt, customer.country, customer.name, firstName, price, qty, status​"'.
 
-line 128 at summary: [] });
+line 135 at summary: [] });
 Type 'never[]' is not assignable to type '"'summary' is not an option of columns. Options: accessor, autoWidth, condition, conditionalStyle, defaultValue, expansion, format, header, headerStyle, hyperlink, maxWidth, minWidth, style, totalsRow, transform, validation, width​"'.
 
-line 131 at accessor: "firstNam" });
+line 138 at accessor: "firstNam" });
 Type '"firstNam"' is not assignable to type '"active" | "createdAt" | "customer.country" | "customer.name" | "firstName" | "price" | "qty" | "status"'. Did you mean '"firstName"'?
 
-line 140 at padding: 4,
+line 147 at padding: 4,
 Type 'number' is not assignable to type '"'padding' is not an option of URL image columns. Options: accessor, alt, autoWidth, condition, fit, header, headerStyle, maxWidth, minWidth, size, source, style, width​"'.
 
-line 147 at accessor: someField });
+line 154 at accessor: someField });
 Type 'string' is not assignable to type '"active"'.

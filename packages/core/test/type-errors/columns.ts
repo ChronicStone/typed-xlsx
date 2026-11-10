@@ -119,6 +119,13 @@ createExcelSchema<Row>()
   // @error "qtyy": '"qtyy"' is not assignable to parameter of type '"qty"'
   .column("a", { formula: ({ refs }) => refs.column("qtyy").mul(2) });
 
+createExcelSchema<Row>()
+  // @error "qty": No column is declared before this formula
+  // @error "price": No column is declared before this formula
+  .column("total", { formula: ({ refs }) => refs.column("qty").mul(refs.column("price")) })
+  .column("qty", { accessor: "qty" })
+  .column("price", { accessor: "price" });
+
 // ── Excel table schemas ──────────────────────────────────────────────────────
 
 // @error accessor: 'tags' doesn't hold a single cell value
