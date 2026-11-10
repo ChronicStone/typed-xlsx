@@ -1,6 +1,6 @@
 {
   "name": "typed-xlsx",
-  "version": "4.3.0",
+  "version": "5.0.0",
   "description": "Type-safe Excel (.xlsx) reports for TypeScript: typed schemas, real formulas, styles, native Excel tables and streaming exports in Node.js, Bun and Deno.",
   "keywords": [
     "bun",

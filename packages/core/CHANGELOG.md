@@ -1,5 +1,25 @@
 # typed-xlsx
 
+## 5.0.0
+
+### Major Changes
+
+- [#71](https://github.com/ChronicStone/typed-xlsx/pull/71) [`00cce8a`](https://github.com/ChronicStone/typed-xlsx/commit/00cce8a55b512ec538c988cad05ce0b7e3cb3afe) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Type errors now point at the exact mistake and say what would fit. No runtime behaviour changes, but the types are stricter: code that compiled on 4.x can report new errors. See the [v4 → v5 guide](https://typed-xlsx.vercel.app/migration/v4-to-v5) for each case and its fix.
+
+  - `.column()` has a single signature instead of 14 overloads, so a mistake is reported on the key at fault instead of "No overload matches this call". An unknown option lists the options of that column kind, a field typo lists the fields and suggests the closest one, and a column kind checks what its accessor holds (a checkbox needs a boolean field).
+  - `.table()` reports unknown options with the options of the schema kind, and `select` lists the column ids.
+  - Charts: a non-numeric `y` says which columns are numeric, an unknown mark or chart option is reported (a chart callback returning `titel` used to compile).
+  - Pivots: aggregating a text column says it can only be counted, date grouping names the date columns, and unknown options are reported.
+  - Report schemas no longer accept Excel table options such as `totalsRow`: `build()` now returns the schema with its kind.
+
+### Patch Changes
+
+- [#74](https://github.com/ChronicStone/typed-xlsx/pull/74) [`aa596cc`](https://github.com/ChronicStone/typed-xlsx/commit/aa596cc5c56926f5b4f815e77c21b5e69d653d4b) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Ship an agent skill for coding agents in `skills/typed-xlsx`: how to shape data for a sheet, which column technique fits, multi-sheet and streamed exports, and how to read type errors. Install it with `npx skills add ChronicStone/typed-xlsx`.
+
+- [#70](https://github.com/ChronicStone/typed-xlsx/pull/70) [`d8df36e`](https://github.com/ChronicStone/typed-xlsx/commit/d8df36e5be4f06ddbbc007a247f291b8c0fd121e) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Refresh the npm README: a runnable first example, measured streaming numbers and a gallery of real workbooks.
+
+- [#76](https://github.com/ChronicStone/typed-xlsx/pull/76) [`bc6b8c9`](https://github.com/ChronicStone/typed-xlsx/commit/bc6b8c96a9770858dbf09aef15de28f35ed53f46) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Helpers generic over a schema's row and context type compile again: a function that forwards `context` to `.table()`, or an app's own sheet interface typed with a generic context. `WorkbookTableStream<Row>` without its column parameters accepts the handle of any table with that row type.
+
 ## 4.3.0
 
 ### Minor Changes
