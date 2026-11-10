@@ -204,7 +204,9 @@ Pivot tables use the same refs: `refs.table("sales").pivot({ rows: ["region"], v
 
 If you need to read or edit existing spreadsheets, or other formats than .xlsx, use [SheetJS](https://sheetjs.com) or [ExcelJS](https://github.com/exceljs/exceljs). There's a [comparison page](https://typed-xlsx.vercel.app/getting-started/comparison) in the docs.
 
-## Docs for LLMs
+## For AI agents
+
+typed-xlsx ships an [agent skill](https://github.com/ChronicStone/typed-xlsx/blob/main/packages/core/skills/typed-xlsx/SKILL.md) for Claude Code, Codex, Cursor and other coding agents: how to shape data for a sheet, which technique fits each column, multi-sheet and streamed exports, and what the type errors mean. Install it with `npx skills add ChronicStone/typed-xlsx`, or copy `node_modules/typed-xlsx/skills/typed-xlsx` into your agent's skills folder.
 
 [`llms-full.txt`](https://typed-xlsx.vercel.app/llms-full.txt) has the whole docs in one file, [`llms.txt`](https://typed-xlsx.vercel.app/llms.txt) is the index. Any docs page is also available as Markdown by adding `.md` to the URL.
 
