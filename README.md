@@ -33,7 +33,7 @@ Most spreadsheet libraries hand you cells. **typed-xlsx hands you a schema.** Yo
 npm install typed-xlsx
 ```
 
-Also on pnpm, yarn and bun. It runs on Node.js, Bun, Deno and edge runtimes, with zero runtime dependencies.
+Also on pnpm, yarn and bun. It runs on Node.js, Bun, Deno and edge runtimes, with zero runtime dependencies. Actively maintained since 2023 and versioned with semver: 4.x is the current major.
 
 ## A report in one schema
 
@@ -72,6 +72,11 @@ const invoices = createExcelSchema<Invoice>()
     },
   })
   .build();
+
+const rows: Invoice[] = [
+  { id: "INV-001", customer: { name: "Acme Corp" }, qty: 3, unitPrice: 210, status: "due" },
+  { id: "INV-002", customer: { name: "Globex" }, qty: 40, unitPrice: 8.5, status: "paid" },
+];
 
 const workbook = createWorkbook();
 workbook
