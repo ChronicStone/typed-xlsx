@@ -8,6 +8,7 @@
       "typed-xlsx/*": ["./src/*"]
     }
   },
+  "exclude": ["test/type-errors/**"],
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",

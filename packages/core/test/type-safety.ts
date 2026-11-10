@@ -289,8 +289,8 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    // @ts-expect-error sparkline sources can only target previously declared column ids
     type: "sparkline",
+    // @ts-expect-error sparkline sources can only target previously declared column ids
     source: ["future"],
   })
   .build();
@@ -298,8 +298,8 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    // @ts-expect-error sparkline sources cannot target the current column id
     type: "sparkline",
+    // @ts-expect-error sparkline sources cannot target the current column id
     source: ["trend"],
   })
   .build();
@@ -317,8 +317,8 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    // @ts-expect-error sparkline group sources must reference declared groups
     type: "sparkline",
+    // @ts-expect-error sparkline group sources must reference declared groups
     source: { group: "ages" },
   })
   .build();
@@ -350,8 +350,8 @@ createExcelSchema<FlatRow>()
 createExcelSchema<FlatRow>()
   .column("age", { accessor: "age" })
   .column("trend", {
-    // @ts-expect-error renderer sparkline sources can only target previously declared column ids
     type: "sparkline",
+    // @ts-expect-error renderer sparkline sources can only target previously declared column ids
     source: ["future"],
   })
   .build();
@@ -393,15 +393,14 @@ createExcelSchema<{ name: string; thumbnail?: ImageUrlValue }>()
   .build();
 
 createExcelSchema<{ thumbnailUrl?: string }>().column("photo", {
-  // @ts-expect-error url image columns do not take embedded media types
   type: "image",
   source: "url",
   accessor: "thumbnailUrl",
+  // @ts-expect-error url image columns do not take embedded media types
   mediaType: "image/png",
 });
 
 createExcelSchema<{ thumbnail?: Uint8Array }>().column("photo", {
-  // @ts-expect-error image renderer columns cannot also be formula columns
   type: "image",
   accessor: "thumbnail",
   // @ts-expect-error image renderer columns cannot also be formula columns
@@ -485,8 +484,8 @@ createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
   .build();
 
 createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
+  // @ts-expect-error badge variants must cover every literal value when no defaultVariant is provided
   .column("status", {
-    // @ts-expect-error badge variants must cover every literal value when no defaultVariant is provided
     type: "badge",
     accessor: "status",
     variants: {
@@ -498,12 +497,12 @@ createExcelSchema<{ status: "active" | "blocked" | "pending" }>()
 
 createExcelSchema<{ status: "active" | "blocked" }>()
   .column("status", {
-    // @ts-expect-error badge variant keys must match the accessor literal values
     type: "badge",
     accessor: "status",
     variants: {
       active: { label: "Active" },
       blocked: { label: "Blocked" },
+      // @ts-expect-error badge variant keys must match the accessor literal values
       archived: { label: "Archived" },
     },
   })
@@ -511,11 +510,11 @@ createExcelSchema<{ status: "active" | "blocked" }>()
 
 createExcelSchema<{ status: "active" | "blocked" }>()
   .column("status", {
-    // @ts-expect-error defaultVariant allows partial variants, but not unknown variant keys
     type: "badge",
     accessor: "status",
     variants: {
       active: { label: "Active" },
+      // @ts-expect-error defaultVariant allows partial variants, but not unknown variant keys
       archived: { label: "Archived" },
     },
     defaultVariant: { label: "Other" },
@@ -556,7 +555,6 @@ createExcelSchema<{ approved: boolean }>()
   .build();
 
 createExcelSchema<{ approved: boolean }>().column("approved", {
-  // @ts-expect-error checkbox renderer columns cannot also be formula columns
   type: "checkbox",
   accessor: "approved",
   // @ts-expect-error checkbox renderer columns cannot also be formula columns
@@ -564,9 +562,9 @@ createExcelSchema<{ approved: boolean }>().column("approved", {
 });
 
 createExcelSchema<{ approved: boolean }>().column("approved", {
-  // @ts-expect-error checkbox renderer columns do not take number formats
   type: "checkbox",
   accessor: "approved",
+  // @ts-expect-error checkbox renderer columns do not take number formats
   format: "0",
 });
 
