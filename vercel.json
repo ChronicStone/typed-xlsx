@@ -70,5 +70,11 @@
       "destination": "/workbook/building-workbooks",
       "permanent": true
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!raw/).+)\\.md",
+      "destination": "/raw/$1.md"
+    }
   ]
 }
