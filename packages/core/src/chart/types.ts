@@ -1,7 +1,12 @@
+import type { ErrorMessage, JoinUnion } from "../core/type-errors";
 import type { SchemaColumnId, SchemaColumnValues, SchemaDynamicId } from "../schema/builder";
 import type {
+  PivotAggregate,
   PivotChartSource,
+  PivotDateLevels,
+  PivotDateUnit,
   PivotOptions,
+  PivotValueOptions,
   PivotOptionsGuard,
   PivotShape,
   PivotShapeOf,
@@ -227,6 +232,228 @@ export type ChartSeriesOptionsGuard<TOptions> = [ChartSeriesOptionProblems<TOpti
   ? unknown
   : { [TProblem in ChartSeriesOptionProblems<TOptions> as `✗ ${TProblem}`]: true };
 
+// ── Column checks with readable errors ───────────────────────────────────────
+
+/**
+ * Checks one column name. A column of the wrong kind gets a message naming the columns that fit; an
+ * unknown name is rejected against those columns, so the editor suggests the closest one.
+ */
+type CheckColumn<
+  TValue,
+  TColumns,
+  TMatch,
+  TLabel extends string,
+  TListLabel extends string,
+> = TValue extends string
+  ? TValue extends ColumnsMatching<TColumns, TMatch>
+    ? TValue
+    : TValue extends keyof TColumns
+      ? ErrorMessage<`'${TValue}' is not ${TLabel}. ${TListLabel}: ${JoinUnion<ColumnsMatching<TColumns, TMatch>>}`>
+      : // Computed inline rather than with `ColumnsMatching<…>`, so editors print the column
+        // names instead of the alias name.
+        {
+          [K in keyof TColumns]-?: unknown extends TColumns[K]
+            ? K
+            : [Present<TColumns[K]>] extends [never]
+              ? never
+              : [Present<TColumns[K]>] extends [TMatch]
+                ? K
+                : never;
+        }[keyof TColumns] &
+          string
+  : // Not a column name at all: reject it against the column names.
+    {
+      [K in keyof TColumns]-?: unknown extends TColumns[K]
+        ? K
+        : [Present<TColumns[K]>] extends [never]
+          ? never
+          : [Present<TColumns[K]>] extends [TMatch]
+            ? K
+            : never;
+    }[keyof TColumns] &
+      string;
+
+type CheckNumericColumn<TValue, TColumns> = CheckColumn<
+  TValue,
+  TColumns,
+  number,
+  "a numeric column",
+  "Numeric columns"
+>;
+
+type CheckCategoryColumn<TValue, TColumns> = CheckColumn<
+  TValue,
+  TColumns,
+  string | number | boolean | Date,
+  "a column of text, numbers, dates or booleans",
+  "Columns that can label categories"
+>;
+
+type CheckDynamic<TValue, TDynamic extends string> = TValue extends { dynamic: infer TBlock }
+  ? [TBlock] extends [TDynamic]
+    ? TValue
+    : { dynamic: TDynamic }
+  : TValue;
+
+/** An `x`: a category column or `{ dynamic }`, checked per member when given a union. */
+type CheckCategoryOrDynamic<TValue, TColumns, TDynamic extends string> = TValue extends {
+  dynamic: unknown;
+}
+  ? CheckDynamic<TValue, TDynamic>
+  : CheckCategoryColumn<TValue, TColumns>;
+
+/** One `y` entry: a numeric column, `{ column, … }` or `{ dynamic }`. */
+type CheckSeries<TValue, TColumns, TDynamic extends string> = TValue extends { column: unknown }
+  ? {
+      [K in keyof TValue]: K extends "column"
+        ? CheckNumericColumn<TValue[K], TColumns>
+        : K extends keyof ChartSeriesStyle
+          ? TValue[K] extends ChartSeriesStyle[K]
+            ? TValue[K]
+            : ChartSeriesStyle[K]
+          : ErrorMessage<`'${K & string}' is not an option of a series. Options: column, ${JoinUnion<keyof ChartSeriesStyle & string>}`>;
+    }
+  : TValue extends { dynamic: unknown }
+    ? CheckDynamic<TValue, TDynamic>
+    : CheckNumericColumn<TValue, TColumns>;
+
+type CheckValues<TValue, TColumns, TDynamic extends string> = TValue extends readonly unknown[]
+  ? { [I in keyof TValue]: CheckSeries<TValue[I], TColumns, TDynamic> }
+  : CheckSeries<TValue, TColumns, TDynamic>;
+
+/**
+ * Mark options, checked key by key in the style of arktype: column fields say which columns fit,
+ * other keys are checked against their own type, and an unknown option lists the options of the
+ * mark. The mark's constraint is only `object`: a stricter one would fail first, and TypeScript
+ * would then report against the whole option type, with its name, instead of the key.
+ */
+type CheckMarkOptions<TOptions, TBase, TColumns, TDynamic extends string, TNumericX = false> = {
+  [K in keyof TOptions]: K extends "y"
+    ? CheckValues<TOptions[K], TColumns, TDynamic>
+    : K extends "x"
+      ? TNumericX extends true
+        ? CheckNumericColumn<TOptions[K], TColumns>
+        : CheckCategoryOrDynamic<TOptions[K], TColumns, TDynamic>
+      : K extends "series" | "label"
+        ? CheckCategoryColumn<TOptions[K], TColumns>
+        : K extends "value"
+          ? CheckNumericColumn<TOptions[K], TColumns>
+          : CheckOtherOption<TOptions, K, TBase, "an option of this mark">;
+} & MissingOptions<TOptions, TBase>;
+
+/** Any other key: checked against the option's own type, or reported as unknown. */
+type CheckOtherOption<
+  TOptions,
+  K extends keyof TOptions,
+  TBase,
+  TLabel extends string,
+> = K extends keyof TBase
+  ? TOptions[K] extends TBase[K]
+    ? TOptions[K]
+    : TBase[K]
+  : ErrorMessage<`'${K & string}' is not ${TLabel}. Options: ${JoinUnion<keyof TBase & string>}`>;
+
+/**
+ * The options not given yet: required ones are reported as missing, and all of them stay in the
+ * editor's completions.
+ */
+type MissingOptions<TOptions, TBase> = Pick<TBase, Exclude<keyof TBase, keyof TOptions>>;
+
+/** The date column of a `{ field, by }` field: a date on every row, as Excel can't group blanks. */
+type CheckDateField<TValue, TColumns> = TValue extends string
+  ? TValue extends ChartDateColumn<TColumns>
+    ? TValue
+    : TValue extends keyof TColumns
+      ? [Exclude<TColumns[TValue], null | undefined>] extends [Date]
+        ? ErrorMessage<`'${TValue}' can be blank, and Excel can't group a blank date by year, quarter or month. Give the column a defaultValue, or use a column that always has a date`>
+        : ErrorMessage<`'${TValue}' is not a date column. Date columns: ${JoinUnion<ChartDateColumn<TColumns>>}`>
+      : ChartDateColumn<TColumns> extends infer TDates
+        ? TDates
+        : never
+  : TValue;
+
+/** A pivot row, column or filter field: a column name, or `{ field, by }` for a date column. */
+type CheckPivotField<TValue, TColumns, TBy> = TValue extends { field: unknown }
+  ? {
+      [K in keyof TValue]: K extends "field"
+        ? CheckDateField<TValue[K], TColumns>
+        : K extends "by"
+          ? TValue[K] extends TBy
+            ? TValue[K]
+            : TBy
+          : ErrorMessage<`'${K & string}' is not an option of a date field. Options: field, by`>;
+    } & ("by" extends keyof TValue ? unknown : { by: TBy })
+  : CheckCategoryColumn<TValue, TColumns>;
+
+type CheckPivotFields<TValue, TColumns, TBy> = TValue extends readonly unknown[]
+  ? { [I in keyof TValue]: CheckPivotField<TValue[I], TColumns, TBy> }
+  : ErrorMessage<'Pivot fields are a list, such as ["region"]'>;
+
+/** An aggregate on a numeric column: a name, or `{ aggregate, show, name, format }`. */
+type CheckNumericAggregate<TEntry> = TEntry extends string
+  ? TEntry extends PivotAggregate
+    ? TEntry
+    : "sum" | "count" | "average" | "min" | "max"
+  : TEntry extends object
+    ? CheckValueOptions<TEntry, PivotAggregate>
+    : "sum" | "count" | "average" | "min" | "max";
+
+/** `{ aggregate, show, name, format }`: known keys with valid values, and `aggregate` required. */
+type CheckValueOptions<TEntry, TAggregate extends PivotAggregate> = {
+  [K in keyof TEntry]: K extends "aggregate"
+    ? TEntry[K] extends TAggregate
+      ? TEntry[K]
+      : TAggregate
+    : K extends keyof PivotValueOptions
+      ? TEntry[K] extends PivotValueOptions[K]
+        ? TEntry[K]
+        : PivotValueOptions[K]
+      : ErrorMessage<`'${K & string}' is not an option of a pivot value. Options: aggregate, show, name, format`>;
+} & ("aggregate" extends keyof TEntry ? unknown : { aggregate: TAggregate });
+
+/** One `values` entry: any aggregate on a numeric column, only `count` on the others. */
+type CheckPivotValue<TColumn extends string, TEntry, TColumns> =
+  TColumn extends ColumnsMatching<TColumns, number>
+    ? TEntry extends readonly unknown[]
+      ? { [I in keyof TEntry]: CheckNumericAggregate<TEntry[I]> }
+      : CheckNumericAggregate<TEntry>
+    : TEntry extends readonly unknown[]
+      ? { [I in keyof TEntry]: CheckCountOnly<TColumn, TEntry[I], TColumns> }
+      : CheckCountOnly<TColumn, TEntry, TColumns>;
+
+type CheckCountOnly<TColumn extends string, TEntry, TColumns> = TEntry extends "count"
+  ? TEntry
+  : TEntry extends { aggregate: "count" }
+    ? CheckValueOptions<TEntry, "count">
+    : TEntry extends { aggregate: unknown }
+      ? {
+          [K in keyof TEntry]: K extends "aggregate"
+            ? ErrorMessage<`'${TColumn}' is not numeric, so it can only be counted ("count"). Numeric columns: ${JoinUnion<ColumnsMatching<TColumns, number>>}`>
+            : TEntry[K];
+        }
+      : TEntry extends object
+        ? CheckValueOptions<TEntry, "count">
+        : ErrorMessage<`'${TColumn}' is not numeric, so it can only be counted ("count"). Numeric columns: ${JoinUnion<ColumnsMatching<TColumns, number>>}`>;
+
+type CheckPivotValues<TValues, TColumns> = {
+  [K in keyof TValues]: K extends keyof TColumns & string
+    ? CheckPivotValue<K, TValues[K], TColumns>
+    : ErrorMessage<`'${K & string}' is not a column of this table. Columns: ${JoinUnion<keyof TColumns & string>}`>;
+};
+
+/** Pivot options, checked key by key like mark options (see `CheckMarkOptions`). */
+type CheckPivotOptions<TOptions, TColumns> = {
+  [K in keyof TOptions]: K extends "rows"
+    ? TOptions[K] extends readonly []
+      ? ErrorMessage<'A pivot needs at least one row field, such as rows: ["region"]'>
+      : CheckPivotFields<TOptions[K], TColumns, PivotDateLevels>
+    : K extends "columns" | "filters"
+      ? CheckPivotFields<TOptions[K], TColumns, PivotDateUnit>
+      : K extends "values"
+        ? CheckPivotValues<TOptions[K], TColumns>
+        : CheckOtherOption<TOptions, K, PivotOptions<TColumns>, "a pivot option">;
+} & MissingOptions<TOptions, PivotOptions<TColumns>>;
+
 // ── Marks ────────────────────────────────────────────────────────────────────
 
 /** Mark variants that matter for combination rules. */
@@ -249,37 +476,52 @@ type ChartXValue<TColumns, TX> = TX extends { dynamic: string }
     ? TColumns[TX]
     : unknown;
 
+/** The value given for option `K`, read without requiring `TOptions` to declare it. */
+type OptionOf<TOptions, K extends string> = TOptions extends { readonly [P in K]: infer TValue }
+  ? TValue
+  : undefined;
+
 /** Mark factories of one table. Field names are checked against the table's rendered columns. */
 export interface ChartTable<TColumns = Record<string, unknown>, TDynamic extends string = string> {
-  bar<const TOptions extends ChartBarOptions<TColumns, TDynamic>>(
-    options: TOptions & ChartSeriesOptionsGuard<TOptions>,
+  bar<const TOptions extends object>(
+    options: CheckMarkOptions<TOptions, ChartBarOptions<TColumns, TDynamic>, TColumns, TDynamic> &
+      ChartSeriesOptionsGuard<TOptions>,
   ): ChartMark<
     TOptions extends { horizontal: true } ? "horizontal-bar" : "bar",
-    ChartXValue<TColumns, TOptions["x"]>
+    ChartXValue<TColumns, OptionOf<TOptions, "x">>
   >;
-  line<const TOptions extends ChartLineOptions<TColumns, TDynamic>>(
-    options: TOptions & ChartSeriesOptionsGuard<TOptions>,
-  ): ChartMark<"line", ChartXValue<TColumns, TOptions["x"]>>;
-  area<const TOptions extends ChartAreaOptions<TColumns, TDynamic>>(
-    options: TOptions & ChartSeriesOptionsGuard<TOptions>,
-  ): ChartMark<"area", ChartXValue<TColumns, TOptions["x"]>>;
-  scatter<const TOptions extends ChartScatterOptions<TColumns, TDynamic>>(
-    options: TOptions & ChartSeriesOptionsGuard<TOptions>,
+  line<const TOptions extends object>(
+    options: CheckMarkOptions<TOptions, ChartLineOptions<TColumns, TDynamic>, TColumns, TDynamic> &
+      ChartSeriesOptionsGuard<TOptions>,
+  ): ChartMark<"line", ChartXValue<TColumns, OptionOf<TOptions, "x">>>;
+  area<const TOptions extends object>(
+    options: CheckMarkOptions<TOptions, ChartAreaOptions<TColumns, TDynamic>, TColumns, TDynamic> &
+      ChartSeriesOptionsGuard<TOptions>,
+  ): ChartMark<"area", ChartXValue<TColumns, OptionOf<TOptions, "x">>>;
+  scatter<const TOptions extends object>(
+    options: CheckMarkOptions<
+      TOptions,
+      ChartScatterOptions<TColumns, TDynamic>,
+      TColumns,
+      TDynamic,
+      true
+    > &
+      ChartSeriesOptionsGuard<TOptions>,
   ): ChartMark<"scatter", number>;
-  pie<const TOptions extends ChartPieOptions<TColumns>>(
-    options: TOptions,
-  ): ChartMark<"pie", ChartXValue<TColumns, TOptions["label"]>>;
-  doughnut<const TOptions extends ChartDoughnutOptions<TColumns>>(
-    options: TOptions,
-  ): ChartMark<"doughnut", ChartXValue<TColumns, TOptions["label"]>>;
+  pie<const TOptions extends object>(
+    options: CheckMarkOptions<TOptions, ChartPieOptions<TColumns>, TColumns, never>,
+  ): ChartMark<"pie", ChartXValue<TColumns, OptionOf<TOptions, "label">>>;
+  doughnut<const TOptions extends object>(
+    options: CheckMarkOptions<TOptions, ChartDoughnutOptions<TColumns>, TColumns, never>,
+  ): ChartMark<"doughnut", ChartXValue<TColumns, OptionOf<TOptions, "label">>>;
   /**
    * A native Excel pivot table over this table, for `sheet.pivot(id, …)`.
    *
    * @example
    * refs.table("sales").pivot({ rows: ["region"], columns: ["month"], values: { revenue: "sum" } })
    */
-  pivot<const TOptions extends PivotOptions<TColumns>>(
-    options: TOptions & PivotOptionsGuard<TOptions, TColumns>,
+  pivot<const TOptions extends object>(
+    options: CheckPivotOptions<TOptions, TColumns> & PivotOptionsGuard<TOptions, TColumns>,
   ): PivotSpec<PivotShapeOf<TOptions>>;
 }
 

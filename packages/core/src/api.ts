@@ -1,3 +1,4 @@
+import type { ValidateKeys } from "./core/type-errors";
 import type {
   ExcelTableSchemaDefinition,
   ReportSchemaDefinition,
@@ -65,16 +66,32 @@ type SchemaColumnIds<TSchema extends AnySchemaDefinition> =
   TSchema extends SchemaDefinition<any, infer TColumnId, any, any, any, any> ? TColumnId : never;
 type SchemaGroupIds<TSchema extends AnySchemaDefinition> = SchemaGroupId<TSchema>;
 type SchemaDynamicIds<TSchema extends AnySchemaDefinition> = SchemaDynamicId<TSchema>;
-type SchemaSelectableIds<TSchema extends AnySchemaDefinition> =
-  | SchemaColumnIds<TSchema>
-  | SchemaGroupIds<TSchema>
-  | SchemaDynamicIds<TSchema>;
+// A conditional rather than a plain union, so editors print the ids instead of this alias name.
+type SchemaSelectableIds<TSchema extends AnySchemaDefinition> = TSchema extends unknown
+  ? SchemaColumnIds<TSchema> | SchemaGroupIds<TSchema> | SchemaDynamicIds<TSchema>
+  : never;
 type SchemaResolvedContext<TSchema extends AnySchemaDefinition> = SchemaContextOf<TSchema>;
 type IsExactlyUnknown<T> = unknown extends T ? ([T] extends [unknown] ? true : false) : false;
 type WorkbookTableContextField<TSchema extends AnySchemaDefinition> =
   IsExactlyUnknown<SchemaResolvedContext<TSchema>> extends true
     ? { context?: never }
     : { context: SchemaResolvedContext<TSchema> };
+
+/**
+ * Reports unknown chart options. A spec returned from a callback skips TypeScript's own check for
+ * unknown keys, so a typo such as `titel` would otherwise pass silently.
+ */
+type ChartSpecKeys<TSpec> = ValidateKeys<TSpec, keyof ChartSpec, "a chart option">;
+
+/**
+ * Reports unknown table options with the options of that schema kind, instead of TypeScript's
+ * "does not exist in type WorkbookReportTableInput<SchemaDefinition<…>>".
+ */
+type TableOptionKeys<TInput, TOptions> = ValidateKeys<
+  TInput,
+  TOptions extends unknown ? keyof TOptions : never,
+  "a table option"
+>;
 
 export interface WorkbookSheetOptions extends SheetLayoutOptions, SheetViewOptions {
   protection?: SheetProtectionInput;
@@ -152,26 +169,23 @@ export interface Workbook {
  * type-level registry of every table declared so far (`TBook`), which charts read through `refs`.
  */
 export interface WorkbookSheet<TBook = EmptyChartBook, TSheet extends string = string> {
+  /**
+   * One signature for report and Excel table schemas: with an overload per schema kind, a mistake
+   * was reported as "No overload matches this call" with both signatures dumped.
+   */
   table<
-    TSchema extends AnyReportSchemaDefinition,
+    TSchema extends AnySchemaDefinition,
     const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
     const TTableId extends string = string,
+    const TInput = unknown,
   >(
     id: TTableId,
-    input: WorkbookReportTableOptions<TSchema, TSelection> &
-      ChartTableIdGuard<TTableId, TBook, TSheet>,
-  ): WorkbookSheet<
-    ChartBookAddTable<TBook, TSheet, TTableId, ChartTableShapeOf<TSchema, TSelection>>,
-    TSheet
-  >;
-  table<
-    TSchema extends AnyExcelTableSchemaDefinition,
-    const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-    const TTableId extends string = string,
-  >(
-    id: TTableId,
-    input: WorkbookExcelTableOptions<TSchema, TSelection> &
-      ChartTableIdGuard<TTableId, TBook, TSheet>,
+    input: WorkbookTableOptions<TSchema, TSelection> &
+      ChartTableIdGuard<TTableId, TBook, TSheet> &
+      TableOptionKeys<TInput, WorkbookTableOptions<TSchema, TSelection>> & {
+        // Infers the schema directly, so a wrapper forwarding `WorkbookTableOptions<S>` compiles.
+        schema: TSchema;
+      },
   ): WorkbookSheet<
     ChartBookAddTable<TBook, TSheet, TTableId, ChartTableShapeOf<TSchema, TSelection>>,
     TSheet
@@ -189,9 +203,14 @@ export interface WorkbookSheet<TBook = EmptyChartBook, TSheet extends string = s
    *   ],
    * }))
    */
-  chart<const TMarks extends readonly [ChartMark<any, any>, ...ChartMark<any, any>[]]>(
+  chart<
+    const TMarks extends readonly [ChartMark<any, any>, ...ChartMark<any, any>[]],
+    const TSpec = unknown,
+  >(
     id: string,
-    build: (args: { refs: ChartRefs<TBook, TSheet> }) => ChartSpec<TMarks> & ChartSpecGuard<TMarks>,
+    build: (args: {
+      refs: ChartRefs<TBook, TSheet>;
+    }) => ChartSpec<TMarks> & ChartSpecGuard<TMarks> & ChartSpecKeys<TSpec>,
   ): WorkbookSheet<TBook, TSheet>;
   /**
    * Adds a native Excel pivot table over a table declared earlier in the chain. Excel refreshes it
@@ -302,18 +321,15 @@ type StreamTableOf<TSchema extends AnySchemaDefinition, TSelection> =
 
 export interface WorkbookSheetStream {
   table<
-    TSchema extends AnyReportSchemaDefinition,
+    TSchema extends AnySchemaDefinition,
     const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
+    const TInput = unknown,
   >(
     id: string,
-    options: WorkbookStreamResolvedReportTableOptions<TSchema, TSelection>,
-  ): Promise<StreamTableOf<TSchema, TSelection>>;
-  table<
-    TSchema extends AnyExcelTableSchemaDefinition,
-    const TSelection extends TableSelection<SchemaSelectableIds<TSchema>> | undefined = undefined,
-  >(
-    id: string,
-    options: WorkbookStreamResolvedExcelTableOptions<TSchema, TSelection>,
+    options: WorkbookStreamResolvedTableOptions<TSchema, TSelection> &
+      TableOptionKeys<TInput, WorkbookStreamResolvedTableOptions<TSchema, TSelection>> & {
+        schema: TSchema;
+      },
   ): Promise<StreamTableOf<TSchema, TSelection>>;
   /**
    * Adds a native Excel chart built from marks of streamed tables, written when the workbook
@@ -325,9 +341,12 @@ export interface WorkbookSheetStream {
    *   marks: [sales.line({ x: "month", y: "revenue" })],
    * });
    */
-  chart<const TMarks extends readonly [ChartMark<any, any>, ...ChartMark<any, any>[]]>(
+  chart<
+    const TMarks extends readonly [ChartMark<any, any>, ...ChartMark<any, any>[]],
+    const TSpec = unknown,
+  >(
     id: string,
-    spec: ChartSpec<TMarks> & ChartSpecGuard<TMarks>,
+    spec: ChartSpec<TMarks> & ChartSpecGuard<TMarks> & ChartSpecKeys<TSpec>,
   ): WorkbookSheetStream;
   /**
    * Adds a native Excel pivot table over a streamed table. Declare it before committing rows to

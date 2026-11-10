@@ -1,0 +1,60 @@
+line 65 at accessor: "firstNam" });
+Type '"firstNam"' is not assignable to type '"active" | "createdAt" | "customer.country" | "customer.name" | "firstName" | "price" | "qty" | "status" | "tags"'. Did you mean '"firstName"'?
+
+line 68 at accessor: "customer.nam" });
+Type '"customer.nam"' is not assignable to type '"active" | "createdAt" | "customer.country" | "customer.name" | "firstName" | "price" | "qty" | "status" | "tags"'. Did you mean '"customer.name"'?
+
+line 71 at accessor: "customer" });
+Type '"customer"' is not assignable to type '"'customer' doesn't hold a cell value (string, number, boolean, Date, null or undefined). Fields that do: active, createdAt, customer.country, customer.name, firstName, price, qty, status, tags​"'.
+
+line 74 at accessor: (row) => row.customer });
+Type '(row: Row & AccessorContext<Row, unknown>) => { name: string; country: string; }' is not assignable to type '"The accessor function must return a cell value (string, number, boolean, Date, null or undefined)​" | ("The accessor function must return a cell value (string, number, boolean, Date, null or undefined)​" & ((row: Row & AccessorContext<...>) => { ...; }))'.
+  Type '(row: Row & AccessorContext<Row, unknown>) => { name: string; country: string; }' is not assignable to type '"The accessor function must return a cell value (string, number, boolean, Date, null or undefined)​" & ((row: Row & AccessorContext<Row, unknown>) => { ...; })'.
+    Type '(row: Row & AccessorContext<Row, unknown>) => { name: string; country: string; }' is not assignable to type '"The accessor function must return a cell value (string, number, boolean, Date, null or undefined)​"'.
+
+line 77 at accessor: (row: number) => row.toFixed()
+Type '(row: number) => string' is not assignable to type '"The accessor function receives the row: write (row) => … without a parameter type, or type it as the row type​" | ("The accessor function receives the row: write (row) => … without a parameter type, or type it as the row type​" & ((row: number) => string))'.
+  Type '(row: number) => string' is not assignable to type '"The accessor function receives the row: write (row) => … without a parameter type, or type it as the row type​" & ((row: number) => string)'.
+    Type '(row: number) => string' is not assignable to type '"The accessor function receives the row: write (row) => … without a parameter type, or type it as the row type​"'.
+
+line 82 at hedaer: "Qty" });
+Type '"Qty"' is not assignable to type '"'hedaer' is not an option of columns. Options: accessor, autoWidth, condition, conditionalStyle, defaultValue, expansion, format, header, headerStyle, hyperlink, maxWidth, minWidth, style, summary, totalsRow, transform, validation, width​"'.
+
+line 85 at format: "0" });
+Type '"0"' is not assignable to type '"'format' is not an option of checkbox columns. Options: accessor, autoWidth, condition, conditionalStyle, defaultValue, expansion, header, headerStyle, hyperlink, maxWidth, minWidth, style, totalsRow, validation, width​"'.
+
+line 88 at formula: () => 1 });
+Type '() => 1' is not assignable to type '"'formula' is not an option of checkbox columns. Options: accessor, autoWidth, condition, conditionalStyle, defaultValue, expansion, header, headerStyle, hyperlink, maxWidth, minWidth, style, totalsRow, validation, width​"'.
+
+line 91 at type: "bdge", accessor: "status" });
+Type '"bdge"' is not assignable to type '"badge" | "checkbox" | "hyperlink" | "image" | "sparkline"'. Did you mean '"badge"'?
+
+line 96 at accessor: "qty" });
+Type '"qty"' is not assignable to type '"'qty' doesn't hold a boolean. Fields that do: active​"'.
+
+line 99 at accessor: "statuss", variants: {} });
+Type '"statuss"' is not assignable to type '"active" | "createdAt" | "customer.country" | "customer.name" | "firstName" | "price" | "qty" | "status" | "tags"'. Did you mean '"status"'?
+
+line 105 at payd: {} },
+Object literal may only specify known properties, and 'payd' does not exist in type 'BadgeVariants<"due" | "paid", Row, unknown> | Partial<BadgeVariants<"due" | "paid", Row, unknown>>'.
+
+line 112 at rgb: 1 } } } }, due: {} },
+Type 'number' is not assignable to type 'string'.
+
+line 120 at "qtyy").mul(2) });
+Argument of type '"qtyy"' is not assignable to parameter of type '"qty"'.
+
+line 125 at accessor: "tags" });
+Type '"tags"' is not assignable to type '"'tags' doesn't hold a single cell value (string, number, boolean, Date, null or undefined). Fields that do: active, createdAt, customer.country, customer.name, firstName, price, qty, status​"'.
+
+line 128 at summary: [] });
+Type 'never[]' is not assignable to type '"'summary' is not an option of columns. Options: accessor, autoWidth, condition, conditionalStyle, defaultValue, expansion, format, header, headerStyle, hyperlink, maxWidth, minWidth, style, totalsRow, transform, validation, width​"'.
+
+line 131 at accessor: "firstNam" });
+Type '"firstNam"' is not assignable to type '"active" | "createdAt" | "customer.country" | "customer.name" | "firstName" | "price" | "qty" | "status"'. Did you mean '"firstName"'?
+
+line 140 at padding: 4,
+Type 'number' is not assignable to type '"'padding' is not an option of URL image columns. Options: accessor, alt, autoWidth, condition, fit, header, headerStyle, maxWidth, minWidth, size, source, style, width​"'.
+
+line 147 at accessor: someField });
+Type 'string' is not assignable to type '"active"'.

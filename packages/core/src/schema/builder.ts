@@ -5,6 +5,13 @@ import {
   type AccessorValue,
 } from "../core/accessor";
 import type { Path } from "../core/path";
+import type {
+  AllowedKeys,
+  ErrorMessage,
+  JoinUnion,
+  OptionKeys,
+  ValidateAccessor,
+} from "../core/type-errors";
 import {
   normalizeConditionalStyleInput,
   type ConditionalStyleInput,
@@ -403,11 +410,12 @@ type AccessorColumnInput<
   TContext extends SchemaContext,
   TTransformed = CellValue,
   TDefault = CellValue,
+  TAccessorInput = TAccessor,
 > = Omit<
   ColumnDefinition<T, TContext, TAccessor, TPrevColumnId, TGroupId, TDynamicId, TReference>,
-  "id" | "image" | "sparkline" | "type" | "transform" | "defaultValue"
+  "id" | "accessor" | "image" | "sparkline" | "type" | "transform" | "defaultValue"
 > & {
-  accessor: TAccessor;
+  accessor: TAccessorInput;
   formula?: never;
   transform?: (
     context: BoundRowTransformContext<T, AccessorValue<T, TAccessor>, TContext>,
@@ -422,26 +430,6 @@ type FormulaFnArgs<
   TContext extends SchemaContext,
   TBooleanColumnId extends TPrevColumnId,
 > = Parameters<FormulaFn<TPrevColumnId, TGroupId, TDynamicId, TContext, TBooleanColumnId>>[0];
-
-type FormulaColumnInput<
-  T extends object,
-  TReference extends string,
-  TPrevColumnId extends string,
-  TGroupId extends string,
-  TDynamicId extends string,
-  TBooleanColumnId extends TPrevColumnId,
-  TContext extends SchemaContext,
-  TResult = FormulaValue<TPrevColumnId, TGroupId | TDynamicId>,
-> = Omit<
-  ColumnDefinition<T, TContext, never, TPrevColumnId, TGroupId, TDynamicId, TReference>,
-  "id" | "accessor" | "image" | "sparkline" | "transform" | "type" | "formula"
-> & {
-  accessor?: never;
-  transform?: never;
-  formula: (
-    context: FormulaFnArgs<TPrevColumnId, TGroupId, TDynamicId, TContext, TBooleanColumnId>,
-  ) => TResult;
-};
 
 type SparklineRendererColumnInput<
   T extends object,
@@ -461,23 +449,6 @@ type SparklineRendererColumnInput<
     sparklineType?: SparklineType;
   };
 
-type BadgeRendererColumnInput<
-  T extends object,
-  TAccessor extends Accessor<T, BadgeSourceValue, TContext> | Path<T>,
-  TReference extends string,
-  TPrevColumnId extends string,
-  TGroupId extends string,
-  TDynamicId extends string,
-  TContext extends SchemaContext,
-> = Omit<
-  AccessorColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
-  "type" | "transform"
-> &
-  BadgeColumnDefinition<AccessorValue<T, TAccessor>, T, TContext> & {
-    type: "badge";
-    transform?: never;
-  };
-
 type CheckboxRendererColumnInput<
   T extends object,
   TAccessor extends Accessor<T, CheckboxSourceValue, TContext> | Path<T>,
@@ -486,8 +457,20 @@ type CheckboxRendererColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TAccessorInput = TAccessor,
 > = Omit<
-  AccessorColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
+  AccessorColumnInput<
+    T,
+    TAccessor,
+    TReference,
+    TPrevColumnId,
+    TGroupId,
+    TDynamicId,
+    TContext,
+    CellValue,
+    CellValue,
+    TAccessorInput
+  >,
   "format" | "summary" | "transform" | "type"
 > &
   CheckboxColumnDefinition & {
@@ -505,8 +488,10 @@ type BaseImageColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TAccessorInput = TAccessor,
 > = Omit<
   ColumnDefinition<T, TContext, TAccessor, TPrevColumnId, TGroupId, TDynamicId, TReference>,
+  | "accessor"
   | "conditionalStyle"
   | "defaultValue"
   | "expansion"
@@ -523,7 +508,7 @@ type BaseImageColumnInput<
   | "validation"
 > & {
   type: "image";
-  accessor: TAccessor;
+  accessor: TAccessorInput;
   alt?: ImageAltInput<T, TContext>;
   size?: ImageSize;
   fit?: ImageFit;
@@ -548,6 +533,7 @@ type EmbeddedImageColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TAccessorInput = TAccessor,
 > = BaseImageColumnInput<
   T,
   TAccessor,
@@ -555,7 +541,8 @@ type EmbeddedImageColumnInput<
   TPrevColumnId,
   TGroupId,
   TDynamicId,
-  TContext
+  TContext,
+  TAccessorInput
 > & {
   source?: "embed";
   mediaType?: ImageMediaTypeInput<T, TContext>;
@@ -570,6 +557,7 @@ type UrlImageColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TAccessorInput = TAccessor,
 > = BaseImageColumnInput<
   T,
   TAccessor,
@@ -577,7 +565,8 @@ type UrlImageColumnInput<
   TPrevColumnId,
   TGroupId,
   TDynamicId,
-  TContext
+  TContext,
+  TAccessorInput
 > & {
   source: "url";
   mediaType?: never;
@@ -592,9 +581,29 @@ type ImageColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TEmbeddedAccessorInput = any,
+  TUrlAccessorInput = any,
 > =
-  | EmbeddedImageColumnInput<T, any, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>
-  | UrlImageColumnInput<T, any, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>;
+  | EmbeddedImageColumnInput<
+      T,
+      any,
+      TReference,
+      TPrevColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      TEmbeddedAccessorInput
+    >
+  | UrlImageColumnInput<
+      T,
+      any,
+      TReference,
+      TPrevColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      TUrlAccessorInput
+    >;
 
 type HyperlinkRendererColumnInput<
   T extends object,
@@ -604,8 +613,20 @@ type HyperlinkRendererColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TAccessorInput = TAccessor,
 > = Omit<
-  AccessorColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
+  AccessorColumnInput<
+    T,
+    TAccessor,
+    TReference,
+    TPrevColumnId,
+    TGroupId,
+    TDynamicId,
+    TContext,
+    CellValue,
+    CellValue,
+    TAccessorInput
+  >,
   "hyperlink" | "type"
 > & {
   type: "hyperlink";
@@ -625,47 +646,18 @@ type ExcelTableAccessorColumnInput<
   TContext extends SchemaContext,
   TTransformed = PrimitiveCellValue,
   TDefault = PrimitiveCellValue,
+  TAccessorInput = TAccessor,
 > = Omit<
   ColumnDefinition<T, TContext, TAccessor, TPrevColumnId, TGroupId, TDynamicId, TReference>,
-  "id" | "image" | "summary" | "defaultValue" | "sparkline" | "type" | "transform"
+  "id" | "accessor" | "image" | "summary" | "defaultValue" | "sparkline" | "type" | "transform"
 > & {
-  accessor: TAccessor;
+  accessor: TAccessorInput;
   defaultValue?: TDefault;
   summary?: never;
   transform?: (
     context: RowTransformContext<T, AccessorValue<T, TAccessor>, TContext>,
   ) => TTransformed;
   formula?: never;
-};
-
-type ExcelTableFormulaColumnInput<
-  T extends object,
-  TReference extends string,
-  TPrevColumnId extends string,
-  TGroupId extends string,
-  TDynamicId extends string,
-  TBooleanColumnId extends TPrevColumnId,
-  TContext extends SchemaContext,
-  TResult = FormulaValue<TPrevColumnId, TGroupId | TDynamicId>,
-> = Omit<
-  ColumnDefinition<T, TContext, never, TPrevColumnId, TGroupId, TDynamicId, TReference>,
-  | "id"
-  | "accessor"
-  | "image"
-  | "transform"
-  | "summary"
-  | "defaultValue"
-  | "sparkline"
-  | "type"
-  | "formula"
-> & {
-  accessor?: never;
-  transform?: never;
-  defaultValue?: never;
-  summary?: never;
-  formula: (
-    context: FormulaFnArgs<TPrevColumnId, TGroupId, TDynamicId, TContext, TBooleanColumnId>,
-  ) => TResult;
 };
 
 type ExcelTableSparklineRendererColumnInput<
@@ -696,31 +688,6 @@ type ExcelTableSparklineRendererColumnInput<
     sparklineType?: SparklineType;
   };
 
-type ExcelTableBadgeRendererColumnInput<
-  T extends object,
-  TAccessor extends Accessor<T, BadgeSourceValue, TContext> | Path<T>,
-  TReference extends string,
-  TPrevColumnId extends string,
-  TGroupId extends string,
-  TDynamicId extends string,
-  TContext extends SchemaContext,
-> = Omit<
-  ExcelTableAccessorColumnInput<
-    T,
-    TAccessor,
-    TReference,
-    TPrevColumnId,
-    TGroupId,
-    TDynamicId,
-    TContext
-  >,
-  "transform" | "type"
-> &
-  BadgeColumnDefinition<AccessorValue<T, TAccessor>, T, TContext> & {
-    type: "badge";
-    transform?: never;
-  };
-
 type ExcelTableCheckboxRendererColumnInput<
   T extends object,
   TAccessor extends Accessor<T, CheckboxSourceValue, TContext> | Path<T>,
@@ -729,6 +696,7 @@ type ExcelTableCheckboxRendererColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TAccessorInput = TAccessor,
 > = Omit<
   ExcelTableAccessorColumnInput<
     T,
@@ -737,7 +705,10 @@ type ExcelTableCheckboxRendererColumnInput<
     TPrevColumnId,
     TGroupId,
     TDynamicId,
-    TContext
+    TContext,
+    PrimitiveCellValue,
+    PrimitiveCellValue,
+    TAccessorInput
   >,
   "format" | "summary" | "transform" | "type"
 > &
@@ -756,8 +727,20 @@ type ExcelTableImageColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
-> = Omit<
-  ImageColumnInput<T, TAccessor, TReference, TPrevColumnId, TGroupId, TDynamicId, TContext>,
+  TEmbeddedAccessorInput = any,
+  TUrlAccessorInput = any,
+> = OmitEach<
+  ImageColumnInput<
+    T,
+    TAccessor,
+    TReference,
+    TPrevColumnId,
+    TGroupId,
+    TDynamicId,
+    TContext,
+    TEmbeddedAccessorInput,
+    TUrlAccessorInput
+  >,
   "defaultValue" | "summary" | "totalsRow"
 > & {
   defaultValue?: never;
@@ -773,6 +756,7 @@ type ExcelTableHyperlinkRendererColumnInput<
   TGroupId extends string,
   TDynamicId extends string,
   TContext extends SchemaContext,
+  TAccessorInput = TAccessor,
 > = Omit<
   ExcelTableAccessorColumnInput<
     T,
@@ -781,7 +765,10 @@ type ExcelTableHyperlinkRendererColumnInput<
     TPrevColumnId,
     TGroupId,
     TDynamicId,
-    TContext
+    TContext,
+    PrimitiveCellValue,
+    PrimitiveCellValue,
+    TAccessorInput
   >,
   "hyperlink" | "type"
 > & {
@@ -791,6 +778,594 @@ type ExcelTableHyperlinkRendererColumnInput<
   linkStyle?: CellStyle;
   hyperlink?: never;
 };
+
+/**
+ * Column kind a definition asks for: its `type`, else a value column when it has an accessor, else
+ * a formula column when it has a formula. A definition with both is a value column, so the
+ * misplaced `formula` is the key reported.
+ */
+type ColumnKindOf<TDef> = TDef extends { readonly type: "image"; readonly source: "url" }
+  ? "image-url"
+  : TDef extends { readonly type: infer TKind extends string }
+    ? TKind
+    : "accessor" extends keyof TDef
+      ? "value"
+      : "formula" extends keyof TDef
+        ? "formula"
+        : "value";
+
+type CellValueLabel = "a cell value (string, number, boolean, Date, null or undefined)";
+
+type CheckedAccessor<
+  T extends object,
+  TAccessor,
+  TContext,
+  TValue,
+  TLabel extends string,
+> = ValidateAccessor<T, TAccessor, TContext, TValue, TLabel>;
+
+/** What a plain column's accessor must return: anything when a transform converts it. */
+type ValueAccessorValue<TDef, TCell> = "transform" extends keyof TDef ? unknown : TCell;
+
+type ColumnKindLabel<TKind> = TKind extends "value"
+  ? ""
+  : TKind extends "image-url"
+    ? "URL image "
+    : TKind extends "image"
+      ? "embedded image "
+      : `${TKind & string} `;
+
+/** Column kinds a `type` can name. `image-url` is `type: "image"` with `source: "url"`. */
+type TypedColumnKind<TInputs> = Exclude<keyof TInputs, "value" | "formula" | "image-url">;
+
+/**
+ * Key-level check of a column definition, in the style of arktype: every key must be an option of
+ * the column kind, and an unknown one is reported on that key with the options that exist.
+ * Values are typed by the input union the definition is also checked against.
+ */
+type ValidateColumnKeys<TDef, TKeys, TOptions, TAccessorChecks> = {
+  [K in keyof TDef]: K extends "type"
+    ? // `undefined`: TypeScript adds `type?: undefined` to the untyped members of a union of
+      // definitions, such as `flag ? { type: "checkbox", … } : { accessor: … }`.
+      TDef[K] extends TypedColumnKind<TKeys> | undefined
+      ? TDef[K]
+      : TypedColumnKind<TKeys>
+    : ColumnKindOf<TDef> extends keyof TKeys
+      ? K extends TKeys[ColumnKindOf<TDef>]
+        ? K extends "accessor"
+          ? // The kind's accessor check, here rather than in the input shapes: it runs once,
+            // and the error lands on `accessor` even when TypeScript can't tell which shape
+            // to explain it with (a definition without `type`).
+            TAccessorChecks[ColumnKindOf<TDef> & keyof TAccessorChecks]
+          : unknown
+        : ErrorMessage<`'${K & string}' is not an option of ${ColumnKindLabel<ColumnKindOf<TDef>>}columns. Options: ${JoinUnion<TOptions[ColumnKindOf<TDef> & keyof TOptions]>}`>
+      : unknown;
+};
+
+/**
+ * Input shape of each column kind. The accessor type parameter of the shapes is `any`: they take
+ * `accessor` from `AccessorInputOf` and type `transform` from `TAccessor` themselves, and checking
+ * a function accessor against `Accessor<T, …>` here compared its parameter with the whole row
+ * type, once per kind and per column, which made type checking grow faster than the schema. The value and formula shapes leave out the keys they don't take
+ * instead of typing them `never`: they are always in the union, and a `never` would replace the key
+ * check's message with "not assignable to never". The formula shape keeps `accessor?: never`:
+ * TypeScript relies on it to explain a value column's error against the value shape. A definition
+ * with both is a value column (see `ColumnKindOf`), so its `formula` key gets the message.
+ */
+type ReportColumnInputs<
+  T extends object,
+  TId extends string,
+  TColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TBooleanColumnId extends TColumnId,
+  TContext extends SchemaContext,
+  _TDef,
+  TAccessor,
+  TTransformed,
+  TDefault,
+  TResult,
+> = {
+  // Value and formula shapes are built from `ColumnDefinition` in one `Omit`: every column builds
+  // them, and an `Omit` of an `Omit` doubled the mapped types created per column.
+  value: Omit<
+    ColumnDefinition<
+      T,
+      TContext,
+      any,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      FormulaLikeReference<TId, TColumnId>
+    >,
+    ValueColumnOmittedKeys
+  > & {
+    type?: never;
+    accessor: AccessorInputOf<T, TAccessor, TContext>;
+    transform?: (
+      context: BoundRowTransformContext<T, AccessorValue<T, TAccessor>, TContext>,
+    ) => TTransformed;
+    defaultValue?: TDefault;
+  };
+  formula: Omit<
+    ColumnDefinition<
+      T,
+      TContext,
+      never,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      FormulaLikeReference<TId, TColumnId>
+    >,
+    FormulaColumnOmittedKeys
+  > & {
+    type?: never;
+    accessor?: never;
+    formula: (
+      context: FormulaFnArgs<TColumnId, TGroupId, TDynamicId, TContext, TBooleanColumnId>,
+    ) => TResult;
+  };
+  sparkline: Omit<
+    SparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TContext>,
+    "accessor" | "transform" | "formula"
+  >;
+  badge: Omit<
+    AccessorColumnInput<
+      T,
+      any,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      CellValue,
+      CellValue,
+      AccessorInputOf<T, TAccessor, TContext>
+    >,
+    "formula" | "transform"
+  > &
+    BadgeColumnDefinition<AccessorValue<T, TAccessor>, T, TContext> & { type: "badge" };
+  checkbox: Omit<
+    CheckboxRendererColumnInput<
+      T,
+      any,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      AccessorInputOf<T, TAccessor, TContext>
+    >,
+    "formula" | "format" | "summary" | "transform"
+  >;
+  // Embedded and URL images are two kinds, so the key check knows a URL image takes no
+  // \`padding\` or \`mediaType\`.
+  image: Exclude<
+    OmitEach<
+      ImageColumnInput<
+        T,
+        any,
+        FormulaLikeReference<TId, TColumnId>,
+        TColumnId,
+        TGroupId,
+        TDynamicId,
+        TContext,
+        AccessorInputOf<T, TAccessor, TContext>,
+        AccessorInputOf<T, TAccessor, TContext>
+      >,
+      ImageColumnRejectedKeys
+    >,
+    { source: "url" }
+  >;
+  "image-url": Extract<
+    OmitEach<
+      ImageColumnInput<
+        T,
+        any,
+        FormulaLikeReference<TId, TColumnId>,
+        TColumnId,
+        TGroupId,
+        TDynamicId,
+        TContext,
+        AccessorInputOf<T, TAccessor, TContext>,
+        AccessorInputOf<T, TAccessor, TContext>
+      >,
+      ImageColumnRejectedKeys | "mediaType" | "padding"
+    >,
+    { source: "url" }
+  >;
+  hyperlink: Omit<
+    HyperlinkRendererColumnInput<
+      T,
+      any,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      AccessorInputOf<T, TAccessor, TContext>
+    >,
+    "transform" | "formula" | "hyperlink"
+  > & {
+    // Typed from `TAccessor` itself, like the value shape's `transform`.
+    transform?: (
+      context: BoundRowTransformContext<T, AccessorValue<T, TAccessor>, TContext>,
+    ) => TTransformed;
+  };
+};
+
+/**
+ * The input shapes a definition is checked against: every column kind, as a plain union. No shape
+ * is picked by a condition on the definition: callbacks are typed before the definition is known,
+ * and a condition would freeze their parameters (`value: never`). The `type` key tells the shapes
+ * apart.
+ */
+type ColumnInputFor<TDef, TInputs> =
+  | TInputs[("value" | "formula" | "hyperlink") & keyof TInputs]
+  | (TDef extends { readonly type: unknown }
+      ? ColumnKindOf<TDef> extends "hyperlink"
+        ? never
+        : ColumnKindOf<TDef> extends keyof TInputs
+          ? TInputs[ColumnKindOf<TDef>]
+          : TInputs[keyof TInputs]
+      : never);
+
+/** Omit for each member of a union (plain `Omit` merges the members). */
+type OmitEach<TInput, TKeys extends PropertyKey> = TInput extends unknown
+  ? Omit<TInput, TKeys>
+  : never;
+
+type ValueColumnOmittedKeys =
+  | "id"
+  | "accessor"
+  | "image"
+  | "sparkline"
+  | "type"
+  | "transform"
+  | "defaultValue"
+  | "formula";
+type FormulaColumnOmittedKeys =
+  | "id"
+  | "accessor"
+  | "image"
+  | "sparkline"
+  | "transform"
+  | "type"
+  | "formula";
+
+/**
+ * Keys an image column doesn't take. URL images also leave out `mediaType` and `padding`; the key
+ * check reports them, as it treats embedded and URL images as two kinds.
+ */
+type ImageColumnRejectedKeys =
+  | "conditionalStyle"
+  | "defaultValue"
+  | "expansion"
+  | "formula"
+  | "format"
+  | "hyperlink"
+  | "sparkline"
+  | "summary"
+  | "totalsRow"
+  | "transform"
+  | "validation";
+
+type PrimitiveCellValueLabel =
+  "a single cell value (string, number, boolean, Date, null or undefined)";
+
+/** Input shape of each Excel table column kind. See `ReportColumnInputs`. */
+type ExcelTableColumnInputs<
+  T extends object,
+  TId extends string,
+  TColumnId extends string,
+  TGroupId extends string,
+  TDynamicId extends string,
+  TBooleanColumnId extends TColumnId,
+  TContext extends SchemaContext,
+  _TDef,
+  TAccessor,
+  TTransformed,
+  TDefault,
+  TResult,
+> = {
+  value: Omit<
+    ColumnDefinition<
+      T,
+      TContext,
+      any,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      FormulaLikeReference<TId, TColumnId>
+    >,
+    ValueColumnOmittedKeys | "summary"
+  > & {
+    type?: never;
+    accessor: AccessorInputOf<T, TAccessor, TContext>;
+    transform?: (
+      context: RowTransformContext<T, AccessorValue<T, TAccessor>, TContext>,
+    ) => TTransformed;
+    defaultValue?: TDefault;
+  };
+  formula: Omit<
+    ColumnDefinition<
+      T,
+      TContext,
+      never,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      FormulaLikeReference<TId, TColumnId>
+    >,
+    FormulaColumnOmittedKeys | "defaultValue" | "summary"
+  > & {
+    type?: never;
+    accessor?: never;
+    formula: (
+      context: FormulaFnArgs<TColumnId, TGroupId, TDynamicId, TContext, TBooleanColumnId>,
+    ) => TResult;
+  };
+  sparkline: Omit<
+    ExcelTableSparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TContext>,
+    "accessor" | "defaultValue" | "formula" | "summary" | "transform"
+  >;
+  badge: Omit<
+    ExcelTableAccessorColumnInput<
+      T,
+      any,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      PrimitiveCellValue,
+      PrimitiveCellValue,
+      AccessorInputOf<T, TAccessor, TContext>
+    >,
+    "formula" | "summary" | "transform"
+  > &
+    BadgeColumnDefinition<AccessorValue<T, TAccessor>, T, TContext> & { type: "badge" };
+  checkbox: Omit<
+    ExcelTableCheckboxRendererColumnInput<
+      T,
+      any,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      AccessorInputOf<T, TAccessor, TContext>
+    >,
+    "formula" | "format" | "summary" | "transform"
+  >;
+  // Embedded and URL images are two kinds, so the key check knows a URL image takes no
+  // \`padding\` or \`mediaType\`.
+  image: Exclude<
+    OmitEach<
+      ExcelTableImageColumnInput<
+        T,
+        any,
+        FormulaLikeReference<TId, TColumnId>,
+        TColumnId,
+        TGroupId,
+        TDynamicId,
+        TContext,
+        AccessorInputOf<T, TAccessor, TContext>,
+        AccessorInputOf<T, TAccessor, TContext>
+      >,
+      ImageColumnRejectedKeys
+    >,
+    { source: "url" }
+  >;
+  "image-url": Extract<
+    OmitEach<
+      ExcelTableImageColumnInput<
+        T,
+        any,
+        FormulaLikeReference<TId, TColumnId>,
+        TColumnId,
+        TGroupId,
+        TDynamicId,
+        TContext,
+        AccessorInputOf<T, TAccessor, TContext>,
+        AccessorInputOf<T, TAccessor, TContext>
+      >,
+      ImageColumnRejectedKeys | "mediaType" | "padding"
+    >,
+    { source: "url" }
+  >;
+  hyperlink: Omit<
+    ExcelTableHyperlinkRendererColumnInput<
+      T,
+      any,
+      FormulaLikeReference<TId, TColumnId>,
+      TColumnId,
+      TGroupId,
+      TDynamicId,
+      TContext,
+      AccessorInputOf<T, TAccessor, TContext>
+    >,
+    "transform" | "formula" | "hyperlink" | "summary"
+  > & {
+    transform?: (
+      context: RowTransformContext<T, AccessorValue<T, TAccessor>, TContext>,
+    ) => TTransformed;
+  };
+};
+
+/**
+ * The accessor as the input shapes take it; the key check validates it. While it is still being
+ * inferred it is `never` (its default), and the shape offers any field or row function instead,
+ * so an arrow function gets its `row` type. That branch doesn't depend on the accessor, so it is
+ * computed once per row type.
+ */
+type AccessorInputOf<T extends object, TAccessor, TContext> = [TAccessor] extends [never]
+  ? // Any string rather than every field: the key check validates the field and offers the
+    // names, and a union of every field here cost a pass over the row type per column.
+    (string & {}) | ((context: T & AccessorContext<T, TContext>) => unknown)
+  : // Any string too: the key check reports a wrong field, and a literal here would combine with
+    // its message into `never`, which collapses the whole definition.
+    TAccessor | (string & {});
+
+/**
+ * The accessor check of each column kind. It runs once per column, in the key check: run inside
+ * every input shape, it ran once per kind, each time over every field of the row.
+ */
+type ReportAccessorChecks<T extends object, TAccessor, TContext, TDef> = {
+  value: CheckedAccessor<
+    T,
+    TAccessor,
+    TContext,
+    ValueAccessorValue<TDef, CellValue>,
+    CellValueLabel
+  >;
+  badge: CheckedAccessor<
+    T,
+    TAccessor,
+    TContext,
+    BadgeSourceValue,
+    "a cell value or a list of them"
+  >;
+  checkbox: CheckedAccessor<T, TAccessor, TContext, CheckboxSourceValue, "a boolean">;
+  image: CheckedAccessor<T, TAccessor, TContext, ImageSourceValue, "image bytes">;
+  "image-url": CheckedAccessor<T, TAccessor, TContext, ImageUrlSourceValue, "an image URL">;
+  hyperlink: CheckedAccessor<
+    T,
+    TAccessor,
+    TContext,
+    ValueAccessorValue<TDef, CellValue>,
+    CellValueLabel
+  >;
+};
+
+type ExcelTableAccessorChecks<T extends object, TAccessor, TContext, TDef> = {
+  value: CheckedAccessor<
+    T,
+    TAccessor,
+    TContext,
+    ValueAccessorValue<TDef, PrimitiveCellValue>,
+    PrimitiveCellValueLabel
+  >;
+  badge: CheckedAccessor<T, TAccessor, TContext, PrimitiveCellValue, PrimitiveCellValueLabel>;
+  checkbox: CheckedAccessor<T, TAccessor, TContext, CheckboxSourceValue, "a boolean">;
+  image: CheckedAccessor<T, TAccessor, TContext, ImageSourceValue, "image bytes">;
+  "image-url": CheckedAccessor<T, TAccessor, TContext, ImageUrlSourceValue, "an image URL">;
+  hyperlink: CheckedAccessor<
+    T,
+    TAccessor,
+    TContext,
+    ValueAccessorValue<TDef, PrimitiveCellValue>,
+    PrimitiveCellValueLabel
+  >;
+};
+
+/** Keys each column kind takes. */
+type ColumnKeysOf<TInputs> = { [K in keyof TInputs]: AllowedKeys<TInputs[K]> };
+
+/** Keys each column kind lists as options in messages. */
+type ColumnOptionsOf<TInputs> = {
+  [K in keyof TInputs]: Exclude<OptionKeys<TInputs[K]>, "kind" | "type">;
+};
+
+/**
+ * Keys of each kind, from the input shapes with generic ids. They don't depend on the columns
+ * declared so far, so TypeScript computes them once per row type instead of once per column.
+ */
+type ReportColumnKeys<T extends object, TContext extends SchemaContext> = ColumnKeysOf<
+  ReportColumnInputs<
+    T,
+    string,
+    string,
+    string,
+    string,
+    never,
+    TContext,
+    {},
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
+>;
+type ReportColumnOptions<T extends object, TContext extends SchemaContext> = ColumnOptionsOf<
+  ReportColumnInputs<
+    T,
+    string,
+    string,
+    string,
+    string,
+    never,
+    TContext,
+    {},
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
+>;
+type ExcelTableColumnKeys<T extends object, TContext extends SchemaContext> = ColumnKeysOf<
+  ExcelTableColumnInputs<
+    T,
+    string,
+    string,
+    string,
+    string,
+    never,
+    TContext,
+    {},
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
+>;
+type ExcelTableColumnOptions<T extends object, TContext extends SchemaContext> = ColumnOptionsOf<
+  ExcelTableColumnInputs<
+    T,
+    string,
+    string,
+    string,
+    string,
+    never,
+    TContext,
+    {},
+    unknown,
+    unknown,
+    unknown,
+    unknown
+  >
+>;
+
+/** Value a column writes into its cells, by column kind. */
+type ColumnValueOf<
+  T extends object,
+  TDef,
+  TAccessor,
+  TTransformed,
+  TDefault,
+  TResult,
+> = ColumnValueOfKind<T, ColumnKindOf<TDef>, TAccessor, TTransformed, TDefault, TResult>;
+
+/** The kind is computed once by `ColumnValueOf`, not once per branch. */
+type ColumnValueOfKind<
+  T extends object,
+  TKind,
+  TAccessor,
+  TTransformed,
+  TDefault,
+  TResult,
+> = TKind extends "formula"
+  ? FormulaColumnValue<TResult>
+  : TKind extends "checkbox"
+    ? boolean
+    : TKind extends "image" | "image-url" | "sparkline"
+      ? never
+      : TKind extends "badge"
+        ? ColumnCellValue<AccessorValue<T, TAccessor>>
+        : AccessorColumnValue<AccessorValue<T, TAccessor>, TTransformed, TDefault>;
+
+type BooleanColumnIdOf<TDef, TId extends string> =
+  ColumnKindOf<TDef> extends "checkbox" ? TId : never;
 
 export interface GroupDefinition<
   T extends object,
@@ -1547,327 +2122,70 @@ export class SchemaBuilder<
     >;
   }
 
+  /**
+   * Typed with its kind, so `.table()` offers report options. The base `build()` typed the kind as
+   * `any`, which made every schema take Excel table options such as `totalsRow`.
+   */
+  override build(): ReportSchemaDefinition<
+    T,
+    TColumnId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TColumnValues
+  > {
+    return this.buildSchema();
+  }
+
   column<
-    TId extends string,
-    TPath extends Path<T>,
+    const TId extends string,
+    const TDef,
+    TAccessor extends Path<T> | (string & {}) | ((context: any) => unknown) = never,
     TTransformed extends CellValue = never,
     TDefault extends CellValue = never,
+    TResult extends FormulaValue<TColumnId, TGroupId | TDynamicId> = never,
   >(
     id: TId,
-    definition: AccessorColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext,
-      TTransformed,
-      TDefault
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<
-      TColumnValues,
-      TId,
-      AccessorColumnValue<AccessorValue<T, TPath>, TTransformed, TDefault>
-    >
-  >;
-  column<
-    TId extends string,
-    TAccessor extends Accessor<T, unknown, TSchemaContext>,
-    TTransformed extends CellValue = never,
-    TDefault extends CellValue = never,
-  >(
-    id: TId,
-    definition: AccessorColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext,
-      TTransformed,
-      TDefault
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<
-      TColumnValues,
-      TId,
-      AccessorColumnValue<AccessorValue<T, TAccessor>, TTransformed, TDefault>
-    >
-  >;
-  column<TId extends string, TResult extends FormulaValue<TColumnId, TGroupId | TDynamicId>>(
-    id: TId,
-    definition: FormulaColumnInput<
-      T,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TBooleanColumnId,
-      TSchemaContext,
-      TResult
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, FormulaColumnValue<TResult>>
-  >;
-  column<TId extends string>(
-    id: TId,
-    definition: SparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: BadgeRendererColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TPath>>>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, BadgeSourceValue, TSchemaContext>>(
-    id: TId,
-    definition: BadgeRendererColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TAccessor>>>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: CheckboxRendererColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId | TId,
-    WithColumnValue<TColumnValues, TId, boolean>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, CheckboxSourceValue, TSchemaContext>>(
-    id: TId,
-    definition: CheckboxRendererColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId | TId,
-    WithColumnValue<TColumnValues, TId, boolean>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: ImageColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, ImageSourceValue, TSchemaContext>>(
-    id: TId,
-    definition: ImageColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, ImageUrlSourceValue, TSchemaContext>>(
-    id: TId,
-    definition: ImageColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: HyperlinkRendererColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TPath>>>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext>>(
-    id: TId,
-    definition: HyperlinkRendererColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): SchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TAccessor>>>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext> | Path<T>>(
-    id: TId,
-    definition:
-      | AccessorColumnInput<T, TAccessor, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | FormulaColumnInput<
+    definition: ValidateColumnKeys<
+      TDef,
+      ReportColumnKeys<T, TSchemaContext>,
+      ReportColumnOptions<T, TSchemaContext>,
+      ReportAccessorChecks<T, TAccessor, TSchemaContext, TDef>
+    > &
+      ColumnInputFor<
+        TDef,
+        ReportColumnInputs<
           T,
-          string,
+          TId,
           TColumnId,
           TGroupId,
           TDynamicId,
           TBooleanColumnId,
-          TSchemaContext
+          TSchemaContext,
+          TDef,
+          TAccessor,
+          TTransformed,
+          TDefault,
+          TResult
         >
-      | SparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | BadgeRendererColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | CheckboxRendererColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | ImageColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | HyperlinkRendererColumnInput<
-          T,
-          any,
-          string,
-          TColumnId,
-          TGroupId,
-          TDynamicId,
-          TSchemaContext
-        >,
+      >,
   ): SchemaBuilder<
     T,
     TColumnId | TId,
     TGroupId,
     TDynamicId,
     TSchemaContext,
-    TBooleanColumnId | TId,
-    WithColumnValue<TColumnValues, TId, unknown>
-  > {
+    TBooleanColumnId | BooleanColumnIdOf<TDef, TId>,
+    WithColumnValue<
+      TColumnValues,
+      TId,
+      ColumnValueOf<T, TDef, TAccessor, TTransformed, TDefault, TResult>
+    >
+  >;
+  column(id: string, definition: object): unknown {
     this.ensureIdAvailable(id);
     this.addColumnNode(normalizeColumnDefinition(id, definition as any));
-    return this as unknown as SchemaBuilder<
-      T,
-      TColumnId | TId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext,
-      TBooleanColumnId | TId,
-      WithColumnValue<TColumnValues, TId, unknown>
-    >;
+    return this;
   }
 
   override group<const TId extends string, TResult>(
@@ -2040,359 +2358,67 @@ export class ExcelTableSchemaBuilder<
     >;
   }
 
+  /** Typed with its kind, so `.table()` offers Excel table options. */
+  override build(): ExcelTableSchemaDefinition<
+    T,
+    TColumnId,
+    TGroupId,
+    TDynamicId,
+    TSchemaContext,
+    TColumnValues
+  > {
+    return this.buildSchema();
+  }
+
   column<
-    TId extends string,
-    TPath extends Path<T>,
+    const TId extends string,
+    const TDef,
+    TAccessor extends Path<T> | (string & {}) | ((context: any) => unknown) = never,
     TTransformed extends PrimitiveCellValue = never,
     TDefault extends PrimitiveCellValue = never,
+    TResult extends FormulaValue<TColumnId, TGroupId | TDynamicId> = never,
   >(
     id: TId,
-    definition: AccessorValue<T, TPath> extends PrimitiveCellValue
-      ? ExcelTableAccessorColumnInput<
+    definition: ValidateColumnKeys<
+      TDef,
+      ExcelTableColumnKeys<T, TSchemaContext>,
+      ExcelTableColumnOptions<T, TSchemaContext>,
+      ExcelTableAccessorChecks<T, TAccessor, TSchemaContext, TDef>
+    > &
+      ColumnInputFor<
+        TDef,
+        ExcelTableColumnInputs<
           T,
-          TPath,
-          FormulaLikeReference<TId, TColumnId>,
-          TColumnId,
-          TGroupId,
-          TDynamicId,
-          TSchemaContext,
-          TTransformed,
-          TDefault
-        >
-      : never,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<
-      TColumnValues,
-      TId,
-      AccessorColumnValue<AccessorValue<T, TPath>, TTransformed, TDefault>
-    >
-  >;
-  column<
-    TId extends string,
-    TAccessor extends Accessor<T, BadgeSourceValue, TSchemaContext>,
-    TTransformed extends PrimitiveCellValue = never,
-    TDefault extends PrimitiveCellValue = never,
-  >(
-    id: TId,
-    definition: ExcelTableAccessorColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext,
-      TTransformed,
-      TDefault
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<
-      TColumnValues,
-      TId,
-      AccessorColumnValue<AccessorValue<T, TAccessor>, TTransformed, TDefault>
-    >
-  >;
-  column<TId extends string, TResult extends FormulaValue<TColumnId, TGroupId | TDynamicId>>(
-    id: TId,
-    definition: ExcelTableFormulaColumnInput<
-      T,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TBooleanColumnId,
-      TSchemaContext,
-      TResult
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, FormulaColumnValue<TResult>>
-  >;
-  column<TId extends string>(
-    id: TId,
-    definition: ExcelTableSparklineRendererColumnInput<
-      T,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: ExcelTableBadgeRendererColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TPath>>>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, PrimitiveCellValue, TSchemaContext>>(
-    id: TId,
-    definition: ExcelTableBadgeRendererColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TAccessor>>>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: ExcelTableCheckboxRendererColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId | TId,
-    WithColumnValue<TColumnValues, TId, boolean>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, CheckboxSourceValue, TSchemaContext>>(
-    id: TId,
-    definition: ExcelTableCheckboxRendererColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId | TId,
-    WithColumnValue<TColumnValues, TId, boolean>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: ExcelTableImageColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, ImageSourceValue, TSchemaContext>>(
-    id: TId,
-    definition: ExcelTableImageColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, ImageUrlSourceValue, TSchemaContext>>(
-    id: TId,
-    definition: ExcelTableImageColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, never>
-  >;
-  column<TId extends string, TPath extends Path<T>>(
-    id: TId,
-    definition: ExcelTableHyperlinkRendererColumnInput<
-      T,
-      TPath,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TPath>>>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, PrimitiveCellValue, TSchemaContext>>(
-    id: TId,
-    definition: ExcelTableHyperlinkRendererColumnInput<
-      T,
-      TAccessor,
-      FormulaLikeReference<TId, TColumnId>,
-      TColumnId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext
-    >,
-  ): ExcelTableSchemaBuilder<
-    T,
-    TColumnId | TId,
-    TGroupId,
-    TDynamicId,
-    TSchemaContext,
-    TBooleanColumnId,
-    WithColumnValue<TColumnValues, TId, ColumnCellValue<AccessorValue<T, TAccessor>>>
-  >;
-  column<TId extends string, TAccessor extends Accessor<T, unknown, TSchemaContext> | Path<T>>(
-    id: TId,
-    definition:
-      | ExcelTableAccessorColumnInput<
-          T,
-          TAccessor,
-          string,
-          TColumnId,
-          TGroupId,
-          TDynamicId,
-          TSchemaContext
-        >
-      | ExcelTableFormulaColumnInput<
-          T,
-          string,
+          TId,
           TColumnId,
           TGroupId,
           TDynamicId,
           TBooleanColumnId,
-          TSchemaContext
+          TSchemaContext,
+          TDef,
+          TAccessor,
+          TTransformed,
+          TDefault,
+          TResult
         >
-      | ExcelTableSparklineRendererColumnInput<T, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | ExcelTableBadgeRendererColumnInput<
-          T,
-          any,
-          string,
-          TColumnId,
-          TGroupId,
-          TDynamicId,
-          TSchemaContext
-        >
-      | ExcelTableCheckboxRendererColumnInput<
-          T,
-          any,
-          string,
-          TColumnId,
-          TGroupId,
-          TDynamicId,
-          TSchemaContext
-        >
-      | ExcelTableImageColumnInput<T, any, string, TColumnId, TGroupId, TDynamicId, TSchemaContext>
-      | ExcelTableHyperlinkRendererColumnInput<
-          T,
-          any,
-          string,
-          TColumnId,
-          TGroupId,
-          TDynamicId,
-          TSchemaContext
-        >,
+      >,
   ): ExcelTableSchemaBuilder<
     T,
     TColumnId | TId,
     TGroupId,
     TDynamicId,
     TSchemaContext,
-    TBooleanColumnId | TId,
-    WithColumnValue<TColumnValues, TId, unknown>
-  > {
+    TBooleanColumnId | BooleanColumnIdOf<TDef, TId>,
+    WithColumnValue<
+      TColumnValues,
+      TId,
+      ColumnValueOf<T, TDef, TAccessor, TTransformed, TDefault, TResult>
+    >
+  >;
+  column(id: string, definition: object): unknown {
     this.ensureIdAvailable(id);
     this.addColumnNode(normalizeColumnDefinition(id, definition as any));
-    return this as unknown as ExcelTableSchemaBuilder<
-      T,
-      TColumnId | TId,
-      TGroupId,
-      TDynamicId,
-      TSchemaContext,
-      TBooleanColumnId | TId,
-      WithColumnValue<TColumnValues, TId, unknown>
-    >;
+    return this;
   }
 
   override group<const TId extends string, TResult>(
