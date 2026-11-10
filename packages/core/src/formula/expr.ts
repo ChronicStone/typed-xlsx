@@ -1,3 +1,4 @@
+import type { ErrorMessage } from "../core/type-errors";
 export interface FormulaLiteralExpr {
   kind: "literal";
   value: string | number | boolean;
@@ -124,6 +125,20 @@ export interface FormulaSafeDivOptions<
       }) => FormulaConditionValue<TColumnId, TScopeId>);
 }
 
+/**
+ * A formula can only reference columns declared before it. When there are none, the accepted ids
+ * would print as `never`; this says why instead.
+ */
+type FormulaColumnIdInput<TColumnId extends string, TId> = [TColumnId] extends [never]
+  ? ErrorMessage<"No column is declared before this formula. A formula can only reference columns declared earlier in the chain: declare this column after the ones it uses">
+  : TId;
+/** `boolean` for checkbox columns, so `.eq(true)` reads naturally; `unknown` otherwise. */
+type FormulaRefValue<TId, TBooleanColumnId> = [TId] extends [never]
+  ? unknown
+  : TId extends TBooleanColumnId
+    ? boolean
+    : unknown;
+
 export interface FormulaRefs<
   TColumnId extends string = string,
   TGroupId extends string = never,
@@ -131,12 +146,8 @@ export interface FormulaRefs<
   TBooleanColumnId extends TColumnId = never,
 > {
   column<TId extends TColumnId>(
-    columnId: TId,
-  ): FormulaOperand<
-    TColumnId,
-    TGroupId | TDynamicId,
-    TId extends TBooleanColumnId ? boolean : unknown
-  >;
+    columnId: FormulaColumnIdInput<TColumnId, TId>,
+  ): FormulaOperand<TColumnId, TGroupId | TDynamicId, FormulaRefValue<TId, TBooleanColumnId>>;
   group(groupId: TGroupId): FormulaScopeRef<TGroupId>;
   dynamic(dynamicId: TDynamicId): FormulaScopeRef<TDynamicId>;
 }
@@ -147,8 +158,8 @@ export interface FormulaColumnRefs<
   TBooleanColumnId extends TColumnId = never,
 > {
   column<TId extends TColumnId>(
-    columnId: TId,
-  ): FormulaOperand<TColumnId, TScopeId, TId extends TBooleanColumnId ? boolean : unknown>;
+    columnId: FormulaColumnIdInput<TColumnId, TId>,
+  ): FormulaOperand<TColumnId, TScopeId, FormulaRefValue<TId, TBooleanColumnId>>;
 }
 
 export interface FormulaFunctions<
@@ -452,11 +463,11 @@ export function createFormulaColumnRefs<
   TBooleanColumnId extends TColumnId = never,
 >(): FormulaColumnRefs<TColumnId, TScopeId, TBooleanColumnId> {
   return {
-    column<TId extends TColumnId>(columnId: TId) {
+    column<TId extends TColumnId>(columnId: FormulaColumnIdInput<TColumnId, TId>) {
       return wrapExpr<TColumnId, TScopeId>({
         kind: "ref",
         columnId: columnId as TColumnId,
-      }) as FormulaOperand<TColumnId, TScopeId, TId extends TBooleanColumnId ? boolean : unknown>;
+      }) as FormulaOperand<TColumnId, TScopeId, FormulaRefValue<TId, TBooleanColumnId>>;
     },
   };
 }
@@ -468,14 +479,14 @@ export function createFormulaRefs<
   TBooleanColumnId extends TColumnId = never,
 >(): FormulaRefs<TColumnId, TGroupId, TDynamicId, TBooleanColumnId> {
   return {
-    column<TId extends TColumnId>(columnId: TId) {
+    column<TId extends TColumnId>(columnId: FormulaColumnIdInput<TColumnId, TId>) {
       return wrapExpr<TColumnId, TGroupId | TDynamicId>({
         kind: "ref",
         columnId: columnId as TColumnId,
       }) as FormulaOperand<
         TColumnId,
         TGroupId | TDynamicId,
-        TId extends TBooleanColumnId ? boolean : unknown
+        FormulaRefValue<TId, TBooleanColumnId>
       >;
     },
     group(groupId) {
