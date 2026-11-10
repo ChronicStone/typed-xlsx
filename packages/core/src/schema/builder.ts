@@ -1408,7 +1408,8 @@ export interface SchemaDefinition<
   readonly __columnValues?: TColumnValues | undefined;
   readonly __groupIds?: TGroupId | undefined;
   readonly __dynamicIds?: TDynamicId | undefined;
-  readonly __context?: TSchemaContext | undefined;
+  // No `| undefined`: the table API reads the context type through `Required<…>["__context"]`.
+  readonly __context?: TSchemaContext;
   readonly __kind?: TKind | undefined;
 }
 

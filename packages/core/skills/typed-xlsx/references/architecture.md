@@ -141,18 +141,17 @@ Use the exported types to write export helpers that accept any schema and keep `
 ```ts
 import { createWorkbook, type ReportSchemaDefinition, type TableSelection } from "typed-xlsx";
 
-type ReportContext = { locale: string; t: (key: string) => string };
-
 export function exportToBytes<
   Row extends object,
   ColumnId extends string,
   GroupId extends string,
   DynamicId extends string,
+  Context extends { locale: string },
 >(options: {
   sheetName: string;
-  schema: ReportSchemaDefinition<Row, ColumnId, GroupId, DynamicId, ReportContext>;
+  schema: ReportSchemaDefinition<Row, ColumnId, GroupId, DynamicId, Context>;
   rows: Row[];
-  context: ReportContext;
+  context: Context;
   select?: TableSelection<ColumnId | GroupId | DynamicId>;
 }) {
   const workbook = createWorkbook();
@@ -166,7 +165,7 @@ export function exportToBytes<
 }
 ```
 
-Keep the context type fixed in such helpers (your app's shared `ReportContext`, or an intersection your reports all satisfy). A helper generic over the context type itself can't pass `context` to `.table()`: whether a table needs `context` is computed from the schema's context type, and TypeScript can't compute it for an unknown type parameter.
+Constrain the context type to what every report shares (`Context extends ReportContext`), so the helper can read it.
 
 ## A report registry
 
