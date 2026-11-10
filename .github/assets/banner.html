@@ -1,0 +1,509 @@
+<!doctype html>
+<!--
+  Source of the README banner. Render both themes at 2x with:
+    sh .github/assets/render-banner.sh
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>typed-xlsx banner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=JetBrains+Mono:wght@400;500;700&display=block"
+      rel="stylesheet"
+    />
+    <script>
+      if (location.hash.includes("dark")) document.documentElement.classList.add("dark");
+    </script>
+    <style>
+      :root {
+        --bg: #edf3ef;
+        --panel: #f8fbf9;
+        --grid: rgba(10, 70, 40, 0.055);
+        --grid-major: rgba(10, 70, 40, 0.1);
+        --ink: #0a1f15;
+        --ink-2: #3c5547;
+        --ink-3: #6b8578;
+        --line: rgba(10, 31, 21, 0.5);
+        --line-faint: rgba(10, 31, 21, 0.16);
+        --accent: #07844a;
+        --accent-soft: rgba(7, 132, 74, 0.11);
+        --accent-line: rgba(7, 132, 74, 0.65);
+        --head: #07844a;
+        --head-ink: #fff;
+        --cell-line: #dbe6df;
+        --zebra: #f2f7f4;
+        --sheet-chrome: #e6eee9;
+        --shadow: 0 34px 70px -30px rgba(16, 60, 36, 0.42);
+        --code-bg: #071510;
+        --code-ink: #d6eadd;
+        --code-dim: #5d7a6a;
+        --t-str: #ecc879;
+        --t-kw: #5ee8a0;
+        --t-key: #9dc8b1;
+        --t-fn: #f4fbf7;
+        --paid: #0b7a45;
+        --paid-bg: #d7f0e2;
+        --due: #9a5b00;
+        --due-bg: #fbe9c8;
+        --late: #b3261e;
+        --late-bg: #f9dcd9;
+        --wordmark: url(../../apps/docs/public/wordmark-light.svg);
+      }
+      .dark {
+        --bg: #06110c;
+        --panel: #0b1c14;
+        --grid: rgba(120, 230, 170, 0.045);
+        --grid-major: rgba(120, 230, 170, 0.09);
+        --ink: #e3f2e8;
+        --ink-2: #a9c7b6;
+        --ink-3: #6f8f7e;
+        --line: rgba(205, 240, 220, 0.5);
+        --line-faint: rgba(205, 240, 220, 0.15);
+        --accent: #3ee38c;
+        --accent-soft: rgba(62, 227, 140, 0.12);
+        --accent-line: rgba(62, 227, 140, 0.6);
+        --head: #13834c;
+        --head-ink: #f2fff7;
+        --cell-line: #1d3328;
+        --zebra: #0f2219;
+        --sheet-chrome: #10241a;
+        --shadow: 0 34px 80px -30px rgba(0, 0, 0, 0.75);
+        --code-bg: #030b07;
+        --paid: #5ee8a0;
+        --paid-bg: rgba(62, 227, 140, 0.14);
+        --due: #f0c46a;
+        --due-bg: rgba(240, 196, 106, 0.14);
+        --late: #ff8c84;
+        --late-bg: rgba(255, 140, 132, 0.14);
+        --wordmark: url(../../apps/docs/public/wordmark-dark.svg);
+      }
+      .dark .code {
+        box-shadow:
+          0 0 0 1px var(--line-faint),
+          var(--shadow);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      .b {
+        position: relative;
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+        color: var(--ink);
+        font-family: "Archivo", system-ui, sans-serif;
+        background:
+          linear-gradient(var(--grid-major) 1px, transparent 1px) 0 0 / 80px 80px,
+          linear-gradient(90deg, var(--grid-major) 1px, transparent 1px) 0 0 / 80px 80px,
+          linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 16px 16px,
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 16px 16px,
+          var(--bg);
+      }
+      .b::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(ellipse 70% 90% at 26% 50%, var(--bg) 30%, transparent 75%);
+        opacity: 0.85;
+      }
+      .mono {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+      }
+
+      /* ---------- left: identity ---------- */
+      .id {
+        position: absolute;
+        z-index: 2;
+        left: 72px;
+        top: 74px;
+        width: 520px;
+      }
+      .wm {
+        display: block;
+        width: 300px;
+        height: 48px;
+        background: var(--wordmark) left center / contain no-repeat;
+      }
+      h1 {
+        margin-top: 74px;
+        font-size: 60px;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+      }
+      h1 em {
+        font-style: normal;
+        color: var(--accent);
+      }
+      .sub {
+        margin-top: 26px;
+        font-size: 21px;
+        line-height: 1.45;
+        font-weight: 500;
+        color: var(--ink-2);
+        letter-spacing: -0.005em;
+      }
+      .foot {
+        position: absolute;
+        z-index: 2;
+        left: 72px;
+        bottom: 66px;
+        display: flex;
+        gap: 22px;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--ink-3);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .foot b {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      /* ---------- right: schema card ---------- */
+      .code {
+        position: absolute;
+        z-index: 3;
+        left: 604px;
+        top: 50px;
+        width: 486px;
+        padding: 16px 22px 18px;
+        border-radius: 12px;
+        background: var(--code-bg);
+        color: var(--code-ink);
+        box-shadow: var(--shadow);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .code pre {
+        font: inherit;
+        white-space: pre;
+      }
+      .code .bar {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 12px;
+        color: var(--code-dim);
+        font-size: 13px;
+      }
+      .code .bar i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #1b3326;
+      }
+      .code .bar span {
+        margin-left: 8px;
+      }
+      .k {
+        color: var(--t-kw);
+      }
+      .s {
+        color: var(--t-str);
+      }
+      .p {
+        color: var(--t-key);
+      }
+      .f {
+        color: var(--t-fn);
+      }
+      .d {
+        color: var(--code-dim);
+      }
+      .hl {
+        margin: 0 -22px;
+        padding: 0 22px;
+        display: block;
+        background: rgba(94, 232, 160, 0.09);
+        box-shadow: inset 2px 0 0 #5ee8a0;
+      }
+
+      /* ---------- right: worksheet ---------- */
+      .sheet {
+        position: absolute;
+        z-index: 4;
+        left: 744px;
+        top: 284px;
+        width: 476px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--panel);
+        box-shadow:
+          0 0 0 1px var(--line-faint),
+          var(--shadow);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Calibri, Arial, sans-serif;
+        font-size: 14.5px;
+      }
+      .fx {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 38px;
+        padding: 0 14px;
+        background: var(--sheet-chrome);
+        border-bottom: 1px solid var(--cell-line);
+        font-size: 14px;
+        color: var(--ink-2);
+      }
+      .fx .ref {
+        width: 38px;
+        color: var(--ink-3);
+      }
+      .fx .ico {
+        font-style: italic;
+        font-weight: 700;
+        color: var(--accent);
+        font-family: Georgia, serif;
+      }
+      .fx .formula {
+        color: var(--ink);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      td,
+      th {
+        height: 31px;
+        padding: 0 10px;
+        border-right: 1px solid var(--cell-line);
+        border-bottom: 1px solid var(--cell-line);
+        white-space: nowrap;
+        overflow: hidden;
+        text-align: left;
+        font-weight: 400;
+        color: var(--ink);
+      }
+      td:last-child,
+      th:last-child {
+        border-right: 0;
+      }
+      .letters th {
+        height: 24px;
+        font-size: 12px;
+        color: var(--ink-3);
+        text-align: center;
+        background: var(--sheet-chrome);
+      }
+      .letters th.on {
+        color: var(--accent);
+        font-weight: 700;
+        box-shadow: inset 0 -2px 0 var(--accent);
+      }
+      .hd th {
+        background: var(--head);
+        color: var(--head-ink);
+        font-weight: 700;
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+      tbody tr:nth-child(even) td {
+        background: var(--zebra);
+      }
+      .n {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      td.sel {
+        box-shadow: inset 0 0 0 2px var(--accent);
+      }
+      .bd {
+        display: inline-block;
+        padding: 1px 9px;
+        border-radius: 99px;
+        font-size: 12.5px;
+        font-weight: 700;
+      }
+      .paid {
+        color: var(--paid);
+        background: var(--paid-bg);
+      }
+      .due {
+        color: var(--due);
+        background: var(--due-bg);
+      }
+      .late {
+        color: var(--late);
+        background: var(--late-bg);
+      }
+      .tot td {
+        font-weight: 700;
+        border-top: 2px solid var(--ink);
+        border-bottom: 0;
+        background: var(--panel) !important;
+      }
+      .more td {
+        height: 22px;
+        color: var(--ink-3);
+        text-align: center;
+        letter-spacing: 0.3em;
+        font-size: 12px;
+      }
+
+      /* ---------- blueprint annotations ---------- */
+      svg.ann {
+        position: absolute;
+        z-index: 4;
+        inset: 0;
+        overflow: visible;
+        pointer-events: none;
+      }
+      .ann path,
+      .ann line {
+        fill: none;
+        stroke: var(--accent-line);
+        stroke-width: 1.5;
+      }
+      .ann .dash {
+        stroke-dasharray: 5 4;
+      }
+      .ann circle {
+        fill: var(--accent);
+      }
+      .ann text {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        font-weight: 500;
+        fill: var(--accent);
+        letter-spacing: 0.02em;
+      }
+      .ann .tag {
+        fill: var(--bg);
+        stroke: var(--accent-line);
+        stroke-width: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="b">
+      <div class="id">
+        <span class="wm" role="img" aria-label="typed-xlsx"></span>
+        <h1>Excel reports,<br /><em>type-checked.</em></h1>
+        <p class="sub">
+          Write one TypeScript schema. Get real formulas, styles, native tables and charts, buffered
+          or streamed, from one row to a million.
+        </p>
+      </div>
+      <div class="foot mono">
+        <span><b>0</b> dependencies</span><span>Node · Bun · Deno · Edge</span>
+      </div>
+
+      <div class="code mono">
+        <div class="bar"><i></i><i></i><i></i><span>invoices.ts</span></div>
+        <pre>
+<span class="f">createExcelSchema</span>&lt;<span class="p">Invoice</span>&gt;()
+  .<span class="f">column</span>(<span class="s">"customer"</span>, { accessor: <span class="s">"client.name"</span> })
+  .<span class="f">column</span>(<span class="s">"qty"</span>, { accessor: <span class="s">"qty"</span> })
+  .<span class="f">column</span>(<span class="s">"price"</span>, { accessor: <span class="s">"unitPrice"</span> })
+<span class="hl">  .<span class="f">column</span>(<span class="s">"total"</span>, {
+    formula: ({ refs }) =&gt;
+      refs.<span class="f">column</span>(<span class="s">"qty"</span>).<span class="f">mul</span>(refs.<span class="f">column</span>(<span class="s">"price"</span>)),</span>    summary: (s) =&gt; [s.<span class="f">formula</span>(<span class="s">"sum"</span>)],
+  })</pre>
+      </div>
+
+      <div class="sheet">
+        <div class="fx">
+          <span class="ref">D4</span><span class="ico">fx</span
+          ><span class="formula mono">=(B4*C4)</span>
+        </div>
+        <table>
+          <colgroup>
+            <col style="width: 33%" />
+            <col style="width: 12%" />
+            <col style="width: 17%" />
+            <col style="width: 18%" />
+            <col style="width: 20%" />
+          </colgroup>
+          <thead>
+            <tr class="letters">
+              <th>A</th>
+              <th>B</th>
+              <th>C</th>
+              <th class="on">D</th>
+              <th>E</th>
+            </tr>
+            <tr class="hd">
+              <th>Customer</th>
+              <th class="n">Qty</th>
+              <th class="n">Price</th>
+              <th class="n">Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Northwind</td>
+              <td class="n">12</td>
+              <td class="n">$49.00</td>
+              <td class="n">$588.00</td>
+              <td><span class="bd paid">Paid</span></td>
+            </tr>
+            <tr>
+              <td>Acme Corp</td>
+              <td class="n">3</td>
+              <td class="n">$210.00</td>
+              <td class="n">$630.00</td>
+              <td><span class="bd due">Due</span></td>
+            </tr>
+            <tr>
+              <td>Globex</td>
+              <td class="n">40</td>
+              <td class="n">$8.50</td>
+              <td class="n sel">$340.00</td>
+              <td><span class="bd paid">Paid</span></td>
+            </tr>
+            <tr>
+              <td>Initech</td>
+              <td class="n">7</td>
+              <td class="n">$95.00</td>
+              <td class="n">$665.00</td>
+              <td><span class="bd late">Late</span></td>
+            </tr>
+            <tr class="tot">
+              <td>Total</td>
+              <td class="n">62</td>
+              <td></td>
+              <td class="n">$2,223.00</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <svg class="ann" viewBox="0 0 1280 640" width="1280" height="640">
+        <!-- typed column ref: from the highlighted schema line to column D -->
+        <path class="dash" d="M1090 205 H1180 V262 H1082 V280" />
+        <line x1="1180" y1="186" x2="1180" y2="205" />
+        <circle cx="1090" cy="205" r="3.5" />
+        <path d="M1076 272 L1082 282 L1088 272" />
+        <rect class="tag" x="1122" y="158" width="116" height="28" rx="4" />
+        <text x="1180" y="177" text-anchor="middle">live formula</text>
+
+        <!-- scale: vertical dimension line along the data rows -->
+        <line x1="1244" y1="346" x2="1244" y2="532" />
+        <line x1="1237" y1="346" x2="1251" y2="346" />
+        <line x1="1237" y1="532" x2="1251" y2="532" />
+        <text x="1258" y="439" transform="rotate(90 1258 439)" text-anchor="middle">
+          1 → 1,048,576 rows
+        </text>
+
+        <!-- totals row callout -->
+        <path class="dash" d="M1082 536 V574 H1098" />
+        <circle cx="1082" cy="536" r="3.5" />
+        <text x="1106" y="579">=SUM(D2:D5)</text>
+      </svg>
+    </div>
+  </body>
+</html>
