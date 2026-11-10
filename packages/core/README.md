@@ -1,241 +1,149 @@
-# typed-xlsx
+<p align="center">
+  <a href="https://typed-xlsx.vercel.app">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ChronicStone/typed-xlsx/main/.github/assets/banner-dark.png" />
+      <img alt="typed-xlsx: Excel reports, type-checked. Write one TypeScript schema and get real formulas, styles, native tables and charts, buffered or streamed, from one row to a million." src="https://raw.githubusercontent.com/ChronicStone/typed-xlsx/main/.github/assets/banner-light.png" width="100%" />
+    </picture>
+  </a>
+</p>
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![bundle][bundle-src]][bundle-href]
-[![JSDocs][jsdocs-src]][jsdocs-href]
-[![License][license-src]][license-href]
+<p align="center">
+  <a href="https://npmjs.com/package/typed-xlsx"><img alt="npm version" src="https://img.shields.io/npm/v/typed-xlsx?style=flat&colorA=0a1f15&colorB=07844a" /></a>
+  <a href="https://npmjs.com/package/typed-xlsx"><img alt="npm downloads" src="https://img.shields.io/npm/dm/typed-xlsx?style=flat&colorA=0a1f15&colorB=07844a" /></a>
+  <a href="https://bundlephobia.com/result?p=typed-xlsx"><img alt="bundle size" src="https://img.shields.io/bundlephobia/minzip/typed-xlsx?style=flat&colorA=0a1f15&colorB=07844a&label=minzip" /></a>
+  <img alt="zero dependencies" src="https://img.shields.io/badge/dependencies-0-07844a?style=flat&colorA=0a1f15" />
+  <a href="https://github.com/ChronicStone/typed-xlsx/blob/main/LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/ChronicStone/typed-xlsx?style=flat&colorA=0a1f15&colorB=07844a" /></a>
+</p>
 
-Type-safe Excel (`.xlsx`) reports for TypeScript, in Node.js, Bun, Deno and edge runtimes.
+<p align="center">
+  <a href="https://typed-xlsx.vercel.app/getting-started/quick-start"><b>Quick start</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://typed-xlsx.vercel.app/playground">Playground</a>
+  &nbsp;·&nbsp;
+  <a href="https://typed-xlsx.vercel.app/getting-started/comparison">vs ExcelJS and SheetJS</a>
+  &nbsp;·&nbsp;
+  <a href="https://typed-xlsx.vercel.app">Docs</a>
+</p>
 
-Define one schema, then generate polished buffered exports or stream large workbooks with the same API.
+<br />
 
-If the export definition is wrong, the compiler tells you before the spreadsheet does.
-
-Previously published as `@chronicstone/typed-xlsx`. The canonical package name is `typed-xlsx`.
+Most spreadsheet libraries hand you cells. **typed-xlsx hands you a schema.** You describe each column once, against your own TypeScript type. The library writes the workbook: headers, styles, real Excel formulas, totals and native tables. If a column or a formula points at something that doesn't exist, the compiler stops you before anyone opens the file.
 
 ```bash
 npm install typed-xlsx
 ```
 
-```ts
-// before
-import { createExcelSchema, createWorkbook } from "@chronicstone/typed-xlsx";
+Also on pnpm, yarn and bun. It runs on Node.js, Bun, Deno and edge runtimes, with zero runtime dependencies.
 
-// after
-import { createExcelSchema, createWorkbook } from "typed-xlsx";
-```
-
-- One schema API for buffered exports and streaming exports
-- Report mode for custom layouts, summaries, and sub-row expansion
-- Excel table mode for native tables, totals rows, autoFilter, and structured refs
-- Renderer columns for badges, checkboxes, hyperlinks, sparklines, and embedded or URL-backed images
-- Native Excel charts built from your tables: bar, line, area, scatter, pie and combo charts with typed column references
-- Native Excel pivot tables and pivot charts, with fields and aggregations checked against your schema
-- Full comparison against SheetJS and ExcelJS: [Why typed-xlsx?](https://typed-xlsx.vercel.app/getting-started/comparison)
-
-## Why typed-xlsx
-
-Most XLSX libraries give you a cell API. `typed-xlsx` gives you a schema API.
-
-- Define columns against your row type with typed path accessors and callback accessors
-- Reference columns by ID in formulas instead of hard-coding fragile cell addresses
-- Reuse one schema across buffered exports and streaming exports
-- Choose between report mode and native Excel table mode without changing the authoring model
-- Generate polished workbooks with summaries, grouped headers, sub-row expansion, validation, conditional styles, badges, checkboxes, hyperlinks, sparklines, and product thumbnails
-
-If you are currently evaluating `typed-xlsx` against lower-level spreadsheet libraries, read the full comparison with SheetJS and ExcelJS:
-
-- [Why typed-xlsx? Full comparison](https://typed-xlsx.vercel.app/getting-started/comparison)
-
-## Why not ExcelJS / SheetJS?
-
-Choose `typed-xlsx` when your main job is generating typed reports from application data, not manually editing spreadsheets cell by cell.
-
-- `typed-xlsx`: best when you want a schema-first API for report generation, typed formulas, native Excel tables, and streaming with the same authoring model
-- `ExcelJS`: best when you need lower-level workbook editing and ad hoc worksheet manipulation
-- `SheetJS`: best when you need parsing, format conversion, or broad spreadsheet interoperability
-
-Read the full tradeoffs and feature matrix here:
-
-- [typed-xlsx vs ExcelJS vs SheetJS](https://typed-xlsx.vercel.app/getting-started/comparison)
-
-## Use typed-xlsx when
-
-`typed-xlsx` is a strong fit when you need to generate Excel files from structured TypeScript data such as:
-
-- financial and operations reports
-- SaaS admin exports
-- customer success and renewal planning workbooks
-- quote review and approval workbooks
-- large scheduled exports that need bounded memory usage
-
-## Do not use typed-xlsx when
-
-Reach for a lower-level spreadsheet library when you need to:
-
-- read or modify existing `.xlsx` files
-- draw arbitrary freeform worksheet shapes or drawings
-- support spreadsheet formats beyond `.xlsx`
-- do highly manual cell-by-cell spreadsheet editing
-
-## The Core API
-
-Three functions cover the main surface:
-
-- `createExcelSchema()` describes columns, formulas, summaries, styles, groups, validation, badges, checkboxes, hyperlinks, sparklines, and image renderers
-- `createWorkbook()` builds buffered workbooks for small and medium exports
-- `createWorkbookStream()` commits row batches for large exports with much flatter memory usage
-
-The same schema works with both builders.
-
-## Quick Example
+## A report in one schema
 
 ```ts
 import { createExcelSchema, createWorkbook } from "typed-xlsx";
 
-type Invoice = { id: string; qty: number; unitPrice: number };
+type Invoice = {
+  id: string;
+  customer: { name: string };
+  qty: number;
+  unitPrice: number;
+  status: "paid" | "due" | "late";
+};
 
-const schema = createExcelSchema<Invoice>()
+const money = { numFmt: "$#,##0.00" };
+
+const invoices = createExcelSchema<Invoice>()
   .column("id", { header: "Invoice #", accessor: "id" })
+  .column("customer", { header: "Customer", accessor: "customer.name" })
   .column("qty", { header: "Qty", accessor: "qty" })
-  .column("unitPrice", {
-    header: "Unit Price",
-    accessor: "unitPrice",
-    style: { numFmt: "$#,##0.00" },
-  })
+  .column("price", { header: "Unit price", accessor: "unitPrice", style: money })
   .column("total", {
     header: "Total",
-    formula: ({ refs, fx }) => fx.round(refs.column("qty").mul(refs.column("unitPrice")), 2),
-    style: { numFmt: "$#,##0.00" },
-    summary: (s) => [s.formula("sum")],
+    formula: ({ refs }) => refs.column("qty").mul(refs.column("price")), // written as =(C2*D2)
+    style: money,
+    summary: (s) => [s.formula("sum")], // a SUM row under the data
+  })
+  .column("status", {
+    header: "Status",
+    type: "badge",
+    accessor: "status",
+    variants: {
+      paid: { style: { fill: { color: { rgb: "DCFCE7" } } } },
+      due: { style: { fill: { color: { rgb: "FEF3C7" } } } },
+      late: { style: { fill: { color: { rgb: "FEE2E2" } } } },
+    },
   })
   .build();
 
-const rows: Invoice[] = [{ id: "INV-001", qty: 3, unitPrice: 49.99 }];
-
 const workbook = createWorkbook();
+workbook
+  .sheet("Invoices", { freezePane: { rows: 1 } })
+  .table("invoices", { rows, schema: invoices });
 
-workbook.sheet("Invoices", { freezePane: { rows: 1 } }).table("invoices", {
-  rows,
-  schema,
-});
-
-await workbook.writeToFile("./invoices.xlsx");
+await workbook.writeToFile("./invoices.xlsx"); // or toBuffer() for an HTTP response
 ```
 
-## What Makes It Different
+`accessor: "customer.nam"` and `refs.column("totl")` are both type errors. The `Total` column is a live formula, so it recalculates when someone edits a quantity in Excel.
 
-### Type-safe schemas
+## Same schema, any size
 
-Column accessors are verified against your row type. Dot-path accessors and callback accessors both preserve inference.
-
-### Formula DSL with typed references
-
-`refs.column("subtotal")` is checked at definition time. If a formula references a column that does not exist yet, TypeScript fails before export.
-
-### One schema, two output paths
-
-Use the exact same schema with:
-
-- `createWorkbook()` for buffered composition
-- `createWorkbookStream()` for async batch commits
-
-### Two schema modes
-
-- report mode for summary rows, sub-row expansion, grouped headers, and custom report layouts
-- excel-table mode for native Excel tables with autoFilter, totals rows, structured references, and table styles
-
-### Zero runtime dependencies
-
-The package ships its own OOXML serializer and ZIP engine. No SheetJS. No ExcelJS.
-
-For the detailed tradeoffs, feature matrix, and cases where the alternatives still win:
-
-- [Compare typed-xlsx vs SheetJS and ExcelJS](https://typed-xlsx.vercel.app/getting-started/comparison)
-
-## Real Workbook Outputs
-
-### Kitchen sink feature tour
-
-Open one workbook with a feature map and one named sheet per major library primitive.
-
-Example: [Kitchen Sink Feature Tour](https://typed-xlsx.vercel.app/playground/kitchen-sink)
-
-### Board-ready multi-sheet reporting
-
-Best for stakeholder and executive exports.
-
-Example: [Executive Board Pack](https://typed-xlsx.vercel.app/playground/executive-board-pack)
-
-### Runtime-driven column matrices
-
-Generate columns from typed runtime context while formulas and totals stay readable.
-
-Example: [Territory Performance Matrix](https://typed-xlsx.vercel.app/playground/territory-performance-matrix)
-
-### Streaming exports at production scale
-
-The schema stays the same while the builder switches to batch commits.
-
-Example: [Streaming Fulfillment Export](https://typed-xlsx.vercel.app/playground/streaming-fulfillment-export)
-
-### Product catalogs with media
-
-Embed product thumbnails, use URL-backed image formulas, and combine badge, checkbox, hyperlink, and sparkline renderer columns.
-
-Example: [Product Media Catalog](https://typed-xlsx.vercel.app/playground/product-media-catalog)
-
-### Editable workflow-safe workbooks
-
-Unlock inputs, validate user edits, and keep logic columns protected.
-
-Example: [Renewal Ops Workbook](https://typed-xlsx.vercel.app/playground/renewal-ops-workbook)
-
-### Nested records without manual row math
-
-Array-valued accessors expand logical rows into multiple physical rows automatically.
-
-Example: [Deal Desk Quote Review](https://typed-xlsx.vercel.app/playground/deal-desk-quote-review)
-
-## Buffered And Streaming
-
-Use buffered mode when the dataset is already in memory and the export size is moderate.
-
-```ts
-import { createWorkbook } from "typed-xlsx";
-
-const workbook = createWorkbook();
-
-workbook.sheet("Orders", { freezePane: { rows: 1 } }).table("orders", {
-  rows,
-  schema,
-});
-
-await workbook.writeToFile("./orders.xlsx");
-```
-
-Use streaming mode when rows come from a cursor, paginated API, or a very large dataset.
+Load the rows into memory and call `createWorkbook()`. When they come from a database cursor, swap the builder for `createWorkbookStream()` and keep the schema. Rows go out in batches through a 64 KiB spool to the library's own ZIP engine. Memory stays roughly flat as the file grows.
 
 ```ts
 import { createWorkbookStream } from "typed-xlsx";
 
 const workbook = createWorkbookStream();
-
-const table = await workbook.sheet("Orders", { freezePane: { rows: 1 } }).table("orders", {
-  schema,
-});
+const table = await workbook.sheet("Invoices").table("invoices", { schema: invoices });
 
 for await (const batch of cursor) {
   await table.commit({ rows: batch });
 }
 
-await workbook.writeToFile("./orders.xlsx");
+await workbook.pipeToNode(response); // or writeToFile(), or a web ReadableStream
 ```
 
-## Charts
+| Rows streamed |  Time | Peak memory (RSS) |
+| ------------: | ----: | ----------------: |
+|       200,000 | 3.7 s |           274 MiB |
+|       500,000 | 9.3 s |           279 MiB |
 
-Native Excel charts plot the tables you already declare. Each mark reads a table declared earlier in the chain, and TypeScript only accepts numeric columns as values.
+These rows have 11 styled columns, written in 5,000-row batches with Node 24 on an Apple M5. 2.5× the rows cost 5 MiB more memory. See the [benchmark report](https://github.com/ChronicStone/typed-xlsx/blob/main/packages/benchmark/artifacts/reports/stream/THROUGHPUT_2026-09-22.md) for the method and the cases that keep more in memory.
+
+## What ends up in the file
+
+- **Real formulas**, written from column references instead of cell addresses. Summary rows, conditional styles and formulas that work across sub-rows.
+- **Native Excel tables**, with filters, a totals row, structured references like `[@Revenue]` and built-in table styles.
+- **Charts and pivot tables** built from the tables you declared: bar, line, area, scatter, pie and combo charts. TypeScript only accepts numeric columns as values.
+- **Rich cells**: badges, checkboxes, hyperlinks, sparklines and images, embedded or loaded from a URL.
+- **Workbooks people can edit safely**: dropdowns and validation rules, locked formula columns, freeze panes and themes.
+- **Reports that fit the data**: columns generated at runtime, grouped headers, and one record expanding into several rows.
+
+## Real workbooks it generates
+
+Each screenshot opens the full workbook in the playground, along with the code that built it.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://typed-xlsx.vercel.app/playground/executive-board-pack"><img alt="Executive board pack: two grouped report tables with totals and averages" src="https://raw.githubusercontent.com/ChronicStone/typed-xlsx/main/.github/assets/gallery/board-overview.png" /></a>
+      <br /><b>Executive board pack</b><br />Grouped headers, summary rows and several sheets.
+    </td>
+    <td width="50%" valign="top">
+      <a href="https://typed-xlsx.vercel.app/playground/deal-desk-quote-review"><img alt="Deal desk quote review: each quote expands into its line items" src="https://raw.githubusercontent.com/ChronicStone/typed-xlsx/main/.github/assets/gallery/subrow-quote-review.png" /></a>
+      <br /><b>Deal desk quote review</b><br />One quote expands into its line items, without any row math.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://typed-xlsx.vercel.app/playground/streaming-fulfillment-export"><img alt="Streaming fulfillment export" src="https://raw.githubusercontent.com/ChronicStone/typed-xlsx/main/.github/assets/gallery/streaming-fulfillment.png" /></a>
+      <br /><b>Streaming fulfillment export</b><br />The same schema, committed in batches.
+    </td>
+    <td width="50%" valign="top">
+      <a href="https://typed-xlsx.vercel.app/playground/renewal-ops-workbook"><img alt="Renewal ops workbook with editable, validated inputs" src="https://raw.githubusercontent.com/ChronicStone/typed-xlsx/main/.github/assets/gallery/workflow-safe-renewals.png" /></a>
+      <br /><b>Renewal ops workbook</b><br />Editable inputs, validation and locked formula columns.
+    </td>
+  </tr>
+</table>
+
+## Charts from your tables
 
 ```ts
 createWorkbook()
@@ -248,135 +156,28 @@ createWorkbook()
       refs.table("sales").bar({ x: "month", y: "revenue" }),
       refs.table("targets").line({ x: "month", y: "target", name: "Target" }),
     ],
-  }))
-  .sheet("Dashboard")
-  .chart("yearOverYear", ({ refs }) => ({
-    marks: [
-      refs
-        .sheet("2026")
-        .table("sales")
-        .area({ x: "month", y: ["revenue", "cost"], stack: true }),
-    ],
   }));
 ```
 
-Bars, lines, areas, scatter plots, pies and doughnuts, combos with a secondary axis, and charts over dynamic columns work in buffered and streaming workbooks.
+Pivot tables work the same way: `refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" } })`. They stay interactive in Excel, and a pivot chart can follow them. Read the [charts guide](https://typed-xlsx.vercel.app/charts/overview) and the [pivot tables guide](https://typed-xlsx.vercel.app/charts/pivot-tables).
 
-Pivot tables summarize a table and stay interactive in Excel. Pivot charts follow them:
+## When to use something else
 
-```ts
-createWorkbook()
-  .sheet("Sales")
-  .table("sales", { schema: salesSchema, rows })
-  .sheet("Analysis")
-  .pivot("byRegion", ({ refs }) =>
-    refs
-      .sheet("Sales")
-      .table("sales")
-      .pivot({
-        rows: ["region"],
-        columns: ["month"],
-        values: { revenue: "sum" }, // only numeric columns can be summed
-        filters: ["channel"],
-      }),
-  )
-  .chart("byRegionChart", ({ refs }) => ({ marks: [refs.pivot("byRegion").bar({ stack: true })] }));
-```
+typed-xlsx **writes** `.xlsx` files from your data. It doesn't read them.
 
-Values can be shown as a share of a total (`show: "percentOfTotal"`), and date columns grouped by year, quarter or month (`{ field: "orderedAt", by: ["year", "month"] }`). A pivot follows the theme of its table, or takes its own `theme` or built-in `style`.
+- To read, edit or convert existing spreadsheets, or to handle formats beyond `.xlsx`, use [SheetJS](https://sheetjs.com).
+- To edit a workbook cell by cell, or to draw free-form shapes, use [ExcelJS](https://github.com/exceljs/exceljs).
 
-## Report Mode Vs Excel Table Mode
+The [comparison page](https://typed-xlsx.vercel.app/getting-started/comparison) goes through the trade-offs feature by feature.
 
-Use report mode when you need:
+## Using an AI assistant?
 
-- summary rows
-- sub-row expansion
-- grouped headers
-- more custom report layouts
+The docs come in a form agents can read. Give your assistant [`llms-full.txt`](https://typed-xlsx.vercel.app/llms-full.txt) to load the whole guide, or [`llms.txt`](https://typed-xlsx.vercel.app/llms.txt) for an index. Every page also exists as Markdown: add `.md` to its URL.
 
-Use excel-table mode when you need:
+## Feedback
 
-- native Excel filter and sort dropdowns
-- totals rows
-- structured references such as `[@Revenue]`
-- true Excel table behavior for downstream spreadsheet workflows
-
-```ts
-import { createExcelSchema, createWorkbook } from "typed-xlsx";
-
-const schema = createExcelSchema<{ units: number; revenue: number }>({ mode: "excel-table" })
-  .column("units", {
-    header: "Units",
-    accessor: "units",
-    totalsRow: { function: "sum" },
-  })
-  .column("revenue", {
-    header: "Revenue",
-    accessor: "revenue",
-    totalsRow: { function: "sum" },
-    style: { numFmt: '"$"#,##0.00' },
-  })
-  .column("avgPrice", {
-    header: "Avg Price",
-    formula: ({ refs, fx }) =>
-      fx.round(fx.safeDiv(refs.column("revenue"), refs.column("units")), 2),
-    style: { numFmt: '"$"#,##0.00' },
-    totalsRow: { label: "-" },
-  })
-  .build();
-
-createWorkbook()
-  .sheet("Forecast")
-  .table("forecast", {
-    rows: [{ units: 42, revenue: 8400 }],
-    schema,
-    name: "ForecastTable",
-    style: "TableStyleMedium2",
-    autoFilter: true,
-    totalsRow: true,
-  });
-```
-
-## Installation
-
-```bash
-pnpm add typed-xlsx
-```
-
-```bash
-npm install typed-xlsx
-```
-
-```bash
-yarn add typed-xlsx
-```
-
-```bash
-bun add typed-xlsx
-```
-
-## Start Here
-
-- [Introduction](https://typed-xlsx.vercel.app/getting-started/introduction)
-- [Quick Start](https://typed-xlsx.vercel.app/getting-started/quick-start)
-- [Comparison with SheetJS and ExcelJS](https://typed-xlsx.vercel.app/getting-started/comparison)
-- [Schema Modes](https://typed-xlsx.vercel.app/core-concepts/schema-modes)
-- [Buffered vs Streaming](https://typed-xlsx.vercel.app/core-concepts/buffered-vs-streaming)
-- [Excel Table Mode](https://typed-xlsx.vercel.app/excel-table-mode/overview)
-- [Streaming Overview](https://typed-xlsx.vercel.app/streaming/overview)
-- [Playground and example artifacts](https://typed-xlsx.vercel.app/playground)
+If you export something with typed-xlsx, I'd like to hear what it is, and what got in your way. [Open an issue](https://github.com/ChronicStone/typed-xlsx/issues/new/choose) for a bug, a missing feature or a quick note. Stars help other people find the project.
 
 ## License
 
-[MIT](./LICENSE) License © 2023-PRESENT [Cyprien THAO](https://github.com/ChronicStone)
-
-[npm-version-src]: https://img.shields.io/npm/v/typed-xlsx?style=flat&colorA=080f12&colorB=1fa669
-[npm-version-href]: https://npmjs.com/package/typed-xlsx
-[npm-downloads-src]: https://img.shields.io/npm/dm/typed-xlsx?style=flat&colorA=080f12&colorB=1fa669
-[npm-downloads-href]: https://npmjs.com/package/typed-xlsx
-[bundle-src]: https://img.shields.io/bundlephobia/minzip/typed-xlsx?style=flat&colorA=080f12&colorB=1fa669&label=minzip
-[bundle-href]: https://bundlephobia.com/result?p=typed-xlsx
-[license-src]: https://img.shields.io/github/license/ChronicStone/typed-xlsx.svg?style=flat&colorA=080f12&colorB=1fa669
-[license-href]: https://github.com/ChronicStone/typed-xlsx/blob/main/LICENSE
-[jsdocs-src]: https://img.shields.io/badge/jsdocs-reference-080f12?style=flat&colorA=080f12&colorB=1fa669
-[jsdocs-href]: https://www.jsdocs.io/package/typed-xlsx
+[MIT](https://github.com/ChronicStone/typed-xlsx/blob/main/LICENSE) © 2023-present [Cyprien Thao](https://github.com/ChronicStone)

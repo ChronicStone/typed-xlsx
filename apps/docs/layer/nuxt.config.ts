@@ -153,7 +153,7 @@ export default defineNuxtConfig({
     domain: siteUrl,
     title: "typed-xlsx",
     description:
-      "Feature-rich, type-safe Excel reporting for TypeScript with schema builders, multi-sheet exports, dynamic formatting, summaries, and reusable report composition.",
+      "Type-safe Excel (.xlsx) reports for TypeScript. Describe columns once against your row type and typed-xlsx writes real formulas, styles, summary rows, native Excel tables, charts and pivot tables. The same schema exports buffered with createWorkbook() or streamed in batches with createWorkbookStream(), from one row to a million. Zero runtime dependencies; runs on Node.js, Bun, Deno and edge runtimes. It writes .xlsx files and does not read them.",
   },
   nitro: {
     prerender: {
@@ -210,6 +210,9 @@ export default defineNuxtConfig({
       {
         userAgent: "*",
         allow: "/",
+        // Search engines and AI assistants may read, cite and learn from the docs:
+        // an assistant that knows the API is how many developers now find a library.
+        contentSignal: { search: "yes", "ai-input": "yes", "ai-train": "yes" },
       },
     ],
     sitemap: "/sitemap.xml",

@@ -7,6 +7,9 @@ export default defineNuxtConfig({
     name: "typed-xlsx",
     url: "https://typed-xlsx.vercel.app",
   },
+  // The docs deploy as static files, so there is no server to answer /mcp. Keeping the module on
+  // would advertise a dead MCP endpoint in llms.txt.
+  mcp: { enabled: false },
   // pages moved or removed over the docs restructures keep their old URLs (and search rankings) working.
   // Keep in sync with the `redirects` in the root vercel.json, which serves them as real 301s in production.
   routeRules: {
