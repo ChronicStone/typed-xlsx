@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://typed-xlsx.vercel.app/getting-started/introduction
+    about: Guides and the full API, with examples you can run.
+  - name: Playground
+    url: https://typed-xlsx.vercel.app/playground
+    about: Real workbooks with the code that built them.

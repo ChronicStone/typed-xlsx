@@ -1,0 +1,22 @@
+name: Feature request
+description: Something you need in a workbook that typed-xlsx can't write yet.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you're trying to export
+      description: The report or the Excel feature you need. A screenshot of the target sheet is ideal.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today
+      description: Your workaround, or the library you use for this part.
+  - type: textarea
+    id: api
+    attributes:
+      label: How you'd like to write it
+      description: Optional. The schema code you wish worked.
+      render: ts

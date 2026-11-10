@@ -1,0 +1,29 @@
+name: Feedback or a quick note
+description: Tell me what you export with typed-xlsx, what felt good, and what got in the way.
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: Short is fine. Knowing how typed-xlsx is used in practice decides what gets built next.
+  - type: textarea
+    id: use
+    attributes:
+      label: What you export with it
+      placeholder: "Monthly billing exports from Postgres, around 200k rows, opened by the finance team"
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What got in your way
+      description: Docs that confused you, an API that felt wrong, or something missing.
+  - type: dropdown
+    id: before
+    attributes:
+      label: What you used before
+      options:
+        - ExcelJS
+        - SheetJS
+        - CSV export
+        - Nothing, this is my first Excel export
+        - Something else

@@ -1,0 +1,39 @@
+name: Bug report
+description: The workbook is wrong, Excel complains, or the types reject valid code.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead. Excel's repair message helps if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Smallest schema that shows it
+      description: A playground link or a short snippet with the schema and one or two rows.
+      render: ts
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: typed-xlsx version
+      placeholder: "4.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: builder
+    attributes:
+      label: Builder
+      options:
+        - createWorkbook() (buffered)
+        - createWorkbookStream() (streamed)
+        - Both
+  - type: input
+    id: env
+    attributes:
+      label: Runtime and spreadsheet app
+      placeholder: "Node 24, opened in Excel 365 on macOS"
