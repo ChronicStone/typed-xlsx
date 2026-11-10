@@ -1,8 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
     "paths": {
       "typed-xlsx": ["./src/index.ts"],
       "typed-xlsx/*": ["./src/*"]

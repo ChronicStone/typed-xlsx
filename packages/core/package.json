@@ -55,13 +55,13 @@
     "access": "public"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsrs --noEmit --fast && node ../../node_modules/typescript-7/bin/tsc --noEmit",
     "test": "vp test run",
     "report:kitchen-sink": "bun run ./scripts/generate-kitchen-sink-report.ts",
     "build": "vp pack",
     "prepack": "node scripts/sync-readme.mjs && vp pack",
     "pack:check": "npm pack --dry-run",
-    "check": "tsc --noEmit && vp test run && vp pack && npm pack --dry-run"
+    "check": "tsrs --noEmit --fast && node ../../node_modules/typescript-7/bin/tsc --noEmit && vp test run && vp pack && npm pack --dry-run"
   },
   "dependencies": {},
   "devDependencies": {

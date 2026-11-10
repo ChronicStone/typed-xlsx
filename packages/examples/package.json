@@ -7,10 +7,10 @@
     "./showcase/*": "./showcase/*"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsrs --noEmit --fast && node ../../node_modules/typescript-7/bin/tsc --noEmit",
     "build": "bun run ./scripts/generate-examples.ts",
     "previews": "bun run ./scripts/build-previews.ts",
-    "check": "tsc --noEmit"
+    "check": "tsrs --noEmit --fast && node ../../node_modules/typescript-7/bin/tsc --noEmit"
   },
   "dependencies": {
     "typed-xlsx": "workspace:*"
