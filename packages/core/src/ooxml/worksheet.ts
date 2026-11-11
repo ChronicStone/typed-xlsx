@@ -52,6 +52,13 @@ import {
 import { buildReportChrome, shiftFormulaA1Refs } from "../workbook/internal/report-chrome";
 import { formulaCell, getCellPrimitiveValue, isFormulaCell } from "../cell-data";
 import { summarizeExcelTotalsRowValues } from "../workbook/internal/totals-row";
+import {
+  fromWorksheetCol,
+  toWorksheetCol,
+  shiftWorksheetRange,
+  upsertWorksheetCells,
+  sortWorksheetCells,
+} from "../workbook/internal/sheet-geometry";
 
 export function serializeWorksheet(
   sheet: BufferedSheetPlan,
@@ -654,39 +661,6 @@ function materializeSummaryConditionalFormatting(
   }));
 }
 
-function shiftWorksheetRange(ref: string, rowOffset: number, columnOffset: number) {
-  const [start, end] = ref.split(":");
-  if (!start || !end) {
-    return ref;
-  }
-
-  return `${shiftCellRef(start, rowOffset, columnOffset)}:${shiftCellRef(end, rowOffset, columnOffset)}`;
-}
-
-function shiftCellRef(ref: string, rowOffset: number, columnOffset: number) {
-  const match = ref.match(/^([A-Z]+)(\d+)$/);
-  if (!match) {
-    return ref;
-  }
-
-  const [, col, row] = match;
-  if (!col || !row) {
-    return ref;
-  }
-
-  return `${toWorksheetCol(fromWorksheetCol(col) + columnOffset)}${Number(row) + rowOffset}`;
-}
-
-function fromWorksheetCol(column: string) {
-  let value = 0;
-
-  for (const char of column) {
-    value = value * 26 + (char.charCodeAt(0) - 64);
-  }
-
-  return value - 1;
-}
-
 function writeCells(rowMap: Map<number, string[]>, rowIndex: number, cells: string[]) {
   const existing = rowMap.get(rowIndex);
   if (existing) {
@@ -695,71 +669,4 @@ function writeCells(rowMap: Map<number, string[]>, rowIndex: number, cells: stri
   }
 
   rowMap.set(rowIndex, [...cells]);
-}
-
-function upsertWorksheetCells(target: string[], incoming: string[]) {
-  const existingByRef = new Map(
-    target.map((cell, index) => [getWorksheetCellRef(cell), index] as const),
-  );
-
-  incoming.forEach((cell) => {
-    const ref = getWorksheetCellRef(cell);
-    const existingIndex = ref ? existingByRef.get(ref) : undefined;
-    if (existingIndex !== undefined) {
-      target[existingIndex] = cell;
-      return;
-    }
-
-    target.push(cell);
-    if (ref) {
-      existingByRef.set(ref, target.length - 1);
-    }
-  });
-}
-
-function sortWorksheetCells(cells: string[]) {
-  return [...cells].sort(
-    (left, right) => getWorksheetCellSortKey(left) - getWorksheetCellSortKey(right),
-  );
-}
-
-function getWorksheetCellSortKey(cellXml: string) {
-  const ref = getWorksheetCellRef(cellXml);
-  if (!ref) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  const refMatch = ref.match(/^([A-Z]+)(\d+)$/);
-  if (!refMatch) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  const [, col, row] = refMatch;
-  if (!col || !row) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  return Number(row) * 10_000 + fromWorksheetCol(col);
-}
-
-function getWorksheetCellRef(cellXml: string) {
-  const refMatch = cellXml.match(/\br="([A-Z]+)(\d+)"/);
-  if (!refMatch) {
-    return undefined;
-  }
-
-  return `${refMatch[1] ?? ""}${refMatch[2] ?? ""}` || undefined;
-}
-
-function toWorksheetCol(column: number) {
-  if (column <= 0) return "A";
-  let result = "";
-  let current = column;
-
-  do {
-    result = String.fromCharCode(65 + (current % 26)) + result;
-    current = Math.floor(current / 26) - 1;
-  } while (current >= 0);
-
-  return result;
 }

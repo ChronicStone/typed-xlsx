@@ -1,6 +1,7 @@
 import { xmlEscape } from "../../ooxml/xml";
 import type { CellStyle } from "../../styles/types";
 import type { BufferedTablePlan, ReportTableRenderOptions, TableStyleDefaults } from "../types";
+import { fromWorksheetCol, toWorksheetCol } from "./sheet-geometry";
 
 export interface ReportChromeColumnLike {
   groupPath: Array<{ id: string; headerLabel: string }>;
@@ -236,51 +237,6 @@ export function shiftFormulaA1Refs(formula: string, rowOffset: number, columnOff
     result += char;
     index += 1;
   }
-
-  return result;
-}
-
-export function shiftWorksheetRef(ref: string, rowOffset: number, columnOffset: number) {
-  const match = ref.match(/^([A-Z]+)(\d+)$/);
-  if (!match) {
-    return ref;
-  }
-
-  const [, col, row] = match;
-  if (!col || !row) {
-    return ref;
-  }
-
-  return `${toWorksheetCol(fromWorksheetCol(col) + columnOffset)}${Number(row) + rowOffset}`;
-}
-
-export function shiftWorksheetRange(ref: string, rowOffset: number, columnOffset: number) {
-  const [start, end] = ref.split(":");
-  if (!start || !end) {
-    return ref;
-  }
-
-  return `${shiftWorksheetRef(start, rowOffset, columnOffset)}:${shiftWorksheetRef(end, rowOffset, columnOffset)}`;
-}
-
-function fromWorksheetCol(column: string) {
-  let value = 0;
-
-  for (const char of column) {
-    value = value * 26 + (char.charCodeAt(0) - 64);
-  }
-
-  return value - 1;
-}
-
-function toWorksheetCol(column: number) {
-  let result = "";
-  let current = column;
-
-  do {
-    result = String.fromCharCode(65 + (current % 26)) + result;
-    current = Math.floor(current / 26) - 1;
-  } while (current >= 0);
 
   return result;
 }
