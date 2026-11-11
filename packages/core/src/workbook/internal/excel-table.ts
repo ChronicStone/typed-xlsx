@@ -13,6 +13,8 @@ import {
 import { serializeEmptyScopeAggregate, withFormulaColumnId } from "../../formula/empty-scope";
 import type { ExcelTableStyle, ResolvedExcelTableOptions } from "../types";
 
+import { EXCEL_MAX_TABLE_NAME } from "./limits";
+
 const DEFAULT_EXCEL_TABLE_STYLE: ExcelTableStyle = "TableStyleMedium2";
 
 export function resolveExcelTableOptions(params: {
@@ -32,6 +34,7 @@ export function resolveExcelTableOptions(params: {
   }
 
   const name = resolveExcelTableName(params.name, params.id);
+  assertValidTableHeaders(name, params.columns);
 
   return {
     name,
@@ -154,7 +157,49 @@ export function resolveExcelTableName(name: string | undefined, id: string) {
     );
   }
 
+  if (candidate.length > EXCEL_MAX_TABLE_NAME) {
+    throw new Error(
+      `Excel table name '${candidate.slice(0, 40)}…' is ${candidate.length} characters long; Excel allows ${EXCEL_MAX_TABLE_NAME}. Give the table a shorter name or id.`,
+    );
+  }
+
+  if (
+    /^[A-Za-z]{1,3}\d+$/.test(candidate) ||
+    /^[Rr]\d*[Cc]\d*$/.test(candidate) ||
+    /^[CcRr]$/.test(candidate)
+  ) {
+    throw new Error(
+      `Excel table name '${candidate}' looks like a cell reference, which Excel does not allow. Give the table a different name or id.`,
+    );
+  }
+
   return candidate;
+}
+
+function assertValidTableHeaders(tableName: string, columns: ResolvedColumn<any>[]) {
+  const seen = new Map<string, ResolvedColumn<any>>();
+
+  for (const column of columns) {
+    if (column.headerLabel.trim() === "") {
+      throw new Error(
+        `Column '${column.id}' of Excel table '${tableName}' has an empty header. Excel tables need a non-empty header on every column.`,
+      );
+    }
+    if (/[\r\n]/.test(column.headerLabel)) {
+      throw new Error(
+        `Column '${column.id}' of Excel table '${tableName}' has a header with a line break. Remove it, or use report mode.`,
+      );
+    }
+
+    const key = column.headerLabel.toLowerCase();
+    const first = seen.get(key);
+    if (first) {
+      throw new Error(
+        `Columns '${first.id}' and '${column.id}' of Excel table '${tableName}' have the same header ('${first.headerLabel}' and '${column.headerLabel}'). Excel table headers must be unique ignoring case: give one of them a different header.`,
+      );
+    }
+    seen.set(key, column);
+  }
 }
 
 function toExcelTableName(value: string) {

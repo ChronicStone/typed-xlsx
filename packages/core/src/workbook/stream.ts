@@ -93,6 +93,14 @@ import { resolveAutoFilter } from "./internal/auto-filter";
 import { buildPlannedSummaries, resolveSummaryValue } from "./internal/summaries";
 import { resolveExcelTableOptions } from "./internal/excel-table";
 import { layoutTables, positionTableMerges, type PositionedTable } from "./internal/layout";
+import {
+  assertColumnCount,
+  assertRowCount,
+  assertSheetFitsExcel,
+  assertUniqueColumnIds,
+  createExcelTableNameRegistry,
+} from "./internal/limits";
+import { resolveExcelTableName } from "./internal/excel-table";
 import { buildReportChrome, shiftFormulaCellsInWorksheetXml } from "./internal/report-chrome";
 import {
   createExcelTotalsRowStats,
@@ -293,6 +301,8 @@ class StreamTableBuilder<
   private readonly bodyStyles: TableBodyStyles;
   private readonly pivots: PivotAccumulator[] = [];
   private sealed = false;
+  private sheetName = "";
+  private headerRows: number | undefined;
 
   /** Starts tallying a pivot over this table. Rows are not kept, so it must happen before any commit. */
   attachPivot(id: string, spec: PivotSpec) {
@@ -342,6 +352,7 @@ class StreamTableBuilder<
     },
   ) {
     const columns = applySelection(resolveColumns(schema, context, selection), selection);
+    assertUniqueColumnIds(tableId, columns);
     const title = resolveLazyText(options?.title, { ctx: context as TSchemaContext });
     const defaults = resolveTableStyleDefaultsWithTheme({
       schemaTheme: schema.theme,
@@ -418,6 +429,12 @@ class StreamTableBuilder<
     });
   }
 
+  /** Called by the sheet that owns the table, so limit errors can name the sheet. */
+  bindToSheet(sheetName: string) {
+    this.sheetName = sheetName;
+    assertColumnCount(sheetName, this.state.columns.length);
+  }
+
   async commit(batch: StreamTableCommit<T>) {
     if (this.sealed) {
       throw new Error(
@@ -425,6 +442,13 @@ class StreamTableBuilder<
       );
     }
 
+    const headerRows = (this.headerRows ??= this.state.excelTable
+      ? 1
+      : buildReportChrome({
+          columns: this.state.columns.map((column) => ({ groupPath: column.groupPath ?? [] })),
+          title: this.state.title,
+          render: this.state.render,
+        }).headerHeight);
     let pendingXml = "";
     const flush = async () => {
       if (!pendingXml) return;
@@ -443,6 +467,10 @@ class StreamTableBuilder<
           this.state.schema.kind,
           this.state.excelTable?.name,
           this.state.context,
+        );
+        assertRowCount(
+          this.sheetName,
+          headerRows + this.state.committedPhysicalRows + expanded.height,
         );
         const startRow = this.state.committedPhysicalRows;
         const endRow = startRow + expanded.height - 1;
@@ -721,6 +749,7 @@ class StreamSheetBuilder {
     private readonly layout?: SheetLayoutOptions,
     private readonly view?: SheetViewOptions,
     private readonly protection?: ResolvedSheetProtectionOptions,
+    private readonly excelTableNames = createExcelTableNameRegistry(),
   ) {}
 
   async table<
@@ -730,6 +759,10 @@ class StreamSheetBuilder {
   >(id: string, params: AnyStreamTableInput<T, TColumnId, TSchemaContext>) {
     if (this.disposed) {
       throw new Error("Stream sheet has been disposed.");
+    }
+
+    if (isStreamExcelTableInput(params)) {
+      this.excelTableNames.claim(resolveExcelTableName(params.name, id), this.name);
     }
 
     const spool = await this.spoolFactory.create(`${this.name}:${id}`);
@@ -761,6 +794,7 @@ class StreamSheetBuilder {
             render: params.render,
           },
     );
+    builder.bindToSheet(this.name);
     this.tables.push(builder);
     return builder;
   }
@@ -835,6 +869,7 @@ export class StreamWorkbookBuilder {
   private readonly sheets: StreamSheetBuilder[] = [];
   private readonly sharedStrings: SharedStringsCollector;
   private readonly styles = new StylesCollector();
+  private readonly excelTableNames = createExcelTableNameRegistry();
   private sink: StreamWorkbookSink | undefined;
   private finished = false;
   private disposed = false;
@@ -891,6 +926,7 @@ export class StreamWorkbookBuilder {
       },
       view,
       resolveSheetProtection(protection),
+      this.excelTableNames,
     );
     this.sheets.push(builder);
     return builder;
@@ -934,6 +970,12 @@ export class StreamWorkbookBuilder {
     const chartParts: StreamWorksheetPart[] = [];
     const mediaParts: Array<StreamWorksheetPart & { mediaType: ImageMediaType }> = [];
     const mediaRegistry = createWorksheetMediaRegistry();
+    for (const sheet of finalizedSheets) {
+      assertSheetFitsExcel(
+        sheet.name,
+        layoutTables({ layout: sheet.layout, tables: sheet.tables }),
+      );
+    }
     const rawSheetNames = finalizedSheets.map((sheet) => sheet.name);
     const worksheetNames = buildWorksheetNames(rawSheetNames);
     const objects = resolveStreamWorkbookObjects(finalizedSheets, worksheetNames, this.styles);

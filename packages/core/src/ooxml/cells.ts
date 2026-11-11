@@ -1,6 +1,7 @@
 import { textElement, xmlElement, xmlEscape } from "./xml";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "./shared-strings";
+import { assertCellTextLength } from "../workbook/internal/limits";
 import { isFormulaCell, type CellData } from "../cell-data";
 
 const EXCEL_MIN_DATE_MS = Date.UTC(1900, 0, 1);
@@ -29,6 +30,8 @@ function toWritableValue(ref: string, value: unknown): string | number | boolean
   if (value === null || value === undefined) return null;
   switch (typeof value) {
     case "string":
+      assertCellTextLength(ref, value);
+      return value;
     case "boolean":
       return value;
     case "number":
@@ -168,5 +171,6 @@ export function serializeInlineStringCell(
   const ref = toCellRef(row, column);
 
   const style = styleIndex && styleIndex > 0 ? ` s="${styleIndex}"` : "";
+  assertCellTextLength(ref, value);
   return `<c r="${ref}" t="inlineStr"${style}><is>${textElement(value)}</is></c>`;
 }
