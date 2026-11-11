@@ -840,7 +840,10 @@ describe("pivots that Excel would repair", () => {
             .pivot({ rows: ["region"], values: { revenue: "sum" }, at: "A3" }),
         )
         .pivot("second", ({ refs }: any) =>
-          refs.sheet("Sales").table("sales").pivot({ rows: ["product"], values: { orders: "sum" } }),
+          refs
+            .sheet("Sales")
+            .table("sales")
+            .pivot({ rows: ["product"], values: { orders: "sum" } }),
         ),
     );
     const top = (xml: string) => Number(/<location ref="[A-Z]+(\d+):/.exec(xml)![1]);
