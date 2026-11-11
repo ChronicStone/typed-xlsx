@@ -263,15 +263,7 @@ function columnRangeFunction(
     };
   }
 
-  const startRef = toCellRef(context.startRow, context.column);
-  const endRef = toCellRef(context.endRow, context.column);
-
-  return func(name, [
-    {
-      kind: "literal",
-      value: `${startRef}:${endRef}`,
-    },
-  ]);
+  return func(name, [{ kind: "series", columnId: "__summary_column__" }]);
 }
 
 function serializeSummaryFormulaExpr(
@@ -299,10 +291,6 @@ function serializeSummaryFormulaExpr(
   }
 
   if (expr.kind === "literal") {
-    if (typeof expr.value === "string" && /^[A-Z]+\d+:[A-Z]+\d+$/.test(expr.value)) {
-      return expr.value;
-    }
-
     if (typeof expr.value === "string") {
       return `"${expr.value.replaceAll('"', '""')}"`;
     }
@@ -316,6 +304,10 @@ function serializeSummaryFormulaExpr(
 
   if (expr.kind === "ref") {
     return toCellRef(context.startRow, context.column);
+  }
+
+  if (expr.kind === "series" && expr.columnId === "__summary_column__") {
+    return `${toCellRef(context.startRow, context.column)}:${toCellRef(context.endRow, context.column)}`;
   }
 
   if (expr.kind === "series" || expr.kind === "collection-aggregate") {
@@ -338,10 +330,6 @@ function serializeSummaryRowFormulaExpr(
   context: SummaryFormulaContext,
 ): string {
   if (expr.kind === "literal") {
-    if (typeof expr.value === "string" && /^[A-Z]+\d+:[A-Z]+\d+$/.test(expr.value)) {
-      return expr.value;
-    }
-
     if (typeof expr.value === "string") {
       return `"${expr.value.replaceAll('"', '""')}"`;
     }
