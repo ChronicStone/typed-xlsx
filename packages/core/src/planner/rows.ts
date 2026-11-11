@@ -24,7 +24,7 @@ import {
 import { normalizeSummaryInput } from "../summary/builder";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./metrics";
 import type { CellStyle } from "../styles/types";
-import { getCellPrimitiveValue, type CellData } from "../cell-data";
+import { formulaCell, getCellPrimitiveValue, type CellData } from "../cell-data";
 import { getValueAtPath } from "../core/path";
 import {
   imageHeightToPoints,
@@ -55,7 +55,7 @@ import {
   escapeStructuredReferenceHeader,
   serializeExcelTableCurrentRowRef,
 } from "../formula/structured-reference";
-import { toCellRef } from "../ooxml/cells";
+import { assertSafeHyperlinkTarget, toCellRef } from "../ooxml/cells";
 import { resolveLazyText } from "../text";
 
 export interface PlannedHyperlink {
@@ -355,6 +355,11 @@ function resolveCellHyperlink<T extends object>(params: {
     return undefined;
   }
 
+  assertSafeHyperlinkTarget(
+    typeof resolved === "string" ? resolved : resolved.target,
+    params.column.id,
+  );
+
   if (typeof resolved === "string") {
     return { target: resolved };
   }
@@ -511,7 +516,7 @@ export function resolveColumnCellValues<T extends object>(params: {
   }
 
   if (params.imageUrl) {
-    return [{ kind: "formula", formula: writeImageFormula(params.imageUrl) }];
+    return [formulaCell(writeImageFormula(params.imageUrl))];
   }
 
   if (params.column.image) {
@@ -548,9 +553,8 @@ function resolveFormulaCell<T extends object>(params: {
       } as Parameters<NonNullable<typeof params.column.formula>>[0]),
     );
 
-  return {
-    kind: "formula" as const,
-    formula: withFormulaColumnId(params.column.id, () =>
+  return formulaCell(
+    withFormulaColumnId(params.column.id, () =>
       serializeFormulaExpr(
         expr,
         params.columns,
@@ -561,8 +565,8 @@ function resolveFormulaCell<T extends object>(params: {
         params.rowSeriesBoundsByColumnId,
       ),
     ),
-    ...(params.value !== undefined ? { value: params.value } : {}),
-  };
+    params.value,
+  );
 }
 
 function serializeFormulaExpr<T extends object>(

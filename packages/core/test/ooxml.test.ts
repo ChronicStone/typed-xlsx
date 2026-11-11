@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import * as Internal from "../src/index-internal";
+import { formulaCell } from "../src/cell-data";
 import { serializeCell, serializeInlineStringCell } from "../src/ooxml/cells";
 import { hashExcelProtectionPassword } from "../src/ooxml/protection";
 import { createSharedStringsCollector } from "../src/ooxml/shared-strings";
@@ -38,7 +39,7 @@ describe("ooxml", () => {
       '<c r="A1"><v>0</v></c>',
     );
     expect(serializeInlineStringCell(0, 16383, "café 🚀 &amp; <> \"'\n", 0)).toBe(
-      '<c r="XFD1" t="inlineStr"><is><t>café 🚀 &amp;amp; &lt;&gt; &quot;&apos;\n</t></is></c>',
+      '<c r="XFD1" t="inlineStr"><is><t xml:space="preserve">café 🚀 &amp;amp; &lt;&gt; &quot;&apos;\n</t></is></c>',
     );
   });
 
@@ -2060,16 +2061,7 @@ describe("ooxml", () => {
   it("serializes formula cells with cached values", () => {
     const sharedStrings = createSharedStringsCollector();
 
-    const xml = serializeCell(
-      1,
-      1,
-      {
-        kind: "formula",
-        formula: "SUM(B2:B3)",
-        value: 10,
-      },
-      sharedStrings,
-    );
+    const xml = serializeCell(1, 1, formulaCell("SUM(B2:B3)", 10), sharedStrings);
 
     expect(xml).toContain('r="B2"');
     expect(xml).toContain("<f>SUM(B2:B3)</f>");
@@ -2082,10 +2074,7 @@ describe("ooxml", () => {
     const xml = serializeCell(
       1,
       1,
-      {
-        kind: "formula",
-        formula: 'IF(OR((I2="WATCH"),(H2<0.5)),"REVIEW","OK")',
-      },
+      formulaCell('IF(OR((I2="WATCH"),(H2<0.5)),"REVIEW","OK")'),
       sharedStrings,
     );
 
@@ -2100,11 +2089,7 @@ describe("ooxml", () => {
     const formulaXml = serializeCell(
       1,
       2,
-      {
-        kind: "formula",
-        formula: 'A2 & " suffix"',
-        value,
-      },
+      formulaCell('A2 & " suffix"', value),
       createSharedStringsCollector(),
     );
 

@@ -95,6 +95,10 @@ typed-xlsx reports errors on the key at fault and lists what would fit. Read the
 - An excel-table schema has an array accessor (no sub-rows in native tables), or a formula column on sub-rows.
 - A chart or pivot reads a table that expands sub-rows.
 - A sheet would exceed 1,048,576 rows. Split large exports across sheets ([streaming](references/streaming.md)).
+- A sheet would need more than 16,384 columns, a cell holds more than 32,767 characters, or two excel tables share a name (ignoring case) or a header.
+- Two columns of one table share an id (for example a dynamic block generates `status` and a static column is already `status`).
+- An inline dropdown list is over 255 characters or has an item with a comma, or a validation title (32) or message (255) is too long.
+- A cell value is `NaN`, `Infinity`, an invalid or out-of-range `Date`, or an object such as a Decimal.
 - A stream workbook gets a second output call (`writeToFile`, `pipeTo`, …). Call exactly one.
 - A sparkline source column was excluded by `select`.
 

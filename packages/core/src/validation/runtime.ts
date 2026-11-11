@@ -2,6 +2,7 @@ import type { FormulaExpr } from "../formula/expr";
 import type { ResolvedColumn } from "../planner/rows";
 import { toCellRef } from "../ooxml/cells";
 import { relativeColumnRef } from "../ooxml/relative-refs";
+import { assertInlineListFits, assertValidationMessageFits } from "../workbook/internal/limits";
 import type { ResolvedValidationMessage } from "../text";
 import type { ResolvedValidationRule, ValidationOperator, ValidationType } from "./types";
 
@@ -33,6 +34,12 @@ export function buildWorksheetDataValidations<T extends object>(params: {
     if (!validation) {
       return [];
     }
+
+    if (validation.type === "list" && Array.isArray(validation.source)) {
+      assertInlineListFits(column.id, validation.source);
+    }
+    assertValidationMessageFits(column.id, "Prompt", validation.prompt);
+    assertValidationMessageFits(column.id, "Error", validation.error);
 
     const absoluteColumnIndex = params.columnOffset + columnIndex;
     const ref = `${toCellRef(params.rowStart, absoluteColumnIndex)}:${toCellRef(params.rowEnd, absoluteColumnIndex)}`;

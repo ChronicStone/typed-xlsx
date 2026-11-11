@@ -19,6 +19,12 @@ import { resolveSheetProtection as resolveProtection, resolveWorkbookProtection 
 import { applyColumnSelection } from "./internal/selection";
 import { computeSummaries } from "./internal/summaries";
 import { resolveAutoFilter } from "./internal/auto-filter";
+import { layoutTables } from "./internal/layout";
+import {
+  assertSheetFitsExcel,
+  assertUniqueColumnIds,
+  createExcelTableNameRegistry,
+} from "./internal/limits";
 import { resolveExcelTableName, resolveExcelTableOptions } from "./internal/excel-table";
 import { toCellRef } from "../ooxml/cells";
 import { resolveTableStyleDefaultsWithTheme } from "../styles/defaults";
@@ -93,6 +99,7 @@ function planTable<
     resolveColumns(table.schema, context, table.select),
     table.select,
   );
+  assertUniqueColumnIds(id, resolvedColumns);
   const excelTableName = isBufferedExcelTableInput(table)
     ? resolveExcelTableName(table.name, id)
     : undefined;
@@ -236,12 +243,15 @@ class BufferedSheetBuilder {
   }
 
   build(): BufferedSheetPlan {
+    const tables = this.tables.map((table) => planTable(table.id, table.input));
+    assertSheetFitsExcel(this.name, layoutTables({ layout: this.layout, tables }));
+
     return {
       name: this.name,
       layout: this.layout,
       view: this.view,
       protection: this.protection,
-      tables: this.tables.map((table) => planTable(table.id, table.input)),
+      tables,
       ...(this.charts.length > 0 ? { charts: [...this.charts] } : {}),
       ...(this.pivots.length > 0 ? { pivots: [...this.pivots] } : {}),
     };
@@ -269,10 +279,12 @@ export class BufferedWorkbookBuilder {
   buildPlan(): BufferedWorkbookPlan {
     const sheets = this.sheets.map((sheet) => sheet.build());
     const excelTables: BufferedExcelTablePart[] = [];
+    const tableNames = createExcelTableNameRegistry();
 
     sheets.forEach((sheet, sheetIndex) => {
       sheet.tables.forEach((table) => {
         if (!table.excelTable) return;
+        tableNames.claim(table.excelTable.name, sheet.name);
         excelTables.push({
           sheetIndex,
           tableId: table.id,

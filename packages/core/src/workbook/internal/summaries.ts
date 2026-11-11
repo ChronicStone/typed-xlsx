@@ -1,4 +1,4 @@
-import type { FormulaCell } from "../../cell-data";
+import { formulaCell, type FormulaCell } from "../../cell-data";
 import { createSummaryBindings } from "../../planner/rows";
 import { finalizeSummaryRuntime } from "../../summary/runtime";
 import type { ResolvedColumn, SummaryBinding } from "../../planner/rows";
@@ -249,10 +249,7 @@ function createSummaryFormulaCell(
       ? resolved
       : toExpr<string, never>(resolved);
 
-  return {
-    kind: "formula",
-    formula: serializeSummaryFormulaExpr(formula, context),
-  };
+  return formulaCell(serializeSummaryFormulaExpr(formula, context));
 }
 
 function columnRangeFunction(

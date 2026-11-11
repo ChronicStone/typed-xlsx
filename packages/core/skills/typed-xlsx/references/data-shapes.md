@@ -147,6 +147,9 @@ export const lines = createExcelSchema<Line>()
 - `format` takes a number format, or a function of `{ row, ctx }` when it varies per row (the currency above).
 - Several currencies in one column can't be summed meaningfully. Either one column per currency (see [wide data](#wide-data-columns-known-at-export-time)), or convert to one reporting currency.
 - Dates: a `Date` with a date format. Dates are written as UTC.
+- A cell takes a string, number, boolean, `Date` or `null`. A `bigint` is written as a number when it is a safe integer, as text otherwise. A Decimal or any other object throws when writing: call `.toNumber()` or `.toString()` in the accessor.
+- `NaN`, `Infinity`, an invalid `Date` and a date outside 1900-01-01 to 9999-12-31 throw when writing, with the cell address in the message. Map them to `null` in the accessor.
+- Control characters that XML forbids (such as `\u0000`) are removed from text, and leading or trailing spaces are kept.
 
 ## Row numbers
 

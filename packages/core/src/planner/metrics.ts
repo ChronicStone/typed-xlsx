@@ -12,7 +12,7 @@ export function measurePrimitiveValue(value: PrimitiveCellValue) {
     return Math.max(...value.split("\n").map((part) => part.length), 0);
   if (typeof value === "number") return String(value).length;
   if (typeof value === "boolean") return value ? 4 : 5;
-  if (value instanceof Date) return value.toISOString().length;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? 0 : value.toISOString().length;
   return 0;
 }
 

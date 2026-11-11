@@ -11,6 +11,7 @@ import type {
 import type { WorksheetHyperlink } from "../workbook/types";
 import { hashExcelProtectionPassword } from "./protection";
 import { toCellRef } from "./cells";
+import { EXCEL_MAX_COLUMN_WIDTH } from "../workbook/internal/limits";
 import { xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
 
 export interface WorksheetColumnDefinition {
@@ -81,7 +82,7 @@ export function writeWorksheetColumns(columns: WorksheetColumnDefinition[]) {
       xmlSelfClosing("col", {
         min: column.index + 1,
         max: column.index + 1,
-        width: Math.max(column.width + 5, 1),
+        width: Math.min(Math.max(column.width + 5, 1), EXCEL_MAX_COLUMN_WIDTH),
         customWidth: 1,
       }),
     ),
