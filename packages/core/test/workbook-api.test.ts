@@ -306,16 +306,17 @@ describe("public buffered api", () => {
       .build();
 
     const workbook = createWorkbook();
+    workbook.sheet("Sheet").table("derived", {
+      rows: [{ name: "Ada", tags: ["a", "b"] }],
+      schema,
+      select: { include: ["derived", "name"] },
+    });
 
-    expect(() => {
-      workbook.sheet("Sheet").table("derived", {
-        rows: [{ name: "Ada", tags: ["a", "b"] }],
-        schema,
-        select: { include: ["derived", "name"] },
-      });
-
-      workbook.toUint8Array();
-    }).not.toThrow();
+    const content = workbookArchiveText(workbook.toUint8Array());
+    expect(content).toContain("Name");
+    expect(content).toContain("Derived");
+    expect(content).toContain("Tag count");
+    expect(content).toMatch(/<c [^>]*><v>2<\/v><\/c>/);
   });
 
   it("keeps explicitly included grouped child columns in buffered selections", () => {

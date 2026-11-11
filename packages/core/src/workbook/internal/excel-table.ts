@@ -10,6 +10,7 @@ import {
   serializeExcelTableCurrentRowRange,
   serializeExcelTableCurrentRowRef,
 } from "../../formula/structured-reference";
+import { serializeEmptyScopeAggregate, withFormulaColumnId } from "../../formula/empty-scope";
 import type { ExcelTableStyle, ResolvedExcelTableOptions } from "../types";
 
 const DEFAULT_EXCEL_TABLE_STYLE: ExcelTableStyle = "TableStyleMedium2";
@@ -22,6 +23,7 @@ export function resolveExcelTableOptions(params: {
   hasMerges?: boolean;
   totalsRow?: boolean;
   columns: ResolvedColumn<any>[];
+  context?: unknown;
 }) {
   if (params.hasMerges) {
     throw new Error(
@@ -40,7 +42,7 @@ export function resolveExcelTableOptions(params: {
       id: column.id,
       headerLabel: column.headerLabel,
       formula: column.formula
-        ? serializeCalculatedColumnFormula(column, params.columns, name)
+        ? serializeCalculatedColumnFormula(column, params.columns, name, params.context)
         : undefined,
       totalsRow: column.totalsRow,
     })),
@@ -55,6 +57,7 @@ function serializeCalculatedColumnFormula(
   column: ResolvedColumn<any>,
   columns: ResolvedColumn<any>[],
   tableName: string,
+  context: unknown,
 ) {
   if (!column.formula) {
     return undefined;
@@ -64,10 +67,12 @@ function serializeCalculatedColumnFormula(
     row: createFormulaRowContext<any, any>(),
     refs: createFormulaRefs<any, any, any>(),
     fx: createFormulaFunctionsContext<any, any>(),
-    ctx: undefined as never,
+    ctx: context as never,
   } as Parameters<NonNullable<typeof column.formula>>[0]);
 
-  return serializeFormulaExpr(toExpr(expr), columns, tableName);
+  return withFormulaColumnId(column.id, () =>
+    serializeFormulaExpr(toExpr(expr), columns, tableName),
+  );
 }
 
 function serializeFormulaExpr(
@@ -99,7 +104,7 @@ function serializeFormulaExpr(
   if (expr.kind === "scope-aggregate") {
     const scopeColumns = resolveScopeColumns(columns, expr.scopeId);
     if (scopeColumns.length === 0) {
-      throw new Error(`Unknown or empty formula scope reference '${expr.scopeId}'.`);
+      return serializeEmptyScopeAggregate(expr.aggregate, expr.scopeId);
     }
 
     const orderedIndexes = scopeColumns

@@ -29,6 +29,7 @@ import {
   type FormulaExpr,
 } from "../formula/expr";
 import { evaluateFormulaExpr, type FormulaEvaluationContext } from "../formula/evaluate";
+import { serializeEmptyScopeAggregate, withFormulaColumnId } from "../formula/empty-scope";
 import {
   escapeStructuredReferenceHeader,
   serializeExcelTableCurrentRowRef,
@@ -128,14 +129,16 @@ function resolveFormulaCell<T extends object>(params: {
 
   return {
     kind: "formula" as const,
-    formula: serializeFormulaExpr(
-      expr,
-      params.columns,
-      params.rowIndex,
-      params.formulaMode,
-      params.tableName,
-      params.referenceRowsByColumnId,
-      params.rowSeriesBoundsByColumnId,
+    formula: withFormulaColumnId(params.column.id, () =>
+      serializeFormulaExpr(
+        expr,
+        params.columns,
+        params.rowIndex,
+        params.formulaMode,
+        params.tableName,
+        params.referenceRowsByColumnId,
+        params.rowSeriesBoundsByColumnId,
+      ),
     ),
     ...(params.value !== undefined ? { value: params.value } : {}),
   };
@@ -160,7 +163,7 @@ function serializeFormulaScopeExpr<T extends object>(params: {
 }) {
   const scopeColumns = resolveFormulaScopeColumns(params.columns, params.scopeId);
   if (scopeColumns.length === 0) {
-    throw new Error(`Unknown or empty formula scope reference '${params.scopeId}'.`);
+    return serializeEmptyScopeAggregate(params.aggregate, params.scopeId);
   }
 
   if (params.mode === "excel-table") {

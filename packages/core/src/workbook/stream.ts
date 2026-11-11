@@ -353,6 +353,7 @@ class StreamTableBuilder<
         ? resolveExcelTableOptions({
             autoFilter: options?.autoFilter,
             columns,
+            context,
             hasMerges: false,
             id: tableId,
             name: options?.name,

@@ -282,7 +282,7 @@ function serializeSummaryFormulaExpr(
   context: SummaryFormulaContext,
 ): string {
   if (expr.kind === "summary-row-aggregate") {
-    if (!context.logicalRows || context.logicalRows.length === 0) {
+    if (!context.logicalRows) {
       throw new Error("Logical row metadata is required for row-aware summary formulas.");
     }
 
