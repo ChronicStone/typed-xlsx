@@ -893,6 +893,18 @@ export class StreamWorkbookBuilder {
     }
 
     this.finished = true;
+    try {
+      await this.writeWorkbook(targetSink);
+    } catch (error) {
+      await this.release().catch(() => undefined);
+      throw error;
+    }
+
+    // The output is fully written: close the table spools and delete the temp files.
+    await this.release();
+  }
+
+  private async writeWorkbook(targetSink: StreamWorkbookSink) {
     const finalizedSheets = (await Promise.all(
       this.sheets.map((sheet) => sheet.finalize()),
     )) as StreamSheetFinalization[];
@@ -1098,10 +1110,16 @@ export class StreamWorkbookBuilder {
   }
 
   async dispose() {
+    await this.release();
+  }
+
+  private async release() {
     if (!this.disposePromise) {
       this.disposed = true;
       this.disposePromise = Promise.allSettled(this.sheets.map((sheet) => sheet.dispose())).then(
-        (results) => {
+        async (results) => {
+          // Spool files go away even when closing a table failed.
+          await this.spoolFactory.dispose?.();
           for (const result of results) {
             if (result.status === "rejected") {
               throw result.reason;

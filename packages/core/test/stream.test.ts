@@ -1,7 +1,9 @@
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { createWorkbookStream } from "../src/api";
 import * as Internal from "../src/index-internal";
 import { appendExpandedRowXml } from "../src/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
@@ -236,26 +238,32 @@ describe("stream builder", () => {
       .build();
 
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-stream-"));
-    const sink = new MemoryWorkbookSink();
-    const spoolFactory = new Internal.FileSpoolFactory(directory);
-    const workbook = Internal.StreamWorkbookBuilder.create({ sink, spoolFactory });
-    const table = await workbook.sheet("Logs").table("logs", {
-      schema,
-    });
+    try {
+      const workbook = createWorkbookStream({ tempDirectory: directory });
+      const table = await workbook.sheet("Logs").table("logs", {
+        schema,
+      });
 
-    await table.commit({
-      rows: [{ value: "line-1" }, { value: "line-2" }],
-    });
-    await workbook.finish();
+      await table.commit({
+        rows: [{ value: "line-1" }, { value: "line-2" }],
+      });
 
-    const files = fs.readdirSync(directory);
-    expect(files.length).toBe(1);
-    const spoolContent = fs.readFileSync(path.join(directory, files[0]!), "utf8");
-    expect(spoolContent).toContain("<row");
-    expect(spoolContent).toContain('r="A2"');
-    expect(spoolContent).toContain('r="A3"');
-    expect(spoolContent).toContain("<v>0</v>");
-    expect(spoolContent).toContain("<v>1</v>");
+      const spoolDirectories = fs.readdirSync(directory);
+      expect(spoolDirectories).toHaveLength(1);
+      const spoolDirectory = path.join(directory, spoolDirectories[0]!);
+      const files = fs.readdirSync(spoolDirectory);
+      expect(files).toEqual(["table-1.spool"]);
+      const spoolContent = fs.readFileSync(path.join(spoolDirectory, files[0]!), "utf8");
+      expect(spoolContent).toContain("<row");
+      expect(spoolContent).toContain('r="A2"');
+      expect(spoolContent).toContain('r="A3"');
+      expect(spoolContent).toContain("<v>0</v>");
+      expect(spoolContent).toContain("<v>1</v>");
+
+      await workbook.dispose();
+    } finally {
+      fs.rmSync(directory, { force: true, recursive: true });
+    }
   });
 
   it("disposes committed file-backed table spools without finalizing the workbook", async () => {
@@ -265,20 +273,23 @@ describe("stream builder", () => {
       })
       .build();
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "typed-xlsx-dispose-"));
-    const spools: Array<{ closeCalls: number; file: Internal.FileSheetSpool }> = [];
+    const spools: Array<{ closeCalls: number; filePath: string }> = [];
     const spoolFactory: Internal.StreamSpoolFactory = {
       async create() {
-        const file = new Internal.FileSheetSpool(
-          path.join(directory, `table-${spools.length}.spool`),
-        );
-        const tracked = { closeCalls: 0, file };
+        const filePath = path.join(directory, `table-${spools.length}.spool`);
+        const handle = await fsp.open(filePath, "a+");
+        const tracked = { closeCalls: 0, filePath };
         spools.push(tracked);
         return {
-          append: (chunk: Uint8Array) => file.append(chunk),
-          read: () => file.read(),
+          append: async (chunk: Uint8Array) => {
+            await handle.write(chunk);
+          },
+          read: async function* () {
+            yield new Uint8Array(await fsp.readFile(filePath));
+          },
           close: async () => {
             tracked.closeCalls += 1;
-            await file.close();
+            await handle.close().catch(() => undefined);
           },
         };
       },
@@ -297,7 +308,7 @@ describe("stream builder", () => {
       await workbook.dispose();
 
       expect(spools.map(({ closeCalls }) => closeCalls)).toEqual([1, 1]);
-      expect(fs.readFileSync(spools[0]!.file.filePath, "utf8")).toContain('<row r="2"');
+      expect(fs.readFileSync(spools[0]!.filePath, "utf8")).toContain('<row r="2"');
       expect(sink.closed).toBe(false);
       expect(sink.chunks).toHaveLength(0);
       await expect(workbook.finish()).rejects.toThrow("Stream workbook has been disposed.");

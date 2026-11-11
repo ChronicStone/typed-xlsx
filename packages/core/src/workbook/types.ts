@@ -423,6 +423,8 @@ export interface StreamSheetSpool {
 
 export interface StreamSpoolFactory {
   create(sheetName: string): Promise<StreamSheetSpool>;
+  /** Releases every spool created by this factory. Must be safe to call more than once. */
+  dispose?(): Promise<void>;
 }
 
 export interface StreamTableCommit<T extends object> {

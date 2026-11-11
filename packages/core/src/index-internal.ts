@@ -138,7 +138,6 @@ export type {
 } from "./workbook/types";
 export { BufferedWorkbookBuilder } from "./workbook/buffered";
 export { StreamWorkbookBuilder } from "./workbook/stream";
-export { FileSheetSpool, FileSpoolFactory } from "./workbook/internal/file-spool";
 export { FileWorkbookSink } from "./workbook/internal/file-sink";
 export {
   MemorySheetSpool,

@@ -430,10 +430,6 @@ function importNodePath() {
   return import(`${nodeProtocol}path`) as Promise<typeof import("node:path")>;
 }
 
-function sanitizeFileName(value: string) {
-  return value.replaceAll(/[^a-zA-Z0-9._-]/g, "_");
-}
-
 class LazyFileSheetSpool implements StreamSheetSpool {
   private handlePromise: Promise<import("node:fs/promises").FileHandle> | undefined;
   private closed = false;
@@ -441,7 +437,8 @@ class LazyFileSheetSpool implements StreamSheetSpool {
   constructor(private readonly filePath: string) {}
 
   private async handle() {
-    this.handlePromise ??= importNodeFsPromises().then((fsp) => fsp.open(this.filePath, "a+"));
+    // "wx" fails if the file already exists, so no other path can reuse this spool file.
+    this.handlePromise ??= importNodeFsPromises().then((fsp) => fsp.open(this.filePath, "wx"));
     return await this.handlePromise;
   }
 
@@ -451,6 +448,8 @@ class LazyFileSheetSpool implements StreamSheetSpool {
   }
 
   async *read(): AsyncIterable<Uint8Array> {
+    // Make sure the file exists even when nothing was appended.
+    await this.handle();
     const fs = await importNodeFs();
     const stream = fs.createReadStream(this.filePath);
 
@@ -469,29 +468,38 @@ class LazyFileSheetSpool implements StreamSheetSpool {
 
 class LazyFileSpoolFactory implements StreamSpoolFactory {
   private directoryPromise: Promise<string> | undefined;
+  private fileCount = 0;
 
-  constructor(private readonly directory: string | undefined) {}
+  constructor(private readonly baseDirectory: string | undefined) {}
 
+  // Every workbook gets its own directory (mode 0700) so two exports never share spool files.
   private async resolveDirectory() {
-    if (this.directory) return this.directory;
-
-    this.directoryPromise ??= Promise.all([importNodeOs(), importNodePath()]).then(([os, path]) =>
-      path.join(os.tmpdir(), `typed-xlsx-spool-${Date.now().toString(36)}`),
-    );
+    this.directoryPromise ??= (async () => {
+      const [fsp, os, path] = await Promise.all([
+        importNodeFsPromises(),
+        importNodeOs(),
+        importNodePath(),
+      ]);
+      const base = this.baseDirectory ?? os.tmpdir();
+      if (this.baseDirectory) await fsp.mkdir(base, { recursive: true });
+      return await fsp.mkdtemp(path.join(base, "typed-xlsx-"));
+    })();
 
     return await this.directoryPromise;
   }
 
-  async create(sheetName: string): Promise<StreamSheetSpool> {
-    const [fsp, path, directory] = await Promise.all([
-      importNodeFsPromises(),
-      importNodePath(),
-      this.resolveDirectory(),
-    ]);
-    await fsp.mkdir(directory, { recursive: true });
-    const filePath = path.join(directory, `${sanitizeFileName(sheetName)}.spool`);
-    await fsp.writeFile(filePath, "");
-    return new LazyFileSheetSpool(filePath);
+  async create(_sheetName: string): Promise<StreamSheetSpool> {
+    const [path, directory] = await Promise.all([importNodePath(), this.resolveDirectory()]);
+    this.fileCount += 1;
+    return new LazyFileSheetSpool(path.join(directory, `table-${this.fileCount}.spool`));
+  }
+
+  async dispose() {
+    if (!this.directoryPromise) return;
+    const directory = await this.directoryPromise.catch(() => undefined);
+    if (!directory) return;
+    const fsp = await importNodeFsPromises();
+    await fsp.rm(directory, { recursive: true, force: true });
   }
 }
 
