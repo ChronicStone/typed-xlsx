@@ -13,4 +13,4 @@ You'll get a reply within 3 working days. Once a fix is released, the advisory i
 
 ## Supported versions
 
-Only the latest 4.x release gets security fixes.
+Only the latest 5.x release gets security fixes.

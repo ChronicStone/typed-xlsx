@@ -14,6 +14,8 @@
 
 A formula column writes an Excel formula into each row. Excel computes it when the file opens and whenever an input changes. The same code writes A1 references in report mode (`=B2*C2`) and structured references in excel-table mode (`=[@Qty]*[@Price]`).
 
+Formula cells are stored without a computed value. Excel, LibreOffice, Numbers and Google Sheets calculate them when the file opens; file previews and libraries that read stored values (pandas, openpyxl) show them empty. If the reader needs stored numbers, compute the value in TypeScript (an accessor function, or `s.cell()` in a summary) instead of a formula.
+
 ```ts
 import { createExcelSchema } from "typed-xlsx";
 
