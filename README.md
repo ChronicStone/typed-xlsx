@@ -39,6 +39,8 @@ npm install typed-xlsx
 
 No runtime dependencies. Works on Node.js, Bun and Deno. Other runtimes (Workers, browsers) work too, but `createWorkbook()` files are written uncompressed there unless the runtime exposes Node's zlib, see [Installation](https://typed-xlsx.vercel.app/getting-started/installation).
 
+Requires Node.js 20 or later (or Bun, or Deno) and TypeScript 5.7 or later. The type declarations mention Node's `Buffer`, so install `@types/node` for type-checking.
+
 ## Basic export
 
 ```ts

@@ -9,7 +9,20 @@ You need [Bun](https://bun.sh) 1.3 or later.
 ```bash
 bun install
 bun run check      # types, tests and package build for every workspace
+bun run lint && bun run format:check
 bun run docs:dev   # docs site on http://localhost:3000
+```
+
+`bun install` also installs a pre-commit hook that runs lint and format on the files you commit. CI runs `bun run lint` and `bun run format:check` on every pull request too, so run `bun run format` if either fails. CI uses Node 24 for the workspace checks and tests the packed package on Node 20, 22 and 24.
+
+To test the package the way it is published (packed, installed into a fresh project, type-checked against the bundled declarations and run), build it and then run the smoke test:
+
+```bash
+cd packages/core
+bun run build
+bun run smoke:packed              # TypeScript latest, run with Node
+node scripts/smoke-packed.mjs 5.7 # a specific TypeScript version
+node scripts/smoke-packed.mjs latest --runtime=bun # or --runtime=deno
 ```
 
 The library lives in `packages/core`, the docs in `apps/docs`, and the playground workbooks in `packages/examples`.
