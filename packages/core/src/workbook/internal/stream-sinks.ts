@@ -48,33 +48,65 @@ function getNodeReadableModule() {
   );
 }
 
+const DESTINATION_CLOSED_MESSAGE =
+  "The destination stream closed before the workbook was fully written.";
+const STREAM_CANCELLED_MESSAGE = "The workbook stream was cancelled by its reader.";
+// Number of queued chunks after which write() waits for the reader.
+const BYTE_STREAM_HIGH_WATER_MARK = 16;
+
+type DestroyableWritable = NodeJS.WritableStream & {
+  destroyed?: boolean;
+  writableEnded?: boolean;
+  destroy?(error?: Error): unknown;
+};
+
 export class NodeWritableWorkbookSink implements StreamWorkbookSink {
-  constructor(private readonly writable: NodeJS.WritableStream) {}
+  constructor(private readonly writable: DestroyableWritable) {}
 
   async write(chunk: Uint8Array) {
-    await new Promise<void>((resolve, reject) => {
-      const onError = (error: Error) => {
-        this.writable.off("error", onError);
-        reject(error);
-      };
+    const writable = this.writable;
+    if (writable.destroyed || writable.writableEnded) {
+      throw new Error(DESTINATION_CLOSED_MESSAGE);
+    }
 
-      this.writable.once("error", onError);
-      const completed = this.writable.write(chunk, (error?: Error | null) => {
-        this.writable.off("error", onError);
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let waitingForDrain = false;
+
+      const cleanup = () => {
+        writable.off("error", onError);
+        writable.off("close", onClose);
+        writable.off("drain", onDrain);
+      };
+      const settle = (error?: Error | null) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
         if (error) {
           reject(error);
           return;
         }
-        if (completed) {
-          resolve();
+        resolve();
+      };
+      const onError = (error: Error) => settle(error);
+      const onClose = () => settle(new Error(DESTINATION_CLOSED_MESSAGE));
+      const onDrain = () => settle();
+
+      writable.once("error", onError);
+      writable.once("close", onClose);
+      const flushed = writable.write(chunk, (error?: Error | null) => {
+        if (error) {
+          settle(error);
+          return;
+        }
+        if (!waitingForDrain) {
+          settle();
         }
       });
 
-      if (!completed) {
-        this.writable.once("drain", () => {
-          this.writable.off("error", onError);
-          resolve();
-        });
+      if (!flushed && !settled) {
+        waitingForDrain = true;
+        writable.once("drain", onDrain);
       }
     });
   }
@@ -89,6 +121,14 @@ export class NodeWritableWorkbookSink implements StreamWorkbookSink {
         resolve();
       });
     });
+  }
+
+  abort(error: Error) {
+    if (!this.writable.destroy || this.writable.destroyed) return;
+    // The export promise already rejects with this error; without a listener, destroy(error)
+    // would also raise it as an uncaught 'error' event.
+    this.writable.once("error", () => {});
+    this.writable.destroy(error);
   }
 }
 
@@ -106,15 +146,25 @@ export class WebWritableWorkbookSink implements StreamWorkbookSink {
   async close() {
     await this.writer.close();
   }
+
+  async abort(error: Error) {
+    await this.writer.abort(error);
+  }
 }
 
 export class WorkbookByteStream implements StreamWorkbookSink, AsyncIterable<Uint8Array> {
   private readonly chunks: Uint8Array[] = [];
   private readonly waiters: Array<(result: IteratorResult<Uint8Array>) => void> = [];
+  private readonly drainWaiters: Array<() => void> = [];
   private closed = false;
+  private cancelled = false;
   private error: Error | undefined;
 
   async write(chunk: Uint8Array) {
+    if (this.cancelled) {
+      throw new Error(STREAM_CANCELLED_MESSAGE);
+    }
+
     if (this.waiters.length > 0) {
       const resolve = this.waiters.shift()!;
       resolve({ done: false, value: chunk });
@@ -122,53 +172,89 @@ export class WorkbookByteStream implements StreamWorkbookSink, AsyncIterable<Uin
     }
 
     this.chunks.push(chunk);
+
+    // Wait for the reader instead of queueing the whole workbook in memory.
+    while (this.chunks.length >= BYTE_STREAM_HIGH_WATER_MARK && !this.cancelled && !this.closed) {
+      await new Promise<void>((resolve) => {
+        this.drainWaiters.push(resolve);
+      });
+    }
+
+    if (this.cancelled) {
+      throw new Error(STREAM_CANCELLED_MESSAGE);
+    }
   }
 
   async close() {
     this.closed = true;
+    this.releaseWaiters();
+  }
 
+  abort(error: Error) {
+    this.error = error;
+    this.closed = true;
+    this.releaseWaiters();
+  }
+
+  /** The reader is gone: drop queued chunks and make the producer's next write throw. */
+  private cancel() {
+    this.cancelled = true;
+    this.chunks.length = 0;
+    this.releaseWaiters();
+  }
+
+  private releaseWaiters() {
     while (this.waiters.length > 0) {
       const resolve = this.waiters.shift()!;
       resolve({ done: true, value: undefined });
     }
+    this.releaseDrainWaiters();
   }
 
-  fail(error: Error) {
-    this.error = error;
-    this.closed = true;
-
-    while (this.waiters.length > 0) {
-      const resolve = this.waiters.shift()!;
-      resolve({ done: true, value: undefined });
+  private releaseDrainWaiters() {
+    while (this.drainWaiters.length > 0) {
+      const resolve = this.drainWaiters.shift()!;
+      resolve();
     }
   }
 
   async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
-    while (true) {
-      if (this.chunks.length > 0) {
-        yield this.chunks.shift()!;
-        continue;
-      }
-
-      if (this.closed) {
-        if (this.error) {
-          throw this.error;
+    try {
+      while (true) {
+        if (this.chunks.length > 0) {
+          const chunk = this.chunks.shift()!;
+          if (this.chunks.length < BYTE_STREAM_HIGH_WATER_MARK) {
+            this.releaseDrainWaiters();
+          }
+          yield chunk;
+          continue;
         }
-        return;
-      }
 
-      const next = await new Promise<IteratorResult<Uint8Array>>((resolve) => {
-        this.waiters.push(resolve);
-      });
-
-      if (next.done) {
-        if (this.error) {
-          throw this.error;
+        if (this.closed) {
+          if (this.error) {
+            throw this.error;
+          }
+          return;
         }
-        return;
-      }
 
-      yield next.value;
+        const next = await new Promise<IteratorResult<Uint8Array>>((resolve) => {
+          this.waiters.push(resolve);
+        });
+
+        if (next.done) {
+          if (this.error) {
+            throw this.error;
+          }
+          return;
+        }
+
+        yield next.value;
+      }
+    } finally {
+      // Leaving the loop early (return() or a reader that stopped) must stop the producer.
+      if (!this.closed) {
+        this.cancel();
+      }
     }
   }
 
@@ -181,7 +267,7 @@ export class WorkbookByteStream implements StreamWorkbookSink, AsyncIterable<Uin
     const iterator = this[Symbol.asyncIterator]();
 
     return new ReadableStream<Uint8Array>({
-      async pull(controller) {
+      pull: async (controller) => {
         const next = await iterator.next();
         if (next.done) {
           controller.close();
@@ -189,7 +275,9 @@ export class WorkbookByteStream implements StreamWorkbookSink, AsyncIterable<Uin
         }
         controller.enqueue(next.value);
       },
-      async cancel() {
+      cancel: async () => {
+        // Release a pending read first: return() waits behind it otherwise.
+        this.cancel();
         if (typeof iterator.return === "function") {
           await iterator.return();
         }

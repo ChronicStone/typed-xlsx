@@ -367,6 +367,7 @@ describe("public stream api", () => {
     const outputError = new Error("output failed");
     const dispose = vi.spyOn(StreamWorkbookBuilder.prototype, "dispose");
     const close = vi.spyOn(WebWritableWorkbookSink.prototype, "close");
+    const abort = vi.spyOn(WebWritableWorkbookSink.prototype, "abort");
     const sink = new WritableStream<Uint8Array>({
       write() {
         throw outputError;
@@ -375,7 +376,8 @@ describe("public stream api", () => {
 
     await expect(workbook.pipeTo(sink)).rejects.toBe(outputError);
     expect(dispose).toHaveBeenCalledTimes(1);
-    expect(close).toHaveBeenCalledTimes(1);
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
   });
 
   it("can write a workbook directly to a file path", async () => {

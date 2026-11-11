@@ -413,6 +413,8 @@ export interface BufferedWorkbookPlan {
 export interface StreamWorkbookSink {
   write(chunk: Uint8Array): Promise<void>;
   close(): Promise<void>;
+  /** Ends the output with an error instead of finishing it. Called when the export fails. */
+  abort?(error: Error): Promise<void> | void;
 }
 
 export interface StreamSheetSpool {
@@ -423,6 +425,8 @@ export interface StreamSheetSpool {
 
 export interface StreamSpoolFactory {
   create(sheetName: string): Promise<StreamSheetSpool>;
+  /** Releases every spool created by this factory. Must be safe to call more than once. */
+  dispose?(): Promise<void>;
 }
 
 export interface StreamTableCommit<T extends object> {

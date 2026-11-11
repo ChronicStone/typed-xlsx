@@ -430,10 +430,6 @@ function importNodePath() {
   return import(`${nodeProtocol}path`) as Promise<typeof import("node:path")>;
 }
 
-function sanitizeFileName(value: string) {
-  return value.replaceAll(/[^a-zA-Z0-9._-]/g, "_");
-}
-
 class LazyFileSheetSpool implements StreamSheetSpool {
   private handlePromise: Promise<import("node:fs/promises").FileHandle> | undefined;
   private closed = false;
@@ -441,7 +437,8 @@ class LazyFileSheetSpool implements StreamSheetSpool {
   constructor(private readonly filePath: string) {}
 
   private async handle() {
-    this.handlePromise ??= importNodeFsPromises().then((fsp) => fsp.open(this.filePath, "a+"));
+    // "wx" fails if the file already exists, so no other path can reuse this spool file.
+    this.handlePromise ??= importNodeFsPromises().then((fsp) => fsp.open(this.filePath, "wx"));
     return await this.handlePromise;
   }
 
@@ -451,6 +448,8 @@ class LazyFileSheetSpool implements StreamSheetSpool {
   }
 
   async *read(): AsyncIterable<Uint8Array> {
+    // Make sure the file exists even when nothing was appended.
+    await this.handle();
     const fs = await importNodeFs();
     const stream = fs.createReadStream(this.filePath);
 
@@ -469,54 +468,83 @@ class LazyFileSheetSpool implements StreamSheetSpool {
 
 class LazyFileSpoolFactory implements StreamSpoolFactory {
   private directoryPromise: Promise<string> | undefined;
+  private fileCount = 0;
 
-  constructor(private readonly directory: string | undefined) {}
+  constructor(private readonly baseDirectory: string | undefined) {}
 
+  // Every workbook gets its own directory (mode 0700) so two exports never share spool files.
   private async resolveDirectory() {
-    if (this.directory) return this.directory;
-
-    this.directoryPromise ??= Promise.all([importNodeOs(), importNodePath()]).then(([os, path]) =>
-      path.join(os.tmpdir(), `typed-xlsx-spool-${Date.now().toString(36)}`),
-    );
+    this.directoryPromise ??= (async () => {
+      const [fsp, os, path] = await Promise.all([
+        importNodeFsPromises(),
+        importNodeOs(),
+        importNodePath(),
+      ]);
+      const base = this.baseDirectory ?? os.tmpdir();
+      if (this.baseDirectory) await fsp.mkdir(base, { recursive: true });
+      return await fsp.mkdtemp(path.join(base, "typed-xlsx-"));
+    })();
 
     return await this.directoryPromise;
   }
 
-  async create(sheetName: string): Promise<StreamSheetSpool> {
-    const [fsp, path, directory] = await Promise.all([
-      importNodeFsPromises(),
-      importNodePath(),
-      this.resolveDirectory(),
-    ]);
-    await fsp.mkdir(directory, { recursive: true });
-    const filePath = path.join(directory, `${sanitizeFileName(sheetName)}.spool`);
-    await fsp.writeFile(filePath, "");
-    return new LazyFileSheetSpool(filePath);
+  async create(_sheetName: string): Promise<StreamSheetSpool> {
+    const [path, directory] = await Promise.all([importNodePath(), this.resolveDirectory()]);
+    this.fileCount += 1;
+    return new LazyFileSheetSpool(path.join(directory, `table-${this.fileCount}.spool`));
+  }
+
+  async dispose() {
+    if (!this.directoryPromise) return;
+    const directory = await this.directoryPromise.catch(() => undefined);
+    if (!directory) return;
+    const fsp = await importNodeFsPromises();
+    await fsp.rm(directory, { recursive: true, force: true });
   }
 }
 
 class LazyFileWorkbookSink implements StreamWorkbookSink {
-  private handlePromise: Promise<import("node:fs/promises").FileHandle> | undefined;
+  private handlePromise:
+    | Promise<{ handle: import("node:fs/promises").FileHandle; tempPath: string }>
+    | undefined;
+  private settled = false;
 
   constructor(private readonly filePath: string) {}
 
-  private async handle() {
+  // The workbook is written next to the target and renamed on success, so a failed export
+  // never truncates or replaces the file that was there before.
+  private async open() {
     this.handlePromise ??= (async () => {
       const [fsp, path] = await Promise.all([importNodeFsPromises(), importNodePath()]);
       await fsp.mkdir(path.dirname(this.filePath), { recursive: true });
-      return await fsp.open(this.filePath, "w");
+      const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      const tempPath = `${this.filePath}.${suffix}.tmp`;
+      return { handle: await fsp.open(tempPath, "wx"), tempPath };
     })();
     return await this.handlePromise;
   }
 
   async write(chunk: Uint8Array) {
-    const handle = await this.handle();
+    const { handle } = await this.open();
     await writeFileChunk(handle, chunk);
   }
 
   async close() {
-    const handle = await this.handle();
+    const { handle, tempPath } = await this.open();
+    const fsp = await importNodeFsPromises();
     await handle.close();
+    await fsp.rename(tempPath, this.filePath);
+    this.settled = true;
+  }
+
+  async abort(_error: Error) {
+    if (this.settled || !this.handlePromise) return;
+    this.settled = true;
+    const opened = await this.handlePromise.catch(() => undefined);
+    if (!opened) return;
+    const fsp = await importNodeFsPromises();
+    await opened.handle.close().catch(() => undefined);
+    await fsp.rm(opened.tempPath, { force: true });
   }
 }
 
@@ -679,7 +707,7 @@ class PublicWorkbookStream implements WorkbookStream {
     const byteStream = new WorkbookByteStream();
     const readable = byteStream.toNodeReadable();
     this.startOutput(byteStream).catch((error) => {
-      byteStream.fail(error instanceof Error ? error : new Error(String(error)));
+      byteStream.abort(error instanceof Error ? error : new Error(String(error)));
     });
     return readable;
   }
@@ -687,7 +715,7 @@ class PublicWorkbookStream implements WorkbookStream {
   private createByteStreamOutput() {
     const byteStream = new WorkbookByteStream();
     this.startOutput(byteStream).catch((error) => {
-      byteStream.fail(error instanceof Error ? error : new Error(String(error)));
+      byteStream.abort(error instanceof Error ? error : new Error(String(error)));
     });
     return byteStream;
   }
@@ -696,11 +724,7 @@ class PublicWorkbookStream implements WorkbookStream {
     await this.startOutput(sink);
   }
 
-  private async startOutput(sink: {
-    write(chunk: Uint8Array): Promise<void>;
-    close(): Promise<void>;
-    fail?(error: Error): void;
-  }) {
+  private async startOutput(sink: StreamWorkbookSink) {
     if (this.outputStarted) {
       throw new Error("Workbook stream output has already started.");
     }
@@ -709,15 +733,21 @@ class PublicWorkbookStream implements WorkbookStream {
     try {
       await this.workbook.finish(sink);
     } catch (error) {
-      // A byte stream must end with the error; closing it first would hand readers an empty file.
       const failure = error instanceof Error ? error : new Error(String(error));
-      await Promise.allSettled([
-        this.workbook.dispose(),
-        sink.fail ? Promise.resolve(sink.fail(failure)) : sink.close(),
-      ]);
+      await Promise.allSettled([this.workbook.dispose(), abortSink(sink, failure)]);
       throw error;
     }
   }
+}
+
+// A failed export must end the output with the error: closing it would hand readers a truncated file.
+async function abortSink(sink: StreamWorkbookSink, error: Error) {
+  if (sink.abort) {
+    await sink.abort(error);
+    return;
+  }
+
+  await sink.close();
 }
 
 export function createExcelSchema<T extends object>(): SchemaBuilder<T>;

@@ -292,6 +292,7 @@ class StreamTableBuilder<
   private readonly state: StreamTableState<T, TColumnId, TSchemaContext>;
   private readonly bodyStyles: TableBodyStyles;
   private readonly pivots: PivotAccumulator[] = [];
+  private sealed = false;
 
   /** Starts tallying a pivot over this table. Rows are not kept, so it must happen before any commit. */
   attachPivot(id: string, spec: PivotSpec) {
@@ -418,6 +419,12 @@ class StreamTableBuilder<
   }
 
   async commit(batch: StreamTableCommit<T>) {
+    if (this.sealed) {
+      throw new Error(
+        `Cannot commit rows to table '${this.state.tableId}': the workbook has already been finalized.`,
+      );
+    }
+
     let pendingXml = "";
     const flush = async () => {
       if (!pendingXml) return;
@@ -639,7 +646,13 @@ class StreamTableBuilder<
     };
   }
 
+  /** Rejects further commits: the workbook is being finalized or disposed. */
+  seal() {
+    this.sealed = true;
+  }
+
   async close() {
+    this.seal();
     await this.state.spool.close();
   }
 }
@@ -779,6 +792,10 @@ class StreamSheetBuilder {
   }
 
   async finalize() {
+    for (const table of this.tables) {
+      table.seal();
+    }
+
     const tables = this.tables.map((table) => ({
       ...table.getFinalization(),
       view: this.view,
@@ -894,6 +911,18 @@ export class StreamWorkbookBuilder {
     }
 
     this.finished = true;
+    try {
+      await this.writeWorkbook(targetSink);
+    } catch (error) {
+      await this.release().catch(() => undefined);
+      throw error;
+    }
+
+    // The output is fully written: close the table spools and delete the temp files.
+    await this.release();
+  }
+
+  private async writeWorkbook(targetSink: StreamWorkbookSink) {
     const finalizedSheets = (await Promise.all(
       this.sheets.map((sheet) => sheet.finalize()),
     )) as StreamSheetFinalization[];
@@ -1099,10 +1128,16 @@ export class StreamWorkbookBuilder {
   }
 
   async dispose() {
+    await this.release();
+  }
+
+  private async release() {
     if (!this.disposePromise) {
       this.disposed = true;
       this.disposePromise = Promise.allSettled(this.sheets.map((sheet) => sheet.dispose())).then(
-        (results) => {
+        async (results) => {
+          // Spool files go away even when closing a table failed.
+          await this.spoolFactory.dispose?.();
           for (const result of results) {
             if (result.status === "rejected") {
               throw result.reason;
