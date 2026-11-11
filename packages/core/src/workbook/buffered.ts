@@ -116,6 +116,7 @@ function planTable<
     const excelTable = resolveExcelTableOptions({
       autoFilter: table.autoFilter,
       columns: resolvedColumns,
+      context,
       hasMerges: planner.merges.length > 0,
       id,
       name: table.name,

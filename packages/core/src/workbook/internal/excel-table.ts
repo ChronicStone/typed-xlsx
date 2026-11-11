@@ -22,6 +22,7 @@ export function resolveExcelTableOptions(params: {
   hasMerges?: boolean;
   totalsRow?: boolean;
   columns: ResolvedColumn<any>[];
+  context?: unknown;
 }) {
   if (params.hasMerges) {
     throw new Error(
@@ -40,7 +41,7 @@ export function resolveExcelTableOptions(params: {
       id: column.id,
       headerLabel: column.headerLabel,
       formula: column.formula
-        ? serializeCalculatedColumnFormula(column, params.columns, name)
+        ? serializeCalculatedColumnFormula(column, params.columns, name, params.context)
         : undefined,
       totalsRow: column.totalsRow,
     })),
@@ -55,6 +56,7 @@ function serializeCalculatedColumnFormula(
   column: ResolvedColumn<any>,
   columns: ResolvedColumn<any>[],
   tableName: string,
+  context: unknown,
 ) {
   if (!column.formula) {
     return undefined;
@@ -64,7 +66,7 @@ function serializeCalculatedColumnFormula(
     row: createFormulaRowContext<any, any>(),
     refs: createFormulaRefs<any, any, any>(),
     fx: createFormulaFunctionsContext<any, any>(),
-    ctx: undefined as never,
+    ctx: context as never,
   } as Parameters<NonNullable<typeof column.formula>>[0]);
 
   return serializeFormulaExpr(toExpr(expr), columns, tableName);
