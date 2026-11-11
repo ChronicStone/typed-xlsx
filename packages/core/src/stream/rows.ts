@@ -1,5 +1,4 @@
 import {
-  buildFormulaExpr,
   resolveColumnCellStyle,
   resolveColumnCellValues,
   resolveColumnImage,
@@ -27,8 +26,8 @@ import {
   imageWidthToColumnWidth,
 } from "../image/runtime";
 import type { FormulaExpr } from "../formula/expr";
-import { evaluateFormulaExpr, type FormulaEvaluationContext } from "../formula/evaluate";
-import { serializeEmptyScopeAggregate, withFormulaColumnId } from "../formula/empty-scope";
+import { evaluateFormulaExpr } from "../formula/evaluate";
+import { withFormulaColumnId } from "../formula/empty-scope";
 import {
   escapeStructuredReferenceHeader,
   serializeExcelTableCurrentRowRef,
@@ -36,6 +35,17 @@ import {
 import { toCellRef } from "../ooxml/cells";
 import type { PlannedHyperlink } from "../planner/rows";
 import { resolveLazyText } from "../text";
+import {
+  createFormulaEvaluationContext,
+  createReferenceRowsByColumnId,
+  createRowSeriesBoundsByColumnId,
+  formulaUsesExpandedRefs,
+  formulaUsesSeriesAggregate,
+  invokeRowHyperlink,
+  buildFormulaExpr,
+  type RowSeriesMode,
+} from "../planner/cells";
+import { serializeFormulaScopeExpr } from "../planner/formula-serialize";
 
 interface ExpandedRow<T extends object> {
   row: T;
@@ -48,8 +58,6 @@ interface ExpandedRow<T extends object> {
   physicalRowHeights: number[];
   stylesByRow: Array<Array<CellStyle | undefined>>;
 }
-
-type RowSeriesMode = "scalar" | "expanded";
 
 function invokeRowTransform<T extends object>(params: {
   transform: Extract<NonNullable<ResolvedColumn<T>["transform"]>, (...args: any[]) => unknown>;
@@ -70,32 +78,6 @@ function invokeRowTransform<T extends object>(params: {
     row: params.row,
     rowIndex: params.rowIndex,
     value: params.value,
-  });
-}
-
-function invokeRowHyperlink<T extends object>(params: {
-  hyperlink: Extract<NonNullable<ResolvedColumn<T>["hyperlink"]>, (...args: any[]) => unknown>;
-  row: T;
-  rowIndex: number;
-  subRowIndex: number;
-  ctx?: SchemaContext;
-}) {
-  if (params.hyperlink.length >= 2) {
-    return (
-      params.hyperlink as (
-        row: T,
-        rowIndex: number,
-        subRowIndex: number,
-      ) => string | PlannedHyperlink | null | undefined
-    )(params.row, params.rowIndex, params.subRowIndex);
-  }
-
-  return (params.hyperlink as (context: unknown) => string | PlannedHyperlink | null | undefined)({
-    ...params.row,
-    ctx: params.ctx,
-    row: params.row,
-    rowIndex: params.rowIndex,
-    subRowIndex: params.subRowIndex,
   });
 }
 
@@ -159,49 +141,6 @@ function resolveFormulaCell<T extends object>(params: {
     ),
     params.value,
   );
-}
-
-function resolveFormulaScopeColumns<T extends object>(
-  columns: ResolvedColumn<T>[],
-  scopeId: string,
-) {
-  return columns.filter((column) => column.scopeIds.includes(scopeId));
-}
-
-function serializeFormulaScopeExpr<T extends object>(params: {
-  aggregate: "AVERAGE" | "COUNT" | "MAX" | "MIN" | "SUM";
-  columns: ResolvedColumn<T>[];
-  scopeId: string;
-  mode: "report" | "excel-table";
-  tableName?: string;
-  rowIndex: number;
-  referenceRowsByColumnId?: Map<string, number>;
-  rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
-}) {
-  const scopeColumns = resolveFormulaScopeColumns(params.columns, params.scopeId);
-  if (scopeColumns.length === 0) {
-    return serializeEmptyScopeAggregate(params.aggregate, params.scopeId);
-  }
-
-  if (params.mode === "excel-table") {
-    const refs = scopeColumns.map((column) =>
-      params.tableName
-        ? serializeExcelTableCurrentRowRef(params.tableName, column.headerLabel)
-        : `[@[${escapeStructuredReferenceHeader(column.headerLabel)}]]`,
-    );
-    return `${params.aggregate}(${refs.join(",")})`;
-  }
-
-  const cellRefs = scopeColumns.map((column) => {
-    const columnIndex = params.columns.findIndex((candidate) => candidate.id === column.id);
-    if (columnIndex < 0) {
-      throw new Error(`Unknown formula column reference '${column.id}'.`);
-    }
-    const resolvedRowIndex = params.referenceRowsByColumnId?.get(column.id) ?? params.rowIndex;
-    return toCellRef(resolvedRowIndex + 1, columnIndex);
-  });
-
-  return `${params.aggregate}(${cellRefs.join(",")})`;
 }
 
 function serializeFormulaExpr<T extends object>(
@@ -304,127 +243,6 @@ function serializeFormulaExpr<T extends object>(
   }
 
   return `(${serializeFormulaExpr(expr.left, columns, rowIndex, mode, tableName, referenceRowsByColumnId, rowSeriesBoundsByColumnId)}${expr.op}${serializeFormulaExpr(expr.right, columns, rowIndex, mode, tableName, referenceRowsByColumnId, rowSeriesBoundsByColumnId)})`;
-}
-
-function createRowSeriesBoundsByColumnId(
-  seriesModeByColumnId: Map<string, RowSeriesMode>,
-  rowStartIndex: number,
-  rowHeight: number,
-) {
-  return new Map(
-    [...seriesModeByColumnId.entries()].map(([columnId, mode]) => [
-      columnId,
-      {
-        startRow: rowStartIndex,
-        endRow: rowStartIndex + (mode === "expanded" ? rowHeight - 1 : 0),
-      },
-    ]),
-  );
-}
-
-function createReferenceRowsByColumnId(
-  seriesModeByColumnId: Map<string, RowSeriesMode>,
-  rowStartIndex: number,
-  subRowIndex: number,
-) {
-  return new Map(
-    [...seriesModeByColumnId.entries()].map(([columnId, mode]) => [
-      columnId,
-      mode === "expanded" ? rowStartIndex + subRowIndex : rowStartIndex,
-    ]),
-  );
-}
-
-function createFormulaEvaluationContext<T extends object>(params: {
-  columns: ResolvedColumn<T>[];
-  valuesByColumnId: Map<string, CellData[]>;
-  seriesModeByColumnId: Map<string, RowSeriesMode>;
-  subRowIndex: number;
-}): FormulaEvaluationContext {
-  const getColumnValue = (columnId: string): PrimitiveCellValue => {
-    const values = params.valuesByColumnId.get(columnId);
-    if (!values) {
-      return undefined;
-    }
-
-    const index = params.seriesModeByColumnId.get(columnId) === "expanded" ? params.subRowIndex : 0;
-    return getCellPrimitiveValue(values[index] ?? null);
-  };
-
-  return {
-    getColumnValue,
-    getColumnSeries(columnId) {
-      return (params.valuesByColumnId.get(columnId) ?? []).map((value) =>
-        getCellPrimitiveValue(value),
-      );
-    },
-    getScopeValues(scopeId) {
-      return resolveFormulaScopeColumns(params.columns, scopeId).map((column) =>
-        getColumnValue(column.id),
-      );
-    },
-  };
-}
-
-function formulaUsesExpandedRefs<T extends object>(
-  expr: FormulaExpr<string, string>,
-  seriesModeByColumnId: Map<string, RowSeriesMode>,
-  columns: ResolvedColumn<T>[],
-): boolean {
-  if (expr.kind === "literal") {
-    return false;
-  }
-
-  if (expr.kind === "ref") {
-    return seriesModeByColumnId.get(expr.columnId) === "expanded";
-  }
-
-  if (expr.kind === "series") {
-    return true;
-  }
-
-  if (expr.kind === "collection-aggregate") {
-    return seriesModeByColumnId.get(expr.target.columnId) === "expanded";
-  }
-
-  if (expr.kind === "scope-aggregate") {
-    return resolveFormulaScopeColumns(columns, expr.scopeId).some(
-      (column) => seriesModeByColumnId.get(column.id) === "expanded",
-    );
-  }
-
-  if (expr.kind === "function") {
-    return expr.args.some((arg) => formulaUsesExpandedRefs(arg, seriesModeByColumnId, columns));
-  }
-
-  if (expr.kind !== "binary") {
-    return false;
-  }
-
-  return (
-    formulaUsesExpandedRefs(expr.left, seriesModeByColumnId, columns) ||
-    formulaUsesExpandedRefs(expr.right, seriesModeByColumnId, columns)
-  );
-}
-
-function formulaUsesSeriesAggregate(expr: FormulaExpr<string, string>): boolean {
-  if (expr.kind === "literal" || expr.kind === "ref" || expr.kind === "scope-aggregate") {
-    return false;
-  }
-
-  if (expr.kind === "series" || expr.kind === "collection-aggregate") {
-    return true;
-  }
-
-  if (expr.kind === "function") {
-    return expr.args.some((arg) => formulaUsesSeriesAggregate(arg));
-  }
-
-  if (expr.kind !== "binary") {
-    return false;
-  }
-
-  return formulaUsesSeriesAggregate(expr.left) || formulaUsesSeriesAggregate(expr.right);
 }
 
 export function expandCommittedRow<T extends object>(
