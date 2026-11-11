@@ -235,7 +235,13 @@ onBeforeUnmount(stopDragging);
           <div v-if="iframeFailed" class="typed-xlsx-example__fallback">
             <p>Microsoft’s viewer could not load the workbook preview.</p>
             <div class="typed-xlsx-example__actions">
-              <UButton color="primary" :to="workbookUrl" target="_blank" @click="trackWorkbookDownload('fallback')">Open workbook</UButton>
+              <UButton
+                color="primary"
+                :to="workbookUrl"
+                target="_blank"
+                @click="trackWorkbookDownload('fallback')"
+                >Open workbook</UButton
+              >
               <UButton color="neutral" variant="outline" :to="sourceUrl" target="_blank">
                 Browse examples
               </UButton>

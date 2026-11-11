@@ -13,6 +13,7 @@
 - Make sure Twoslash examples actually compile and do not introduce dev server errors.
 - Run docs validation commands sequentially, not in parallel. In particular, avoid running `check:content`, `generate:twoslash`, `nuxt prepare`, `nuxt build`, or other Nuxt content/Twoslash validation steps concurrently because the docs toolchain can hit SQLite/content cache locking and flaky failures.
 - When docs UI or layout changes matter, use the browser agent to verify the rendered result.
+- Analytics: Vercel Web Analytics counts page views; PostHog (`apps/docs/app/plugins/posthog.client.ts`) records events, autocapture, session replay and browser errors. PostHog is off unless `NUXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NUXT_PUBLIC_POSTHOG_HOST` are set at build time; production values live in the Vercel project. Track a new interaction with `useNuxtApp().$posthog?.capture("event_name", { ... })`.
 
 ## Examples
 

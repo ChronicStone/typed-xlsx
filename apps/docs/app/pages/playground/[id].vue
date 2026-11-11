@@ -449,7 +449,11 @@ useSeo({
           <a class="btn btn-ghost sm" :href="githubUrl" target="_blank" rel="noopener"
             ><UIcon name="i-simple-icons-github" class="ic" />Source</a
           >
-          <a class="btn btn-primary sm" :href="workbookUrl" download @click="trackWorkbookDownload('header')"
+          <a
+            class="btn btn-primary sm"
+            :href="workbookUrl"
+            download
+            @click="trackWorkbookDownload('header')"
             ><UIcon name="i-lucide-download" class="ic" />Download .xlsx</a
           >
         </div>

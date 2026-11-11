@@ -6,6 +6,8 @@ export default defineNuxtConfig({
   vue: {
     runtimeCompiler: true,
   },
+  // PostHog (product analytics, app/plugins/posthog.client.ts) reads these at build time. Unset locally,
+  // so dev sends nothing; set in the Vercel project for production.
   runtimeConfig: {
     public: {
       posthog: {
