@@ -10,6 +10,7 @@ import {
   serializeExcelTableCurrentRowRange,
   serializeExcelTableCurrentRowRef,
 } from "../../formula/structured-reference";
+import { serializeEmptyScopeAggregate, withFormulaColumnId } from "../../formula/empty-scope";
 import type { ExcelTableStyle, ResolvedExcelTableOptions } from "../types";
 
 const DEFAULT_EXCEL_TABLE_STYLE: ExcelTableStyle = "TableStyleMedium2";
@@ -69,7 +70,9 @@ function serializeCalculatedColumnFormula(
     ctx: context as never,
   } as Parameters<NonNullable<typeof column.formula>>[0]);
 
-  return serializeFormulaExpr(toExpr(expr), columns, tableName);
+  return withFormulaColumnId(column.id, () =>
+    serializeFormulaExpr(toExpr(expr), columns, tableName),
+  );
 }
 
 function serializeFormulaExpr(
@@ -101,7 +104,7 @@ function serializeFormulaExpr(
   if (expr.kind === "scope-aggregate") {
     const scopeColumns = resolveScopeColumns(columns, expr.scopeId);
     if (scopeColumns.length === 0) {
-      throw new Error(`Unknown or empty formula scope reference '${expr.scopeId}'.`);
+      return serializeEmptyScopeAggregate(expr.aggregate, expr.scopeId);
     }
 
     const orderedIndexes = scopeColumns

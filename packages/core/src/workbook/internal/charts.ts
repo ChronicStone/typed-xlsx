@@ -110,6 +110,11 @@ class PivotSources {
         `Pivot "${pivotId}": table "${sheet}/${table}" expands rows into sub-rows, which pivots do not support.`,
       );
     }
+    if (!source.excelTableName && source.physicalRowCount === 0) {
+      throw new Error(
+        `Pivot "${pivotId}": table "${sheet}/${table}" has no rows, so there is nothing to pivot. Add rows or remove the pivot.`,
+      );
+    }
     return source;
   }
 }
