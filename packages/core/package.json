@@ -62,6 +62,7 @@
     "build": "vp pack",
     "prepack": "node scripts/sync-readme.mjs && vp pack",
     "pack:check": "npm pack --dry-run",
+    "smoke:packed": "node scripts/smoke-packed.mjs",
     "check": "tsrs --noEmit --fast && node ../../node_modules/typescript-7/bin/tsc --noEmit && vp test run && vp pack && npm pack --dry-run"
   },
   "dependencies": {},
