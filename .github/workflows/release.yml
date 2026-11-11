@@ -34,6 +34,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Lint
+        run: bun run lint
+
+      - name: Check formatting
+        run: bun run format:check
+
       - name: Run workspace checks
         run: bunx turbo run check --filter=!typed-xlsx-benchmark
 
