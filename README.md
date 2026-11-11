@@ -37,7 +37,9 @@ It only writes .xlsx files, it doesn't read them.
 npm install typed-xlsx
 ```
 
-No runtime dependencies. Works on Node.js, Bun, Deno and edge runtimes.
+No runtime dependencies. Works on Node.js, Bun and Deno. Other runtimes (Workers, browsers) work too, but `createWorkbook()` files are written uncompressed there unless the runtime exposes Node's zlib, see [Installation](https://typed-xlsx.vercel.app/getting-started/installation).
+
+Requires Node.js 20 or later (or Bun, or Deno) and TypeScript 5.7 or later. The type declarations mention Node's `Buffer`, so install `@types/node` for type-checking.
 
 ## Basic export
 
@@ -69,7 +71,7 @@ Dates are written as real Excel dates with the format you give, and column width
 
 ## Formulas, totals and styles
 
-Same idea with more in it. `Total` is an Excel formula (`=(C2*D2)` in the file) and gets a SUM row under the table. If you'd rather not have formulas in the file, `s.cell()` computes the total in JS and writes the value.
+Same idea with more in it. `Total` is an Excel formula (`=(C2*D2)` in the file) and gets a SUM row under the table. If you'd rather not have formulas in the file, `s.cell()` computes the total in JS and writes the value. Formula cells are stored without a computed value: Excel, LibreOffice, Numbers and Google Sheets calculate them when the file opens, but file previews and libraries that read stored values (pandas, openpyxl) show them empty.
 
 ```ts
 import { createExcelSchema, createWorkbook } from "typed-xlsx";
@@ -139,12 +141,14 @@ for await (const batch of cursor) {
 await workbook.pipeToNode(response); // or writeToFile(), or a web ReadableStream
 ```
 
+With `strings: "inline"`:
+
 | Rows streamed |  Time | Peak memory (RSS) |
 | ------------: | ----: | ----------------: |
 |       200,000 | 3.7 s |           274 MiB |
 |       500,000 | 9.3 s |           279 MiB |
 
-11 styled columns, batches of 5,000 rows, Node 24 on an Apple M5. Some features (shared strings, images, merged cells, hyperlinks) still keep data in memory, the [benchmark report](./packages/benchmark/artifacts/reports/stream/THROUGHPUT_2026-09-22.md) has the details.
+With the default shared strings, 200,000 rows take 3.5 s and peak at 415 MiB. The 500,000-row figure is a single run, a scaling check rather than a stable estimate. 11 styled columns, batches of 5,000 rows, Node 24 on an Apple M5. Some features (shared strings, images, merged cells, hyperlinks) still keep data in memory, the [benchmark report](./packages/benchmark/artifacts/reports/stream/THROUGHPUT_2026-09-22.md) has the details.
 
 ## Features
 

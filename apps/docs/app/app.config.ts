@@ -2,14 +2,14 @@ export default defineAppConfig({
   docus: {
     name: "typed-xlsx - Documentation",
     description:
-      "Generate Excel .xlsx reports from typed TypeScript schemas: real formulas, styles, native Excel tables and streamed exports of millions of rows.",
+      "Generate Excel .xlsx reports from typed TypeScript schemas: real formulas, styles, native Excel tables and streamed exports of millions of rows across sheets.",
     url: "https://typed-xlsx.vercel.app",
   },
   seo: {
     titleTemplate: "%s - typed-xlsx",
     title: "typed-xlsx",
     description:
-      "Generate Excel .xlsx reports from typed TypeScript schemas: real formulas, styles, native Excel tables and streamed exports of millions of rows.",
+      "Generate Excel .xlsx reports from typed TypeScript schemas: real formulas, styles, native Excel tables and streamed exports of millions of rows across sheets.",
   },
   github: {
     owner: "ChronicStone",

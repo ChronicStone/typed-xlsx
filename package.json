@@ -24,7 +24,7 @@
     "docs:generate": "turbo run generate --filter=typed-xlsx-docs",
     "docs:twoslash": "turbo run twoslash:verify --filter=typed-xlsx-docs",
     "docs:check": "turbo run check --filter=typed-xlsx-docs && turbo run twoslash:verify --filter=typed-xlsx-docs",
-    "ci": "turbo run check --filter=!typed-xlsx-benchmark && turbo run twoslash:verify --filter=typed-xlsx-docs",
+    "ci": "bun run lint && bun run format:check && turbo run check --filter=!typed-xlsx-benchmark && turbo run twoslash:verify --filter=typed-xlsx-docs",
     "prepare": "vp config",
     "changeset": "changeset",
     "release:status": "changeset status --verbose",

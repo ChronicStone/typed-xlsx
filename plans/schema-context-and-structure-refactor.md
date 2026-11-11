@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft for review.
+Shipped in 5.0 (kept for history).
 
 ## Goal
 

@@ -242,7 +242,9 @@ export function parsePivotCell(pivotId: string, value: string) {
   const row = Number(match[2]);
   // Excel sheets have rows 1 to 1,048,576 and columns A to XFD.
   if (row < 1 || row > 1_048_576 || column > 16_384) {
-    throw new Error(`Pivot "${pivotId}": "at" must be a cell inside the sheet, such as "A3", got "${value}".`);
+    throw new Error(
+      `Pivot "${pivotId}": "at" must be a cell inside the sheet, such as "A3", got "${value}".`,
+    );
   }
   return { col: column - 1, row: row - 1 };
 }
