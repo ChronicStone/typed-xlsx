@@ -832,20 +832,26 @@ export function resolveColumns<T extends object>(
     nodes: SchemaNode<T, any>[],
     groupPath: Array<{ id: string; headerLabel: string }>,
     dynamicPath: string[],
+    ancestorIncluded: boolean,
   ) {
     for (const node of nodes) {
       if (exclude?.has(node.id)) {
         continue;
       }
+
+      // Check include before `condition` so conditions only run for nodes that can be kept.
+      const included = !include || ancestorIncluded || include.has(node.id);
+      const keptForDescendants =
+        isGroupNode(node) && !included && subtreeMatchesInclude(node.children);
+      if (!included && !keptForDescendants) {
+        continue;
+      }
+
       if (node.condition && !node.condition({ ctx: context as never })) {
         continue;
       }
 
       if (isColumnNode(node)) {
-        if (include && !include.has(node.id)) {
-          continue;
-        }
-
         const textContext = { ctx: context as never };
         const validation = normalizeValidationInput(node.validation);
         const totalsRow =
@@ -867,10 +873,6 @@ export function resolveColumns<T extends object>(
       }
 
       if (isGroupNode(node)) {
-        if (include && !include.has(node.id) && !subtreeMatchesInclude(node.children)) {
-          continue;
-        }
-
         visitNodes(
           node.children,
           [
@@ -883,29 +885,28 @@ export function resolveColumns<T extends object>(
             },
           ],
           dynamicPath,
+          ancestorIncluded || (include?.has(node.id) ?? false),
         );
         continue;
       }
 
       if (isDynamicNode(node)) {
-        if (include && !include.has(node.id)) {
-          continue;
-        }
-
         const dynamicBuilder =
           schema.kind === "excel-table"
             ? ExcelTableSchemaBuilder.create<T, any>()
             : SchemaBuilder.create<T, any>();
         node.build(dynamicBuilder as never, { ctx: context as never });
-        visitNodes(dynamicBuilder.build().columns as SchemaNode<T, any>[], groupPath, [
-          ...dynamicPath,
-          node.id,
-        ]);
+        visitNodes(
+          dynamicBuilder.build().columns as SchemaNode<T, any>[],
+          groupPath,
+          [...dynamicPath, node.id],
+          ancestorIncluded || (include?.has(node.id) ?? false),
+        );
       }
     }
   }
 
-  visitNodes(schema.columns as SchemaNode<T, any>[], [], []);
+  visitNodes(schema.columns as SchemaNode<T, any>[], [], [], false);
   return columns;
 }
 
