@@ -352,8 +352,6 @@ const parityCases: ParityCase[] = [
   },
   {
     name: "two stacked tables with formulas",
-    knownDifference:
-      "the buffered builder writes a <col> element per table when tables are stacked, the stream builder writes one per column",
     sheetOptions: { tableRowGap: 2 },
     tables: [
       { id: "first", schema: stackedSchema, rows: orders, options: { title: "First" } },

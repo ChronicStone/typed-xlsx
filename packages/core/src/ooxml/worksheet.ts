@@ -571,17 +571,16 @@ function mergeWorksheetColumns(
   columns: WorksheetColumnDefinition[],
   extras?: import("../workbook/internal/pivots").WorksheetExtras,
 ) {
-  if (!extras) return columns;
-  const byIndex = new Map(columns.map((column) => [column.index, column]));
-  // A pivot below a table shares its columns: the wider one wins, so neither is cut off.
-  for (const column of extras.columns) {
-    const existing = byIndex.get(column.index);
-    byIndex.set(
-      column.index,
-      existing ? { ...existing, width: Math.max(existing.width, column.width) } : column,
-    );
+  // Tables stacked on one sheet and pivots below a table share worksheet columns. Excel needs one
+  // non-overlapping <col> per column, so the widest definition wins and neither is cut off.
+  const widths = new Map<number, number>();
+  for (const column of [...columns, ...(extras?.columns ?? [])]) {
+    widths.set(column.index, Math.max(widths.get(column.index) ?? 0, column.width));
   }
-  return [...byIndex.values()].sort((left, right) => left.index - right.index);
+
+  return [...widths.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([index, width]) => ({ index, width }));
 }
 
 function buildWorksheetColumns(
