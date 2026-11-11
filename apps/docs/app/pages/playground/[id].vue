@@ -27,6 +27,7 @@ useBlueprintPage();
 
 const route = useRoute();
 const runtimeConfig = useRuntimeConfig();
+const { $posthog } = useNuxtApp();
 const artifactId = computed(() => String(route.params.id || ""));
 const artifact = computed(() => findArtifactCatalogEntry(artifactId.value));
 if (!artifact.value) {
@@ -131,6 +132,10 @@ watch(
 );
 function openFile(f: FileKey) {
   activeFile.value = f;
+  $posthog?.capture("playground_file_opened", {
+    artifact_id: artifactId.value,
+    file_kind: f.kind,
+  });
   if (f.kind === "inspect") {
     const i = preview.value?.sheets.findIndex((s) => s.file === f.name) ?? -1;
     if (i >= 0) sheetIndex.value = i;
@@ -235,6 +240,10 @@ function selectColumn(col: number, fromCode = false) {
 function selectCell(cellRef: string) {
   selected.value = cellRef;
   drawerOpen.value = true;
+  $posthog?.capture("workbook_cell_inspected", {
+    artifact_id: artifactId.value,
+    sheet_name: sheet.value?.name,
+  });
   const p = parseCellRef(cellRef);
   if (p && blockByCol.value.has(p.c)) selectColumn(p.c);
   else {
@@ -388,6 +397,13 @@ onMounted(() => {
 onBeforeUnmount(() => removeEventListener("resize", drawLink));
 watch([mode, drawerOpen], () => setTimeout(drawLink, 480));
 
+function trackWorkbookDownload(location: "header" | "file_sidebar") {
+  $posthog?.capture("workbook_downloaded", {
+    artifact_id: artifactId.value,
+    location,
+  });
+}
+
 function onInspectorClick(e: MouseEvent) {
   const a = (e.target as HTMLElement).closest("a");
   const row = a?.closest<HTMLElement>("[data-col]");
@@ -433,7 +449,7 @@ useSeo({
           <a class="btn btn-ghost sm" :href="githubUrl" target="_blank" rel="noopener"
             ><UIcon name="i-simple-icons-github" class="ic" />Source</a
           >
-          <a class="btn btn-primary sm" :href="workbookUrl" download
+          <a class="btn btn-primary sm" :href="workbookUrl" download @click="trackWorkbookDownload('header')"
             ><UIcon name="i-lucide-download" class="ic" />Download .xlsx</a
           >
         </div>
@@ -478,7 +494,7 @@ useSeo({
             <UIcon name="i-lucide-file-code-2" class="ic" /><span>{{ pane.key }}</span>
           </button>
           <h4>OUTPUT</h4>
-          <a class="fi" :href="workbookUrl" download
+          <a class="fi" :href="workbookUrl" download @click="trackWorkbookDownload('file_sidebar')"
             ><UIcon name="i-lucide-sheet" class="ic" /><span>{{
               artifact.artifactFile.split("/").pop()
             }}</span></a
