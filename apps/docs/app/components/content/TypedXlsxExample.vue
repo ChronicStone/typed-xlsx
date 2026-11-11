@@ -22,6 +22,7 @@ const dragging = ref(false);
 const container = ref<HTMLElement | null>(null);
 const iframeFailed = ref(false);
 const runtimeConfig = useRuntimeConfig();
+const { $posthog } = useNuxtApp();
 const exampleArtifact = findExampleArtifact(props.fileKey);
 
 if (!exampleArtifact) {
@@ -114,6 +115,13 @@ function onPointerMove(event: PointerEvent) {
   split.value = Math.min(0.7, Math.max(0.3, ratio));
 }
 
+function trackWorkbookDownload(location: "header" | "fallback") {
+  $posthog?.capture("example_workbook_downloaded", {
+    example_key: props.fileKey,
+    location,
+  });
+}
+
 function startDragging() {
   dragging.value = true;
   document.body.style.userSelect = "none";
@@ -147,6 +155,7 @@ onBeforeUnmount(stopDragging);
             icon="i-lucide-download"
             :to="workbookUrl"
             target="_blank"
+            @click="trackWorkbookDownload('header')"
           >
             Download workbook
           </UButton>
@@ -226,7 +235,13 @@ onBeforeUnmount(stopDragging);
           <div v-if="iframeFailed" class="typed-xlsx-example__fallback">
             <p>Microsoft’s viewer could not load the workbook preview.</p>
             <div class="typed-xlsx-example__actions">
-              <UButton color="primary" :to="workbookUrl" target="_blank">Open workbook</UButton>
+              <UButton
+                color="primary"
+                :to="workbookUrl"
+                target="_blank"
+                @click="trackWorkbookDownload('fallback')"
+                >Open workbook</UButton
+              >
               <UButton color="neutral" variant="outline" :to="sourceUrl" target="_blank">
                 Browse examples
               </UButton>

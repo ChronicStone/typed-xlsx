@@ -97,7 +97,18 @@ const FILTERS: Array<{ key: string; label: string; test: (a: ArtifactCatalogEntr
   },
 ];
 const filter = ref("all");
+const { $posthog } = useNuxtApp();
 const activeTest = computed(() => FILTERS.find((f) => f.key === filter.value)!.test);
+function selectFilter(filterKey: string) {
+  filter.value = filterKey;
+  $posthog?.capture("artifact_catalog_filtered", { filter: filterKey });
+}
+function trackWorkbookDownload() {
+  $posthog?.capture("workbook_downloaded", {
+    artifact_id: "kitchen-sink",
+    location: "playground_catalog",
+  });
+}
 const kindLabel = (a: ArtifactCatalogEntry) => {
   if (has(a, "createWorkbookStream")) return "createWorkbookStream()";
   if (has(a, "excel-table mode")) return 'mode: "excel-table"';
@@ -131,7 +142,7 @@ const tourThumb = getWorkbookThumb("kitchen-sink");
             type="button"
             :class="{ on: filter === f.key }"
             :aria-pressed="filter === f.key"
-            @click="filter = f.key"
+            @click="selectFilter(f.key)"
           >
             {{ f.label }} <span>{{ others.filter(f.test).length }}</span>
           </button>
@@ -233,7 +244,11 @@ const tourThumb = getWorkbookThumb("kitchen-sink");
           <NuxtLink class="btn btn-primary" to="/playground/kitchen-sink"
             >Open the tour <UIcon name="i-lucide-arrow-right" class="ic"
           /></NuxtLink>
-          <a class="btn btn-ghost" :href="getArtifactWorkbookUrl(tour)" download
+          <a
+            class="btn btn-ghost"
+            :href="getArtifactWorkbookUrl(tour)"
+            download
+            @click="trackWorkbookDownload"
             ><UIcon name="i-lucide-download" class="ic" /> Download .xlsx</a
           >
         </div>

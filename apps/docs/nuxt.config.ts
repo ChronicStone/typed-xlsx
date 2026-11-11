@@ -6,6 +6,16 @@ export default defineNuxtConfig({
   vue: {
     runtimeCompiler: true,
   },
+  // PostHog (product analytics, app/plugins/posthog.client.ts) reads these at build time. Unset locally,
+  // so dev sends nothing; set in the Vercel project for production.
+  runtimeConfig: {
+    public: {
+      posthog: {
+        projectToken: process.env.NUXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+        host: process.env.NUXT_PUBLIC_POSTHOG_HOST,
+      },
+    },
+  },
   site: {
     name: "typed-xlsx",
     url: "https://typed-xlsx.vercel.app",

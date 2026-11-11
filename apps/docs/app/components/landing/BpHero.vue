@@ -7,6 +7,7 @@ const assembled = ref(true);
 const focus = ref<number | null>(null);
 const noTr = ref(true);
 const copied = ref(false);
+const { $posthog } = useNuxtApp();
 
 /* ---------- the exploded invoice workbook: six layers of one schema ---------- */
 const H_COLS = [22, 128, 70, 40, 72, 80, 66];
@@ -108,6 +109,7 @@ const CALLOUTS = [
 
 function onCopy() {
   copyText("npm i typed-xlsx");
+  $posthog?.capture("install_command_copied", { location: "hero" });
   copied.value = true;
   setTimeout(() => (copied.value = false), 1300);
 }

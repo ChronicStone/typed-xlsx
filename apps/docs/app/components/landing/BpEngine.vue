@@ -4,6 +4,7 @@ import { copyText, revealOnScroll, useWidget } from "./bp";
 
 const root = ref<HTMLElement | null>(null);
 const copied = ref(false);
+const { $posthog } = useNuxtApp();
 
 const FILES: Array<[string, string]> = [
   ["report.xlsx", ""],
@@ -22,6 +23,7 @@ const FILES: Array<[string, string]> = [
 
 function onCopy() {
   copyText("npm i typed-xlsx");
+  $posthog?.capture("install_command_copied", { location: "engine" });
   copied.value = true;
   setTimeout(() => (copied.value = false), 1300);
 }
