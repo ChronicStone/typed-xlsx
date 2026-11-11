@@ -1442,7 +1442,7 @@ describe("ooxml", () => {
     );
     expect(worksheetPart?.xml).toContain("<f>SUBTOTAL(109,[Regional Total])</f><v>10</v>");
     expect(tablePart?.xml).toContain(
-      "<calculatedColumnFormula>SUM(orders[[#This Row],[AMER Amount]:[APAC Amount]])</calculatedColumnFormula>",
+      "<calculatedColumnFormula>SUM(orders[[#This Row],[AMER Amount]],orders[[#This Row],[APAC Amount]])</calculatedColumnFormula>",
     );
   });
 

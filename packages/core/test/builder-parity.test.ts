@@ -449,12 +449,11 @@ function calculatedColumnMismatches(entries: Map<string, string>) {
 describe("excel table calculated column formulas", () => {
   const scoped = parityCases[4]!;
 
-  // These fail while the table part and the cells use two different formula serializers.
-  it.fails("match the body cell formulas in the buffered builder", () => {
+  it("match the body cell formulas in the buffered builder", () => {
     expect(calculatedColumnMismatches(parts(buildBuffered(scoped)))).toEqual([]);
   });
 
-  it.fails("match the body cell formulas in the stream builder", async () => {
+  it("match the body cell formulas in the stream builder", async () => {
     expect(calculatedColumnMismatches(parts(await buildStream(scoped)))).toEqual([]);
   });
 });
