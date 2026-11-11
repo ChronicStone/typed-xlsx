@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createWorkbookStream } from "../src/api";
+import { formulaCell } from "../src/cell-data";
 import * as Internal from "../src/index-internal";
 import { appendExpandedRowXml } from "../src/stream/rows";
 import { MemorySpoolFactory, MemoryWorkbookSink } from "./helpers";
@@ -937,7 +938,7 @@ describe("stream builder", () => {
       expandedRow: {
         row: { amount: 2 },
         sourceRowIndex: 0,
-        valuesByColumn: [[{ kind: "formula", formula: "A2*2", value: 4 }]],
+        valuesByColumn: [[formulaCell("A2*2", 4)]],
         hyperlinksByColumn: [[undefined]],
         height: 1,
         physicalRowHeights: [Internal.getDefaultRowHeight()],

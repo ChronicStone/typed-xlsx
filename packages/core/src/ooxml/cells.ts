@@ -1,10 +1,56 @@
-import { xmlElement, xmlEscape } from "./xml";
+import { textElement, xmlElement, xmlEscape } from "./xml";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "./shared-strings";
 import { isFormulaCell, type CellData } from "../cell-data";
 
-function toExcelSerialDate(value: Date) {
-  return (value.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
+const EXCEL_MIN_DATE_MS = Date.UTC(1900, 0, 1);
+const EXCEL_MAX_DATE_MS = Date.UTC(9999, 11, 31, 23, 59, 59, 999);
+
+function toExcelSerialDate(ref: string, value: Date) {
+  const time = value.getTime();
+  if (Number.isNaN(time)) {
+    throw new Error(
+      `Cell ${ref} has an invalid Date. Return a valid Date or null from the accessor.`,
+    );
+  }
+  if (time < EXCEL_MIN_DATE_MS || time > EXCEL_MAX_DATE_MS) {
+    throw new Error(
+      `Cell ${ref} has the date ${value.toISOString()}, which is outside Excel's range (1900-01-01 to 9999-12-31). Return a date in that range, a string or null from the accessor.`,
+    );
+  }
+  return (time - Date.UTC(1899, 11, 30)) / 86_400_000;
+}
+
+/**
+ * Maps a raw accessor result to a value Excel can store. Throws for values that would otherwise
+ * produce an invalid file or silently become an empty cell.
+ */
+function toWritableValue(ref: string, value: unknown): string | number | boolean | Date | null {
+  if (value === null || value === undefined) return null;
+  switch (typeof value) {
+    case "string":
+    case "boolean":
+      return value;
+    case "number":
+      if (!Number.isFinite(value)) {
+        throw new Error(
+          `Cell ${ref} has the number ${String(value)}. Excel cannot store it: map it to null or a finite number in the accessor.`,
+        );
+      }
+      return value;
+    case "bigint": {
+      const asNumber = Number(value);
+      return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
+    }
+    case "object":
+      if (value instanceof Date) return value;
+      break;
+    default:
+      break;
+  }
+  throw new Error(
+    `Cell ${ref} got a ${typeof value} value. Return a string, number, boolean, Date or null from the accessor (for a Decimal, call .toNumber() or .toString()).`,
+  );
 }
 
 export function toCellRef(row: number, column: number) {
@@ -19,6 +65,21 @@ export function toCellRef(row: number, column: number) {
   return `${result}${row + 1}`;
 }
 
+const BLOCKED_HYPERLINK_SCHEME = /^(javascript|vbscript|data):/i;
+
+/** Rejects hyperlink targets that run script when clicked. Other schemes are left alone. */
+export function assertSafeHyperlinkTarget(target: string, columnId: string) {
+  // Browsers ignore whitespace and control characters inside a scheme ("java\tscript:").
+  // eslint-disable-next-line no-control-regex
+  const normalized = target.replace(/[\u0000-\u0020\u007F]+/g, "");
+  const match = BLOCKED_HYPERLINK_SCHEME.exec(normalized);
+  if (match) {
+    throw new Error(
+      `Column '${columnId}' has a hyperlink with the '${match[1]!.toLowerCase()}:' scheme, which is not allowed. Use an http(s), mailto, file, relative or '#Sheet!A1' target.`,
+    );
+  }
+}
+
 export function serializeCell(
   row: number,
   column: number,
@@ -31,47 +92,48 @@ export function serializeCell(
   const style = styleIndex && styleIndex > 0 ? ` s="${styleIndex}"` : "";
   const opening = `<c r="${ref}"${style}`;
 
-  if (value === null || value === undefined) {
-    return `${opening}/>`;
-  }
-
   if (isFormulaCell(value)) {
     return serializeFormulaCell(
+      ref,
       { r: ref, s: styleIndex && styleIndex > 0 ? styleIndex : undefined },
       value.formula,
       value.value,
     );
   }
 
-  if (typeof value === "string") {
-    const index = sharedStrings.add(value);
+  const writable = toWritableValue(ref, value);
+
+  if (writable === null) {
+    return `${opening}/>`;
+  }
+
+  if (typeof writable === "string") {
+    const index = sharedStrings.add(writable);
     return `${opening} t="s"><v>${index}</v></c>`;
   }
 
-  if (typeof value === "number") {
-    return `${opening}><v>${value}</v></c>`;
+  if (typeof writable === "number") {
+    return `${opening}><v>${writable}</v></c>`;
   }
 
-  if (typeof value === "boolean") {
-    return `${opening} t="b"><v>${value ? "1" : "0"}</v></c>`;
+  if (typeof writable === "boolean") {
+    return `${opening} t="b"><v>${writable ? "1" : "0"}</v></c>`;
   }
 
-  if (value instanceof Date) {
-    return `${opening}><v>${toExcelSerialDate(value)}</v></c>`;
-  }
-
-  return `${opening}/>`;
+  return `${opening}><v>${toExcelSerialDate(ref, writable)}</v></c>`;
 }
 
 function serializeFormulaCell(
+  ref: string,
   attributes: { r: string; s: number | undefined },
   formula: string,
-  value?: PrimitiveCellValue,
+  rawValue?: PrimitiveCellValue,
 ) {
+  const value = toWritableValue(ref, rawValue);
   const children = [xmlElement("f", undefined, xmlEscape(formula))];
   const formulaAttributes: Record<string, number | string | undefined> = { ...attributes };
 
-  if (value === undefined || value === null) {
+  if (value === null) {
     return xmlElement("c", formulaAttributes, children);
   }
 
@@ -88,7 +150,7 @@ function serializeFormulaCell(
   }
 
   if (value instanceof Date) {
-    children.push(xmlElement("v", undefined, String(toExcelSerialDate(value))));
+    children.push(xmlElement("v", undefined, String(toExcelSerialDate(ref, value))));
     return xmlElement("c", formulaAttributes, children);
   }
 
@@ -106,5 +168,5 @@ export function serializeInlineStringCell(
   const ref = toCellRef(row, column);
 
   const style = styleIndex && styleIndex > 0 ? ` s="${styleIndex}"` : "";
-  return `<c r="${ref}" t="inlineStr"${style}><is><t>${xmlEscape(value)}</t></is></c>`;
+  return `<c r="${ref}" t="inlineStr"${style}><is>${textElement(value)}</is></c>`;
 }

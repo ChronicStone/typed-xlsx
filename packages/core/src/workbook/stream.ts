@@ -118,7 +118,7 @@ import {
   writeFeaturePropertyBagXml,
 } from "../ooxml/feature-property-bag";
 import type { ImageMediaType } from "../image/types";
-import { getCellPrimitiveValue, type CellData } from "../cell-data";
+import { formulaCell, getCellPrimitiveValue, type CellData } from "../cell-data";
 
 function normalizeColumnSummary(
   summary: ReturnType<typeof resolveColumns<any>>[number]["summary"],
@@ -1497,16 +1497,15 @@ async function* streamWorksheetXml(
           const value =
             "label" in totalsRow
               ? totalsRow.label
-              : {
-                  kind: "formula" as const,
-                  formula: serializeExcelTotalsRowFormula(
+              : formulaCell(
+                  serializeExcelTotalsRowFormula(
                     positioned.table.excelTable!.name,
                     positioned.table.excelTable!.totalsRowColumns[columnIndex]?.headerLabel ??
                       column.headerLabel,
                     totalsRow.function,
                   )!,
-                  value: positioned.table.totalsRowValuesByColumnId.get(column.id),
-                };
+                  positioned.table.totalsRowValuesByColumnId.get(column.id),
+                );
 
           return [
             serializeSummaryCell(

@@ -9,12 +9,16 @@ import {
 } from "../planner/rows";
 import type { PrimitiveCellValue, SchemaContext } from "../schema/builder";
 import type { SharedStringsCollector } from "../ooxml/shared-strings";
-import { serializeCell, serializeInlineStringCell } from "../ooxml/cells";
+import {
+  assertSafeHyperlinkTarget,
+  serializeCell,
+  serializeInlineStringCell,
+} from "../ooxml/cells";
 import { xmlElement } from "../ooxml/xml";
 import { resolveAccessor } from "../core/accessor";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "../planner/metrics";
 import type { CellStyle } from "../styles/types";
-import { getCellPrimitiveValue, type CellData } from "../cell-data";
+import { formulaCell, getCellPrimitiveValue, type CellData } from "../cell-data";
 import {
   imageHeightToPoints,
   imageUrlHeightToPoints,
@@ -127,9 +131,8 @@ function resolveFormulaCell<T extends object>(params: {
       } as Parameters<NonNullable<typeof params.column.formula>>[0]),
     );
 
-  return {
-    kind: "formula" as const,
-    formula: withFormulaColumnId(params.column.id, () =>
+  return formulaCell(
+    withFormulaColumnId(params.column.id, () =>
       serializeFormulaExpr(
         expr,
         params.columns,
@@ -140,8 +143,8 @@ function resolveFormulaCell<T extends object>(params: {
         params.rowSeriesBoundsByColumnId,
       ),
     ),
-    ...(params.value !== undefined ? { value: params.value } : {}),
-  };
+    params.value,
+  );
 }
 
 function resolveFormulaScopeColumns<T extends object>(
@@ -690,6 +693,8 @@ function resolveCellHyperlink<T extends object>(
   if (!resolved) {
     return undefined;
   }
+
+  assertSafeHyperlinkTarget(typeof resolved === "string" ? resolved : resolved.target, column.id);
 
   if (typeof resolved === "string") {
     return { target: resolved };

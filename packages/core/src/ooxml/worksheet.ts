@@ -51,7 +51,7 @@ import {
   type PositionedTable,
 } from "../workbook/internal/layout";
 import { buildReportChrome, shiftFormulaA1Refs } from "../workbook/internal/report-chrome";
-import { getCellPrimitiveValue } from "../cell-data";
+import { formulaCell, getCellPrimitiveValue, isFormulaCell } from "../cell-data";
 import { summarizeExcelTotalsRowValues } from "../workbook/internal/totals-row";
 
 export function serializeWorksheet(
@@ -380,15 +380,15 @@ function writeTableIntoRowMap(
         serializeCell(
           sheetRowIndex,
           columnOffset + columnIndex,
-          isFormulaCellValue(cell.value)
-            ? {
-                ...cell.value,
-                formula: shiftFormulaA1Refs(
+          isFormulaCell(cell.value)
+            ? formulaCell(
+                shiftFormulaA1Refs(
                   cell.value.formula,
                   rowOffset + reportChrome.bodyRowOffset - 1,
                   columnOffset,
                 ),
-              }
+                cell.value.value,
+              )
             : cell.value,
           sharedStrings,
           styles.addStyle(
@@ -494,21 +494,20 @@ function writeTableIntoRowMap(
         const value =
           "label" in totalsRow
             ? totalsRow.label
-            : {
-                kind: "formula" as const,
-                formula: serializeExcelTotalsRowFormula(
+            : formulaCell(
+                serializeExcelTotalsRowFormula(
                   excelTable.name,
                   excelTable.totalsRowColumns[columnIndex]?.headerLabel ?? column.headerLabel,
                   totalsRow.function,
                 )!,
-                value: summarizeExcelTotalsRowValues(
+                summarizeExcelTotalsRowValues(
                   table.planner.rows.map((row) => {
                     const cell = row.cells.find((candidate) => candidate.columnId === column.id);
                     return getCellPrimitiveValue(cell?.value ?? null);
                   }),
                   totalsRow.function,
                 ),
-              };
+              );
 
         return [
           serializeCell(
@@ -548,12 +547,6 @@ function getReportChrome(table: BufferedTablePlan<any>) {
         title: table.title,
         render: table.render,
       });
-}
-
-function isFormulaCellValue(
-  value: unknown,
-): value is { kind: "formula"; formula: string; value?: unknown } {
-  return !!value && typeof value === "object" && (value as { kind?: string }).kind === "formula";
 }
 
 function resolveDataCellStyle<T extends object>(

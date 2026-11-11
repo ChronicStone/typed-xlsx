@@ -1,4 +1,4 @@
-import { xmlDocument, xmlElement, xmlEscape } from "./xml";
+import { textElement, xmlDocument, xmlElement } from "./xml";
 
 export interface SharedStringsCollector {
   add(value: string): number;
@@ -31,9 +31,7 @@ export function createSharedStringsCollector(): SharedStringsCollector {
 
 export function writeSharedStringsXml(sharedStrings: SharedStringsCollector) {
   const values = sharedStrings.values();
-  const items = values.map((value) =>
-    xmlElement("si", undefined, xmlElement("t", undefined, xmlEscape(value))),
-  );
+  const items = values.map((value) => xmlElement("si", undefined, textElement(value)));
 
   return xmlDocument(
     "sst",
