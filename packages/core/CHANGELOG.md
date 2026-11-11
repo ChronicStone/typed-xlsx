@@ -1,5 +1,39 @@
 # typed-xlsx
 
+## 5.1.0
+
+### Minor Changes
+
+- [#83](https://github.com/ChronicStone/typed-xlsx/pull/83) [`4e21a1f`](https://github.com/ChronicStone/typed-xlsx/commit/4e21a1f54a40afda5c168312143645c7b2aa99dd) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Control characters in text no longer make the file invalid, and padded text keeps its spaces. NaN, Infinity, invalid or out-of-range dates, Decimal and other objects now throw an error naming the cell instead of writing a broken or empty cell, `bigint` is written as a number or text, a row value shaped like a formula is no longer written as a formula, and `javascript:`, `vbscript:` and `data:` hyperlinks are rejected.
+
+- [#83](https://github.com/ChronicStone/typed-xlsx/pull/83) [`4e21a1f`](https://github.com/ChronicStone/typed-xlsx/commit/4e21a1f54a40afda5c168312143645c7b2aa99dd) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Workbooks that break an Excel limit now throw an error that names the cause, instead of writing a file Excel repairs or refuses: more than 1,048,576 rows or 16,384 columns, text over 32,767 characters, duplicate excel-table names or headers, duplicate column ids, and inline dropdown lists over 255 characters. Sheet names are now compared ignoring case, `History` is avoided, column widths stop at 255, and brackets in structured-reference headers are escaped the way Excel expects.
+
+### Patch Changes
+
+- [#81](https://github.com/ChronicStone/typed-xlsx/pull/81) [`dce31ef`](https://github.com/ChronicStone/typed-xlsx/commit/dce31efbfc526a0adabfe7f0c51bfb4e834d0cd1) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Tables with no rows no longer throw for row-aware summaries (sums are 0, averages are empty), and a SUM or COUNT over a dynamic block that generated no columns is now 0. AVERAGE, MIN and MAX over an empty block throw an error that names the formula column and the block. A pivot over a table with no rows now throws a clear error instead of reading the summary row as data.
+
+- [#87](https://github.com/ChronicStone/typed-xlsx/pull/87) [`7d696ef`](https://github.com/ChronicStone/typed-xlsx/commit/7d696ef314fde9426e0339f44a38209d5df36c82) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Values stored next to excel-table formulas now follow Excel for rounding (half away from zero), comparisons across text, numbers and booleans, and sums and averages over ranges that contain text or blanks. When Excel would show an error or the result is not certain, no value is stored and Excel computes it on open.
+
+- [#81](https://github.com/ChronicStone/typed-xlsx/pull/81) [`dce31ef`](https://github.com/ChronicStone/typed-xlsx/commit/dce31efbfc526a0adabfe7f0c51bfb4e834d0cd1) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Formula columns in excel-table schemas now receive `ctx`. Before, reading it inside `formula` threw because it was undefined.
+
+- [#81](https://github.com/ChronicStone/typed-xlsx/pull/81) [`dce31ef`](https://github.com/ChronicStone/typed-xlsx/commit/dce31efbfc526a0adabfe7f0c51bfb4e834d0cd1) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Formulas in tables placed below or beside another table, or under a title, no longer have text in quotes, structured-reference headers (like `[Q1]`) or table names rewritten. Only real cell references are moved to the table's position.
+
+- [#78](https://github.com/ChronicStone/typed-xlsx/pull/78) [`eaa912b`](https://github.com/ChronicStone/typed-xlsx/commit/eaa912b697a2b1de52934b187c427f6deb797ca1) Thanks [@ChronicStone](https://github.com/ChronicStone)! - A formula that references a column when no column is declared before it now says so ("No column is declared before this formula…") instead of reporting `never`, and no longer adds a second error about `FormulaOperand<never…>`.
+
+- [#85](https://github.com/ChronicStone/typed-xlsx/pull/85) [`d42d677`](https://github.com/ChronicStone/typed-xlsx/commit/d42d6773377a64d57d6d9bc59dff5d18d0129906) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Sheets with stacked tables no longer write overlapping column definitions, which made Excel repair the file. Each worksheet column now has one definition with the widest width of the tables that use it.
+
+- [#85](https://github.com/ChronicStone/typed-xlsx/pull/85) [`d42d677`](https://github.com/ChronicStone/typed-xlsx/commit/d42d6773377a64d57d6d9bc59dff5d18d0129906) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Buffered report exports ran every summary reducer twice per row, and both builders rebuilt each formula column and resolved each body cell style for every row. Reducers now run once per row, and formula columns and body styles are resolved once per table and column run. A 7-column buffered export with two formula columns and a summary now takes about 0.55 s for 50,000 rows (was about 0.95 s) and about 2.3 s for 200,000 rows (was about 3.5 s); the file is byte-identical.
+
+- [#81](https://github.com/ChronicStone/typed-xlsx/pull/81) [`dce31ef`](https://github.com/ChronicStone/typed-xlsx/commit/dce31efbfc526a0adabfe7f0c51bfb4e834d0cd1) Thanks [@ChronicStone](https://github.com/ChronicStone)! - `select: { include: [...] }` now keeps every column of an included group or dynamic block, including nested groups. Before, it produced a table with no columns.
+
+- [#85](https://github.com/ChronicStone/typed-xlsx/pull/85) [`d42d677`](https://github.com/ChronicStone/typed-xlsx/commit/d42d6773377a64d57d6d9bc59dff5d18d0129906) Thanks [@ChronicStone](https://github.com/ChronicStone)! - In native Excel tables, the calculated column formula stored in the table part now matches the formula written in the cells for scope aggregates over groups and dynamic columns (it used a column range where the cells listed each column). The buffered and stream builders now share one copy of the row, formula and cell reference code.
+
+- [#82](https://github.com/ChronicStone/typed-xlsx/pull/82) [`9500c0b`](https://github.com/ChronicStone/typed-xlsx/commit/9500c0b7000a056a1959e1a767adcead2e39f8ba) Thanks [@ChronicStone](https://github.com/ChronicStone)! - A streamed export that fails now aborts its destination with the error instead of ending it as if it had succeeded, and `writeToFile` keeps the previous file when the export fails. `pipeToNode` rejects when the destination is destroyed, readable streams wait for the reader and stop when it cancels, and committing rows after the workbook is finalized throws.
+
+- [#82](https://github.com/ChronicStone/typed-xlsx/pull/82) [`9500c0b`](https://github.com/ChronicStone/typed-xlsx/commit/9500c0b7000a056a1959e1a767adcead2e39f8ba) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Streamed exports no longer mix rows between tables whose sheet names look alike or between exports started at the same time, and they no longer leave temp files behind. Each workbook now writes its spool files into its own private folder, which is deleted when the export ends, fails, or is disposed.
+
+- [#87](https://github.com/ChronicStone/typed-xlsx/pull/87) [`7d696ef`](https://github.com/ChronicStone/typed-xlsx/commit/7d696ef314fde9426e0339f44a38209d5df36c82) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Text in summary formulas that looked like a cell range (for example "B1:B3") was written as a reference. It is now written as text.
+
 ## 5.0.0
 
 ### Major Changes
