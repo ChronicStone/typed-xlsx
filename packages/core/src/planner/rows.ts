@@ -16,11 +16,7 @@ import {
   resolveValidationRule,
   type ResolvedValidationRule,
 } from "../validation/types";
-import {
-  createSummaryRuntime,
-  finalizeSummaryRuntime,
-  stepSummaryRuntime,
-} from "../summary/runtime";
+import { createSummaryRuntime } from "../summary/runtime";
 import { normalizeSummaryInput } from "../summary/builder";
 import { estimateRowHeight, measurePrimitiveValue, resolveColumnWidth } from "./metrics";
 import type { CellStyle } from "../styles/types";
@@ -526,6 +522,20 @@ export function resolveColumnCellValues<T extends object>(params: {
   return toCellDataValues(params.transformed);
 }
 
+export function buildFormulaExpr<T extends object>(
+  formula: NonNullable<ResolvedColumn<T>["formula"]>,
+  ctx: SchemaContext | undefined,
+): FormulaExpr<string, string> {
+  return toExpr(
+    formula({
+      row: createFormulaRowContext<any, any>(),
+      refs: createFormulaRefs<any, any, any>(),
+      fx: createFormulaFunctionsContext<any, any>(),
+      ctx: ctx as never,
+    } as Parameters<NonNullable<ResolvedColumn<T>["formula"]>>[0]),
+  );
+}
+
 function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
@@ -542,16 +552,7 @@ function resolveFormulaCell<T extends object>(params: {
     return undefined;
   }
 
-  const expr =
-    params.expr ??
-    toExpr(
-      params.column.formula({
-        row: createFormulaRowContext<any, any>(),
-        refs: createFormulaRefs<any, any, any>(),
-        fx: createFormulaFunctionsContext<any, any>(),
-        ctx: params.ctx as never,
-      } as Parameters<NonNullable<typeof params.column.formula>>[0]),
-    );
+  const expr = params.expr ?? buildFormulaExpr(params.column.formula, params.ctx);
 
   return formulaCell(
     withFormulaColumnId(params.column.id, () =>
@@ -974,9 +975,9 @@ export function planRows<T extends object>(
   const excelTableName = isResolvedColumnsInput(schema) ? schema.excelTableName : undefined;
   const context = isResolvedColumnsInput(schema) ? schema.context : undefined;
   const stats = createPlannerStats(columns);
-  const summaryBindings = createSummaryBindings(columns);
   const plannedRows: PlannedPhysicalRow<T>[] = [];
   const merges: PlannedMergeRange[] = [];
+  const formulaExprByColumnId = new Map<string, FormulaExpr<string, string>>();
 
   let physicalRowIndex = 0;
 
@@ -1064,14 +1065,12 @@ export function planRows<T extends object>(
         };
       }
 
-      const expr = toExpr(
-        column.formula({
-          row: createFormulaRowContext<any, any>(),
-          refs: createFormulaRefs<any, any, any>(),
-          fx: createFormulaFunctionsContext<any, any>(),
-          ctx: context as never,
-        } as Parameters<NonNullable<typeof column.formula>>[0]),
-      );
+      // The callback only sees DSL helpers and the table context, so one expression serves every row.
+      let expr = formulaExprByColumnId.get(column.id);
+      if (!expr) {
+        expr = buildFormulaExpr(column.formula, context);
+        formulaExprByColumnId.set(column.id, expr);
+      }
       const inferredSeriesMode: RowSeriesMode = formulaUsesSeriesAggregate(expr)
         ? "scalar"
         : rowHeight > 1 && formulaUsesExpandedRefs(expr, seriesModeByColumnId, columns)
@@ -1162,10 +1161,6 @@ export function planRows<T extends object>(
       };
     });
 
-    summaryBindings.forEach((binding) => {
-      stepSummaryRuntime(binding.definition, binding.runtime, row, logicalRowIndex);
-    });
-
     for (let subRowIndex = 0; subRowIndex < rowHeight; subRowIndex++) {
       const rowStyles: Array<CellStyle | undefined> = expandedCells.map((cell) =>
         resolveColumnCellStyle({
@@ -1230,10 +1225,6 @@ export function planRows<T extends object>(
       });
     }
   });
-
-  for (const binding of summaryBindings) {
-    void finalizeSummaryRuntime(binding.definition, binding.runtime, { ctx: context });
-  }
 
   return {
     columns,

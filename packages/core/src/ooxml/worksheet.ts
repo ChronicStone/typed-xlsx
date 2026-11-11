@@ -8,16 +8,15 @@ import { resolveColumnCellStyle, type PlannedCell, type ResolvedColumn } from ".
 import type { CellStyle } from "../styles/types";
 import type { SchemaContext } from "../schema/builder";
 import { StylesCollector } from "../styles/collector";
+import { TableBodyStyles } from "../styles/body";
 import { serializeCell, toCellRef } from "./cells";
 import type { SharedStringsCollector } from "./shared-strings";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import { getDefaultRowHeight } from "../planner/metrics";
 import {
-  withTableDefaultBodyStyle,
   withTableDefaultGroupHeaderFillerStyle,
   withTableDefaultGroupHeaderStyle,
   withTableDefaultHeaderStyle,
-  withTableDefaultHyperlinkBodyStyle,
   withTableDefaultTitleStyle,
   withTableDefaultSummaryStyle,
 } from "../styles/defaults";
@@ -369,6 +368,10 @@ function writeTableIntoRowMap(
     ),
   );
 
+  // The style callback still runs per cell; merging defaults and registering the style only run
+  // when a column's resolved style changes.
+  const bodyStyles = new TableBodyStyles(styles, table.defaults);
+
   table.planner.rows.forEach((row, rowIndex) => {
     const sheetRowIndex = rowOffset + reportChrome.bodyRowOffset + rowIndex;
     const bodyRowHeight = Math.max(row.height, table.defaults?.rowHeight ?? 0);
@@ -391,18 +394,10 @@ function writeTableIntoRowMap(
               )
             : cell.value,
           sharedStrings,
-          styles.addStyle(
-            cell.hyperlink
-              ? withTableDefaultHyperlinkBodyStyle(
-                  table.defaults,
-                  resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
-                  cell.hyperlink.style,
-                )
-              : withTableDefaultBodyStyle(
-                  table.defaults,
-                  resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
-                ),
-          ),
+          bodyStyles.resolve(columnIndex, {
+            style: resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
+            hyperlink: cell.hyperlink,
+          }),
           cell.hyperlink,
         ),
       ),

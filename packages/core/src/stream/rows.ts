@@ -1,4 +1,5 @@
 import {
+  buildFormulaExpr,
   resolveColumnCellStyle,
   resolveColumnCellValues,
   resolveColumnImage,
@@ -25,13 +26,7 @@ import {
   imageUrlWidthToColumnWidth,
   imageWidthToColumnWidth,
 } from "../image/runtime";
-import {
-  createFormulaRefs,
-  createFormulaFunctionsContext,
-  createFormulaRowContext,
-  toExpr,
-  type FormulaExpr,
-} from "../formula/expr";
+import type { FormulaExpr } from "../formula/expr";
 import { evaluateFormulaExpr, type FormulaEvaluationContext } from "../formula/evaluate";
 import { serializeEmptyScopeAggregate, withFormulaColumnId } from "../formula/empty-scope";
 import {
@@ -104,6 +99,34 @@ function invokeRowHyperlink<T extends object>(params: {
   });
 }
 
+const formulaExprCache = new WeakMap<
+  object,
+  { ctx: SchemaContext | undefined; byColumnId: Map<string, FormulaExpr<string, string>> }
+>();
+
+// One stream table keeps one `columns` array and one context for all its rows. The formula callback
+// only sees DSL helpers and that context, so its expression is built once per table, not per row.
+function getTableFormulaExpr<T extends object>(
+  columns: ResolvedColumn<T>[],
+  column: ResolvedColumn<T>,
+  formula: NonNullable<ResolvedColumn<T>["formula"]>,
+  ctx: SchemaContext | undefined,
+): FormulaExpr<string, string> {
+  let entry = formulaExprCache.get(columns);
+  if (!entry || entry.ctx !== ctx) {
+    entry = { ctx, byColumnId: new Map() };
+    formulaExprCache.set(columns, entry);
+  }
+
+  let expr = entry.byColumnId.get(column.id);
+  if (!expr) {
+    expr = buildFormulaExpr(formula, ctx);
+    entry.byColumnId.set(column.id, expr);
+  }
+
+  return expr;
+}
+
 function resolveFormulaCell<T extends object>(params: {
   column: ResolvedColumn<T>;
   columns: ResolvedColumn<T>[];
@@ -120,16 +143,7 @@ function resolveFormulaCell<T extends object>(params: {
     return undefined;
   }
 
-  const expr =
-    params.expr ??
-    toExpr(
-      params.column.formula({
-        row: createFormulaRowContext<any, any>(),
-        refs: createFormulaRefs<any, any, any>(),
-        fx: createFormulaFunctionsContext<any, any>(),
-        ctx: params.ctx as never,
-      } as Parameters<NonNullable<typeof params.column.formula>>[0]),
-    );
+  const expr = params.expr ?? buildFormulaExpr(params.column.formula, params.ctx);
 
   return formulaCell(
     withFormulaColumnId(params.column.id, () =>
@@ -475,14 +489,7 @@ export function expandCommittedRow<T extends object>(
       return values;
     }
 
-    const expr = toExpr(
-      column.formula({
-        row: createFormulaRowContext<any, any>(),
-        refs: createFormulaRefs<any, any, any>(),
-        fx: createFormulaFunctionsContext<any, any>(),
-        ctx: ctx as never,
-      } as Parameters<NonNullable<typeof column.formula>>[0]),
-    );
+    const expr = getTableFormulaExpr(columns, column, column.formula, ctx);
     const inferredSeriesMode: RowSeriesMode = formulaUsesSeriesAggregate(expr)
       ? "scalar"
       : height > 1 && formulaUsesExpandedRefs(expr, seriesModeByColumnId, columns)
