@@ -18,6 +18,12 @@ Observed symptom:
 - Excel repairs `table2.xml`
 - calculated columns are removed from the grouped native-table example
 
+## Update: the two formula forms now match
+
+The table part's `calculatedColumnFormula` and the cell `<f>` used to differ for grouped scope aggregates: the table part wrote `SUM(T[[#This Row],[B]:[C]])` and the cells wrote `SUM(T[[#This Row],[B]],T[[#This Row],[C]])`. Both now come from the same serializer and use the second form, in the buffered and the stream builder (`packages/core/test/builder-parity.test.ts` checks this).
+
+This is not confirmed as the cause of the repair. **Open the kitchen-sink workbook in real Excel and check whether it still repairs `sheet7.xml` and `table2.xml` before closing this note.** If it does, continue with the checklist below.
+
 ## Current hypothesis
 
 The remaining gap is not the public schema/formula API. It is the exact OOXML representation Excel expects for native table calculated-column formulas when grouped/generated columns and grouped aggregations are involved.

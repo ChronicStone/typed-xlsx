@@ -8,16 +8,15 @@ import { resolveColumnCellStyle, type PlannedCell, type ResolvedColumn } from ".
 import type { CellStyle } from "../styles/types";
 import type { SchemaContext } from "../schema/builder";
 import { StylesCollector } from "../styles/collector";
+import { TableBodyStyles } from "../styles/body";
 import { serializeCell, toCellRef } from "./cells";
 import type { SharedStringsCollector } from "./shared-strings";
 import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
 import { getDefaultRowHeight } from "../planner/metrics";
 import {
-  withTableDefaultBodyStyle,
   withTableDefaultGroupHeaderFillerStyle,
   withTableDefaultGroupHeaderStyle,
   withTableDefaultHeaderStyle,
-  withTableDefaultHyperlinkBodyStyle,
   withTableDefaultTitleStyle,
   withTableDefaultSummaryStyle,
 } from "../styles/defaults";
@@ -53,6 +52,14 @@ import {
 import { buildReportChrome, shiftFormulaA1Refs } from "../workbook/internal/report-chrome";
 import { formulaCell, getCellPrimitiveValue, isFormulaCell } from "../cell-data";
 import { summarizeExcelTotalsRowValues } from "../workbook/internal/totals-row";
+import {
+  fromWorksheetCol,
+  materializeSummaryConditionalFormatting,
+  toWorksheetCol,
+  shiftWorksheetRange,
+  upsertWorksheetCells,
+  sortWorksheetCells,
+} from "../workbook/internal/sheet-geometry";
 
 export function serializeWorksheet(
   sheet: BufferedSheetPlan,
@@ -369,6 +376,10 @@ function writeTableIntoRowMap(
     ),
   );
 
+  // The style callback still runs per cell; merging defaults and registering the style only run
+  // when a column's resolved style changes.
+  const bodyStyles = new TableBodyStyles(styles, table.defaults);
+
   table.planner.rows.forEach((row, rowIndex) => {
     const sheetRowIndex = rowOffset + reportChrome.bodyRowOffset + rowIndex;
     const bodyRowHeight = Math.max(row.height, table.defaults?.rowHeight ?? 0);
@@ -391,18 +402,10 @@ function writeTableIntoRowMap(
               )
             : cell.value,
           sharedStrings,
-          styles.addStyle(
-            cell.hyperlink
-              ? withTableDefaultHyperlinkBodyStyle(
-                  table.defaults,
-                  resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
-                  cell.hyperlink.style,
-                )
-              : withTableDefaultBodyStyle(
-                  table.defaults,
-                  resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
-                ),
-          ),
+          bodyStyles.resolve(columnIndex, {
+            style: resolveDataCellStyle(table.planner.columns[columnIndex], cell, table.context),
+            hyperlink: cell.hyperlink,
+          }),
           cell.hyperlink,
         ),
       ),
@@ -471,8 +474,7 @@ function writeTableIntoRowMap(
       conditionalFormatting?.push(
         ...materializeSummaryConditionalFormatting(
           summary.conditionalFormatting,
-          worksheetRowIndex,
-          columnOffset + columnIndex,
+          toCellRef(worksheetRowIndex, columnOffset + columnIndex),
         ),
       );
     });
@@ -569,17 +571,16 @@ function mergeWorksheetColumns(
   columns: WorksheetColumnDefinition[],
   extras?: import("../workbook/internal/pivots").WorksheetExtras,
 ) {
-  if (!extras) return columns;
-  const byIndex = new Map(columns.map((column) => [column.index, column]));
-  // A pivot below a table shares its columns: the wider one wins, so neither is cut off.
-  for (const column of extras.columns) {
-    const existing = byIndex.get(column.index);
-    byIndex.set(
-      column.index,
-      existing ? { ...existing, width: Math.max(existing.width, column.width) } : column,
-    );
+  // Tables stacked on one sheet and pivots below a table share worksheet columns. Excel needs one
+  // non-overlapping <col> per column, so the widest definition wins and neither is cut off.
+  const widths = new Map<number, number>();
+  for (const column of [...columns, ...(extras?.columns ?? [])]) {
+    widths.set(column.index, Math.max(widths.get(column.index) ?? 0, column.width));
   }
-  return [...byIndex.values()].sort((left, right) => left.index - right.index);
+
+  return [...widths.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([index, width]) => ({ index, width }));
 }
 
 function buildWorksheetColumns(
@@ -638,60 +639,6 @@ function buildPositionedDataValidations(
   });
 }
 
-function materializeSummaryConditionalFormatting(
-  blocks: BufferedTablePlan<any>["conditionalFormatting"] | undefined,
-  worksheetRowIndex: number,
-  worksheetColumnIndex: number,
-) {
-  if (!blocks || blocks.length === 0) {
-    return [];
-  }
-
-  const ref = toCellRef(worksheetRowIndex, worksheetColumnIndex);
-
-  return blocks.map((block) => ({
-    ...block,
-    ref,
-    rules: block.rules.map((rule) => ({
-      ...rule,
-      formula: rule.formula.replaceAll("A1", ref),
-    })),
-  }));
-}
-
-function shiftWorksheetRange(ref: string, rowOffset: number, columnOffset: number) {
-  const [start, end] = ref.split(":");
-  if (!start || !end) {
-    return ref;
-  }
-
-  return `${shiftCellRef(start, rowOffset, columnOffset)}:${shiftCellRef(end, rowOffset, columnOffset)}`;
-}
-
-function shiftCellRef(ref: string, rowOffset: number, columnOffset: number) {
-  const match = ref.match(/^([A-Z]+)(\d+)$/);
-  if (!match) {
-    return ref;
-  }
-
-  const [, col, row] = match;
-  if (!col || !row) {
-    return ref;
-  }
-
-  return `${toWorksheetCol(fromWorksheetCol(col) + columnOffset)}${Number(row) + rowOffset}`;
-}
-
-function fromWorksheetCol(column: string) {
-  let value = 0;
-
-  for (const char of column) {
-    value = value * 26 + (char.charCodeAt(0) - 64);
-  }
-
-  return value - 1;
-}
-
 function writeCells(rowMap: Map<number, string[]>, rowIndex: number, cells: string[]) {
   const existing = rowMap.get(rowIndex);
   if (existing) {
@@ -700,71 +647,4 @@ function writeCells(rowMap: Map<number, string[]>, rowIndex: number, cells: stri
   }
 
   rowMap.set(rowIndex, [...cells]);
-}
-
-function upsertWorksheetCells(target: string[], incoming: string[]) {
-  const existingByRef = new Map(
-    target.map((cell, index) => [getWorksheetCellRef(cell), index] as const),
-  );
-
-  incoming.forEach((cell) => {
-    const ref = getWorksheetCellRef(cell);
-    const existingIndex = ref ? existingByRef.get(ref) : undefined;
-    if (existingIndex !== undefined) {
-      target[existingIndex] = cell;
-      return;
-    }
-
-    target.push(cell);
-    if (ref) {
-      existingByRef.set(ref, target.length - 1);
-    }
-  });
-}
-
-function sortWorksheetCells(cells: string[]) {
-  return [...cells].sort(
-    (left, right) => getWorksheetCellSortKey(left) - getWorksheetCellSortKey(right),
-  );
-}
-
-function getWorksheetCellSortKey(cellXml: string) {
-  const ref = getWorksheetCellRef(cellXml);
-  if (!ref) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  const refMatch = ref.match(/^([A-Z]+)(\d+)$/);
-  if (!refMatch) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  const [, col, row] = refMatch;
-  if (!col || !row) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  return Number(row) * 10_000 + fromWorksheetCol(col);
-}
-
-function getWorksheetCellRef(cellXml: string) {
-  const refMatch = cellXml.match(/\br="([A-Z]+)(\d+)"/);
-  if (!refMatch) {
-    return undefined;
-  }
-
-  return `${refMatch[1] ?? ""}${refMatch[2] ?? ""}` || undefined;
-}
-
-function toWorksheetCol(column: number) {
-  if (column <= 0) return "A";
-  let result = "";
-  let current = column;
-
-  do {
-    result = String.fromCharCode(65 + (current % 26)) + result;
-    current = Math.floor(current / 26) - 1;
-  } while (current >= 0);
-
-  return result;
 }

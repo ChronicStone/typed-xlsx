@@ -1,16 +1,8 @@
+import { buildFormulaExpr } from "../../planner/cells";
+import { serializeFormulaExpr } from "../../planner/formula-serialize";
 import type { ResolvedColumn } from "../../planner/rows";
-import {
-  createFormulaFunctionsContext,
-  createFormulaRefs,
-  createFormulaRowContext,
-  toExpr,
-  type FormulaExpr,
-} from "../../formula/expr";
-import {
-  serializeExcelTableCurrentRowRange,
-  serializeExcelTableCurrentRowRef,
-} from "../../formula/structured-reference";
-import { serializeEmptyScopeAggregate, withFormulaColumnId } from "../../formula/empty-scope";
+import type { SchemaContext } from "../../schema/builder";
+import { withFormulaColumnId } from "../../formula/empty-scope";
 import type { ExcelTableStyle, ResolvedExcelTableOptions } from "../types";
 
 import { EXCEL_MAX_TABLE_NAME } from "./limits";
@@ -52,10 +44,6 @@ export function resolveExcelTableOptions(params: {
   } satisfies ResolvedExcelTableOptions;
 }
 
-function resolveScopeColumns(columns: ResolvedColumn<any>[], scopeId: string) {
-  return columns.filter((candidate) => candidate.scopeIds.includes(scopeId));
-}
-
 function serializeCalculatedColumnFormula(
   column: ResolvedColumn<any>,
   columns: ResolvedColumn<any>[],
@@ -66,86 +54,12 @@ function serializeCalculatedColumnFormula(
     return undefined;
   }
 
-  const expr = column.formula({
-    row: createFormulaRowContext<any, any>(),
-    refs: createFormulaRefs<any, any, any>(),
-    fx: createFormulaFunctionsContext<any, any>(),
-    ctx: context as never,
-  } as Parameters<NonNullable<typeof column.formula>>[0]);
+  // The same serializer writes the cell formulas, so the table part and the cells always agree.
+  const expr = buildFormulaExpr(column.formula, context as SchemaContext | undefined);
 
   return withFormulaColumnId(column.id, () =>
-    serializeFormulaExpr(toExpr(expr), columns, tableName),
+    serializeFormulaExpr(expr, columns, 0, "excel-table", tableName),
   );
-}
-
-function serializeFormulaExpr(
-  expr: FormulaExpr<string, string>,
-  columns: ResolvedColumn<any>[],
-  tableName: string,
-): string {
-  if (expr.kind === "literal") {
-    if (typeof expr.value === "string") {
-      return `"${expr.value.replaceAll('"', '""')}"`;
-    }
-
-    if (typeof expr.value === "boolean") {
-      return expr.value ? "TRUE" : "FALSE";
-    }
-
-    return String(expr.value);
-  }
-
-  if (expr.kind === "ref") {
-    const target = columns.find((column) => column.id === expr.columnId);
-    if (!target) {
-      throw new Error(`Unknown formula column reference '${expr.columnId}'.`);
-    }
-
-    return serializeExcelTableCurrentRowRef(tableName, target.headerLabel);
-  }
-
-  if (expr.kind === "scope-aggregate") {
-    const scopeColumns = resolveScopeColumns(columns, expr.scopeId);
-    if (scopeColumns.length === 0) {
-      return serializeEmptyScopeAggregate(expr.aggregate, expr.scopeId);
-    }
-
-    const orderedIndexes = scopeColumns
-      .map((candidate) => columns.findIndex((column) => column.id === candidate.id))
-      .sort((left, right) => left - right);
-    const isContiguous = orderedIndexes.every((index, position) => {
-      if (position === 0) return true;
-      return index === orderedIndexes[position - 1]! + 1;
-    });
-
-    if (isContiguous) {
-      return `${expr.aggregate}(${serializeExcelTableCurrentRowRange(
-        tableName,
-        scopeColumns[0]!.headerLabel,
-        scopeColumns[scopeColumns.length - 1]!.headerLabel,
-      )})`;
-    }
-
-    return `${expr.aggregate}(${scopeColumns
-      .map((candidate) => serializeExcelTableCurrentRowRef(tableName, candidate.headerLabel))
-      .join(",")})`;
-  }
-
-  if (expr.kind === "series" || expr.kind === "collection-aggregate") {
-    throw new Error(`Unsupported Excel table formula expression kind '${expr.kind}'.`);
-  }
-
-  if (expr.kind === "function") {
-    return `${expr.name}(${expr.args
-      .map((arg) => serializeFormulaExpr(arg, columns, tableName))
-      .join(",")})`;
-  }
-
-  return `(${serializeFormulaExpr(expr.left, columns, tableName)}${expr.op}${serializeFormulaExpr(
-    expr.right,
-    columns,
-    tableName,
-  )})`;
 }
 
 export function resolveExcelTableName(name: string | undefined, id: string) {
