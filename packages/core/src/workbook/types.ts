@@ -413,6 +413,8 @@ export interface BufferedWorkbookPlan {
 export interface StreamWorkbookSink {
   write(chunk: Uint8Array): Promise<void>;
   close(): Promise<void>;
+  /** Ends the output with an error instead of finishing it. Called when the export fails. */
+  abort?(error: Error): Promise<void> | void;
 }
 
 export interface StreamSheetSpool {

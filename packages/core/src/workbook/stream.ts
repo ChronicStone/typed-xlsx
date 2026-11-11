@@ -292,6 +292,7 @@ class StreamTableBuilder<
   private readonly state: StreamTableState<T, TColumnId, TSchemaContext>;
   private readonly bodyStyles: TableBodyStyles;
   private readonly pivots: PivotAccumulator[] = [];
+  private sealed = false;
 
   /** Starts tallying a pivot over this table. Rows are not kept, so it must happen before any commit. */
   attachPivot(id: string, spec: PivotSpec) {
@@ -417,6 +418,12 @@ class StreamTableBuilder<
   }
 
   async commit(batch: StreamTableCommit<T>) {
+    if (this.sealed) {
+      throw new Error(
+        `Cannot commit rows to table '${this.state.tableId}': the workbook has already been finalized.`,
+      );
+    }
+
     let pendingXml = "";
     const flush = async () => {
       if (!pendingXml) return;
@@ -638,7 +645,13 @@ class StreamTableBuilder<
     };
   }
 
+  /** Rejects further commits: the workbook is being finalized or disposed. */
+  seal() {
+    this.sealed = true;
+  }
+
   async close() {
+    this.seal();
     await this.state.spool.close();
   }
 }
@@ -778,6 +791,10 @@ class StreamSheetBuilder {
   }
 
   async finalize() {
+    for (const table of this.tables) {
+      table.seal();
+    }
+
     const tables = this.tables.map((table) => ({
       ...table.getFinalization(),
       view: this.view,

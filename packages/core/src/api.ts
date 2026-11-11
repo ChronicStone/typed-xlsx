@@ -504,27 +504,47 @@ class LazyFileSpoolFactory implements StreamSpoolFactory {
 }
 
 class LazyFileWorkbookSink implements StreamWorkbookSink {
-  private handlePromise: Promise<import("node:fs/promises").FileHandle> | undefined;
+  private handlePromise:
+    | Promise<{ handle: import("node:fs/promises").FileHandle; tempPath: string }>
+    | undefined;
+  private settled = false;
 
   constructor(private readonly filePath: string) {}
 
-  private async handle() {
+  // The workbook is written next to the target and renamed on success, so a failed export
+  // never truncates or replaces the file that was there before.
+  private async open() {
     this.handlePromise ??= (async () => {
       const [fsp, path] = await Promise.all([importNodeFsPromises(), importNodePath()]);
       await fsp.mkdir(path.dirname(this.filePath), { recursive: true });
-      return await fsp.open(this.filePath, "w");
+      const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      const tempPath = `${this.filePath}.${suffix}.tmp`;
+      return { handle: await fsp.open(tempPath, "wx"), tempPath };
     })();
     return await this.handlePromise;
   }
 
   async write(chunk: Uint8Array) {
-    const handle = await this.handle();
+    const { handle } = await this.open();
     await writeFileChunk(handle, chunk);
   }
 
   async close() {
-    const handle = await this.handle();
+    const { handle, tempPath } = await this.open();
+    const fsp = await importNodeFsPromises();
     await handle.close();
+    await fsp.rename(tempPath, this.filePath);
+    this.settled = true;
+  }
+
+  async abort(_error: Error) {
+    if (this.settled || !this.handlePromise) return;
+    this.settled = true;
+    const opened = await this.handlePromise.catch(() => undefined);
+    if (!opened) return;
+    const fsp = await importNodeFsPromises();
+    await opened.handle.close().catch(() => undefined);
+    await fsp.rm(opened.tempPath, { force: true });
   }
 }
 
@@ -687,7 +707,7 @@ class PublicWorkbookStream implements WorkbookStream {
     const byteStream = new WorkbookByteStream();
     const readable = byteStream.toNodeReadable();
     this.startOutput(byteStream).catch((error) => {
-      byteStream.fail(error instanceof Error ? error : new Error(String(error)));
+      byteStream.abort(error instanceof Error ? error : new Error(String(error)));
     });
     return readable;
   }
@@ -695,7 +715,7 @@ class PublicWorkbookStream implements WorkbookStream {
   private createByteStreamOutput() {
     const byteStream = new WorkbookByteStream();
     this.startOutput(byteStream).catch((error) => {
-      byteStream.fail(error instanceof Error ? error : new Error(String(error)));
+      byteStream.abort(error instanceof Error ? error : new Error(String(error)));
     });
     return byteStream;
   }
@@ -704,11 +724,7 @@ class PublicWorkbookStream implements WorkbookStream {
     await this.startOutput(sink);
   }
 
-  private async startOutput(sink: {
-    write(chunk: Uint8Array): Promise<void>;
-    close(): Promise<void>;
-    fail?(error: Error): void;
-  }) {
+  private async startOutput(sink: StreamWorkbookSink) {
     if (this.outputStarted) {
       throw new Error("Workbook stream output has already started.");
     }
@@ -717,15 +733,21 @@ class PublicWorkbookStream implements WorkbookStream {
     try {
       await this.workbook.finish(sink);
     } catch (error) {
-      // A byte stream must end with the error; closing it first would hand readers an empty file.
       const failure = error instanceof Error ? error : new Error(String(error));
-      await Promise.allSettled([
-        this.workbook.dispose(),
-        sink.fail ? Promise.resolve(sink.fail(failure)) : sink.close(),
-      ]);
+      await Promise.allSettled([this.workbook.dispose(), abortSink(sink, failure)]);
       throw error;
     }
   }
+}
+
+// A failed export must end the output with the error: closing it would hand readers a truncated file.
+async function abortSink(sink: StreamWorkbookSink, error: Error) {
+  if (sink.abort) {
+    await sink.abort(error);
+    return;
+  }
+
+  await sink.close();
 }
 
 export function createExcelSchema<T extends object>(): SchemaBuilder<T>;
