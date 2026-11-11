@@ -54,6 +54,7 @@ import { formulaCell, getCellPrimitiveValue, isFormulaCell } from "../cell-data"
 import { summarizeExcelTotalsRowValues } from "../workbook/internal/totals-row";
 import {
   fromWorksheetCol,
+  materializeSummaryConditionalFormatting,
   toWorksheetCol,
   shiftWorksheetRange,
   upsertWorksheetCells,
@@ -473,8 +474,7 @@ function writeTableIntoRowMap(
       conditionalFormatting?.push(
         ...materializeSummaryConditionalFormatting(
           summary.conditionalFormatting,
-          worksheetRowIndex,
-          columnOffset + columnIndex,
+          toCellRef(worksheetRowIndex, columnOffset + columnIndex),
         ),
       );
     });
@@ -638,27 +638,6 @@ function buildPositionedDataValidations(
       formula2: resolveRelativeRefs(block.formula2, ref, columnOffset),
     };
   });
-}
-
-function materializeSummaryConditionalFormatting(
-  blocks: BufferedTablePlan<any>["conditionalFormatting"] | undefined,
-  worksheetRowIndex: number,
-  worksheetColumnIndex: number,
-) {
-  if (!blocks || blocks.length === 0) {
-    return [];
-  }
-
-  const ref = toCellRef(worksheetRowIndex, worksheetColumnIndex);
-
-  return blocks.map((block) => ({
-    ...block,
-    ref,
-    rules: block.rules.map((rule) => ({
-      ...rule,
-      formula: rule.formula.replaceAll("A1", ref),
-    })),
-  }));
 }
 
 function writeCells(rowMap: Map<number, string[]>, rowIndex: number, cells: string[]) {

@@ -129,6 +129,7 @@ import type { ImageMediaType } from "../image/types";
 import { formulaCell, getCellPrimitiveValue, type CellData } from "../cell-data";
 import {
   fromWorksheetCol,
+  materializeSummaryConditionalFormatting,
   toWorksheetCol,
   shiftWorksheetRef,
   shiftWorksheetRange,
@@ -1526,8 +1527,7 @@ async function* streamWorksheetXml(
         conditionalFormatting.push(
           ...materializeSummaryConditionalFormatting(
             summary.conditionalFormatting,
-            summaryRowNumber,
-            positioned.columnOffset + columnIndex,
+            toCellRef(summaryRowNumber - 1, positioned.columnOffset + columnIndex),
           ),
         );
       });
@@ -1642,27 +1642,6 @@ function writeStreamWorksheetRelationshipsXml(
       ),
     ],
   );
-}
-
-function materializeSummaryConditionalFormatting(
-  blocks: StreamTableFinalization["summaries"][number]["conditionalFormatting"] | undefined,
-  worksheetRowIndex: number,
-  worksheetColumnIndex: number,
-) {
-  if (!blocks || blocks.length === 0) {
-    return [];
-  }
-
-  const ref = toCellRef(worksheetRowIndex - 1, worksheetColumnIndex);
-
-  return blocks.map((block) => ({
-    ...block,
-    ref,
-    rules: block.rules.map((rule) => ({
-      ...rule,
-      formula: rule.formula.replaceAll("A1", ref),
-    })),
-  }));
 }
 
 function getStreamReportChrome(table: StreamTableFinalization) {

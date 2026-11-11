@@ -1,5 +1,5 @@
 import type { PrimitiveCellValue, SchemaContext } from "../schema/builder";
-import { getCellPrimitiveValue, type CellData } from "../cell-data";
+import { formulaCell, getCellPrimitiveValue, type CellData } from "../cell-data";
 import {
   createFormulaFunctionsContext,
   createFormulaRefs,
@@ -8,7 +8,10 @@ import {
   type FormulaExpr,
 } from "../formula/expr";
 import type { FormulaEvaluationContext } from "../formula/evaluate";
-import { resolveFormulaScopeColumns } from "./formula-serialize";
+import { withFormulaColumnId } from "../formula/empty-scope";
+import { assertSafeHyperlinkTarget } from "../ooxml/cells";
+import { resolveLazyText } from "../text";
+import { resolveFormulaScopeColumns, serializeFormulaExpr } from "./formula-serialize";
 import type { PlannedHyperlink, ResolvedColumn } from "./rows";
 
 export type RowSeriesMode = "scalar" | "expanded";
@@ -171,5 +174,109 @@ export function buildFormulaExpr<T extends object>(
       fx: createFormulaFunctionsContext<any, any>(),
       ctx: ctx as never,
     } as Parameters<NonNullable<ResolvedColumn<T>["formula"]>>[0]),
+  );
+}
+
+export function invokeRowTransform<T extends object>(params: {
+  transform: NonNullable<ResolvedColumn<T>["transform"]>;
+  value: unknown;
+  row: T;
+  rowIndex: number;
+  ctx?: SchemaContext;
+}) {
+  if (params.transform.length >= 2) {
+    return (
+      params.transform as (value: unknown, row: T, rowIndex: number) => CellData | CellData[]
+    )(params.value, params.row, params.rowIndex);
+  }
+
+  return (params.transform as (context: unknown) => CellData | CellData[])({
+    ...params.row,
+    ctx: params.ctx,
+    row: params.row,
+    rowIndex: params.rowIndex,
+    value: params.value,
+  });
+}
+
+export function resolveCellHyperlink<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  row: T;
+  rowIndex: number;
+  subRowIndex: number;
+  ctx?: SchemaContext;
+}): PlannedHyperlink | undefined {
+  const hyperlink = params.column.hyperlink;
+  if (!hyperlink) {
+    return undefined;
+  }
+
+  const resolved =
+    typeof hyperlink === "function"
+      ? invokeRowHyperlink({
+          ctx: params.ctx,
+          hyperlink,
+          row: params.row,
+          rowIndex: params.rowIndex,
+          subRowIndex: params.subRowIndex,
+        })
+      : hyperlink;
+
+  if (!resolved) {
+    return undefined;
+  }
+
+  assertSafeHyperlinkTarget(
+    typeof resolved === "string" ? resolved : resolved.target,
+    params.column.id,
+  );
+
+  if (typeof resolved === "string") {
+    return { target: resolved };
+  }
+
+  return {
+    ...resolved,
+    tooltip: resolveLazyText(resolved.tooltip, {
+      ...params.row,
+      ctx: params.ctx,
+      row: params.row,
+      rowIndex: params.rowIndex,
+      subRowIndex: params.subRowIndex,
+    }),
+  };
+}
+
+export function resolveFormulaCell<T extends object>(params: {
+  column: ResolvedColumn<T>;
+  columns: ResolvedColumn<T>[];
+  expr?: FormulaExpr<string, string>;
+  formulaMode: "report" | "excel-table";
+  tableName?: string;
+  rowIndex: number;
+  ctx?: SchemaContext;
+  referenceRowsByColumnId?: Map<string, number>;
+  rowSeriesBoundsByColumnId?: Map<string, { startRow: number; endRow: number }>;
+  value?: PrimitiveCellValue;
+}) {
+  if (!params.column.formula) {
+    return undefined;
+  }
+
+  const expr = params.expr ?? buildFormulaExpr(params.column.formula, params.ctx);
+
+  return formulaCell(
+    withFormulaColumnId(params.column.id, () =>
+      serializeFormulaExpr(
+        expr,
+        params.columns,
+        params.rowIndex,
+        params.formulaMode,
+        params.tableName,
+        params.referenceRowsByColumnId,
+        params.rowSeriesBoundsByColumnId,
+      ),
+    ),
+    params.value,
   );
 }

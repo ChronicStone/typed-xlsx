@@ -99,3 +99,21 @@ export function sortWorksheetCells(cells: string[]) {
     (left, right) => getWorksheetCellSortKey(left) - getWorksheetCellSortKey(right),
   );
 }
+
+/** Points a summary cell's conditional formatting blocks at the cell that holds the summary. */
+export function materializeSummaryConditionalFormatting<
+  TBlock extends { ref: string; rules: Array<{ formula: string }> },
+>(blocks: TBlock[] | undefined, ref: string) {
+  if (!blocks || blocks.length === 0) {
+    return [];
+  }
+
+  return blocks.map((block) => ({
+    ...block,
+    ref,
+    rules: block.rules.map((rule) => ({
+      ...rule,
+      formula: rule.formula.replaceAll("A1", ref),
+    })),
+  }));
+}
