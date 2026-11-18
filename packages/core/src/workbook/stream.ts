@@ -28,7 +28,7 @@ import {
   writeWorksheetTableParts,
   type WorksheetTablePart,
 } from "../ooxml/table";
-import { xmlDocument, xmlElement, xmlSelfClosing } from "../ooxml/xml";
+import { xmlDocument, xmlElement, xmlSelfClosing, xstring } from "../ooxml/xml";
 import { hashExcelProtectionPassword } from "../ooxml/protection";
 import { appendExpandedRowXml, expandCommittedRow, updateColumnWidthStats } from "../stream/rows";
 import type {
@@ -1745,7 +1745,7 @@ function writeStreamWorkbookXml(
         undefined,
         sheets.map((sheet) =>
           xmlSelfClosing("sheet", {
-            name: sheet.name,
+            name: xstring(sheet.name),
             sheetId: sheet.id,
             "r:id": `rId${sheet.id}`,
           }),

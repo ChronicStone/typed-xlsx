@@ -2,7 +2,7 @@ import type { BufferedWorkbookPlan, ResolvedWorkbookProtectionOptions } from "..
 import { createSharedStringsCollector, writeSharedStringsXml } from "./shared-strings";
 import { serializeWorksheet } from "./worksheet";
 import { StylesCollector } from "../styles/collector";
-import { xmlDocument, xmlElement, xmlSelfClosing } from "./xml";
+import { xmlDocument, xmlElement, xmlSelfClosing, xstring } from "./xml";
 import { buildWorksheetNames } from "./sheet-names";
 import { writeWorksheetRelationshipsXml } from "./table";
 import { hashExcelProtectionPassword } from "./protection";
@@ -44,7 +44,7 @@ function writeWorkbookXml(plan: BufferedWorkbookPlan, pivotCount: number) {
   const sheetNames = buildWorksheetNames(plan.sheets.map((sheet) => sheet.name));
   const sheets = sheetNames.map((sheetName, index) =>
     xmlSelfClosing("sheet", {
-      name: sheetName,
+      name: xstring(sheetName),
       sheetId: index + 1,
       "r:id": `rId${index + 1}`,
     }),

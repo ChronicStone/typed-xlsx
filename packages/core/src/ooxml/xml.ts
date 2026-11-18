@@ -29,7 +29,10 @@ export function xstring(value: string) {
   return value.includes("_x") ? value.replace(XSTRING_ESCAPE_SEQUENCE, "_x005F_") : value;
 }
 
-/** Formula text. Excel decodes `_xHHHH_` in formulas too, so it must match escaped cell text. */
+/**
+ * Worksheet formula text. Excel decodes `_xHHHH_` in formulas, sheet names and table names alike,
+ * so all of them are escaped. Chart references (`<c:f>`) are read as written and must not be.
+ */
 export function formulaText(formula: string) {
   return escapeText(xstring(formula));
 }

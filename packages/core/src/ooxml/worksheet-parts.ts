@@ -12,7 +12,7 @@ import type { WorksheetHyperlink } from "../workbook/types";
 import { hashExcelProtectionPassword } from "./protection";
 import { toCellRef } from "./cells";
 import { EXCEL_MAX_COLUMN_WIDTH } from "../workbook/internal/limits";
-import { formulaText, xmlElement, xmlSelfClosing } from "./xml";
+import { formulaText, xmlElement, xmlSelfClosing, xstring } from "./xml";
 
 export interface WorksheetColumnDefinition {
   index: number;
@@ -217,7 +217,7 @@ export function writeWorksheetHyperlinks(
     hyperlinks.map((hyperlink) =>
       xmlSelfClosing("hyperlink", {
         ref: hyperlink.ref,
-        location: hyperlink.target.startsWith("#") ? hyperlink.target.slice(1) : undefined,
+        location: hyperlink.target.startsWith("#") ? xstring(hyperlink.target.slice(1)) : undefined,
         tooltip: hyperlink.tooltip,
         display: undefined,
         "r:id": hyperlink.relId,

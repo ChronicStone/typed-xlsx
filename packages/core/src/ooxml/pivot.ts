@@ -178,8 +178,8 @@ export function writePivotCacheDefinitionXml(params: {
   const addedFields = groups.filter((group) => group.index >= fieldNames.length);
   const worksheetSource =
     "tableName" in source
-      ? xmlSelfClosing("worksheetSource", { name: source.tableName })
-      : xmlSelfClosing("worksheetSource", { ref: source.ref, sheet: source.sheet });
+      ? xmlSelfClosing("worksheetSource", { name: xstring(source.tableName) })
+      : xmlSelfClosing("worksheetSource", { ref: source.ref, sheet: xstring(source.sheet) });
 
   return xmlDocument(
     "pivotCacheDefinition",
@@ -297,7 +297,7 @@ export function writePivotTableXml(params: {
     "pivotTableDefinition",
     {
       xmlns: MAIN_NAMESPACE,
-      name: params.name,
+      name: xstring(params.name),
       cacheId: params.cacheId,
       applyNumberFormats: 0,
       applyBorderFormats: 0,
@@ -306,7 +306,7 @@ export function writePivotTableXml(params: {
       applyAlignmentFormats: 0,
       applyWidthHeightFormats: 1,
       dataCaption: "Values",
-      grandTotalCaption: definition.grandTotalLabel,
+      grandTotalCaption: optionalXstring(definition.grandTotalLabel),
       rowGrandTotals: definition.columnTotals ? undefined : 0,
       colGrandTotals: definition.rowTotals ? undefined : 0,
       updatedVersion: 6,
@@ -319,8 +319,8 @@ export function writePivotTableXml(params: {
       outline: 1,
       outlineData: 1,
       multipleFieldFilters: 0,
-      rowHeaderCaption: rows.map((field) => field.header).join(" / "),
-      colHeaderCaption: column?.header,
+      rowHeaderCaption: xstring(rows.map((field) => field.header).join(" / ")),
+      colHeaderCaption: optionalXstring(column?.header),
     },
     [
       xmlSelfClosing("location", {
@@ -356,7 +356,7 @@ export function writePivotTableXml(params: {
         { count: values.length },
         values.map((value, index) =>
           xmlSelfClosing("dataField", {
-            name: params.valueNames[index],
+            name: optionalXstring(params.valueNames[index]),
             fld: value.index,
             subtotal: value.aggregate === "sum" ? undefined : value.aggregate,
             showDataAs: value.show ? SHOW_DATA_AS[value.show] : undefined,
@@ -400,6 +400,10 @@ export function writeWorkbookPivotCachesXml(count: number) {
       xmlSelfClosing("pivotCache", { cacheId: index + 1, "r:id": `rIdPivotCache${index + 1}` }),
     ),
   );
+}
+
+function optionalXstring(value: string | undefined) {
+  return value === undefined ? undefined : xstring(value);
 }
 
 /** Pivot cell written before Excel refreshes the pivot. Text is inline, so it works in streams too. */

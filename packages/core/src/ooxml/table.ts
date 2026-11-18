@@ -41,8 +41,8 @@ export function writeExcelTableXml(params: {
     {
       xmlns: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       id: params.tableId,
-      name: params.displayName,
-      displayName: params.displayName,
+      name: xstring(params.displayName),
+      displayName: xstring(params.displayName),
       ref: tableRef,
       totalsRowCount: params.options.totalsRow ? 1 : undefined,
       totalsRowShown: params.options.totalsRow ? undefined : 0,

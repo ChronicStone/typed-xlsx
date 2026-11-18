@@ -184,5 +184,34 @@ describe("_xHHHH_ text in table and pivot parts (#89)", () => {
     );
     expect(text("xl/pivotCache/pivotCacheDefinition1.xml")).toContain('<s v="c_x005F_x0043_"/>');
     expect(text("xl/worksheets/sheet2.xml")).toContain("<t>c_x005F_x0043_</t>");
+    expect(text("xl/pivotTables/pivotTable1.xml")).toContain('rowHeaderCaption="H_x005F_x0041_"');
+  });
+
+  it("escapes sheet and table names with the formulas that use them, but not chart references", () => {
+    type Point = { m: string; a: number };
+    const schema = createExcelSchema<Point>({ mode: "excel-table" })
+      .column("m", { header: "M", accessor: "m" })
+      .column("a", { header: "A", accessor: "a" })
+      .column("b", { header: "B", formula: ({ refs }) => refs.column("a").mul(2) })
+      .build();
+    const archive = unzipSync(
+      createWorkbook()
+        .sheet("S_x0041_")
+        .table("t_x0041_", { schema, rows: [{ m: "x", a: 1 }] })
+        .sheet("Dash")
+        .chart("c", ({ refs }) => ({
+          marks: [refs.sheet("S_x0041_").table("t_x0041_").bar({ x: "m", y: "a" })],
+        }))
+        .toUint8Array(),
+    );
+    const text = (path: string) => new TextDecoder().decode(archive[path]);
+
+    expect(text("xl/workbook.xml")).toContain('<sheet name="S_x005F_x0041_"');
+    expect(text("xl/tables/table1.xml")).toContain('displayName="t_x005F_x0041_"');
+    expect(text("xl/worksheets/sheet1.xml")).toContain(
+      "<f>(t_x005F_x0041_[[#This Row],[A]]*2)</f>",
+    );
+    // Excel reads chart references as written, so they keep the literal sheet name.
+    expect(text("xl/charts/chart1.xml")).toContain("<c:f>&apos;S_x0041_&apos;!$B$2</c:f>");
   });
 });
