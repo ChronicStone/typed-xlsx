@@ -191,7 +191,7 @@ describe("_xHHHH_ text in table and pivot parts (#89)", () => {
     type Point = { m: string; a: number };
     const schema = createExcelSchema<Point>({ mode: "excel-table" })
       .column("m", { header: "M", accessor: "m" })
-      .column("a", { header: "A", accessor: "a" })
+      .column("a", { header: "A", accessor: "a", hyperlink: () => "#'S_x0041_'!B2" })
       .column("b", { header: "B", formula: ({ refs }) => refs.column("a").mul(2) })
       .build();
     const archive = unzipSync(
@@ -211,6 +211,7 @@ describe("_xHHHH_ text in table and pivot parts (#89)", () => {
     expect(text("xl/worksheets/sheet1.xml")).toContain(
       "<f>(t_x005F_x0041_[[#This Row],[A]]*2)</f>",
     );
+    expect(text("xl/worksheets/sheet1.xml")).toContain('location="&apos;S_x005F_x0041_&apos;!B2"');
     // Excel reads chart references as written, so they keep the literal sheet name.
     expect(text("xl/charts/chart1.xml")).toContain("<c:f>&apos;S_x0041_&apos;!$B$2</c:f>");
   });
