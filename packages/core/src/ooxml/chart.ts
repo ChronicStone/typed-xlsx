@@ -1,3 +1,4 @@
+import { toExcelSerial } from "../excel-date";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type {
   ChartDataRef,
@@ -8,7 +9,7 @@ import type {
   ResolvedDataLabels,
 } from "../chart/resolve";
 import type { ChartCategoryAxisOptions, ChartValueAxisOptions } from "../chart/types";
-import { xmlDocument, xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
+import { formulaText, xmlDocument, xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
 
 export const CHART_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.drawingml.chart+xml";
@@ -29,10 +30,6 @@ const LEGEND_POSITION = { top: "t", bottom: "b", left: "l", right: "r" } as cons
 
 function val(name: string, value: string | number) {
   return xmlSelfClosing(name, { val: value });
-}
-
-function toExcelSerial(value: Date) {
-  return (value.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
 }
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -76,7 +73,7 @@ function numberData(ref: ChartDataRef, formatCode = "General") {
     ]);
   }
   return xmlElement("c:numRef", undefined, [
-    xmlElement("c:f", undefined, xmlEscape(ref.formula)),
+    xmlElement("c:f", undefined, formulaText(ref.formula)),
     cache,
   ]);
 }
@@ -92,14 +89,14 @@ function textData(ref: ChartDataRef) {
       ])
     : "";
   return xmlElement("c:strRef", undefined, [
-    xmlElement("c:f", undefined, xmlEscape(ref.formula)),
+    xmlElement("c:f", undefined, formulaText(ref.formula)),
     cache,
   ]);
 }
 
 function multiLevelData(ref: ChartDataRef & { formula: string }) {
   return xmlElement("c:multiLvlStrRef", undefined, [
-    xmlElement("c:f", undefined, xmlEscape(ref.formula)),
+    xmlElement("c:f", undefined, formulaText(ref.formula)),
     xmlElement("c:multiLvlStrCache", undefined, [
       val("c:ptCount", ref.count),
       ...(ref.levels ?? []).map((level) =>
@@ -140,7 +137,7 @@ function seriesName(series: ResolvedChartSeries) {
     "c:tx",
     undefined,
     xmlElement("c:strRef", undefined, [
-      xmlElement("c:f", undefined, xmlEscape(name.formula)),
+      xmlElement("c:f", undefined, formulaText(name.formula)),
       xmlElement("c:strCache", undefined, [
         val("c:ptCount", 1),
         xmlElement("c:pt", { idx: 0 }, xmlElement("c:v", undefined, xmlEscape(name.text))),

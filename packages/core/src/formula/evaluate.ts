@@ -1,3 +1,4 @@
+import { toExcelSerial } from "../excel-date";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { FormulaExpr, FormulaFunctionExpr, FormulaScopeAggregateExpr } from "./expr";
 
@@ -19,7 +20,6 @@ type Evaluated = PrimitiveCellValue | Unknown;
 
 type AggregateName = FormulaScopeAggregateExpr<string>["aggregate"];
 
-const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
 const DECIMAL_TEXT = /^\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*$/;
 
 /**
@@ -278,11 +278,7 @@ function rangeNumber(value: PrimitiveCellValue): number | undefined {
     return Number.isFinite(value) ? value : undefined;
   }
 
-  return value instanceof Date ? dateSerial(value) : undefined;
-}
-
-function dateSerial(value: Date) {
-  return (value.getTime() - EXCEL_EPOCH_UTC) / 86_400_000;
+  return value instanceof Date ? toExcelSerial(value) : undefined;
 }
 
 /**
@@ -347,7 +343,7 @@ function blankFor(type: number) {
 }
 
 function normalize(value: PrimitiveCellValue) {
-  return value instanceof Date ? dateSerial(value) : value;
+  return value instanceof Date ? toExcelSerial(value) : value;
 }
 
 /** Condition of IF/AND/OR/NOT: booleans and numbers only; text is not converted. */
@@ -391,7 +387,7 @@ function toNumber(value: Evaluated): number | Unknown {
   }
 
   if (value instanceof Date) {
-    return dateSerial(value);
+    return toExcelSerial(value);
   }
 
   if (!DECIMAL_TEXT.test(value)) {

@@ -1,9 +1,10 @@
+import { toExcelSerial } from "../excel-date";
 import type { PrimitiveCellValue } from "../schema/builder";
 import { PIVOT_DATE_GROUP_BY, pivotDateGroupItems } from "../pivot/dates";
 import type { PivotAccumulator, PivotFieldDefinition, PivotLayout } from "../pivot/engine";
 import type { PivotDateUnit, PivotShowAs } from "../pivot/types";
 import { toCellRef } from "./cells";
-import { xmlDocument, xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
+import { textElement, xmlDocument, xmlElement, xmlSelfClosing, xstring } from "./xml";
 
 export const PIVOT_TABLE_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml";
@@ -64,7 +65,7 @@ function writeFieldGroup(accumulator: PivotAccumulator, group: CacheFieldGroup) 
     xmlElement(
       "groupItems",
       { count: items.labels.length },
-      items.labels.map((label) => xmlSelfClosing("s", { v: label })),
+      items.labels.map((label) => xmlSelfClosing("s", { v: xstring(label) })),
     ),
   ]);
 }
@@ -157,7 +158,7 @@ function writeSharedItems(values: readonly PrimitiveCellValue[]) {
     if (value instanceof Date) return xmlSelfClosing("d", { v: isoDate(value) });
     if (typeof value === "number") return xmlSelfClosing("n", { v: value });
     if (typeof value === "boolean") return xmlSelfClosing("b", { v: value ? 1 : 0 });
-    return xmlSelfClosing("s", { v: String(value) });
+    return xmlSelfClosing("s", { v: xstring(String(value)) });
   });
   return xmlElement("sharedItems", attributes, items);
 }
@@ -198,7 +199,7 @@ export function writePivotCacheDefinitionXml(params: {
         ...fieldNames.map((name, index) => {
           const group = groupOf.get(index);
           if (group) {
-            return xmlElement("cacheField", { name, numFmtId: 0 }, [
+            return xmlElement("cacheField", { name: xstring(name), numFmtId: 0 }, [
               writeDateSharedItems(dateRangeOf(accumulator, index)),
               writeFieldGroup(accumulator, group),
             ]);
@@ -206,7 +207,7 @@ export function writePivotCacheDefinitionXml(params: {
           const items = accumulator.items.get(index);
           return xmlElement(
             "cacheField",
-            { name, numFmtId: 0 },
+            { name: xstring(name), numFmtId: 0 },
             items ? writeSharedItems(items.values) : xmlSelfClosing("sharedItems"),
           );
         }),
@@ -401,10 +402,6 @@ export function writeWorkbookPivotCachesXml(count: number) {
   );
 }
 
-function toExcelSerial(value: Date) {
-  return (value.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
-}
-
 /** Pivot cell written before Excel refreshes the pivot. Text is inline, so it works in streams too. */
 export function serializePivotCell(
   row: number,
@@ -439,6 +436,6 @@ export function serializePivotCell(
   return xmlElement(
     "c",
     { r: ref, t: "inlineStr", ...style },
-    xmlElement("is", undefined, xmlElement("t", undefined, xmlEscape(value))),
+    xmlElement("is", undefined, textElement(value)),
   );
 }

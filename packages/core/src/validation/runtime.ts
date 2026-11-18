@@ -1,3 +1,4 @@
+import { toExcelSerial } from "../excel-date";
 import type { FormulaExpr } from "../formula/expr";
 import type { ResolvedColumn } from "../planner/rows";
 import { toCellRef } from "../ooxml/cells";
@@ -95,7 +96,7 @@ function serializeValidationFormula<T extends object>(
   }
 
   if (value instanceof Date) {
-    return String((value.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000);
+    return String(toExcelSerial(value));
   }
 
   if (typeof value === "string") {

@@ -12,7 +12,7 @@ import type { WorksheetHyperlink } from "../workbook/types";
 import { hashExcelProtectionPassword } from "./protection";
 import { toCellRef } from "./cells";
 import { EXCEL_MAX_COLUMN_WIDTH } from "../workbook/internal/limits";
-import { xmlElement, xmlEscape, xmlSelfClosing } from "./xml";
+import { formulaText, xmlElement, xmlSelfClosing } from "./xml";
 
 export interface WorksheetColumnDefinition {
   index: number;
@@ -135,7 +135,7 @@ export function writeWorksheetConditionalFormatting(
               dxfId,
               priority: priority++,
             },
-            xmlElement("formula", undefined, xmlEscape(rule.formula)),
+            xmlElement("formula", undefined, formulaText(rule.formula)),
           );
         }),
       ),
@@ -171,10 +171,10 @@ export function writeWorksheetDataValidations(validations: WorksheetDataValidati
         },
         [
           validation.formula1
-            ? xmlElement("formula1", undefined, xmlEscape(validation.formula1))
+            ? xmlElement("formula1", undefined, formulaText(validation.formula1))
             : "",
           validation.formula2
-            ? xmlElement("formula2", undefined, xmlEscape(validation.formula2))
+            ? xmlElement("formula2", undefined, formulaText(validation.formula2))
             : "",
         ],
       );
