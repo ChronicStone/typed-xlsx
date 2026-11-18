@@ -1,5 +1,13 @@
 # typed-xlsx
 
+## 5.1.1
+
+### Patch Changes
+
+- [#90](https://github.com/ChronicStone/typed-xlsx/pull/90) [`529df61`](https://github.com/ChronicStone/typed-xlsx/commit/529df61bdbfbc77415b47b3fe337284955572e75) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Write dates from 1900-01-01 to 1900-02-28 with Excel's serial numbers. They were one day late because Excel counts a 1900-02-29 that never existed.
+
+- [#90](https://github.com/ChronicStone/typed-xlsx/pull/90) [`529df61`](https://github.com/ChronicStone/typed-xlsx/commit/529df61bdbfbc77415b47b3fe337284955572e75) Thanks [@ChronicStone](https://github.com/ChronicStone)! - Keep text such as `_x0041_` as written. Excel and other readers decoded it as a character code. The leading underscore is now written as `_x005F_` in cells, formulas, sheet and table names, table column names, totals labels and pivot labels. A formula or chart that references a sheet, table or column named with such text still finds it.
+
 ## 5.1.0
 
 ### Minor Changes
