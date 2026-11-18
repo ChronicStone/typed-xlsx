@@ -84,6 +84,29 @@ describe.each<Builder>(["buffered", "stream"])("cell value safety (%s)", (builde
     );
   });
 
+  it("writes dates before 1900-03-01 with Excel's 1900 serials (#89)", async () => {
+    const serial = async (iso: string) =>
+      /<c r="A2"[^>]*><v>([^<]+)<\/v>/.exec(sheetXml(await write(builder, new Date(iso))))?.[1];
+
+    expect(await serial("1900-01-01T00:00:00Z")).toBe("1");
+    expect(await serial("1900-02-28T12:00:00Z")).toBe("59.5");
+    expect(await serial("1900-03-01T00:00:00Z")).toBe("61");
+    expect(await serial("2024-05-17T00:00:00Z")).toBe("45429");
+  });
+
+  it("keeps literal _xHHHH_ text instead of letting readers decode it (#89)", async () => {
+    const text = async (value: string) =>
+      /<si><t>([^<]*)<\/t><\/si><\/sst>/.exec(
+        (await write(builder, value)).get("xl/sharedStrings.xml")!,
+      )?.[1];
+
+    expect(await text("code _x0041_ here")).toBe("code _x005F_x0041_ here");
+    expect(await text("id_xbeef_1")).toBe("id_x005F_xbeef_1");
+    expect(await text("_x0041_x0042_")).toBe("_x005F_x0041_x005F_x0042_");
+    expect(await text("_x005F_")).toBe("_x005F_x005F_");
+    expect(await text("_X0041_ a_x00 _x00G1_")).toBe("_X0041_ a_x00 _x00G1_");
+  });
+
   it("writes a bigint as a number when safe and as text otherwise", async () => {
     const small = await write(builder, 42n);
     expect(sheetXml(small)).toContain("<v>42</v>");
@@ -125,5 +148,71 @@ describe("cell value safety (plain values)", () => {
     const sheet = new TextDecoder().decode(archive["xl/worksheets/sheet1.xml"]);
     expect(sheet).toContain("<v>1.5</v>");
     expect(sheet).toContain('t="b"');
+  });
+});
+
+describe("_xHHHH_ text in table and pivot parts (#89)", () => {
+  it("escapes table column names, formulas, totals labels and pivot items like the cells they mirror", () => {
+    type Item = { cat: string; n: number };
+    const schema = createExcelSchema<Item>({ mode: "excel-table" })
+      .column("cat", { header: "H_x0041_", accessor: "cat", totalsRow: { label: "T_x0042_" } })
+      .column("n", { header: "N", accessor: "n", totalsRow: { function: "sum" } })
+      .column("double", { header: "Double", formula: ({ refs }) => refs.column("cat").mul(2) })
+      .build();
+    const archive = unzipSync(
+      createWorkbook()
+        .sheet("Data")
+        .table("data", { schema, rows: [{ cat: "c_x0043_", n: 1 }], totalsRow: true })
+        .sheet("Pivot")
+        .pivot("p", ({ refs }) =>
+          refs
+            .sheet("Data")
+            .table("data")
+            .pivot({ rows: ["cat"], values: { n: "sum" } }),
+        )
+        .toUint8Array(),
+    );
+    const text = (path: string) => new TextDecoder().decode(archive[path]);
+
+    expect(text("xl/tables/table1.xml")).toContain('name="H_x005F_x0041_"');
+    expect(text("xl/tables/table1.xml")).toContain('totalsRowLabel="T_x005F_x0042_"');
+    // Excel decodes formula text too, so a structured reference must be escaped like the column name.
+    expect(text("xl/worksheets/sheet1.xml")).toContain("[[#This Row],[H_x005F_x0041_]]");
+    expect(text("xl/worksheets/sheet1.xml")).not.toContain("[H_x0041_]");
+    expect(text("xl/pivotCache/pivotCacheDefinition1.xml")).toContain(
+      '<cacheField name="H_x005F_x0041_"',
+    );
+    expect(text("xl/pivotCache/pivotCacheDefinition1.xml")).toContain('<s v="c_x005F_x0043_"/>');
+    expect(text("xl/worksheets/sheet2.xml")).toContain("<t>c_x005F_x0043_</t>");
+    expect(text("xl/pivotTables/pivotTable1.xml")).toContain('rowHeaderCaption="H_x005F_x0041_"');
+  });
+
+  it("escapes sheet and table names with the formulas that use them, but not chart references", () => {
+    type Point = { m: string; a: number };
+    const schema = createExcelSchema<Point>({ mode: "excel-table" })
+      .column("m", { header: "M", accessor: "m" })
+      .column("a", { header: "A", accessor: "a", hyperlink: () => "#'S_x0041_'!B2" })
+      .column("b", { header: "B", formula: ({ refs }) => refs.column("a").mul(2) })
+      .build();
+    const archive = unzipSync(
+      createWorkbook()
+        .sheet("S_x0041_")
+        .table("t_x0041_", { schema, rows: [{ m: "x", a: 1 }] })
+        .sheet("Dash")
+        .chart("c", ({ refs }) => ({
+          marks: [refs.sheet("S_x0041_").table("t_x0041_").bar({ x: "m", y: "a" })],
+        }))
+        .toUint8Array(),
+    );
+    const text = (path: string) => new TextDecoder().decode(archive[path]);
+
+    expect(text("xl/workbook.xml")).toContain('<sheet name="S_x005F_x0041_"');
+    expect(text("xl/tables/table1.xml")).toContain('displayName="t_x005F_x0041_"');
+    expect(text("xl/worksheets/sheet1.xml")).toContain(
+      "<f>(t_x005F_x0041_[[#This Row],[A]]*2)</f>",
+    );
+    expect(text("xl/worksheets/sheet1.xml")).toContain('location="&apos;S_x005F_x0041_&apos;!B2"');
+    // Excel reads chart references as written, so they keep the literal sheet name.
+    expect(text("xl/charts/chart1.xml")).toContain("<c:f>&apos;S_x0041_&apos;!$B$2</c:f>");
   });
 });

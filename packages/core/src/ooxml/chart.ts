@@ -1,3 +1,4 @@
+import { toExcelSerial } from "../excel-date";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type {
   ChartDataRef,
@@ -29,10 +30,6 @@ const LEGEND_POSITION = { top: "t", bottom: "b", left: "l", right: "r" } as cons
 
 function val(name: string, value: string | number) {
   return xmlSelfClosing(name, { val: value });
-}
-
-function toExcelSerial(value: Date) {
-  return (value.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
 }
 
 // ── Data ─────────────────────────────────────────────────────────────────────

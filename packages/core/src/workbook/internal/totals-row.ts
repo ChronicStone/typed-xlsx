@@ -1,3 +1,4 @@
+import { toExcelSerial } from "../../excel-date";
 import type { ExcelTableTotalsRowFunction, PrimitiveCellValue } from "../../schema/builder";
 
 export type ExcelTotalsRowStats = {
@@ -81,7 +82,7 @@ function toNumericCellValue(value: PrimitiveCellValue) {
   }
 
   if (value instanceof Date) {
-    return (value.getTime() - Date.UTC(1899, 11, 30)) / 86_400_000;
+    return toExcelSerial(value);
   }
 
   return undefined;

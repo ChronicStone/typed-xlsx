@@ -20,10 +20,27 @@ export function xmlEscape(value: unknown) {
   return escapeText(String(value));
 }
 
+// Spreadsheet text (ST_Xstring) reads `_xHHHH_` as the character U+HHHH. A literal one keeps its
+// text by writing its leading underscore as `_x005F_`.
+const XSTRING_ESCAPE_SEQUENCE = /_(?=x[0-9A-Fa-f]{4}_)/g;
+
+/** Escapes text that a reader would otherwise decode as `_xHHHH_` character codes. */
+export function xstring(value: string) {
+  return value.includes("_x") ? value.replace(XSTRING_ESCAPE_SEQUENCE, "_x005F_") : value;
+}
+
+/**
+ * Worksheet formula text. Excel decodes `_xHHHH_` in formulas, sheet names and table names alike,
+ * so all of them are escaped. Chart references (`<c:f>`) are read as written and must not be.
+ */
+export function formulaText(formula: string) {
+  return escapeText(xstring(formula));
+}
+
 /** A `<t>` element; keeps leading, trailing and line-break whitespace that Excel would trim. */
 export function textElement(value: string) {
   const preserve = /^\s|\s$|[\n\t]/.test(value);
-  return `<t${preserve ? ' xml:space="preserve"' : ""}>${escapeText(value)}</t>`;
+  return `<t${preserve ? ' xml:space="preserve"' : ""}>${escapeText(xstring(value))}</t>`;
 }
 
 export function xmlSelfClosing(

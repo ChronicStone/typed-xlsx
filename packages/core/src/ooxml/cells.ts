@@ -1,4 +1,5 @@
-import { textElement, xmlElement, xmlEscape } from "./xml";
+import { toExcelSerial } from "../excel-date";
+import { formulaText, textElement, xmlElement, xmlEscape, xstring } from "./xml";
 import type { PrimitiveCellValue } from "../schema/builder";
 import type { SharedStringsCollector } from "./shared-strings";
 import { assertCellTextLength } from "../workbook/internal/limits";
@@ -19,7 +20,7 @@ function toExcelSerialDate(ref: string, value: Date) {
       `Cell ${ref} has the date ${value.toISOString()}, which is outside Excel's range (1900-01-01 to 9999-12-31). Return a date in that range, a string or null from the accessor.`,
     );
   }
-  return (time - Date.UTC(1899, 11, 30)) / 86_400_000;
+  return toExcelSerial(value);
 }
 
 /**
@@ -133,7 +134,7 @@ function serializeFormulaCell(
   rawValue?: PrimitiveCellValue,
 ) {
   const value = toWritableValue(ref, rawValue);
-  const children = [xmlElement("f", undefined, xmlEscape(formula))];
+  const children = [xmlElement("f", undefined, formulaText(formula))];
   const formulaAttributes: Record<string, number | string | undefined> = { ...attributes };
 
   if (value === null) {
@@ -142,7 +143,7 @@ function serializeFormulaCell(
 
   if (typeof value === "string") {
     formulaAttributes.t = "str";
-    children.push(xmlElement("v", undefined, xmlEscape(value)));
+    children.push(xmlElement("v", undefined, xmlEscape(xstring(value))));
     return xmlElement("c", formulaAttributes, children);
   }
 
