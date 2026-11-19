@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://typed-xlsx.vercel.app">
+  <a href="https://typed-xlsx.chronicstone.dev">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/banner-dark.png" />
       <img alt="typed-xlsx: Excel reports, type-checked. Write one TypeScript schema and get real formulas, styles, native tables and charts, buffered or streamed, from one row to a million." src="./.github/assets/banner-light.png" width="100%" />
@@ -16,13 +16,13 @@
 </p>
 
 <p align="center">
-  <a href="https://typed-xlsx.vercel.app/getting-started/quick-start"><b>Quick start</b></a>
+  <a href="https://typed-xlsx.chronicstone.dev/getting-started/quick-start"><b>Quick start</b></a>
   &nbsp;·&nbsp;
-  <a href="https://typed-xlsx.vercel.app/playground">Playground</a>
+  <a href="https://typed-xlsx.chronicstone.dev/playground">Playground</a>
   &nbsp;·&nbsp;
-  <a href="https://typed-xlsx.vercel.app/getting-started/comparison">vs ExcelJS and SheetJS</a>
+  <a href="https://typed-xlsx.chronicstone.dev/getting-started/comparison">vs ExcelJS and SheetJS</a>
   &nbsp;·&nbsp;
-  <a href="https://typed-xlsx.vercel.app">Docs</a>
+  <a href="https://typed-xlsx.chronicstone.dev">Docs</a>
 </p>
 
 <br />
@@ -37,7 +37,7 @@ It only writes .xlsx files, it doesn't read them.
 npm install typed-xlsx
 ```
 
-No runtime dependencies. Works on Node.js, Bun and Deno. Other runtimes (Workers, browsers) work too, but `createWorkbook()` files are written uncompressed there unless the runtime exposes Node's zlib, see [Installation](https://typed-xlsx.vercel.app/getting-started/installation).
+No runtime dependencies. Works on Node.js, Bun and Deno. Other runtimes (Workers, browsers) work too, but `createWorkbook()` files are written uncompressed there unless the runtime exposes Node's zlib, see [Installation](https://typed-xlsx.chronicstone.dev/getting-started/installation).
 
 Requires Node.js 20 or later (or Bun, or Deno) and TypeScript 5.7 or later. The type declarations mention Node's `Buffer`, so install `@types/node` for type-checking.
 
@@ -166,21 +166,21 @@ Click a screenshot to open the workbook and its code in the playground.
 <table>
   <tr>
     <td width="50%" valign="top">
-      <a href="https://typed-xlsx.vercel.app/playground/executive-board-pack"><img alt="Executive board pack: two grouped report tables with totals and averages" src="./.github/assets/gallery/board-overview.png" /></a>
+      <a href="https://typed-xlsx.chronicstone.dev/playground/executive-board-pack"><img alt="Executive board pack: two grouped report tables with totals and averages" src="./.github/assets/gallery/board-overview.png" /></a>
       <br /><b>Executive board pack</b><br />Grouped headers, summary rows, several sheets
     </td>
     <td width="50%" valign="top">
-      <a href="https://typed-xlsx.vercel.app/playground/deal-desk-quote-review"><img alt="Deal desk quote review: each quote expands into its line items" src="./.github/assets/gallery/subrow-quote-review.png" /></a>
+      <a href="https://typed-xlsx.chronicstone.dev/playground/deal-desk-quote-review"><img alt="Deal desk quote review: each quote expands into its line items" src="./.github/assets/gallery/subrow-quote-review.png" /></a>
       <br /><b>Deal desk quote review</b><br />Each quote expanded into its line items
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <a href="https://typed-xlsx.vercel.app/playground/streaming-fulfillment-export"><img alt="Streaming fulfillment export" src="./.github/assets/gallery/streaming-fulfillment.png" /></a>
+      <a href="https://typed-xlsx.chronicstone.dev/playground/streaming-fulfillment-export"><img alt="Streaming fulfillment export" src="./.github/assets/gallery/streaming-fulfillment.png" /></a>
       <br /><b>Streaming fulfillment export</b><br />Written in batches with the stream builder
     </td>
     <td width="50%" valign="top">
-      <a href="https://typed-xlsx.vercel.app/playground/renewal-ops-workbook"><img alt="Renewal ops workbook with editable, validated inputs" src="./.github/assets/gallery/workflow-safe-renewals.png" /></a>
+      <a href="https://typed-xlsx.chronicstone.dev/playground/renewal-ops-workbook"><img alt="Renewal ops workbook with editable, validated inputs" src="./.github/assets/gallery/workflow-safe-renewals.png" /></a>
       <br /><b>Renewal ops workbook</b><br />Editable inputs, validation, locked formula columns
     </td>
   </tr>
@@ -202,17 +202,17 @@ createWorkbook()
   }));
 ```
 
-Pivot tables use the same refs: `refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" } })`. See the [charts](https://typed-xlsx.vercel.app/charts/overview) and [pivot tables](https://typed-xlsx.vercel.app/charts/pivot-tables) docs.
+Pivot tables use the same refs: `refs.table("sales").pivot({ rows: ["region"], values: { revenue: "sum" } })`. See the [charts](https://typed-xlsx.chronicstone.dev/charts/overview) and [pivot tables](https://typed-xlsx.chronicstone.dev/charts/pivot-tables) docs.
 
 ## Not the right tool?
 
-If you need to read or edit existing spreadsheets, or other formats than .xlsx, use [SheetJS](https://sheetjs.com) or [ExcelJS](https://github.com/exceljs/exceljs). There's a [comparison page](https://typed-xlsx.vercel.app/getting-started/comparison) in the docs.
+If you need to read or edit existing spreadsheets, or other formats than .xlsx, use [SheetJS](https://sheetjs.com) or [ExcelJS](https://github.com/exceljs/exceljs). There's a [comparison page](https://typed-xlsx.chronicstone.dev/getting-started/comparison) in the docs.
 
 ## For AI agents
 
 typed-xlsx ships an [agent skill](./packages/core/skills/typed-xlsx/SKILL.md) for Claude Code, Codex, Cursor and other coding agents: how to shape data for a sheet, which technique fits each column, multi-sheet and streamed exports, and what the type errors mean. Install it with `npx skills add ChronicStone/typed-xlsx`, or copy `node_modules/typed-xlsx/skills/typed-xlsx` into your agent's skills folder.
 
-[`llms-full.txt`](https://typed-xlsx.vercel.app/llms-full.txt) has the whole docs in one file, [`llms.txt`](https://typed-xlsx.vercel.app/llms.txt) is the index. Any docs page is also available as Markdown by adding `.md` to the URL.
+[`llms-full.txt`](https://typed-xlsx.chronicstone.dev/llms-full.txt) has the whole docs in one file, [`llms.txt`](https://typed-xlsx.chronicstone.dev/llms.txt) is the index. Any docs page is also available as Markdown by adding `.md` to the URL.
 
 ## Feedback
 
