@@ -50,6 +50,9 @@ export default defineNuxtConfig({
         dir: join(nuxt.options.srcDir, "assets/icons"),
       });
     },
+    // Listed before nuxt-og-image so it can see @nuxt/fonts and embed the share-card fonts
+    // (Nuxt UI would otherwise install it later, after nuxt-og-image has looked).
+    "@nuxt/fonts",
     "@nuxt/ui",
     "nuxt-content-twoslash",
     "@nuxt/content",

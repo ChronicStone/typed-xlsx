@@ -16,6 +16,14 @@ export default defineNuxtConfig({
       },
     },
   },
+  // Static copies of the landing fonts for the share-card renderer (satori cannot read the variable
+  // Google fonts the site loads). Separate family names keep them away from the site's own Archivo.
+  fonts: {
+    families: [
+      { name: "OG Archivo", provider: "local", global: true, weights: [400, 800] },
+      { name: "OG Mono", provider: "local", global: true, weights: [400, 700] },
+    ],
+  },
   site: {
     name: "typed-xlsx",
     url: "https://typed-xlsx.vercel.app",
