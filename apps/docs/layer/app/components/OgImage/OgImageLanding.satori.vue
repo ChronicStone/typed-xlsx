@@ -120,9 +120,9 @@ const rows = [
       class="flex flex-col"
       :style="{
         position: 'absolute',
-        left: '700px',
+        left: '680px',
         top: '92px',
-        width: '620px',
+        width: '470px',
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#0b1c14',
@@ -159,10 +159,10 @@ const rows = [
           fontWeight: 700,
         }"
       >
-        <span :style="{ width: '160px', paddingLeft: '20px' }">account</span>
-        <span :style="{ width: '110px' }">region</span>
-        <span :style="{ width: '170px' }">arr</span>
-        <span :style="{ width: '120px' }">growth</span>
+        <span :style="{ width: '150px', paddingLeft: '20px' }">account</span>
+        <span :style="{ width: '90px' }">region</span>
+        <span :style="{ width: '140px' }">arr</span>
+        <span :style="{ width: '80px' }">growth</span>
       </div>
       <div
         class="flex flex-row"
@@ -177,10 +177,10 @@ const rows = [
           color: ink,
         }"
       >
-        <span :style="{ width: '160px', paddingLeft: '20px' }">{{ r.account }}</span>
-        <span :style="{ width: '110px', color: dim }">{{ r.region }}</span>
-        <span :style="{ width: '170px' }">{{ r.arr }}</span>
-        <span :style="{ width: '120px', color: accent }">{{ r.growth }}</span>
+        <span :style="{ width: '150px', paddingLeft: '20px' }">{{ r.account }}</span>
+        <span :style="{ width: '90px', color: dim }">{{ r.region }}</span>
+        <span :style="{ width: '140px' }">{{ r.arr }}</span>
+        <span :style="{ width: '80px', color: accent }">{{ r.growth }}</span>
       </div>
       <!-- total row -->
       <div
@@ -193,7 +193,7 @@ const rows = [
           fontWeight: 700,
         }"
       >
-        <span :style="{ width: '260px', paddingLeft: '20px' }">Total</span>
+        <span :style="{ width: '240px', paddingLeft: '20px' }">Total</span>
         <span
           :style="{
             display: 'flex',

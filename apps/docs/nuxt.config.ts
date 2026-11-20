@@ -26,7 +26,7 @@ export default defineNuxtConfig({
   },
   site: {
     name: "typed-xlsx",
-    url: "https://typed-xlsx.vercel.app",
+    url: "https://typed-xlsx.chronicstone.dev",
   },
   // The docs deploy as static files, so there is no server to answer /mcp. Keeping the module on
   // would advertise a dead MCP endpoint in llms.txt.

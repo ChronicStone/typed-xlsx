@@ -3,7 +3,7 @@ import { getGeneratedExampleArtifacts } from "typed-xlsx-examples";
 
 // Built from the real pages when the site is prerendered, so moved or new pages never go stale.
 export default defineEventHandler(async (event) => {
-  const site = (useAppConfig(event).docus?.url ?? "https://typed-xlsx.vercel.app").replace(
+  const site = (useAppConfig(event).docus?.url ?? "https://typed-xlsx.chronicstone.dev").replace(
     /\/$/,
     "",
   );

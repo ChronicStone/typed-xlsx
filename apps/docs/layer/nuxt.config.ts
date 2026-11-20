@@ -3,7 +3,7 @@ import { defineNuxtConfig } from "nuxt/config";
 import { extendViteConfig, createResolver, useNuxt } from "@nuxt/kit";
 import { join } from "node:path";
 
-const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://typed-xlsx.vercel.app";
+const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://typed-xlsx.chronicstone.dev";
 const { resolve } = createResolver(import.meta.url);
 const shikiOptimizeDeps = [
   "@shikijs/engine-javascript",

@@ -12,7 +12,8 @@ const props = withDefaults(
   },
 );
 
-const cardTitle = (props.title || "").slice(0, 70);
+const rawTitle = props.title || "";
+const cardTitle = rawTitle.length > 70 ? `${rawTitle.slice(0, 67).trimEnd()}…` : rawTitle;
 const rawDescription = props.description || "";
 const cardDescription =
   rawDescription.length > 190 ? `${rawDescription.slice(0, 187).trimEnd()}…` : rawDescription;
