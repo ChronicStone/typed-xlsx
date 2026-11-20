@@ -1,59 +1,125 @@
 <script lang="ts" setup>
+// 1200x600 share card for docs pages. Rendered by satori: flexbox only, inline styles.
 const props = withDefaults(
-  defineProps<{ title?: string; description?: string; headline?: string }>(),
+  defineProps<{
+    title?: string;
+    description?: string;
+    headline?: string;
+  }>(),
   {
-    title: "title",
-    description: "description",
+    title: "",
+    description: "",
   },
 );
 
-const title = (props.title || "").slice(0, 60);
-const description = (props.description || "").slice(0, 200);
+const rawTitle = props.title || "";
+const cardTitle = rawTitle.length > 70 ? `${rawTitle.slice(0, 67).trimEnd()}…` : rawTitle;
+const rawDescription = props.description || "";
+const cardDescription =
+  rawDescription.length > 190 ? `${rawDescription.slice(0, 187).trimEnd()}…` : rawDescription;
+const titleSize = cardTitle.length > 34 ? "64px" : "80px";
 </script>
 
 <template>
-  <div class="w-full h-full flex flex-col justify-center bg-neutral-900">
+  <div
+    class="flex flex-col"
+    :style="{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      position: 'relative',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      padding: '64px 72px 60px',
+      backgroundColor: '#06110c',
+      fontFamily: 'OG Archivo',
+      color: '#eaf6ef',
+    }"
+  >
     <svg
-      class="absolute right-0 top-0 opacity-50"
-      width="629"
-      height="593"
-      viewBox="0 0 629 593"
-      fill="none"
+      width="1200"
+      height="630"
+      :style="{ position: 'absolute', left: 0, top: 0 }"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <g filter="url(#filter0_f_199_94966)">
-        <path
-          d="M628.5 -578L639.334 -94.4223L806.598 -548.281L659.827 -87.387L965.396 -462.344L676.925 -74.0787L1087.69 -329.501L688.776 -55.9396L1160.22 -164.149L694.095 -34.9354L1175.13 15.7948L692.306 -13.3422L1130.8 190.83L683.602 6.50012L1032.04 341.989L668.927 22.4412L889.557 452.891L649.872 32.7537L718.78 511.519L628.5 36.32L538.22 511.519L607.128 32.7537L367.443 452.891L588.073 22.4412L224.955 341.989L573.398 6.50012L126.198 190.83L564.694 -13.3422L81.8734 15.7948L562.905 -34.9354L96.7839 -164.149L568.224 -55.9396L169.314 -329.501L580.075 -74.0787L291.604 -462.344L597.173 -87.387L450.402 -548.281L617.666 -94.4223L628.5 -578Z"
-          fill="white"
-        />
-      </g>
       <defs>
-        <filter
-          id="filter0_f_199_94966"
-          x="0.873535"
-          y="-659"
-          width="1255.25"
-          height="1251.52"
-          filterUnits="userSpaceOnUse"
-          color-interpolation-filters="sRGB"
-        >
-          <feFlood flood-opacity="0" result="BackgroundImageFix" />
-          <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-          <feGaussianBlur stdDeviation="40.5" result="effect1_foregroundBlur_199_94966" />
-        </filter>
+        <pattern id="og-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path
+            d="M40 0H0V40"
+            fill="none"
+            stroke="#3ee38c"
+            stroke-opacity="0.07"
+            stroke-width="1"
+          />
+        </pattern>
       </defs>
+      <rect width="1200" height="630" fill="url(#og-grid)" />
     </svg>
+    <div
+      class="flex flex-row"
+      :style="{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }"
+    >
+      <img src="/wordmark-dark.svg" :style="{ height: '40px', width: '249px' }" />
+      <span :style="{ fontFamily: 'OG Mono', fontSize: '20px', color: '#7f9c8c' }"> docs </span>
+    </div>
 
-    <div class="pl-[100px]">
-      <p v-if="headline" class="uppercase text-[24px] text-emerald-500 mb-4 font-semibold">
+    <div
+      class="flex flex-col"
+      :style="{ display: 'flex', flexDirection: 'column', width: '980px' }"
+    >
+      <div
+        class="flex flex-row"
+        v-if="headline"
+        :style="{
+          display: 'flex',
+          fontFamily: 'OG Mono',
+          fontSize: '22px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: '#3ee38c',
+          marginBottom: '22px',
+        }"
+      >
         {{ headline }}
-      </p>
-      <h1 v-if="title" class="m-0 text-[75px] font-semibold mb-4 text-white flex items-center">
-        <span>{{ title }}</span>
-      </h1>
-      <p v-if="description" class="text-[32px] text-neutral-300 leading-tight w-[700px]">
-        {{ description }}
-      </p>
+      </div>
+      <div
+        class="flex flex-row font-extrabold"
+        :style="{
+          display: 'flex',
+          fontSize: titleSize,
+          fontWeight: 800,
+          lineHeight: 1.04,
+          letterSpacing: '-0.035em',
+        }"
+      >
+        {{ cardTitle }}
+      </div>
+      <div
+        class="flex flex-row"
+        v-if="cardDescription"
+        :style="{
+          display: 'flex',
+          marginTop: '26px',
+          fontSize: '28px',
+          lineHeight: 1.4,
+          color: '#7f9c8c',
+        }"
+      >
+        {{ cardDescription }}
+      </div>
+    </div>
+
+    <div
+      class="flex flex-row"
+      :style="{
+        display: 'flex',
+        alignItems: 'center',
+        fontFamily: 'OG Mono',
+        fontSize: '20px',
+        color: '#7f9c8c',
+      }"
+    >
+      typed-xlsx.chronicstone.dev
     </div>
   </div>
 </template>

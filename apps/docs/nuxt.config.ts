@@ -16,9 +16,17 @@ export default defineNuxtConfig({
       },
     },
   },
+  // Static copies of the landing fonts for the share-card renderer (satori cannot read the variable
+  // Google fonts the site loads). Separate family names keep them away from the site's own Archivo.
+  fonts: {
+    families: [
+      { name: "OG Archivo", provider: "local", global: true, weights: [400, 800] },
+      { name: "OG Mono", provider: "local", global: true, weights: [400, 700] },
+    ],
+  },
   site: {
     name: "typed-xlsx",
-    url: "https://typed-xlsx.vercel.app",
+    url: "https://typed-xlsx.chronicstone.dev",
   },
   // The docs deploy as static files, so there is no server to answer /mcp. Keeping the module on
   // would advertise a dead MCP endpoint in llms.txt.

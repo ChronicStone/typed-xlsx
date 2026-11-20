@@ -22,7 +22,7 @@ useHead({
         name: "typed-xlsx",
         description:
           "TypeScript library that generates Excel .xlsx reports from typed schemas, with formulas, styles, native Excel tables and streaming exports.",
-        url: "https://typed-xlsx.vercel.app",
+        url: "https://typed-xlsx.chronicstone.dev",
         codeRepository: "https://github.com/ChronicStone/typed-xlsx",
         programmingLanguage: "TypeScript",
         runtimePlatform: ["Node.js", "Bun", "Deno", "Cloudflare Workers"],

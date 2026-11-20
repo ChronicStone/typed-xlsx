@@ -3,7 +3,7 @@ import { defineNuxtConfig } from "nuxt/config";
 import { extendViteConfig, createResolver, useNuxt } from "@nuxt/kit";
 import { join } from "node:path";
 
-const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://typed-xlsx.vercel.app";
+const siteUrl = process.env.NUXT_PUBLIC_SITE_URL || "https://typed-xlsx.chronicstone.dev";
 const { resolve } = createResolver(import.meta.url);
 const shikiOptimizeDeps = [
   "@shikijs/engine-javascript",
@@ -50,6 +50,9 @@ export default defineNuxtConfig({
         dir: join(nuxt.options.srcDir, "assets/icons"),
       });
     },
+    // Listed before nuxt-og-image so it can see @nuxt/fonts and embed the share-card fonts
+    // (Nuxt UI would otherwise install it later, after nuxt-og-image has looked).
+    "@nuxt/fonts",
     "@nuxt/ui",
     "nuxt-content-twoslash",
     "@nuxt/content",

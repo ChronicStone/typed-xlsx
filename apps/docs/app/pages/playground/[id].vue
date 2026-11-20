@@ -65,7 +65,7 @@ const githubUrl = computed(() => getArtifactGithubUrl(artifact.value!));
 const officeUrl = computed(() => {
   const url = new URL(
     workbookUrl.value,
-    runtimeConfig.public.siteUrl || "https://typed-xlsx.vercel.app",
+    runtimeConfig.public.siteUrl || "https://typed-xlsx.chronicstone.dev",
   );
   return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(url.toString())}`;
 });
